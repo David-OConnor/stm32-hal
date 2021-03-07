@@ -10,10 +10,11 @@ use panic_probe as _;
 use stm32_hal::{
     clocks,
     delay::Delay,
+    event::Timeout,
     flash::Flash,
     pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
-    timer::Timer, event::Timeout,
+    timer::Timer,
 };
 
 // same panicking *behavior* as `panic-probe` but doesn't print a panic message
@@ -62,11 +63,7 @@ fn main() -> ! {
     let mut flash = Flash::new(dp.FLASH);
 
     flash.as_mut().unwrap().erase_page(FLASH_PAGE).ok();
-    flash
-        .as_mut()
-        .unwrap()
-        .write_page(10, &[1, 2, 3])
-        .ok();
+    flash.as_mut().unwrap().write_page(10, &[1, 2, 3]).ok();
 
     let flash_contents = flash.read(10, 0);
 

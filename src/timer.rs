@@ -1,7 +1,7 @@
 //! Timers. Based on `stm32f3xx-hal`
 
-use core::convert::{From, TryFrom};
 use cast::{u16, u32};
+use core::convert::{From, TryFrom};
 use num_traits::float::Float;
 
 use embedded_hal::timer::{CountDown, Periodic};
@@ -10,84 +10,46 @@ use void::Void;
 
 use crate::{
     clocks::ClockCfg,
-    pac::{
-        RCC, TIM1, TIM3, TIM4, TIM15, TIM16,
-    }
+    pac::{RCC, TIM15, TIM16, TIM2, TIM6, TIM7},
 };
 
+// I'm not sure where to get a good list of these. Info's in the Ref mans, but buried.
 
 #[cfg(feature = "stm32f301")]
-use crate::pac::{
-    TIM10, TIM11, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM20,
-    TIM5, TIM6, TIM7, TIM8, TIM9,
-};
+use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM19, TIM2, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "stm32f302")]
-use crate::pac::{
-    TIM10, TIM11, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM20,
-    TIM5, TIM6, TIM7, TIM8, TIM9,
-};
+use crate::pac::{TIM1, TIM17, TIM18, TIM2, TIM20, TIM3, TIM4, TIM8};
 
-#[cfg(feature = "stm32f302")]
-use crate::pac::{
-    TIM10, TIM11, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM20,
-    TIM5, TIM6, TIM7, TIM8, TIM9,
-};
+#[cfg(feature = "stm32f303")]
+use crate::pac::{TIM1, TIM17, TIM2, TIM20, TIM3, TIM4, TIM8};
 
 #[cfg(feature = "stm32f373")]
-use crate::pac::{
-    TIM10, TIM11, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM20,
-    TIM5, TIM6, TIM7, TIM8, TIM9,
-};
+use crate::pac::{TIM10, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "stm32f3x4")]
-use crate::pac::{
-    TIM10, TIM11, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM20,
-    TIM5, TIM6, TIM7, TIM8, TIM9,
-};
+use crate::pac::{TIM1, TIM17, TIM2, TIM3, TIM4};
 
 #[cfg(feature = "stm32l4x1")]
-use crate::pac::{
-    TIM10, TIM11, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM20,
-    TIM5, TIM6, TIM7, TIM8, TIM9,
-};
+use crate::pac::{TIM1, TIM2, TIM3};
 
 #[cfg(feature = "stm32l4x2")]
-use crate::pac::{
-    TIM10, TIM11, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM20,
-    TIM5, TIM6, TIM7, TIM8, TIM9,
-};
+use crate::pac::{TIM1, TIM2, TIM3};
 
 #[cfg(feature = "stm32l4x3")]
-use crate::pac::{
-    TIM10, TIM11, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM20,
-    TIM5, TIM6, TIM7, TIM8, TIM9,
-};
+use crate::pac::{TIM1, TIM2, TIM3};
 
 #[cfg(feature = "stm32l4x5")]
-use crate::pac::{
-    TIM10, TIM11, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM20,
-    TIM5, TIM6, TIM7, TIM8, TIM9,
-};
+use crate::pac::{TIM1, TIM17, TIM2, TIM3, TIM4, TIM5, TIM8};
 
 #[cfg(feature = "stm32l4x6")]
-use crate::pac::{
-    TIM10, TIM11, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM20,
-    TIM5, TIM6, TIM7, TIM8, TIM9,
-};
+use crate::pac::{TIM1, TIM17, TIM2, TIM3, TIM4, TIM5, TIM8};
 
 #[cfg(feature = "stm32l552")]
-use crate::pac::{
-    TIM10, TIM11, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM20,
-    TIM5, TIM6, TIM7, TIM8, TIM9,
-};
+use crate::pac::TIM1;
 
 #[cfg(feature = "stm32l562")]
-use crate::pac::{
-    TIM10, TIM11, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM20,
-    TIM5, TIM6, TIM7, TIM8, TIM9,
-};
-
+use crate::pac::{TIM1, TIM17, TIM3, TIM4, TIM5, TIM8};
 
 #[derive(Clone, Copy)]
 /// Used for when attempting to set a timer period that is out of range.
@@ -246,11 +208,11 @@ macro_rules! hal {
 
                 fn start<T>(&mut self, timeout: T)
                 where
-                    T: f32,  // Hz.
+                    T: Into<f32>,  // Hz.
                 {
                     self.stop();
 
-                    self.set_period(1. / timeout, self.clock_speed);
+                    self.set_freq(timeout.into(), self.clock_speed);
 
                     // Trigger an update event to load the prescaler value to the clock
                     // NOTE(write): uses all bits in this register.
@@ -280,9 +242,10 @@ macro_rules! hal {
                     // `freq` is in Hz.
 
                     // enable and reset peripheral to a clean slate state
-                    $apb.enr().modify(|_, w| w.$timXen().enabled());
-                    $apb.rstr().modify(|_, w| w.$timXrst().reset());
-                    $apb.rstr().modify(|_, w| w.$timXrst().clear_bit());
+                    // todo: Feature-gate, adn use the right apb1 vs apb2.
+                    rcc.apb1enr.modify(|_, w| w.$timXen().enabled());
+                    rcc.apb1rstr.modify(|_, w| w.$timXrst().reset());
+                    rcc.apb1rstr.modify(|_, w| w.$timXrst().clear_bit());
 
                     let mut timer = Timer { clock_speed: clocks.$pclkX(), tim };
                     timer.start(freq);
@@ -320,10 +283,10 @@ macro_rules! hal {
                     self.tim
                 }
 
-                /// Set the timer period, in seconds. Overrides the period or frequency set
+                /// Set the timer frequency, in Hz. Overrides the period or frequency set
                 /// in the constructor.
-                pub fn set_period(&mut self, period: f32, clock_speed: u32) -> Result<(), ValueError> {
-                   let (psc, arr) = calc_period_vals(period, self.clock_speed)?;
+                pub fn set_freq(&mut self, freq: f32, clock_speed: u32) -> Result<(), ValueError> {
+                   let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;
 
                     self.tim.arr.write(|w| unsafe { w.bits(arr.into()) });
                     self.tim.psc.write(|w| unsafe { w.bits(psc.into()) });
@@ -340,10 +303,10 @@ macro_rules! hal {
     }
 }
 
-/// Calculate values required to set the timer period: `PSC` and `ARR`. This can be
+/// Calculate values required to set the timer frequency: `PSC` and `ARR`. This can be
 /// used for initial timer setup, or changing the value later.
-fn calc_period_vals(period: f32, clock_speed: u32) -> Result<(u16, u16), ValueError> {
-    // `period` is in seconds.
+fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16), ValueError> {
+    // `period` and `clock_speed` are both in Hz.
 
     // PSC and ARR range: 0 to 65535
     // (PSC+1)*(ARR+1) = TIMclk/Updatefrequency = TIMclk * period
@@ -364,7 +327,7 @@ fn calc_period_vals(period: f32, clock_speed: u32) -> Result<(u16, u16), ValueEr
     // the maximum period. There will usually be solutions that have a smaller rounding error.
 
     let max_val = 65_535;
-    let rhs = clock_speed * period as u32;
+    let rhs = clock_speed as f32 / freq;
 
     let arr = rhs.sqrt().round() as u16 - 1;
     let psc = arr;
@@ -542,71 +505,116 @@ macro_rules! pwm_features {
         )+
     }
 }
-//
-// hal! {
-//     // todo: Which use apb1, and which use apb2? We have a good start, but needs QC
-//     {
-//         TIM1: (tim1, tim1en, tim1rst, apb2_timer),
-//     },
-//     {
-//         TIM2: (tim2, tim2en, tim2rst, apb1_timer),
-//     },
-//         {
-//         TIM3: (tim3, tim3en, tim3rst, apb1_timer),
-//     },
-//         {
-//         TIM4: (tim4, tim4en, tim4rst, apb1_timer),
-//     },
-//     {
-//         TIM5: (tim5, tim56en, tim5rst, apb1_timer),
-//     },
-//         {
-//         TIM6: (tim6, tim6en, tim6rst, apb1_timer),
-//     },
-//         {
-//         TIM7: (tim7, tim7en, tim7rst, apb1_timer),
-//     },
-//     {
-//         TIM8: (tim8, tim8en, tim8rst, apb2_timer),
-//     },
-//         {
-//         TIM9: (tim8, tim8en, tim8rst, apb2_timer),
-//     },
-//         {
-//         TIM10: (tim10, tim10en, tim10rst, apb2_timer),
-//     },
-//         {
-//         TIM11: (tim11, tim11en, tim11rst, apb2_timer),
-//     },
-//         {
-//         TIM12: (tim12, tim12en, tim12rst, apb1_timer),
-//     },
-//     {
-//         TIM13: (tim13, tim13en, tim13rst, apb1_timer),
-//     },
-//     {
-//         TIM14: (tim14, tim14en, tim14rst, apb1_timer),
-//     },
-//     {
-//         TIM15: (tim15, tim15en, tim15rst, apb2_timer),
-//     },
-//     {
-//         TIM16: (tim16, tim16en, tim16rst, apb2_timer),
-//     },
-//     {
-//         TIM17: (tim17, tim17en, tim17rst, apb2_timer),
-//     },
-//     {
-//         TIM18: (tim18, tim18en, tim18rst, apb2_timer),
-//     },
-//     {
-//         TIM19: (tim19, tim19en, tim19rst, , apb2_timer),
-//     },
-//     {
-//         TIM20: (tim20, tim20en, tim20rst, apb2_timer),
-//     },
-// }
-//
+
+// todo: Which use apb1, and which use apb2? We have a good start, but needs QC
+// todo: Feature-gate f562.
+
+#[cfg(not(feature = "stm32f373"))]
+hal! {
+    {
+        TIM1: (tim1, tim1en, tim1rst, apb2_timer),
+    },
+}
+
+#[cfg(not(feature = "stm32f552"))]
+hal! {
+    {
+        TIM3: (tim3, tim3en, tim3rst, apb1_timer),
+    },
+}
+
+#[cfg(not(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l552"
+)))]
+hal! {
+    {
+        TIM4: (tim4, tim4en, tim4rst, apb1_timer),
+    },
+    {
+        TIM17: (tim17, tim17en, tim17rst, apb2_timer),
+    },
+}
+
+#[cfg(any(
+    feature = "stm32f301",
+    feature = "stm32f373",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+    feature = "stm32l562"
+))]
+hal! {
+    {
+        TIM5: (tim5, tim56en, tim5rst, apb1_timer),
+    },
+}
+
+hal! {
+    {
+        TIM2: (tim2, tim2en, tim2rst, apb1_timer),
+    },
+    {
+        TIM6: (tim6, tim6en, tim6rst, apb1_timer),
+    },
+        {
+        TIM7: (tim7, tim7en, tim7rst, apb1_timer),
+    },
+    {
+        TIM15: (tim15, tim15en, tim15rst, apb2_timer),
+    },
+    {
+        TIM16: (tim16, tim16en, tim16rst, apb2_timer),
+    },
+}
+
+#[cfg(any(
+    feature = "stm32f302",
+    feature = "stm32f303",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+    feature = "stm32l562",
+))]
+hal! {
+    {
+        TIM8: (tim8, tim8en, tim8rst, apb2_timer),
+    },
+}
+
+#[cfg(feature = "stm32f373")]
+hal! {
+    {
+        TIM10: (tim10, tim10en, tim10rst, apb2_timer),
+    },
+}
+
+#[cfg(any(feature = "stm32f301", feature = "stm32f373"))]
+hal! {
+    {
+        TIM12: (tim12, tim12en, tim12rst, apb1_timer),
+    },
+    {
+        TIM13: (tim13, tim13en, tim13rst, apb1_timer),
+    },
+        {
+        TIM14: (tim14, tim14en, tim14rst, apb1_timer),
+    },
+    {
+        TIM19: (tim19, tim19en, tim19rst, , apb2_timer),
+    }
+}
+
+#[cfg(any(feature = "stm32f302", feature = "stm32f373"))]
+hal! {
+    {
+        TIM18: (tim18, tim18en, tim18rst, apb2_timer),
+    },
+        {
+        TIM20: (tim20, tim20en, tim20rst, apb2_timer),
+    },
+}
+
 // pwm_features! {
 //     {
 //         TIM2: (tim2, tim2en, tim2rst, apb1_timer),
