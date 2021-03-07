@@ -1,4 +1,22 @@
 
+#![no_std]
+
+#[cfg(not(any(
+    feature = "stm32f301",
+    feature = "stm32f302",
+    feature = "stm32f303",
+    feature = "stm32f373",
+    feature = "stm32f3x4",
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6",
+    feature = "stm32l552",
+    feature = "stm32l562",
+)))]
+compile_error!("This crate requires an MCU-specifying feature to be enabled. eg `stm32l552`.");
+
 // F3 PAC
 #[cfg(feature = "stm32f301")]
 pub use stm32f3::stm32f301 as pac;
@@ -43,4 +61,7 @@ pub use stm32l4::stm32l562 as pac;
 
 pub mod delay;
 pub mod clocks;
-// pub mod rtc;
+
+// #[path = "clockscommon.rs"]
+// pub mod r#mod;
+

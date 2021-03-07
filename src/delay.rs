@@ -1,7 +1,6 @@
 //! Delays. Started from `stm32l4xx-hal`.
 
 use cast::u32;
-use cortex_m::asm;
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 

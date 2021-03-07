@@ -2,6 +2,16 @@
 name = "stm32-hal"
 version = "0.1.0"
 authors = ["David O'Connor <david.alan.oconnor@gmail.com>"]
+description = "Hardware abstraction layer for the stm32 chips"
+keywords = ["no-std", "stm32", "embedded", "embedded-hal"]
+categories = [
+    "embedded",
+    "hardware-support",
+    "no-std",
+]
+repository = "https://github.com/David-OConnor/stm32-hal"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
 edition = "2018"
 
 
@@ -12,25 +22,28 @@ stm32f3 = { version = "0.13.0", optional = true }
 stm32l4 = { version = "0.13.0", optional = true }
 stm32l5 = { version = "0.13.0", optional = true }
 embedded-hal = "0.2.4"
-cast = "0.2.3"
+
+[dependencies.cast]
+version  = "0.2.2"
+default-features = false
 
 [features]
 # Features defined here are those taken from the SVD-generated STM32 PACs.
 
 # [F3](https://docs.rs/crate/stm32f3/0.13.0/source/Cargo.toml)
-stm32f301 = ["stm32f3"]
-stm32f302 = ["stm32f3"]
-stm32f303 = ["stm32f3"]
-stm32f373 = ["stm32f3"]
-stm32f3x4 = ["stm32f3"]
+stm32f301 = ["stm32f3/stm32f301"]
+stm32f302 = ["stm32f3/stm32f302"]
+stm32f303 = ["stm32f3/stm32f303"]
+stm32f373 = ["stm32f3/stm32f373"]
+stm32f3x4 = ["stm32f3/stm32f3x4"]
 
 #[L4](https://docs.rs/crate/stm32l4/0.13.0/source/Cargo.toml)
-stm32l4x1 = ["stm32l4"]
-stm32l4x2 = ["stm32l4"]
-stm32l4x3 = ["stm32l4"]
-stm32l4x5 = ["stm32l4"]
-stm32l4x6 = ["stm32l4"]
+stm32l4x1 = ["stm32l4/stm32l4x1"]
+stm32l4x2 = ["stm32l4/stm32l4x2"]
+stm32l4x3 = ["stm32l4/stm32l4x3"]
+stm32l4x5 = ["stm32l4/stm32l4x5"]
+stm32l4x6 = ["stm32l4/stm32l4x6"]
 
 # [L5](https://docs.rs/crate/stm32l5/0.13.0/source/Cargo.toml)
-stm32l552 = ["stm32l5"]
-stm32l562 = ["stm32l5"]
+stm32l552 = ["stm32l5/stm32l552"]
+stm32l562 = ["stm32l5/stm32l562"]
