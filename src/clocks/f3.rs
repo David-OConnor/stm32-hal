@@ -9,7 +9,7 @@
 //! See Figure 15 of the Reference Manual for a non-interactive visualization.
 
 use crate::{
-    clocks::{ClockCfg, Validation, SpeedError},
+    clocks::{ClockCfg, SpeedError, Validation},
     pac::{FLASH, RCC},
 };
 
@@ -405,7 +405,7 @@ impl ClockCfg for Clocks {
             result = Validation::NotValid;
         }
 
-        if self.hclk() > 72_000_000 || self.hclk() < 0 {
+        if self.hclk() > 72_000_000 {
             result = Validation::NotValid;
         }
 
@@ -413,7 +413,7 @@ impl ClockCfg for Clocks {
             result = Validation::NotValid;
         }
 
-        if self.apb2() > 72_000_000 || self.apb2() < 0 {
+        if self.apb2() > 72_000_000 {
             result = Validation::NotValid;
         }
 
@@ -439,7 +439,6 @@ impl Default for Clocks {
         }
     }
 }
-
 
 /// Calculate the systick, and input frequency.
 fn calc_sysclock(input_src: InputSrc, prediv: Prediv, pll_mul: PllMul) -> f32 {

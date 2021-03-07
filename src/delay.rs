@@ -19,7 +19,10 @@ impl Delay {
     pub fn new<C: ClockCfg>(mut syst: SYST, clocks: &C) -> Self {
         syst.set_clock_source(SystClkSource::Core);
 
-        Delay { syst, systick_speed:  clocks.systick()}
+        Delay {
+            syst,
+            systick_speed: clocks.systick(),
+        }
     }
 
     /// Releases the system timer (SysTick) resource

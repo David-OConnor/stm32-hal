@@ -1,18 +1,24 @@
-#[cfg(any(feature = "stm32f301", feature = "stm32f302", feature = "stm32f303",
-feature = "stm32f373", feature = "stm32f3x4"))]
-mod f3;
-
-// todo how do we do a block instead of repeating the req?
-#[cfg(any(feature = "stm32f301", feature = "stm32f302", feature = "stm32f303",
-feature = "stm32f373", feature = "stm32f3x4"))]
-pub use f3::*;
-
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3",
-feature = "stm32l4x5", feature = "stm32l4x6"))]
-mod l4;
-#[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3",
-feature = "stm32l4x5", feature = "stm32l4x6"))]
-pub use l4::*;
+cfg_if::cfg_if! {
+    if #[cfg(any(
+    feature = "stm32f301",
+    feature = "stm32f302",
+    feature = "stm32f303",
+    feature = "stm32f373",
+    feature = "stm32f3x4"
+    ))] {
+        mod f3;
+        pub use f3::*;
+    } else if #[cfg(any(
+    feature = "stm32l4x1",
+    feature = "stm32l4x2",
+    feature = "stm32l4x3",
+    feature = "stm32l4x5",
+    feature = "stm32l4x6"
+    ))] {
+            mod l4;
+        pub use l4::*;
+    }
+}
 
 /// This trait allows you to return information about a common's speeds.
 /// It's used for configuring peripherals.
@@ -45,7 +51,6 @@ pub trait ClockCfg {
     /// for the MCU
     fn validate_speeds(&self) -> Validation; // todo Separate USB validation?
 }
-
 
 // todo: Continue working through DRY between the clock modules.
 /// Is a set of speeds valid?

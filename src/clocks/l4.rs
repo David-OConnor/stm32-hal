@@ -9,7 +9,7 @@
 //! See Figure 15 of the Reference Manual for a non-interactive visualization.
 
 use crate::{
-    clocks::{ClockCfg, Validation, SpeedError},
+    clocks::{ClockCfg, SpeedError, Validation},
     pac::{FLASH, RCC},
 };
 
@@ -265,8 +265,7 @@ impl Clocks {
 
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
-        let (input_freq, sysclk) =
-            calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
+        let (_, sysclk) = calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
 
         let hclk = sysclk / self.hclk_prescaler.value() as f32;
         // Reference manual section 3.3.3
@@ -469,8 +468,7 @@ impl Clocks {
 // todo: Some extra calculations here, vice doing it once and caching.
 impl ClockCfg for Clocks {
     fn sysclk(&self) -> u32 {
-        let (_, sysclk) =
-            calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
+        let (_, sysclk) = calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
         (sysclk * 1_000_000.) as u32
     }
 
@@ -483,8 +481,7 @@ impl ClockCfg for Clocks {
     }
 
     fn usb(&self) -> u32 {
-        let (input_freq, _) =
-            calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
+        let (input_freq, _) = calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
         (input_freq * 1_000_000.) as u32 / self.pllm.value() as u32 * self.pll_sai1_mul as u32 / 2
     }
 
@@ -515,7 +512,7 @@ impl ClockCfg for Clocks {
     fn validate_speeds(&self) -> Validation {
         let mut result = Validation::Valid;
 
-           if self.pll_vco_mul < 7
+        if self.pll_vco_mul < 7
             || self.pll_vco_mul > 86
             || self.pll_sai1_mul < 7
             || self.pll_sai1_mul > 86
@@ -528,19 +525,19 @@ impl ClockCfg for Clocks {
         // todo: QC these limits
         // todo: Note that this involves repeatedly calculating sysclk.
         // todo. We could work around thsi by calcing it once here.
-        if self.sysclk() > 80_000_000 || self.sysclk() < 0 {
+        if self.sysclk() > 80_000_000 {
             result = Validation::NotValid;
         }
 
-        if self.hclk() > 80_000_000 || self.hclk() < 0 {
+        if self.hclk() > 80_000_000 {
             result = Validation::NotValid;
         }
 
-        if self.apb1() > 80_000_000 || self.apb1() < 0 {
+        if self.apb1() > 80_000_000 {
             result = Validation::NotValid;
         }
 
-        if self.apb2() > 80_000_000 || self.apb2() < 0 {
+        if self.apb2() > 80_000_000 {
             result = Validation::NotValid;
         }
 
@@ -571,7 +568,6 @@ impl Default for Clocks {
         }
     }
 }
-
 
 /// Calculate the systick, and input frequency.
 fn calc_sysclock(input_src: InputSrc, pllm: Pllm, pll_vco_mul: u8, pllr: Pllr) -> (f32, f32) {

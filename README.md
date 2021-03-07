@@ -12,3 +12,5 @@ that differ significantly.
 
 This crate errs on the side of exposing peripherals that don't exist for a given
 MCU variant.
+
+# todo: Test where you try to compile for each variant

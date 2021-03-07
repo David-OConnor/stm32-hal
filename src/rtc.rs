@@ -1,22 +1,16 @@
 //! Real Time Clock
 //!
-//! Interface to the real time clock. See STM32F303 reference manual, section 27.
+//! Interface to the real time clock. Based on `stm32f3xx-hal`.
 
 //! For more details, see
 //! [ST AN4759](https:/www.st.com%2Fresource%2Fen%2Fapplication_note%2Fdm00226326-using-the-hardware-realtime-clock-rtc-and-the-tamper-management-unit-tamp-with-stm32-microcontrollers-stmicroelectronics.pdf&usg=AOvVaw3PzvL2TfYtwS32fw-Uv37h)
 
-use crate::{
-    pac::{PWR, RCC, RTC},
-    rcc::{APB1, BDCR},
-};
+use crate::pac::{EXTI, PWR, RCC, RTC};
 use core::convert::TryInto;
 use rtcc::{Datelike, Hours, NaiveDate, NaiveDateTime, NaiveTime, Rtcc, Timelike};
 
-#[cfg(any(feature = "rt"))]
-#[cfg(any(feature = "stm32f302", feature = "stm32f303"))]
-use crate::pac::EXTI;
+// todo: QC against other RTC modules.
 
-#[cfg(any(feature = "rt"))]
 /// This provides a default handler for RTC inputs that clears the EXTI line and
 /// wakeup flag. If you don't need additional functionality, run this in the main body of your program, eg:
 /// `make_rtc_interrupt_handler!(RTC_WKUP);`
@@ -28,7 +22,7 @@ macro_rules! make_wakeup_interrupt_handler {
             free(|cs| {
                 unsafe {
                     // Reset pending bit for interrupt line
-                    (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr20().bit(true));
+                    (*EXTI::ptr()).pr1.modify(|_, w| w.pr20().bit(true));
 
                     // Clear the wakeup timer flag, after disabling write protections.
                     (*pac::RTC::ptr()).wpr.write(|w| w.bits(0xCA));
@@ -179,73 +173,87 @@ impl Rtc {
     /// constraining RCC, eg before running this constructor.
     /// Note that if using HSE as the clock source, we assume you've already enabled it, eg
     /// in clock config.
-    pub fn new(
-        regs: RTC,
-        apb1: &mut APB1,
-        bdcr: &mut BDCR,
-        pwr: &mut PWR,
-        config: RtcConfig,
-    ) -> Self {
+    pub fn new(regs: RTC, rcc: &mut RCC, pwr: &mut PWR, config: RtcConfig) -> Self {
         let mut result = Self { regs, config };
 
         // Enable the peripheral clock for communication
         // You must enable the `pwren()` bit before making RTC register writes, or they won't stay
         // set. Enable the backup interface by setting PWREN
-        apb1.enr().modify(|_, w| w.pwren().set_bit());
-        // Some HALs like L0 need to set the `rtcapben` bit here in apb1r1enr. Not applicable for F3.
-        pwr.cr.read(); // read to allow the pwr clock to enable
-
         // Unlock the backup domain
-        pwr.cr.modify(|_, w| w.dbp().set_bit());
-        while pwr.cr.read().dbp().bit_is_clear() {}
+        // todo: Shortcut to specify just "l4" instead of all these?
+        cfg_if::cfg_if! {
+                if #[cfg(any(
+                    feature = "stm32f301",
+                    feature = "stm32f302",
+                    feature = "stm32f303",
+                    feature = "stm32f373",
+                    feature = "stm32f3x4"
+                ))] {
+                rcc.apb1enr.modify(|_, w| w.pwren().set_bit());
+                pwr.cr.read(); // read to allow the pwr clock to enable
+                pwr.cr.modify(|_, w| w.dbp().set_bit());
+                while pwr.cr.read().dbp().bit_is_clear() {}
+            } else if # [cfg(any(
+            feature = "stm32l4x1",
+            feature = "stm32l4x2",
+            feature = "stm32l4x3",
+            feature = "stm32l4x5",
+            feature = "stm32l4x6"
+            ))] {
+                rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
+                rcc.apb1enr1.modify(|_, w| w.rtcapben().set_bit());
+                pwr.cr1.read(); // read to allow the pwr clock to enable
+                pwr.cr1.modify( | _, w| w.dbp().set_bit());
+                while pwr.cr1.read().dbp().bit_is_clear() {}
+            }
+        }
 
         // Reset the backup domain.
-        bdcr.bdcr().modify(|_, w| w.bdrst().enabled());
-        bdcr.bdcr().modify(|_, w| w.bdrst().disabled());
+        rcc.bdcr.modify(|_, w| w.bdrst().set_bit());
+        rcc.bdcr.modify(|_, w| w.bdrst().clear_bit());
 
         // Set up the LSI or LSE as required.
         match config.clock_source {
             RtcClockSource::Lsi => {
-                // todo: Unsafe API for now due to lack of upstream exposure of RCC_CSR register.
-                unsafe {
-                    (*RCC::ptr()).csr.modify(|_, w| w.lsion().set_bit());
-                    while (*RCC::ptr()).csr.read().lsion().bit_is_clear() {}
-                }
+                rcc.csr.modify(|_, w| w.lsion().set_bit());
+                while rcc.csr.read().lsion().bit_is_clear() {}
             }
             RtcClockSource::Lse => {
-                bdcr.bdcr().modify(|_, w| {
+                rcc.bdcr.modify(|_, w| {
                     w.lseon().set_bit();
                     w.lsebyp().bit(config.bypass_lse_output)
                 });
-                while bdcr.bdcr().read().lserdy().bit_is_clear() {}
+                while rcc.bdcr.read().lserdy().bit_is_clear() {}
             }
             _ => (),
         }
 
-        bdcr.bdcr().modify(|_, w| {
-            w.rtcsel().bits(result.config.clock_source as u8);
-            w.rtcen().enabled()
+        rcc.bdcr.modify(|_, w| {
+            unsafe { w.rtcsel().bits(result.config.clock_source as u8) };
+            w.rtcen().set_bit()
         });
 
         result.edit_regs(false, |regs| {
             regs.cr.modify(
                 |_, w| {
-                    w.fmt()
-                        .clear_bit() // 24hr
-                        .osel()
-                        /*
-                            00: Output disabled
-                            01: Alarm A output enabled
-                            10: Alarm B output enabled
-                            11: Wakeup output enabled
-                        */
-                        .bits(0b00)
-                        .pol()
-                        .clear_bit()
+                    unsafe {
+                        w.fmt()
+                            .clear_bit() // 24hr
+                            .osel()
+                            /*
+                                00: Output disabled
+                                01: Alarm A output enabled
+                                10: Alarm B output enabled
+                                11: Wakeup output enabled
+                            */
+                            .bits(0b00)
+                            .pol()
+                            .clear_bit()
+                    }
                 }, // pol high
             );
 
-            regs.prer.modify(|_, w| {
+            regs.prer.modify(|_, w| unsafe {
                 w.prediv_s().bits(config.sync_prescaler);
                 w.prediv_a().bits(config.async_prescaler)
             });
@@ -269,27 +277,25 @@ impl Rtc {
         self.regs.cr.read().fmt().bit()
     }
 
-    #[cfg(any(feature = "rt"))]
-    #[cfg(any(feature = "stm32f302", feature = "stm32f303"))]
-    /// Setup the alarm. See AN4759, section 2.3.1.
-    /// `sleep_time` is in ms. `Table 8` desribes these steps.
-    pub fn set_alarm(&mut self, exti: &mut EXTI) {
-        exti.imr1.modify(|_, w| w.mr17().unmasked());
-        exti.rtsr1.modify(|_, w| w.tr17().bit(true));
-        exti.ftsr1.modify(|_, w| w.tr17().bit(false));
-
-        self.edit_regs(false, |regs| {
-            regs.cr.modify(|_, w| w.alrae().clear_bit());
-
-            while regs.cr.read().alrae().bit_is_set() {}
-
-            // todo: Set the alarm time. This function will be broken until this is accomplished.
-            // self.regs.alrmar.modify(|_, w| unsafe {});
-
-            regs.cr.modify(|_, w| w.alrae().set_bit());
-            while regs.cr.read().alrae().bit_is_clear() {}
-        })
-    }
+    // /// Setup the alarm. See AN4759, section 2.3.1.
+    // /// `sleep_time` is in ms. `Table 8` desribes these steps.
+    // pub fn set_alarm(&mut self, exti: &mut EXTI) {
+    //     exti.imr1.modify(|_, w| w.mr17().unmasked());
+    //     exti.rtsr1.modify(|_, w| w.tr17().bit(true));
+    //     exti.ftsr1.modify(|_, w| w.tr17().bit(false));
+    //
+    //     self.edit_regs(false, |regs| {
+    //         regs.cr.modify(|_, w| w.alrae().clear_bit());
+    //
+    //         while regs.cr.read().alrae().bit_is_set() {}
+    //
+    //         // todo: Set the alarm time. This function will be broken until this is accomplished.
+    //         // self.regs.alrmar.modify(|_, w| unsafe {});
+    //
+    //         regs.cr.modify(|_, w| w.alrae().set_bit());
+    //         while regs.cr.read().alrae().bit_is_clear() {}
+    //     })
+    // }
 
     /// Helper fn, to do the important bits of setting the interval, with
     /// the registers already unlocked.
@@ -347,7 +353,9 @@ impl Rtc {
             panic!("Wakeup period must be between 0122.07µs and 36 hours.")
         }
 
-        self.regs.wutr.modify(|_, w| w.wut().bits(wutr as u16));
+        self.regs
+            .wutr
+            .modify(|_, w| unsafe { w.wut().bits(wutr as u16) });
 
         // Select the desired clock source. Program WUCKSEL[2:0] bits in RTC_CR register.
         // See ref man Section 2.4.2: Maximum and minimum RTC wakeup period.
@@ -389,8 +397,6 @@ impl Rtc {
             .modify(|_, w| unsafe { w.wucksel().bits(word) });
     }
 
-    #[cfg(any(feature = "rt"))]
-    #[cfg(any(feature = "stm32f302", feature = "stm32f303"))]
     /// Setup periodic auto-wakeup interrupts. See ST AN4759, Table 11, and more broadly,
     /// section 2.4.1. See also reference manual, section 27.5.
     /// In addition to running this function, set up the interrupt handling function by
@@ -453,8 +459,6 @@ impl Rtc {
         }
     }
 
-    #[cfg(any(feature = "rt"))]
-    #[cfg(any(feature = "stm32f302", feature = "stm32f303"))]
     /// Change the sleep time for the auto wakeup, after it's been set up.
     /// Sleep time is in MS. Major DRY from `set_wakeup`.
     pub fn set_wakeup_interval(&mut self, sleep_time: f32) {
@@ -476,7 +480,6 @@ impl Rtc {
         self.regs.wpr.write(|w| unsafe { w.bits(0xFF) });
     }
 
-    #[cfg(any(feature = "rt"))]
     /// Clears the wakeup flag. Must be cleared manually after every RTC wakeup.
     /// Alternatively, you could handle this in the EXTI handler function.
     pub fn clear_wakeup_flag(&mut self) {
@@ -533,7 +536,7 @@ impl Rtcc for Rtc {
         let (st, su) = bcd2_encode(time.second())?;
 
         self.edit_regs(true, |regs| {
-            regs.tr.write(|w| {
+            regs.tr.write(|w| unsafe {
                 w.ht().bits(ht);
                 w.hu().bits(hu);
                 w.mnt().bits(mnt);
@@ -553,7 +556,8 @@ impl Rtcc for Rtc {
         }
         let (st, su) = bcd2_encode(seconds as u32)?;
         self.edit_regs(true, |regs| {
-            regs.tr.modify(|_, w| w.st().bits(st).su().bits(su))
+            regs.tr
+                .modify(|_, w| unsafe { w.st().bits(st).su().bits(su) })
         });
 
         Ok(())
@@ -565,7 +569,8 @@ impl Rtcc for Rtc {
         }
         let (mnt, mnu) = bcd2_encode(minutes as u32)?;
         self.edit_regs(true, |regs| {
-            regs.tr.modify(|_, w| w.mnt().bits(mnt).mnu().bits(mnu))
+            regs.tr
+                .modify(|_, w| unsafe { w.mnt().bits(mnt).mnu().bits(mnu) })
         });
 
         Ok(())
@@ -579,7 +584,8 @@ impl Rtcc for Rtc {
         }
 
         self.edit_regs(true, |regs| {
-            regs.tr.modify(|_, w| w.ht().bits(ht).hu().bits(hu))
+            regs.tr
+                .modify(|_, w| unsafe { w.ht().bits(ht).hu().bits(hu) })
         });
 
         Ok(())
@@ -602,7 +608,8 @@ impl Rtcc for Rtc {
         }
         let (dt, du) = bcd2_encode(day as u32)?;
         self.edit_regs(true, |regs| {
-            regs.dr.modify(|_, w| w.dt().bits(dt).du().bits(du))
+            regs.dr
+                .modify(unsafe { |_, w| w.dt().bits(dt).du().bits(du) })
         });
 
         Ok(())
@@ -614,7 +621,8 @@ impl Rtcc for Rtc {
         }
         let (mt, mu) = bcd2_encode(month as u32)?;
         self.edit_regs(true, |regs| {
-            regs.dr.modify(|_, w| w.mt().bit(mt > 0).mu().bits(mu))
+            regs.dr
+                .modify(|_, w| unsafe { w.mt().bit(mt > 0).mu().bits(mu) })
         });
 
         Ok(())
@@ -626,7 +634,8 @@ impl Rtcc for Rtc {
         }
         let (yt, yu) = bcd2_encode(year as u32)?;
         self.edit_regs(true, |regs| {
-            regs.dr.modify(|_, w| w.yt().bits(yt).yu().bits(yu))
+            regs.dr
+                .modify(|_, w| unsafe { w.yt().bits(yt).yu().bits(yu) })
         });
 
         Ok(())
@@ -644,7 +653,7 @@ impl Rtcc for Rtc {
         let (dt, du) = bcd2_encode(date.day())?;
 
         self.edit_regs(true, |regs| {
-            regs.dr.write(|w| {
+            regs.dr.write(|w| unsafe {
                 w.dt().bits(dt);
                 w.du().bits(du);
                 w.mt().bit(mt > 0);
@@ -672,7 +681,7 @@ impl Rtcc for Rtc {
         let (st, su) = bcd2_encode(date.second())?;
 
         self.edit_regs(true, |regs| {
-            regs.dr.write(|w| {
+            regs.dr.write(|w| unsafe {
                 w.dt().bits(dt);
                 w.du().bits(du);
                 w.mt().bit(mt > 0);
@@ -683,7 +692,7 @@ impl Rtcc for Rtc {
         });
 
         self.edit_regs(true, |regs| {
-            regs.tr.write(|w| {
+            regs.tr.write(|w| unsafe {
                 w.ht().bits(ht);
                 w.hu().bits(hu);
                 w.mnt().bits(mnt);
