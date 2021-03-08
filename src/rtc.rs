@@ -182,26 +182,12 @@ impl Rtc {
         // Unlock the backup domain
         // todo: Shortcut to specify just "l4" instead of all these?
         cfg_if::cfg_if! {
-                if #[cfg(any(
-                    feature = "stm32f301",
-                    feature = "stm32f302",
-                    feature = "stm32f303",
-                    feature = "stm32f373",
-                    feature = "stm32f3x4"
-                ))] {
+            if #[cfg(feature = "f3")] {
                 rcc.apb1enr.modify(|_, w| w.pwren().set_bit());
                 pwr.cr.read(); // read to allow the pwr clock to enable
                 pwr.cr.modify(|_, w| w.dbp().set_bit());
                 while pwr.cr.read().dbp().bit_is_clear() {}
-            } else if # [cfg(any(
-            feature = "stm32l4x1",
-            feature = "stm32l4x2",
-            feature = "stm32l4x3",
-            feature = "stm32l4x5",
-            feature = "stm32l4x6",
-            feature = "stm32l552",
-            feature = "stm32l562",
-            ))] {
+            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
                 rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
                 rcc.apb1enr1.modify(|_, w| w.rtcapben().set_bit());
                 pwr.cr1.read(); // read to allow the pwr clock to enable

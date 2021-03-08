@@ -130,32 +130,18 @@ impl<SCL, SDA> I2c<I2C1, (SCL, SDA)> {
         // F: Into<Hertz>,
         // SCL: SclPin<I2C1>,
         // SDA: SdaPin<I2C1>,
-        SCL: OutputPin,
-        SDA: InputPin + OutputPin,
+        // SCL: OutputPin,
+        // SDA: InputPin + OutputPin,
     {
         cfg_if::cfg_if! {
-            if #[cfg(any(
-                feature = "stm32f301",
-                feature = "stm32f302",
-                feature = "stm32f303",
-                feature = "stm32f373",
-                feature = "stm32f3x4"
-            ))] {
-                    rcc.apb1enr.modify(|_, w| w.i2c1en().set_bit());
-                    rcc.apb1rstr.modify(|_, w| w.i2c1rst().set_bit());
-                    rcc.apb1rstr.modify(|_, w| w.i2c1rst().clear_bit());
-            } else if # [cfg(any(
-                feature = "stm32l4x1",
-                feature = "stm32l4x2",
-                feature = "stm32l4x3",
-                feature = "stm32l4x5",
-                feature = "stm32l4x6",
-                feature = "stm32l552",
-                feature = "stm32l562",
-            ))] {
-                    rcc.apb1enr1.modify(|_, w| w.i2c1en().set_bit());
-                    rcc.apb1rstr1.modify(|_, w| w.i2c1rst().set_bit());
-                    rcc.apb1rstr1.modify(|_, w| w.i2c1rst().clear_bit());
+            if #[cfg(feature = "f3")] {
+                rcc.apb1enr.modify(|_, w| w.i2c1en().set_bit());
+                rcc.apb1rstr.modify(|_, w| w.i2c1rst().set_bit());
+                rcc.apb1rstr.modify(|_, w| w.i2c1rst().clear_bit());
+            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                rcc.apb1enr1.modify(|_, w| w.i2c1en().set_bit());
+                rcc.apb1rstr1.modify(|_, w| w.i2c1rst().set_bit());
+                rcc.apb1rstr1.modify(|_, w| w.i2c1rst().clear_bit());
             }
         }
 
@@ -171,32 +157,18 @@ impl<SCL, SDA> I2c<I2C2, (SCL, SDA)> {
         // F: Into<Hertz>,
         // SCL: SclPin<I2C2>,
         // SDA: SdaPin<I2C2>,
-        SCL: OutputPin,
-        SDA: InputPin + OutputPin,
+        // SCL: OutputPin,
+        // SDA: InputPin + OutputPin,
     {
         cfg_if::cfg_if! {
-            if #[cfg(any(
-                feature = "stm32f301",
-                feature = "stm32f302",
-                feature = "stm32f303",
-                feature = "stm32f373",
-                feature = "stm32f3x4"
-            ))] {
-                    rcc.apb1enr.modify(|_, w| w.i2c2en().set_bit());
-                    rcc.apb1rstr.modify(|_, w| w.i2c2rst().set_bit());
-                    rcc.apb1rstr.modify(|_, w| w.i2c2rst().clear_bit());
-            } else if # [cfg(any(
-                feature = "stm32l4x1",
-                feature = "stm32l4x2",
-                feature = "stm32l4x3",
-                feature = "stm32l4x5",
-                feature = "stm32l4x6",
-                feature = "stm32l552",
-                feature = "stm32l562",
-            ))] {
-                    rcc.apb1enr1.modify(|_, w| w.i2c2en().set_bit());
-                    rcc.apb1rstr1.modify(|_, w| w.i2c2rst().set_bit());
-                    rcc.apb1rstr1.modify(|_, w| w.i2c2rst().clear_bit());
+            if #[cfg(feature = "f3")] {
+                rcc.apb1enr.modify(|_, w| w.i2c2en().set_bit());
+                rcc.apb1rstr.modify(|_, w| w.i2c2rst().set_bit());
+                rcc.apb1rstr.modify(|_, w| w.i2c2rst().clear_bit());
+            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                rcc.apb1enr1.modify(|_, w| w.i2c2en().set_bit());
+                rcc.apb1rstr1.modify(|_, w| w.i2c2rst().set_bit());
+                rcc.apb1rstr1.modify(|_, w| w.i2c2rst().clear_bit());
             }
         }
 
@@ -215,8 +187,8 @@ where
         C: ClockCfg,
         // SCL: SclPin<I2C>,
         // SDA: SdaPin<I2C>,
-        SCL: OutputPin,
-        SDA: InputPin + OutputPin,
+        // SCL: OutputPin,
+        // SDA: InputPin + OutputPin,
     {
         assert!(freq <= 1_000_000);
         // Make sure the I2C unit is disabled so we can configure it

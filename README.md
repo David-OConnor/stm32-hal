@@ -31,5 +31,9 @@ Examples of features this crate includes that aren't present in some HALs:
     - Read and write onboard flash
     - DAC support
     
+The intent isn't to support every STM32 family: Main support will be for newer ones,
+like L4, L5, H7, and U5.
+
+Pre-release. Currently only supports F3 and L4.
 
 PRs encouraged.

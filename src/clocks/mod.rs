@@ -1,22 +1,13 @@
 cfg_if::cfg_if! {
-    if #[cfg(any(
-    feature = "stm32f301",
-    feature = "stm32f302",
-    feature = "stm32f303",
-    feature = "stm32f373",
-    feature = "stm32f3x4"
-    ))] {
+    if #[cfg(feature = "f3")] {
         mod f3;
         pub use f3::*;
-    } else if #[cfg(any(
-    feature = "stm32l4x1",
-    feature = "stm32l4x2",
-    feature = "stm32l4x3",
-    feature = "stm32l4x5",
-    feature = "stm32l4x6"
-    ))] {
-            mod l4;
+    } else if #[cfg(feature = "l4")] {
+        mod l4;
         pub use l4::*;
+    } else if #[cfg(feature = "l5")] {
+        mod l5;
+        pub use l5::*;
     }
 }
 

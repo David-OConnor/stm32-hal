@@ -31,23 +31,11 @@ pub enum Error {
 fn check_illegal(flash: &FLASH) -> Result<(), Error> {
     let sr = flash.sr.read();
     cfg_if::cfg_if! {
-            if #[cfg(any(
-                feature = "stm32f301",
-                feature = "stm32f302",
-                feature = "stm32f303",
-                feature = "stm32f373",
-                feature = "stm32f3x4"
-            ))] {
+            if #[cfg(feature = "f3")] {
                 if sr.pgerr().bit_is_set() || sr.pgerr().bit_is_set() || sr.wrprterr().bit_is_set() {
                     return Err(Error::Illegal);
                 }
-        } else if # [cfg(any(
-                feature = "stm32l4x1",
-                feature = "stm32l4x2",
-                feature = "stm32l4x3",
-                feature = "stm32l4x5",
-                feature = "stm32l4x6"
-            ))] {
+        } else if #[cfg(any(feature = "l4", feature = "l5"))] {
                 if sr.pgaerr().bit_is_set() || sr.progerr().bit_is_set() || sr.wrperr().bit_is_set() {
                     return Err(Error::Illegal);
                 }
@@ -113,14 +101,7 @@ impl Flash {
         // some variants only have 1 memory bank; eg ones with a smaller amount of memory.
 
         cfg_if::cfg_if! {
-            if #[cfg(any(
-                feature = "stm32f301",
-                feature = "stm32f302",
-                feature = "stm32f303",
-                feature = "stm32f373",
-                feature = "stm32f3x4"
-            ))] {
-
+            if #[cfg(feature = "f3")] {
                 // F3 RM: "Erase procedure"
                 // Set the PER bit in the FLASH_CR register
                 self.regs.cr.modify(|_, w| w.per().set_bit());
@@ -129,15 +110,7 @@ impl Flash {
                 // self.regs.ar.modify(|_, w| w.far().bits(page as u8));
                 self.regs.ar.write(|w| unsafe { w.bits(page as u32) }); // todo: Is this right?
 
-        } else if # [cfg(any(
-                feature = "stm32l4x1",
-                feature = "stm32l4x2",
-                feature = "stm32l4x3",
-                feature = "stm32l4x5",
-                feature = "stm32l4x6",
-                feature = "stm32l552",
-                feature = "stm32l562",
-            ))] {
+        } else if #[cfg(any(feature = "l4", feature = "l5"))] {
                 match page {
                     0..=255 => {
                         self.regs.cr.modify(|_, w| unsafe {
@@ -163,23 +136,9 @@ impl Flash {
 
         // 4. Set the STRT bit in the FLASH_CR register.
         cfg_if::cfg_if! {
-                if #[cfg(any(
-                    feature = "stm32f301",
-                    feature = "stm32f302",
-                    feature = "stm32f303",
-                    feature = "stm32f373",
-                    feature = "stm32f3x4"
-                ))] {
+                if #[cfg(feature = "f3")] {
                         self.regs.cr.modify(|_, w| w.strt().set_bit());
-            } else if # [cfg(any(
-                    feature = "stm32l4x1",
-                    feature = "stm32l4x2",
-                    feature = "stm32l4x3",
-                    feature = "stm32l4x5",
-                    feature = "stm32l4x6",
-                    feature = "stm32l552",
-                    feature = "stm32l562"
-                ))] {
+            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
                         self.regs.cr.modify(|_, w| w.start().set_bit());
             }
         }
@@ -189,27 +148,13 @@ impl Flash {
 
         // todo on F3: "Read the erased option bytes and verify" as final step
         cfg_if::cfg_if! {
-            if #[cfg(any(
-                feature = "stm32f301",
-                feature = "stm32f302",
-                feature = "stm32f303",
-                feature = "stm32f373",
-                feature = "stm32f3x4"
-            ))] {
+            if #[cfg(feature = "f3")] {
                 // Check the EOP flag in the FLASH_SR register (it is set when the erase operation has
                 // succeeded), and then clear it by software. (todo)
 
                 // Clear the EOP flag
                 self.regs.sr.modify(|_, w| w.eop().set_bit());
-            } else if # [cfg(any(
-                feature = "stm32l4x1",
-                feature = "stm32l4x2",
-                feature = "stm32l4x3",
-                feature = "stm32l4x5",
-                feature = "stm32l4x6",
-                feature = "stm32l552",
-                feature = "stm32l562"
-            ))] {
+            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
                 self.regs.cr.modify(|_, w| w.per().clear_bit());
             }
         }
@@ -246,26 +191,12 @@ impl Flash {
         // (FLASH_CR). Both banks can be selected in the same operation.
 
         cfg_if::cfg_if! {
-                if #[cfg(any(
-                    feature = "stm32f301",
-                    feature = "stm32f302",
-                    feature = "stm32f303",
-                    feature = "stm32f373",
-                    feature = "stm32f3x4"
-                ))] {
+                if #[cfg(feature = "f3")] {
                     self.regs.cr.modify(|_, w| w.mer().clear_bit());
 
                     // 4. Set the STRT bit in the FLASH_CR register.
                     self.regs.cr.modify(|_, w| w.strt().set_bit());
-            } else if # [cfg(any(
-                    feature = "stm32l4x1",
-                    feature = "stm32l4x2",
-                    feature = "stm32l4x3",
-                    feature = "stm32l4x5",
-                    feature = "stm32l4x6",
-                    feature = "stm32l552",
-                    feature = "stm32l562"
-            ))] {
+            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
                     match banks {
                         BanksToErase::Bank1 => {
                             self.regs.cr.modify(|_, w| w.mer1().clear_bit());

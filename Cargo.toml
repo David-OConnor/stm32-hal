@@ -21,6 +21,7 @@ nb = "1.0.0"
 stm32f3 = { version = "0.13.0", features = ["rt"], optional = true }
 stm32l4 = { version = "0.13.0", features = ["rt"], optional = true }
 stm32l5 = { version = "0.13.0", features = ["rt"], optional = true }
+stm32h7 = { version = "0.13.0", features = ["rt"], optional = true }
 embedded-hal = { version = "0.2.4", features = ["unproven"] }
 rtcc = "0.2"  # Embedded datetime traits.
 num-traits = { version = "0.2.14", default-features = false, features=["libm"] }  # For sqrt in timers
@@ -28,28 +29,48 @@ cfg-if = "1.0.0"  # if/else blocks for feature-gating
 paste = "1.0.4"  # Token pasting, to make macros easier.
 void = { version = "1.0.2", default_features = false }  # One off in `timer.rs`. Remove it A/R.
 
-
 [dependencies.cast]
 version  = "0.2.2"
 default-features = false
 
+[package.metadata.docs.rs]
+features = ["rt", "stm32l4x3", "stm32-usbd"]
+
 [features]
+f3rt = ["stm32f3/rt"]
+l4rt = ["stm32l4/rt"]
+l5rt = ["stm32l5/rt"]
+h7rt = ["stm32h7/rt"]
 # Features defined here are those taken from the SVD-generated STM32 PACs.
 
 # [F3](https://docs.rs/crate/stm32f3/0.13.0/source/Cargo.toml)
-stm32f301 = ["stm32f3/stm32f301"]
-stm32f302 = ["stm32f3/stm32f302"]
-stm32f303 = ["stm32f3/stm32f303"]
-stm32f373 = ["stm32f3/stm32f373"]
-stm32f3x4 = ["stm32f3/stm32f3x4"]
+stm32f301 = ["stm32f3/stm32f301", "f3"]
+stm32f302 = ["stm32f3/stm32f302", "f3"]
+stm32f303 = ["stm32f3/stm32f303", "f3"]
+stm32f373 = ["stm32f3/stm32f373", "f3"]
+stm32f3x4 = ["stm32f3/stm32f3x4", "f3"]
 
-#[L4](https://docs.rs/crate/stm32l4/0.13.0/source/Cargo.toml)
-stm32l4x1 = ["stm32l4/stm32l4x1"]
-stm32l4x2 = ["stm32l4/stm32l4x2"]
-stm32l4x3 = ["stm32l4/stm32l4x3"]
-stm32l4x5 = ["stm32l4/stm32l4x5"]
-stm32l4x6 = ["stm32l4/stm32l4x6"]
+# [L4](https://docs.rs/crate/stm32l4/0.13.0/source/Cargo.toml)
+stm32l4x1 = ["stm32l4/stm32l4x1", "l4"]
+stm32l4x2 = ["stm32l4/stm32l4x2", "l4"]
+stm32l4x3 = ["stm32l4/stm32l4x3", "l4"]
+stm32l4x5 = ["stm32l4/stm32l4x5", "l4"]
+stm32l4x6 = ["stm32l4/stm32l4x6", "l4"]
 
 # [L5](https://docs.rs/crate/stm32l5/0.13.0/source/Cargo.toml)
-stm32l552 = ["stm32l5/stm32l552"]
-stm32l562 = ["stm32l5/stm32l562"]
+stm32l552 = ["stm32l5/stm32l552", "l5"]
+stm32l562 = ["stm32l5/stm32l562", "l5"]
+
+# [H7](https://docs.rs/crate/stm32h7/0.13.0/source/Cargo.toml)
+stm32h743 = ["stm32h7/stm32h743", "h7"]
+stm32h743v = ["stm32h7/stm32h743v", "h7"]
+stm32h747cm4 = ["stm32h7/stm32h747cm4", "h7"]
+stm32h747cm7 = ["stm32h7/stm32h747cm7", "h7"]
+stm32h753 = ["stm32h7/stm32h753", "h7"]
+stm32h753v = ["stm32h7/stm32h753v", "h7"]
+stm32h7b3 = ["stm32h7/stm32h7b3", "h7"]
+
+f3 = []
+l4 = []
+l5 = []
+h7 = []
