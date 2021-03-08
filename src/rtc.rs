@@ -198,7 +198,9 @@ impl Rtc {
             feature = "stm32l4x2",
             feature = "stm32l4x3",
             feature = "stm32l4x5",
-            feature = "stm32l4x6"
+            feature = "stm32l4x6",
+            feature = "stm32l552",
+            feature = "stm32l562",
             ))] {
                 rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
                 rcc.apb1enr1.modify(|_, w| w.rtcapben().set_bit());

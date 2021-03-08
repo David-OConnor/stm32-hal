@@ -50,7 +50,7 @@ fn main() -> ! {
         defmt::error!("Unable to configure clocks due to a speed error.")
     };
 
-    let mut delay = Delay::new(cp.SYST, &clocks.systick());
+    let mut delay = Delay::new(cp.SYST, &clocks);
 
     let mut rtc = Rtc::new(
         dp.RTC,

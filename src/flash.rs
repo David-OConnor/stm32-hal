@@ -134,7 +134,9 @@ impl Flash {
                 feature = "stm32l4x2",
                 feature = "stm32l4x3",
                 feature = "stm32l4x5",
-                feature = "stm32l4x6"
+                feature = "stm32l4x6",
+                feature = "stm32l552",
+                feature = "stm32l562",
             ))] {
                 match page {
                     0..=255 => {
@@ -174,7 +176,9 @@ impl Flash {
                     feature = "stm32l4x2",
                     feature = "stm32l4x3",
                     feature = "stm32l4x5",
-                    feature = "stm32l4x6"
+                    feature = "stm32l4x6",
+                    feature = "stm32l552",
+                    feature = "stm32l562"
                 ))] {
                         self.regs.cr.modify(|_, w| w.start().set_bit());
             }
@@ -202,7 +206,9 @@ impl Flash {
                 feature = "stm32l4x2",
                 feature = "stm32l4x3",
                 feature = "stm32l4x5",
-                feature = "stm32l4x6"
+                feature = "stm32l4x6",
+                feature = "stm32l552",
+                feature = "stm32l562"
             ))] {
                 self.regs.cr.modify(|_, w| w.per().clear_bit());
             }
@@ -256,7 +262,9 @@ impl Flash {
                     feature = "stm32l4x2",
                     feature = "stm32l4x3",
                     feature = "stm32l4x5",
-                    feature = "stm32l4x6"
+                    feature = "stm32l4x6",
+                    feature = "stm32l552",
+                    feature = "stm32l562"
             ))] {
                     match banks {
                         BanksToErase::Bank1 => {

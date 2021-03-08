@@ -1,7 +1,7 @@
 //! Timers. Based on `stm32f3xx-hal`
 
 use cast::{u16, u32};
-use core::convert::{From, TryFrom};
+// use core::convert::{From, TryFrom};
 use num_traits::float::Float;
 
 use embedded_hal::timer::{CountDown, Periodic};
@@ -13,37 +13,39 @@ use crate::{
     pac::{RCC, TIM15, TIM16, TIM2, TIM6, TIM7},
 };
 
-// I'm not sure where to get a good list of these. Info's in the Ref mans, but buried.
+use paste::paste;
 
+// I'm not sure where to get a good list of which variants use which timers.
+// Info's in the Ref mans, but buried.
 #[cfg(feature = "stm32f301")]
-use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM19, TIM2, TIM3, TIM4, TIM5};
+use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM19, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "stm32f302")]
-use crate::pac::{TIM1, TIM17, TIM18, TIM2, TIM20, TIM3, TIM4, TIM8};
+use crate::pac::{TIM1, TIM17, TIM18, TIM20, TIM3, TIM4, TIM8};
 
 #[cfg(feature = "stm32f303")]
-use crate::pac::{TIM1, TIM17, TIM2, TIM20, TIM3, TIM4, TIM8};
+use crate::pac::{TIM1, TIM17, TIM20, TIM3, TIM4, TIM8};
 
 #[cfg(feature = "stm32f373")]
-use crate::pac::{TIM10, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM2, TIM3, TIM4, TIM5};
+use crate::pac::{TIM10, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "stm32f3x4")]
-use crate::pac::{TIM1, TIM17, TIM2, TIM3, TIM4};
+use crate::pac::{TIM1, TIM17, TIM3, TIM4};
 
 #[cfg(feature = "stm32l4x1")]
-use crate::pac::{TIM1, TIM2, TIM3};
+use crate::pac::{TIM1, TIM3};
 
 #[cfg(feature = "stm32l4x2")]
-use crate::pac::{TIM1, TIM2, TIM3};
+use crate::pac::{TIM1, TIM3};
 
 #[cfg(feature = "stm32l4x3")]
-use crate::pac::{TIM1, TIM2, TIM3};
+use crate::pac::TIM1;
 
 #[cfg(feature = "stm32l4x5")]
-use crate::pac::{TIM1, TIM17, TIM2, TIM3, TIM4, TIM5, TIM8};
+use crate::pac::{TIM1, TIM17, TIM3, TIM4, TIM5, TIM8};
 
 #[cfg(feature = "stm32l4x6")]
-use crate::pac::{TIM1, TIM17, TIM2, TIM3, TIM4, TIM5, TIM8};
+use crate::pac::{TIM1, TIM17, TIM3, TIM4, TIM5, TIM8};
 
 #[cfg(feature = "stm32l552")]
 use crate::pac::TIM1;
@@ -58,7 +60,7 @@ pub struct ValueError {}
 /// Hardware timers
 pub struct Timer<TIM> {
     clock_speed: u32, // Associated timer clock speed in Hz.
-    tim: TIM,
+    tim: TIM,         // Register block for the specific timer.
 }
 
 /// Interrupt events
@@ -102,7 +104,6 @@ pub enum Polarity {
     ActiveLow,
 }
 
-#[cfg(feature = "stm32f303")]
 impl Polarity {
     /// For use with `set_bit()`.
     fn bit(&self) -> bool {
@@ -198,7 +199,7 @@ impl OutputCompare {
 
 macro_rules! hal {
     ($({
-        $TIMX:ident: ($tim:ident, $timXen:ident, $timXrst:ident, $pclkX:ident),
+        $TIMX:ident: ($tim:ident, $apb:ident, $enr:ident, $rst:ident),
     },)+) => {
         $(
             impl Periodic for Timer<$TIMX> {}
@@ -212,7 +213,7 @@ macro_rules! hal {
                 {
                     self.stop();
 
-                    self.set_freq(timeout.into(), self.clock_speed);
+                    self.set_freq(timeout.into(), self.clock_speed).ok();
 
                     // Trigger an update event to load the prescaler value to the clock
                     // NOTE(write): uses all bits in this register.
@@ -243,14 +244,44 @@ macro_rules! hal {
 
                     // enable and reset peripheral to a clean slate state
                     // todo: Feature-gate, adn use the right apb1 vs apb2.
-                    rcc.apb1enr.modify(|_, w| w.$timXen().enabled());
-                    rcc.apb1rstr.modify(|_, w| w.$timXrst().reset());
-                    rcc.apb1rstr.modify(|_, w| w.$timXrst().clear_bit());
 
-                    let mut timer = Timer { clock_speed: clocks.$pclkX(), tim };
-                    timer.start(freq);
+                    cfg_if::cfg_if! {
+                        if #[cfg(any(
+                            feature = "stm32f301",
+                            feature = "stm32f302",
+                            feature = "stm32f303",
+                            feature = "stm32f373",
+                            feature = "stm32f3x4"
+                        ))] {
+                            paste! {
+                                rcc.[<$apb enr>].modify(|_, w| w.[<$tim en>]().set_bit());
+                                rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().set_bit());
+                                rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().clear_bit());
+                            }
+                        } else if # [cfg(any(
+                            feature = "stm32l4x1",
+                            feature = "stm32l4x2",
+                            feature = "stm32l4x3",
+                            feature = "stm32l4x5",
+                            feature = "stm32l4x6"
+                        ))] {
+                            paste! {
+                                // We use `$enr` and $rst, since we only add `1` after for apb1.
+                                // This isn't required on f3.
+                                rcc.[<$apb $enr>].modify(|_, w| w.[<$tim en>]().set_bit());
+                                rcc.[<$apb $rst>].modify(|_, w| w.[<$tim rst>]().set_bit());
+                                rcc.[<$apb $rst>].modify(|_, w| w.[<$tim rst>]().clear_bit());
+                            }
+                        }
+                    }
 
-                    timer
+                    paste! {
+                        let mut timer = Timer { clock_speed: clocks.[<$apb _timer>](), tim };
+
+                        timer.start(freq);
+
+                        timer
+                    }
                 }
 
                 /// Starts listening for an `event`
@@ -341,7 +372,7 @@ fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16), ValueError>
 
 macro_rules! pwm_features {
     ($({
-        $TIMX:ident: ($tim:ident, $timXen:ident, $timXrst:ident, $pclkX:ident),
+        $TIMX:ident: ($tim:ident, $apb:ident),
         $res:ident,
     },)+) => {
         $(
@@ -351,15 +382,75 @@ macro_rules! pwm_features {
                     match channel {
                         Channel::One => {
                             self.tim.ccmr1_output().modify(|_, w| w.oc1m().bits(mode as u8));
-                            self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
+                            cfg_if::cfg_if! {
+                                if #[cfg(any(
+                                    feature = "stm32f301",
+                                    feature = "stm32f302",
+                                    feature = "stm32f303",
+                                    feature = "stm32f373",
+                                    feature = "stm32f3x4"
+                                ))] {
+                                    self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
+                            } else if # [cfg(any(
+                                    feature = "stm32l4x1",
+                                    feature = "stm32l4x2",
+                                    feature = "stm32l4x3",
+                                    feature = "stm32l4x5",
+                                    feature = "stm32l4x6",
+                                    feature = "stm32l552",
+                                    feature = "stm32l562",
+                                ))] {
+                                self.tim.ccmr1_output().modify(|_, w| w.oc1m_2().bit(mode.left_bit()));
+                                }
+                            }
                         }
                         Channel::Two => {
-                            self.tim.ccmr1_output().modify(|_, w| w.oc2m().bits(mode as u8));
-                            self.tim.ccmr1_output().modify(|_, w| w.oc2m_3().bit(mode.left_bit()));
+                             self.tim.ccmr1_output().modify(|_, w| w.oc1m().bits(mode as u8));
+                            cfg_if::cfg_if! {
+                                if #[cfg(any(
+                                    feature = "stm32f301",
+                                    feature = "stm32f302",
+                                    feature = "stm32f303",
+                                    feature = "stm32f373",
+                                    feature = "stm32f3x4"
+                                ))] {
+                                    self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
+                            } else if # [cfg(any(
+                                    feature = "stm32l4x1",
+                                    feature = "stm32l4x2",
+                                    feature = "stm32l4x3",
+                                    feature = "stm32l4x5",
+                                    feature = "stm32l4x6",
+                                    feature = "stm32l552",
+                                    feature = "stm32l562",
+                                ))] {
+                                self.tim.ccmr1_output().modify(|_, w| w.oc1m_2().bit(mode.left_bit()));
+                                }
+                            }
                         }
                         Channel::Three => {
-                            self.tim.ccmr2_output().modify(|_, w| w.oc3m().bits(mode as u8));
-                            self.tim.ccmr2_output().modify(|_, w| w.oc3m_3().bit(mode.left_bit()));
+                             self.tim.ccmr1_output().modify(|_, w| w.oc1m().bits(mode as u8));
+                            cfg_if::cfg_if! {
+                                if #[cfg(any(
+                                    feature = "stm32f301",
+                                    feature = "stm32f302",
+                                    feature = "stm32f303",
+                                    feature = "stm32f373",
+                                    feature = "stm32f3x4"
+                                ))] {
+                                    self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
+                            } else if # [cfg(any(
+                                    feature = "stm32l4x1",
+                                    feature = "stm32l4x2",
+                                    feature = "stm32l4x3",
+                                    feature = "stm32l4x5",
+                                    feature = "stm32l4x6",
+                                    feature = "stm32l552",
+                                    feature = "stm32l562",
+                                ))] {
+                                self.tim.ccmr1_output().modify(|_, w| w.oc1m_2().bit(mode.left_bit()));
+                                }
+                            }
                         }
                         Channel::Four => {
                             self.tim.ccmr2_output().modify(|_, w| w.oc4m().bits(mode as u8));
@@ -507,21 +598,35 @@ macro_rules! pwm_features {
 }
 
 // todo: Which use apb1, and which use apb2? We have a good start, but needs QC
-// todo: Feature-gate f562.
+
+// todo: Fix pwm features for l4 and put back!
+
+// We only implement `pwm_features` for general purpose timers. Perhaps we should implement
+// for advanced-control timers too.
 
 #[cfg(not(feature = "stm32f373"))]
 hal! {
     {
-        TIM1: (tim1, tim1en, tim1rst, apb2_timer),
+        TIM1: (tim1, apb2, enr, rstr),
     },
 }
 
-#[cfg(not(feature = "stm32f552"))]
-hal! {
-    {
-        TIM3: (tim3, tim3en, tim3rst, apb1_timer),
-    },
-}
+// todo causing dups - why?
+// #[cfg(not(any(feature = "stm32f552", feature = "stm32l4x3))]
+// hal! {
+//     {
+//         TIM3: (tim3, apb1, enr1, rstr1),
+//     },
+// }
+
+// todo causing dups!
+// #[cfg(not(feature = "stm32f552"))]
+// pwm_features! {
+//     {
+//         TIM3: (tim3, apb1, enr1, rstr1),
+//         u16,
+//     },
+// }
 
 #[cfg(not(any(
     feature = "stm32l4x1",
@@ -531,12 +636,25 @@ hal! {
 )))]
 hal! {
     {
-        TIM4: (tim4, tim4en, tim4rst, apb1_timer),
+        TIM4: (tim4, apb1, enr1, rstr1),
     },
     {
-        TIM17: (tim17, tim17en, tim17rst, apb2_timer),
+        TIM17: (tim17, apb2, enr, rstr),
     },
 }
+
+// #[cfg(not(any(
+// feature = "stm32l4x1",
+// feature = "stm32l4x2",
+// feature = "stm32l4x3",
+// feature = "stm32l552"
+// )))]
+// pwm_features! {
+//     {
+//         TIM4: (tim4, apb1),
+//         u16,
+//     },
+// }
 
 #[cfg(any(
     feature = "stm32f301",
@@ -547,27 +665,34 @@ hal! {
 ))]
 hal! {
     {
-        TIM5: (tim5, tim56en, tim5rst, apb1_timer),
+        TIM5: (tim5, apb1, enr1, rstr1),
     },
 }
 
 hal! {
     {
-        TIM2: (tim2, tim2en, tim2rst, apb1_timer),
+        TIM2: (tim2, apb1, enr1, rstr1),
     },
     {
-        TIM6: (tim6, tim6en, tim6rst, apb1_timer),
+        TIM6: (tim6, apb1, enr1, rstr1),
     },
         {
-        TIM7: (tim7, tim7en, tim7rst, apb1_timer),
+        TIM7: (tim7, apb1, enr1, rstr1),
     },
     {
-        TIM15: (tim15, tim15en, tim15rst, apb2_timer),
+        TIM15: (tim15, apb2, enr, rstr),
     },
     {
-        TIM16: (tim16, tim16en, tim16rst, apb2_timer),
+        TIM16: (tim16, apb2, enr, rstr),
     },
 }
+
+// pwm_features! {
+//     {
+//         TIM2: (tim2, apb1, enr1, rstr1),
+//         u32,
+//     },
+// }
 
 #[cfg(any(
     feature = "stm32f302",
@@ -578,54 +703,39 @@ hal! {
 ))]
 hal! {
     {
-        TIM8: (tim8, tim8en, tim8rst, apb2_timer),
+        TIM8: (tim8, apb2, enr, rstr),
     },
 }
 
 #[cfg(feature = "stm32f373")]
 hal! {
     {
-        TIM10: (tim10, tim10en, tim10rst, apb2_timer),
+        TIM10: (tim10, apb2, enr, rstr),
     },
 }
 
 #[cfg(any(feature = "stm32f301", feature = "stm32f373"))]
 hal! {
     {
-        TIM12: (tim12, tim12en, tim12rst, apb1_timer),
+        TIM12: (tim12, apb1, enr1, rstr1),
     },
     {
-        TIM13: (tim13, tim13en, tim13rst, apb1_timer),
-    },
-        {
-        TIM14: (tim14, tim14en, tim14rst, apb1_timer),
+        TIM13: (tim13, apb1, enr1, rstr1),
     },
     {
-        TIM19: (tim19, tim19en, tim19rst, , apb2_timer),
+        TIM14: (tim14, apb1, enr1, rstr1),
+    },
+    {
+        TIM19: (tim19, apb2, enr, rstr),
     }
 }
 
-#[cfg(any(feature = "stm32f302", feature = "stm32f373"))]
+#[cfg(any(feature = "stm32f302", feature = "stm32f303"))]
 hal! {
-    {
-        TIM18: (tim18, tim18en, tim18rst, apb2_timer),
-    },
+    // {  // todo why is this causing dups?
+    //     TIM18: (tim18, apb2, enr, rstr),
+    // },
         {
-        TIM20: (tim20, tim20en, tim20rst, apb2_timer),
+        TIM20: (tim20, apb2, enr, rstr),
     },
 }
-
-// pwm_features! {
-//     {
-//         TIM2: (tim2, tim2en, tim2rst, apb1_timer),
-//         u32,
-//     },
-//     {
-//         TIM3: (tim3, tim3en, tim3rst, apb1_timer),
-//         u16,
-//     },
-//     {
-//         TIM4: (tim4, tim4en, tim4rst, apb1_timer),
-//         u16,
-//     },
-// }

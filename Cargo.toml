@@ -25,6 +25,7 @@ embedded-hal = { version = "0.2.4", features = ["unproven"] }
 rtcc = "0.2"  # Embedded datetime traits.
 num-traits = { version = "0.2.14", default-features = false, features=["libm"] }  # For sqrt in timers
 cfg-if = "1.0.0"  # if/else blocks for feature-gating
+paste = "1.0.4"  # Token pasting, to make macros easier.
 void = { version = "1.0.2", default_features = false }  # One off in `timer.rs`. Remove it A/R.
 
 
