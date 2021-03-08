@@ -13,6 +13,13 @@
     feature = "stm32l4x6",
     feature = "stm32l552",
     feature = "stm32l562",
+    feature = "stm32h743",
+    feature = "stm32h743v",
+    feature = "stm32h747cm4",
+    feature = "stm32h747cm7",
+    feature = "stm32h753",
+    feature = "stm32h753v",
+    feature = "stm32h7b3",
 )))]
 compile_error!("This crate requires an MCU-specifying feature to be enabled. eg `stm32l552`.");
 
@@ -50,14 +57,37 @@ pub use stm32l4::stm32l4x6 as pac;
 
 // L5 PAC
 #[cfg(feature = "stm32l552")]
-pub use stm32l4::stm32l552 as pac;
+pub use stm32l5::stm32l552 as pac;
 
 #[cfg(feature = "stm32l562")]
-pub use stm32l4::stm32l562 as pac;
+pub use stm32l5::stm32l562 as pac;
 
-// todo: U5 and H7
+// H7 PAC
+#[cfg(feature = "stm32h743")]
+pub use stm32h7::stm32h743 as pac;
+
+#[cfg(feature = "stm32h743v")]
+pub use stm32h7::stm32h743v as pac;
+
+#[cfg(feature = "stm32h747cm4")]
+pub use stm32h7::stm32h747cm4 as pac;
+
+#[cfg(feature = "stm32h747cm7")]
+pub use stm32h7::stm32h747cm7 as pac;
+
+#[cfg(feature = "stm32h753")]
+pub use stm32h7::stm32h753 as pac;
+
+#[cfg(feature = "stm32h753v")]
+pub use stm32h7::stm32h753v as pac;
+
+#[cfg(feature = "stm32h7b3")]
+pub use stm32h7::stm32h7b3 as pac;
+
+// todo: U5
 
 pub mod clocks;
+pub mod dac;
 pub mod delay;
 pub mod flash;
 pub mod i2c;

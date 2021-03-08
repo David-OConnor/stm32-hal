@@ -1,18 +1,9 @@
 //! Configure the internal DAC on the stm32f3xx.
 //! Incomplete, but includes basic operation.
 
-// todo
-
 use core::fmt;
 
-use crate::{
-    gpio::{
-        gpioa::{PA4, PA5},
-        Analog,
-    },
-    pac,
-    rcc::APB1,
-};
+use crate::pac::{DAC1, RCC};
 
 /// Trait representing a single-channel digital-to-analog converter (DAC).
 pub trait SingleChannelDac<Word> {
@@ -23,11 +14,11 @@ pub trait SingleChannelDac<Word> {
     fn try_set_value(&mut self, value: Word) -> Result<(), Self::Error>;
 }
 
-/// This is an abstraction to ensure that the DAC output pin is configured
-/// as an analog output.
-pub trait Pins {}
-impl Pins for PA4<Analog> {}
-impl Pins for PA5<Analog> {}
+// /// This is an abstraction to ensure that the DAC output pin is configured
+// /// as an analog output.
+// pub trait Pins {}
+// impl Pins for PA4<Analog> {}
+// impl Pins for PA5<Analog> {}
 
 #[derive(Clone, Copy, Debug)]
 /// Select the channel
@@ -40,7 +31,7 @@ pub enum Channel {
 
 #[derive(Clone, Copy, Debug)]
 /// Three options are available to set DAC precision.
-pub enum DacBits {
+pub enum Bits {
     /// Eight bit precision, right-aligned.
     EightR,
     /// 12-bit precision, left-aligned.
@@ -86,21 +77,15 @@ impl Trigger {
 }
 
 pub struct Dac {
-    regs: pac::DAC,
+    regs: DAC1,
     channel: Channel,
-    bits: DacBits,
+    bits: Bits,
     vref: f32,
 }
 
 impl Dac {
     /// Create a new DAC instance
-    pub fn new<P: Pins>(
-        regs: pac::DAC,
-        _pins: P,
-        channel: Channel,
-        bits: DacBits,
-        vref: f32,
-    ) -> Self {
+    pub fn new<P>(regs: DAC1, _pins: P, channel: Channel, bits: Bits, vref: f32) -> Self {
         Self {
             regs,
             channel,
@@ -110,32 +95,49 @@ impl Dac {
     }
 
     /// Enable the DAC.
-    pub fn enable(&mut self, apb1: &mut APB1) {
-        apb1.enr().modify(|_, w| w.dac1en().enabled());
+    pub fn enable(&mut self, rcc: &mut RCC) {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "f3")] {
+                rcc.apb1enr.modify(|_, w| w.dac1en().set_bit());
+            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                rcc.apb1enr1.modify(|_, w| w.dac1en().set_bit());
+            }
+        }
+
         match self.channel {
-            Channel::One => self.regs.cr.modify(|_, w| w.en1().enabled()),
-            Channel::Two => self.regs.cr.modify(|_, w| w.en2().enabled()),
+            Channel::One => self.regs.cr.modify(|_, w| w.en1().set_bit()),
+            Channel::Two => self.regs.cr.modify(|_, w| w.en2().set_bit()),
         }
     }
 
     /// Disable the DAC
-    pub fn disable(&mut self, apb1: &mut APB1) {
-        self.regs.cr.modify(|_, w| w.en1().disabled());
-        apb1.enr().modify(|_, w| w.dac1en().disabled());
+    pub fn disable(&mut self, rcc: &mut RCC) {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "f3")] {
+                rcc.apb1enr.modify(|_, w| w.dac1en().clear_bit());
+            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                rcc.apb1enr1.modify(|_, w| w.dac1en().clear_bit());
+            }
+        }
+
+        match self.channel {
+            Channel::One => self.regs.cr.modify(|_, w| w.en1().clear_bit()),
+            Channel::Two => self.regs.cr.modify(|_, w| w.en2().clear_bit()),
+        }
     }
 
     /// Set the DAC value as an integer.
     pub fn set_value(&mut self, val: u32) {
         match self.channel {
             Channel::One => match self.bits {
-                DacBits::EightR => self.regs.dhr8r1.modify(|_, w| unsafe { w.bits(val) }),
-                DacBits::TwelveL => self.regs.dhr12l1.modify(|_, w| unsafe { w.bits(val) }),
-                DacBits::TwelveR => self.regs.dhr12r1.modify(|_, w| unsafe { w.bits(val) }),
+                Bits::EightR => self.regs.dhr8r1.modify(|_, w| unsafe { w.bits(val) }),
+                Bits::TwelveL => self.regs.dhr12l1.modify(|_, w| unsafe { w.bits(val) }),
+                Bits::TwelveR => self.regs.dhr12r1.modify(|_, w| unsafe { w.bits(val) }),
             },
             Channel::Two => match self.bits {
-                DacBits::EightR => self.regs.dhr8r2.modify(|_, w| unsafe { w.bits(val) }),
-                DacBits::TwelveL => self.regs.dhr12l2.modify(|_, w| unsafe { w.bits(val) }),
-                DacBits::TwelveR => self.regs.dhr12r2.modify(|_, w| unsafe { w.bits(val) }),
+                Bits::EightR => self.regs.dhr8r2.modify(|_, w| unsafe { w.bits(val) }),
+                Bits::TwelveL => self.regs.dhr12l2.modify(|_, w| unsafe { w.bits(val) }),
+                Bits::TwelveR => self.regs.dhr12r2.modify(|_, w| unsafe { w.bits(val) }),
             },
         }
     }
@@ -143,9 +145,9 @@ impl Dac {
     /// Set the DAC voltage. `v` is in Volts.
     pub fn set_voltage(&mut self, volts: f32) {
         let val = match self.bits {
-            DacBits::EightR => ((volts / self.vref) * 255.) as u32,
-            DacBits::TwelveL => ((volts / self.vref) * 4_095.) as u32,
-            DacBits::TwelveR => ((volts / self.vref) * 4_095.) as u32,
+            Bits::EightR => ((volts / self.vref) * 255.) as u32,
+            Bits::TwelveL => ((volts / self.vref) * 4_095.) as u32,
+            Bits::TwelveR => ((volts / self.vref) * 4_095.) as u32,
         };
 
         self.set_value(val);
@@ -155,14 +157,16 @@ impl Dac {
     pub fn set_trigger(&mut self, trigger: Trigger) {
         match self.channel {
             Channel::One => {
-                self.regs.cr.modify(|_, w| w.ten1().enabled());
+                self.regs.cr.modify(|_, w| w.ten1().set_bit());
                 self.regs
                     .cr
                     .modify(|_, w| unsafe { w.tsel1().bits(trigger.bits()) });
             }
             Channel::Two => {
-                self.regs.cr.modify(|_, w| w.ten2().enabled());
-                self.regs.cr.modify(|_, w| w.tsel2().bits(trigger.bits()));
+                self.regs.cr.modify(|_, w| w.ten2().set_bit());
+                self.regs
+                    .cr
+                    .modify(|_, w| unsafe { w.tsel2().bits(trigger.bits()) });
             }
         }
     }
@@ -174,11 +178,11 @@ impl Dac {
         match self.channel {
             Channel::One => {
                 self.regs.cr.modify(|_, w| unsafe { w.wave1().bits(0b01) });
-                self.regs.cr.modify(|_, w| w.mamp1().bits(0b01));
+                self.regs.cr.modify(|_, w| unsafe { w.mamp1().bits(0b01) });
             }
             Channel::Two => {
                 self.regs.cr.modify(|_, w| unsafe { w.wave2().bits(0b01) });
-                self.regs.cr.modify(|_, w| w.mamp2().bits(0b01));
+                self.regs.cr.modify(|_, w| unsafe { w.mamp2().bits(0b01) });
             }
         }
         self.set_trigger(trigger);
@@ -192,11 +196,11 @@ impl Dac {
         match self.channel {
             Channel::One => {
                 self.regs.cr.modify(|_, w| unsafe { w.wave1().bits(0b10) });
-                self.regs.cr.modify(|_, w| w.mamp1().bits(0b10));
+                self.regs.cr.modify(|_, w| unsafe { w.mamp1().bits(0b10) });
             }
             Channel::Two => {
                 self.regs.cr.modify(|_, w| unsafe { w.wave2().bits(0b10) });
-                self.regs.cr.modify(|_, w| w.mamp2().bits(0b10));
+                self.regs.cr.modify(|_, w| unsafe { w.mamp2().bits(0b10) });
             }
         }
         self.set_trigger(trigger);

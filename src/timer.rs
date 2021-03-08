@@ -213,7 +213,7 @@ macro_rules! hal {
                 {
                     self.disable();
 
-                    self.set_freq(timeout.into(), self.clock_speed).ok();
+                    self.set_freq(timeout.into()).ok();
 
                     // Trigger an update event to load the prescaler value to the clock
                     // NOTE(write): uses all bits in this register.
@@ -340,7 +340,7 @@ macro_rules! hal {
 
                 /// Set the timer frequency, in Hz. Overrides the period or frequency set
                 /// in the constructor.
-                pub fn set_freq(&mut self, freq: f32, clock_speed: u32) -> Result<(), ValueError> {
+                pub fn set_freq(&mut self, freq: f32) -> Result<(), ValueError> {
                    let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;
 
                     self.tim.arr.write(|w| unsafe { w.bits(arr.into()) });
