@@ -8,14 +8,16 @@ use defmt_rtt as _;
 use panic_probe as _;
 
 use stm32_hal::{
-    clocks,
+    clocks::{Clocks, ClockCfg},
     delay::Delay,
     event::Timeout,
     flash::Flash,
     pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
-    timer::Timer,
+    timer::{Timer, Event::TimeOut},
 };
+
+use embedded_hal::prelude::*;
 
 // same panicking *behavior* as `panic-probe` but doesn't print a panic message
 // this prevents the panic message being printed *twice* when `defmt::panic` is invoked
@@ -44,7 +46,7 @@ fn main() -> ! {
     dp.DBGMCU.cr.modify(|_, w| w.dbg_stop().set_bit());
     dp.DBGMCU.cr.modify(|_, w| w.dbg_standby().set_bit());
 
-    let clocks = clocks::Clocks::hsi_preset();
+    let clocks = Clocks::default();
 
     if clocks.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
         defmt::error!("Unable to configure clocks due to a speed error.")
@@ -62,8 +64,8 @@ fn main() -> ! {
     // Read from adn write to the flash memory:
     let mut flash = Flash::new(dp.FLASH);
 
-    flash.as_mut().unwrap().erase_page(FLASH_PAGE).ok();
-    flash.as_mut().unwrap().write_page(10, &[1, 2, 3]).ok();
+    flash.erase_page(FLASH_PAGE).ok();
+    flash.write_page(10, &[1, 2, 3]).ok();
 
     let flash_contents = flash.read(10, 0);
 

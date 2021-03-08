@@ -9,15 +9,26 @@ This makes it easier to switch MCUs within, or across families, for a given proj
 
 Motivation: Use STM32s in real-world hardware projects. Be able to switch MCUs with
 minimal code change. Prioritize getting hardware working with a reasonable feature set.
-As of this library's creation, this is not feasible with the existing HAL crates due
-to lack of mainainer time, and differing goals.
+As of this library's creation, this is not feasible with existing HAL crates due
+to lack of maintainer time, and differing priorities.
 
 If using concurrently with another hal, you need to instantiate a set of
 MCU peripherals for each. Ie:
-
 ```rust
 let mut dp = stm32_hal::pac::Peripherals::take().unwrap();
 let mut dp2 = stm32l4xx_hal::pac::Peripherals::take().unwrap();
 ```
+
+Examples of features this crate includes that aren't present in many
+existing HALs:
+    - Low power modes
+    - RTC wakeup handler; RTCC trait support
+    - Repeating starts on I2C/SMBUS
+    - More PWM functionality
+    - Timer frequency < 1Hz
+    - More predictable clock cfg
+    - Read and write onboard flash
+    - DAC support
+    
 
 PRs encouraged.

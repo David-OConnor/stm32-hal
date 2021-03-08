@@ -66,7 +66,7 @@ pub struct Timer<TIM> {
 /// Interrupt events
 pub enum Event {
     /// Timer timed out / count down ended
-    Update,
+    TimeOut,
 }
 
 /// Output alignment
@@ -211,7 +211,7 @@ macro_rules! hal {
                 where
                     T: Into<f32>,  // Hz.
                 {
-                    self.stop();
+                    self.disable();
 
                     self.set_freq(timeout.into(), self.clock_speed).ok();
 
@@ -224,7 +224,7 @@ macro_rules! hal {
                     self.clear_update_interrupt_flag();
 
                     // start counter
-                    self.tim.cr1.modify(|_, w| w.cen().enabled());
+                    self.enable();
                 }
 
                 fn wait(&mut self) -> nb::Result<(), Void> {
@@ -239,7 +239,11 @@ macro_rules! hal {
 
             impl Timer<$TIMX> {
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn $tim<T, C: ClockCfg>(tim: $TIMX, freq: f32, clocks: &C, rcc: &mut RCC) -> Self {
+                pub fn $tim<T:, C>(tim: $TIMX, freq: T, clocks: &C, rcc: &mut RCC) -> Self
+                where
+                    T: Into<f32>,
+                    C: ClockCfg,
+                {
                     // `freq` is in Hz.
 
                     // enable and reset peripheral to a clean slate state
@@ -287,30 +291,50 @@ macro_rules! hal {
                 /// Starts listening for an `event`
                 pub fn listen(&mut self, event: Event) {
                     match event {
-                        Event::Update => self.tim.dier.write(|w| w.uie().enabled()),
+                        // Enable update event interrupt
+                        Event::TimeOut => self.tim.dier.write(|w| w.uie().set_bit()),
+                    }
+                }
+
+                /// Enable the timer.
+                pub fn enable(&mut self) {
+                    self.tim.cr1.modify(|_, w| w.cen().set_bit());
+                }
+
+                /// Disable the timer.
+                pub fn disable(&mut self) {
+                    self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+                }
+
+                /// Clears interrupt associated with `event`.
+                ///
+                /// If the interrupt is not cleared, it will immediately retrigger after
+                /// the ISR has finished.
+                pub fn clear_interrupt(&mut self, event: Event) {
+                    match event {
+                        Event::TimeOut => {
+                            // Clear interrupt flag
+                            self.tim.sr.write(|w| w.uif().clear_bit());
+                        }
                     }
                 }
 
                 /// Stops listening for an `event`
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
-                        Event::Update => self.tim.dier.write(|w| w.uie().disabled()),
+                        // Disable update event interrupt
+                        Event::TimeOut => self.tim.dier.write(|w| w.uie().clear_bit()),
                     }
-                }
-
-                /// Stops the timer
-                pub fn stop(&mut self) {
-                    self.tim.cr1.modify(|_, w| w.cen().disabled());
                 }
 
                 /// Clears Update Interrupt Flag
                 pub fn clear_update_interrupt_flag(&mut self) {
-                    self.tim.sr.modify(|_, w| w.uif().clear());
+                    self.tim.sr.modify(|_, w| w.uif().clear_bit());
                 }
 
                 /// Releases the TIM peripheral
-                pub fn release(mut self) -> $TIMX {
-                    self.stop();
+                pub fn free(mut self) -> $TIMX {
+                    self.disable();
                     self.tim
                 }
 
