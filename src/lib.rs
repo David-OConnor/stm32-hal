@@ -60,7 +60,7 @@ pub use stm32l4::stm32l562 as pac;
 pub mod clocks;
 pub mod delay;
 pub mod flash;
-// pub mod i2c;
+pub mod i2c;
 // pub mod low_power;
 pub mod rtc;
 pub mod timer;

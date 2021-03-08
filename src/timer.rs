@@ -635,15 +635,13 @@ hal! {
     },
 }
 
-// todo causing dups - why?
-// #[cfg(not(any(feature = "stm32f552", feature = "stm32l4x3))]
-// hal! {
-//     {
-//         TIM3: (tim3, apb1, enr1, rstr1),
-//     },
-// }
+#[cfg(not(any(feature = "stm32f552", feature = "stm32l4x3")))]
+hal! {
+    {
+        TIM3: (tim3, apb1, enr1, rstr1),
+    },
+}
 
-// todo causing dups!
 // #[cfg(not(feature = "stm32f552"))]
 // pwm_features! {
 //     {
@@ -738,6 +736,16 @@ hal! {
     },
 }
 
+#[cfg(any(feature = "stm32f302", feature = "stm32f303"))]
+hal! {
+    // { todo This is causing duplicates when compiling with f303. Why?
+    //     TIM18: (tim18, apb2, enr, rstr),
+    // },
+    {
+        TIM20: (tim20, apb2, enr, rstr),
+    },
+}
+
 #[cfg(any(feature = "stm32f301", feature = "stm32f373"))]
 hal! {
     {
@@ -751,15 +759,5 @@ hal! {
     },
     {
         TIM19: (tim19, apb2, enr, rstr),
-    }
-}
-
-#[cfg(any(feature = "stm32f302", feature = "stm32f303"))]
-hal! {
-    // {  // todo why is this causing dups?
-    //     TIM18: (tim18, apb2, enr, rstr),
-    // },
-        {
-        TIM20: (tim20, apb2, enr, rstr),
     },
 }
