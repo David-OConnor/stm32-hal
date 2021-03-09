@@ -5,7 +5,7 @@ use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 use crate::{
     clocks::ClockCfg,
-    pac::{i2c1, I2C1, I2C2, RCC},
+    pac::{i2c1, RCC},
 };
 
 use cast::{u16, u8};

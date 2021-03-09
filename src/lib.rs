@@ -96,4 +96,5 @@ pub mod flash;
 pub mod i2c;
 pub mod low_power;
 pub mod rtc;
+pub mod spi;
 pub mod timer;

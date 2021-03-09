@@ -3,7 +3,15 @@
 
 use core::fmt;
 
-use crate::pac::{DAC1, RCC};
+// todo: Implement DAC2 (and 3?)
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "l4x6")] {
+        use crate::pac::{DAC, RCC};
+    } else {
+        use crate::pac::{DAC1, RCC};
+    }
+}
 
 /// Trait representing a single-channel digital-to-analog converter (DAC).
 pub trait SingleChannelDac<Word> {
@@ -76,22 +84,47 @@ impl Trigger {
     }
 }
 
-pub struct Dac {
-    regs: DAC1,
-    channel: Channel,
-    bits: Bits,
-    vref: f32,
+cfg_if::cfg_if! {
+    if #[cfg(feature = "l4x6")] {
+        pub struct Dac {
+            regs: DAC,
+            channel: Channel,
+            bits: Bits,
+            vref: f32,
+        }
+    } else {
+        pub struct Dac {
+            regs: DAC1,
+            channel: Channel,
+            bits: Bits,
+            vref: f32,
+        }
+    }
 }
 
 // todo: Checked constructor that makes sure the pin is a valid DAC pin configured in analog mode.
 impl Dac {
-    /// Create a new DAC instance
-    pub fn new_unchecked(regs: DAC1, channel: Channel, bits: Bits, vref: f32) -> Self {
-        Self {
-            regs,
-            channel,
-            bits,
-            vref,
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "l4x6")] {
+            /// Create a new DAC instance
+            pub fn new_unchecked(regs: DAC, channel: Channel, bits: Bits, vref: f32) -> Self {
+                Self {
+                    regs,
+                    channel,
+                    bits,
+                    vref,
+                }
+            }
+        } else {
+            /// Create a new DAC instance
+            pub fn new_unchecked(regs: DAC1, channel: Channel, bits: Bits, vref: f32) -> Self {
+                Self {
+                    regs,
+                    channel,
+                    bits,
+                    vref,
+                }
+            }
         }
     }
 

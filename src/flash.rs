@@ -1,4 +1,4 @@
-//! Read and write onboard flash memory.
+//! Read and write onboard flash memory. Based on `stm32l4xx-hal`.
 
 use crate::pac::FLASH;
 use core;

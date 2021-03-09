@@ -250,25 +250,13 @@ macro_rules! hal {
                     // todo: Feature-gate, adn use the right apb1 vs apb2.
 
                     cfg_if::cfg_if! {
-                        if #[cfg(any(
-                            feature = "f301",
-                            feature = "f302",
-                            feature = "f303",
-                            feature = "f373",
-                            feature = "f3x4"
-                        ))] {
+                        if #[cfg(feature = "f3")] {
                             paste! {
                                 rcc.[<$apb enr>].modify(|_, w| w.[<$tim en>]().set_bit());
                                 rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().set_bit());
                                 rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().clear_bit());
                             }
-                        } else if # [cfg(any(
-                            feature = "l4x1",
-                            feature = "l4x2",
-                            feature = "l4x3",
-                            feature = "l4x5",
-                            feature = "l4x6"
-                        ))] {
+                        } else if # [cfg(any(feature = "l4", feature = "l5"))] {
                             paste! {
                                 // We use `$enr` and $rst, since we only add `1` after for apb1.
                                 // This isn't required on f3.
@@ -406,72 +394,30 @@ macro_rules! pwm_features {
                         Channel::One => {
                             self.tim.ccmr1_output().modify(|_, w| w.oc1m().bits(mode as u8));
                             cfg_if::cfg_if! {
-                                if #[cfg(any(
-                                    feature = "f301",
-                                    feature = "f302",
-                                    feature = "f303",
-                                    feature = "f373",
-                                    feature = "f3x4"
-                                ))] {
+                                if #[cfg(feature = "f3")] {
                                     self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
-                            } else if # [cfg(any(
-                                    feature = "l4x1",
-                                    feature = "l4x2",
-                                    feature = "l4x3",
-                                    feature = "l4x5",
-                                    feature = "l4x6",
-                                    feature = "l552",
-                                    feature = "l562",
-                                ))] {
-                                self.tim.ccmr1_output().modify(|_, w| w.oc1m_2().bit(mode.left_bit()));
+                                } else if # [cfg(any(feature = "l4", feature = "l5"))] {
+                                    self.tim.ccmr1_output().modify(|_, w| w.oc1m_2().bit(mode.left_bit()));
                                 }
                             }
                         }
                         Channel::Two => {
                              self.tim.ccmr1_output().modify(|_, w| w.oc1m().bits(mode as u8));
                             cfg_if::cfg_if! {
-                                if #[cfg(any(
-                                    feature = "f301",
-                                    feature = "f302",
-                                    feature = "f303",
-                                    feature = "f373",
-                                    feature = "f3x4"
-                                ))] {
+                                if #[cfg(feature = "f3")] {
                                     self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
-                            } else if # [cfg(any(
-                                    feature = "l4x1",
-                                    feature = "l4x2",
-                                    feature = "l4x3",
-                                    feature = "l4x5",
-                                    feature = "l4x6",
-                                    feature = "l552",
-                                    feature = "l562",
-                                ))] {
-                                self.tim.ccmr1_output().modify(|_, w| w.oc1m_2().bit(mode.left_bit()));
+                                } else if # [cfg(any(feature = "l4", feature = "l5"))] {
+                                    self.tim.ccmr1_output().modify(|_, w| w.oc1m_2().bit(mode.left_bit()));
                                 }
                             }
                         }
                         Channel::Three => {
                              self.tim.ccmr1_output().modify(|_, w| w.oc1m().bits(mode as u8));
                             cfg_if::cfg_if! {
-                                if #[cfg(any(
-                                    feature = "f301",
-                                    feature = "f302",
-                                    feature = "f303",
-                                    feature = "f373",
-                                    feature = "f3x4"
-                                ))] {
+                                if #[cfg(feature = "f3")] {
                                     self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
-                            } else if # [cfg(any(
-                                    feature = "l4x1",
-                                    feature = "l4x2",
-                                    feature = "l4x3",
-                                    feature = "l4x5",
-                                    feature = "l4x6",
-                                    feature = "l552",
-                                    feature = "l562",
-                                ))] {
-                                self.tim.ccmr1_output().modify(|_, w| w.oc1m_2().bit(mode.left_bit()));
+                                } else if # [cfg(any(feature = "l4", feature = "l5"))] {
+                                    self.tim.ccmr1_output().modify(|_, w| w.oc1m_2().bit(mode.left_bit()));
                                 }
                             }
                         }
