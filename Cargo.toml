@@ -54,31 +54,31 @@ h7rt = ["stm32h7/rt"]
 # Features defined here are those taken from the SVD-generated STM32 PACs.
 
 # [F3](https://docs.rs/crate/stm32f3/0.13.0/source/Cargo.toml)
-stm32f301 = ["stm32f3/stm32f301", "f3"]
-stm32f302 = ["stm32f3/stm32f302", "f3"]
-stm32f303 = ["stm32f3/stm32f303", "f3"]
-stm32f373 = ["stm32f3/stm32f373", "f3"]
-stm32f3x4 = ["stm32f3/stm32f3x4", "f3"]
+f301 = ["stm32f3/stm32f301", "f3"]
+f302 = ["stm32f3/stm32f302", "f3"]
+f303 = ["stm32f3/stm32f303", "f3"]
+f373 = ["stm32f3/stm32f373", "f3"]
+f3x4 = ["stm32f3/stm32f3x4", "f3"]
 
 # [L4](https://docs.rs/crate/stm32l4/0.13.0/source/Cargo.toml)
-stm32l4x1 = ["stm32l4/stm32l4x1", "l4"]
-stm32l4x2 = ["stm32l4/stm32l4x2", "l4"]
-stm32l4x3 = ["stm32l4/stm32l4x3", "l4"]
-stm32l4x5 = ["stm32l4/stm32l4x5", "l4"]
-stm32l4x6 = ["stm32l4/stm32l4x6", "l4"]
+l4x1 = ["stm32l4/stm32l4x1", "l4"]
+l4x2 = ["stm32l4/stm32l4x2", "l4"]
+l4x3 = ["stm32l4/stm32l4x3", "l4"]
+l4x5 = ["stm32l4/stm32l4x5", "l4"]
+l4x6 = ["stm32l4/stm32l4x6", "l4"]
 
 # [L5](https://docs.rs/crate/stm32l5/0.13.0/source/Cargo.toml)
-stm32l552 = ["stm32l5/stm32l552", "l5"]
-stm32l562 = ["stm32l5/stm32l562", "l5"]
+l552 = ["stm32l5/stm32l552", "l5"]
+l562 = ["stm32l5/stm32l562", "l5"]
 
 # [H7](https://docs.rs/crate/stm32h7/0.13.0/source/Cargo.toml)
-stm32h743 = ["stm32h7/stm32h743", "h7"]
-stm32h743v = ["stm32h7/stm32h743v", "h7"]
-stm32h747cm4 = ["stm32h7/stm32h747cm4", "h7"]
-stm32h747cm7 = ["stm32h7/stm32h747cm7", "h7"]
-stm32h753 = ["stm32h7/stm32h753", "h7"]
-stm32h753v = ["stm32h7/stm32h753v", "h7"]
-stm32h7b3 = ["stm32h7/stm32h7b3", "h7"]
+h743 = ["stm32h7/stm32h743", "h7"]
+h743v = ["stm32h7/stm32h743v", "h7"]
+h747cm4 = ["stm32h7/stm32h747cm4", "h7"]
+h747cm7 = ["stm32h7/stm32h747cm7", "h7"]
+h753 = ["stm32h7/stm32h753", "h7"]
+h753v = ["stm32h7/stm32h753v", "h7"]
+h7b3 = ["stm32h7/stm32h7b3", "h7"]
 
 # These features are used to featured gate sections of code that apply
 # to an entire family.

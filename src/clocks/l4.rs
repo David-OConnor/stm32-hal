@@ -374,7 +374,7 @@ impl Clocks {
                     .modify(|_, w| unsafe { w.pllsai1n().bits(self.pll_sai1_mul) });
             }
 
-            #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+            #[cfg(any(feature = "l4x5", feature = "l4x6",))]
             if self.sai2_enabled {
                 rcc.pllsai2cfgr
                     .modify(|_, w| unsafe { w.pllsai2n().bits(self.pll_sai2_mul) });
@@ -388,7 +388,7 @@ impl Clocks {
                 rcc.cr.modify(|_, w| w.pllsai1on().set_bit());
                 while rcc.cr.read().pllsai1rdy().bit_is_clear() {}
             }
-            #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+            #[cfg(any(feature = "l4x5", feature = "l4x6",))]
             if self.sai2_enabled {
                 rcc.cr.modify(|_, w| w.pllsai2on().set_bit());
                 while rcc.cr.read().pllsai2rdy().bit_is_clear() {}
@@ -411,7 +411,7 @@ impl Clocks {
                 });
             }
 
-            #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+            #[cfg(any(feature = "l4x5", feature = "l4x6",))]
             if self.sai2_enabled {
                 rcc.pllsai2cfgr.modify(|_, w| {
                     w.pllsai2pen().set_bit();
@@ -598,4 +598,59 @@ fn calc_sysclock(input_src: InputSrc, pllm: Pllm, pll_vco_mul: u8, pllr: Pllr) -
     };
 
     (input_freq, sysclk)
+}
+
+/// Re-select innput source; used on Stop and Standby modes, where the system reverts
+/// to HSI after wake.
+pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
+    // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
+
+    // Note: It would save code repetition to pass the `Clocks` struct in and re-run setup
+    // todo: But this saves a few reg writes.
+    match input_src {
+        InputSrc::Hse(_) => {
+            rcc.cr.modify(|_, w| w.hseon().set_bit());
+            while rcc.cr.read().hserdy().bit_is_clear() {}
+
+            rcc.cfgr
+                .modify(|_, w| unsafe { w.sw().bits(input_src.bits()) });
+        }
+        InputSrc::Pll(pll_src) => {
+            // todo: DRY with above.
+            match pll_src {
+                PllSrc::Hse(_) => {
+                    rcc.cr.modify(|_, w| w.hseon().set_bit());
+                    while rcc.cr.read().hserdy().bit_is_clear() {}
+                }
+                PllSrc::Hsi => {
+                    // Generally reverts to MSI (see note below)
+                    rcc.cr.modify(|_, w| w.hsion().bit(true));
+                    while rcc.cr.read().hsirdy().bit_is_clear() {}
+                }
+                PllSrc::Msi(_) => (), // Already reverted to this.
+                PllSrc::None => (),
+            }
+
+            rcc.cr.modify(|_, w| w.pllon().clear_bit());
+            while rcc.cr.read().pllrdy().bit_is_set() {}
+
+            rcc.cfgr
+                .modify(|_, w| unsafe { w.sw().bits(input_src.bits()) });
+
+            rcc.cr.modify(|_, w| w.pllon().set_bit());
+            while rcc.cr.read().pllrdy().bit_is_clear() {}
+        }
+        InputSrc::Hsi => {
+            {
+                // From Reference Manual, RCC_CFGR register section:
+                // "Configured by HW to force MSI oscillator selection when exiting Standby or Shutdown mode.
+                // Configured by HW to force MSI or HSI16 oscillator selection when exiting Stop mode or in
+                // case of failure of the HSE oscillator, depending on STOPWUCK value."
+                // In tests, from stop, it tends to revert to MSI.
+                rcc.cr.modify(|_, w| w.hsion().bit(true));
+                while rcc.cr.read().hsirdy().bit_is_clear() {}
+            }
+        }
+        InputSrc::Msi(_) => (), // Already reset to this
+    }
 }

@@ -1,10 +1,7 @@
 //! Inter-Integrated Circuit (I2C) bus. Based on `stm32h7xx-hal`.
 
 // use crate::gpio::{Alternate, OpenDrain, Output, AF4};
-use embedded_hal::{
-    blocking::i2c::{Read, Write, WriteRead},
-    // digital::v2::{InputPin, OutputPin},
-};
+use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 use crate::{
     clocks::ClockCfg,
@@ -54,79 +51,68 @@ pub enum Error {
 //     }
 // }
 
+#[derive(Clone, Copy)]
+pub enum I2cDevice {
+    One,
+    Two,
+}
+
 /// I2C peripheral operating in master mode
-pub struct I2c<I2C, PINS> {
+pub struct I2c<I2C> {
     i2c: I2C,
-    pins: PINS,
 }
 
-impl<SCL, SDA> I2c<I2C1, (SCL, SDA)> {
-    pub fn i2c1<C>(i2c: I2C1, pins: (SCL, SDA), freq: u32, clocks: &C, rcc: &mut RCC) -> Self
-    where
-        C: ClockCfg,
-        // F: Into<Hertz>,
-        // SCL: SclPin<I2C1>,
-        // SDA: SdaPin<I2C1>,
-        // SCL: OutputPin,
-        // SDA: InputPin + OutputPin,
-    {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "f3")] {
-                rcc.apb1enr.modify(|_, w| w.i2c1en().set_bit());
-                rcc.apb1rstr.modify(|_, w| w.i2c1rst().set_bit());
-                rcc.apb1rstr.modify(|_, w| w.i2c1rst().clear_bit());
-            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
-                rcc.apb1enr1.modify(|_, w| w.i2c1en().set_bit());
-                rcc.apb1rstr1.modify(|_, w| w.i2c1rst().set_bit());
-                rcc.apb1rstr1.modify(|_, w| w.i2c1rst().clear_bit());
-            }
-        }
-
-        Self::new(i2c, pins, freq, clocks)
-    }
-}
-
-// todo: DRY
-impl<SCL, SDA> I2c<I2C2, (SCL, SDA)> {
-    pub fn i2c2<C>(i2c: I2C2, pins: (SCL, SDA), freq: u32, clocks: &C, rcc: &mut RCC) -> Self
-    where
-        C: ClockCfg,
-        // F: Into<Hertz>,
-        // SCL: SclPin<I2C2>,
-        // SDA: SdaPin<I2C2>,
-        // SCL: OutputPin,
-        // SDA: InputPin + OutputPin,
-    {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "f3")] {
-                rcc.apb1enr.modify(|_, w| w.i2c2en().set_bit());
-                rcc.apb1rstr.modify(|_, w| w.i2c2rst().set_bit());
-                rcc.apb1rstr.modify(|_, w| w.i2c2rst().clear_bit());
-            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
-                rcc.apb1enr1.modify(|_, w| w.i2c2en().set_bit());
-                rcc.apb1rstr1.modify(|_, w| w.i2c2rst().set_bit());
-                rcc.apb1rstr1.modify(|_, w| w.i2c2rst().clear_bit());
-            }
-        }
-
-        Self::new(i2c, pins, freq, clocks)
-    }
-}
-
-impl<SCL, SDA, I2C> I2c<I2C, (SCL, SDA)>
+impl<I2C> I2c<I2C>
 where
     I2C: Deref<Target = i2c1::RegisterBlock>,
 {
     /// Configures the I2C peripheral to work in master mode.
     /// `freq` is in Hz.
-    fn new<C>(i2c: I2C, pins: (SCL, SDA), freq: u32, clocks: &C) -> Self
+    pub fn new_unchecked<C>(
+        i2c: I2C,
+        device: I2cDevice,
+        freq: u32,
+        clocks: &C,
+        rcc: &mut RCC,
+    ) -> Self
+    // todo: Add checked `new` fn that verifies pins are valid I2C pins, in the right alternate mode,
+    // todo and are open drain.
+    // pub fn new<C>(i2c: I2C, pins: (SCL, SDA), freq: u32, clocks: &C) -> Self
     where
         C: ClockCfg,
         // SCL: SclPin<I2C>,
         // SDA: SdaPin<I2C>,
-        // SCL: OutputPin,
-        // SDA: InputPin + OutputPin,
     {
+        match device {
+            I2cDevice::One => {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "f3")] {
+                        rcc.apb1enr.modify(|_, w| w.i2c1en().set_bit());
+                        rcc.apb1rstr.modify(|_, w| w.i2c1rst().set_bit());
+                        rcc.apb1rstr.modify(|_, w| w.i2c1rst().clear_bit());
+                    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                        rcc.apb1enr1.modify(|_, w| w.i2c1en().set_bit());
+                        rcc.apb1rstr1.modify(|_, w| w.i2c1rst().set_bit());
+                        rcc.apb1rstr1.modify(|_, w| w.i2c1rst().clear_bit());
+                    }
+                }
+            }
+
+            I2cDevice::Two => {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "f3")] {
+                        rcc.apb1enr.modify( | _, w| w.i2c2en().set_bit());
+                        rcc.apb1rstr.modify( | _, w | w.i2c2rst().set_bit());
+                        rcc.apb1rstr.modify(| _, w | w.i2c2rst().clear_bit());
+                    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                        rcc.apb1enr1.modify( | _, w| w.i2c2en().set_bit());
+                        rcc.apb1rstr1.modify( | _, w | w.i2c2rst().set_bit());
+                        rcc.apb1rstr1.modify(| _, w | w.i2c2rst().clear_bit());
+                    }
+                }
+            }
+        }
+
         assert!(freq <= 1_000_000);
         // Make sure the I2C unit is disabled so we can configure it
         i2c.cr1.modify(|_, w| w.pe().clear_bit());
@@ -204,12 +190,7 @@ where
         // Enable the peripheral
         i2c.cr1.write(|w| w.pe().set_bit());
 
-        I2c { i2c, pins }
-    }
-
-    /// Releases the I2C peripheral and associated pins
-    pub fn free(self) -> (I2C, (SCL, SDA)) {
-        (self.i2c, self.pins)
+        I2c { i2c }
     }
 }
 
@@ -255,7 +236,7 @@ macro_rules! busy_wait {
     };
 }
 
-impl<PINS, I2C> Write for I2c<I2C, PINS>
+impl<I2C> Write for I2c<I2C>
 where
     I2C: Deref<Target = i2c1::RegisterBlock>,
 {
@@ -310,7 +291,7 @@ where
     }
 }
 
-impl<PINS, I2C> Read for I2c<I2C, PINS>
+impl<I2C> Read for I2c<I2C>
 where
     I2C: Deref<Target = i2c1::RegisterBlock>,
 {
@@ -355,7 +336,7 @@ where
     }
 }
 
-impl<PINS, I2C> WriteRead for I2c<I2C, PINS>
+impl<I2C> WriteRead for I2c<I2C>
 where
     I2C: Deref<Target = i2c1::RegisterBlock>,
 {
@@ -436,7 +417,7 @@ where
 // use crate::gpio::gpioa::{PA10, PA9};
 // use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
 //
-// #[cfg(feature = "stm32l4x5")]
+// #[cfg(feature = "l4x5")]
 // use crate::gpio::gpioc::{PC0, PC1};
 //
 // pins!(I2C1, AF4,
@@ -445,14 +426,14 @@ where
 //
 // pins!(I2C2, AF4, SCL: [PB10], SDA: [PB11]);
 //
-// #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
+// #[cfg(any(feature = "l4x1", feature = "l4x6"))]
 // use crate::gpio::gpiob::{PB13, PB14, PB8, PB9};
 //
-// #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
+// #[cfg(any(feature = "l4x1", feature = "l4x6"))]
 // pins!(I2C1, AF4, SCL: [PB8], SDA: [PB9]);
 //
-// #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x6"))]
+// #[cfg(any(feature = "l4x1", feature = "l4x6"))]
 // pins!(I2C2, AF4, SCL: [PB13], SDA: [PB14]);
 //
-// #[cfg(feature = "stm32l4x5")]
+// #[cfg(feature = "l4x5")]
 // pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);

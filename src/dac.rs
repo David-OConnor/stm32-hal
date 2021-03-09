@@ -83,9 +83,10 @@ pub struct Dac {
     vref: f32,
 }
 
+// todo: Checked constructor that makes sure the pin is a valid DAC pin configured in analog mode.
 impl Dac {
     /// Create a new DAC instance
-    pub fn new<P>(regs: DAC1, _pins: P, channel: Channel, bits: Bits, vref: f32) -> Self {
+    pub fn new_unchecked(regs: DAC1, channel: Channel, bits: Bits, vref: f32) -> Self {
         Self {
             regs,
             channel,

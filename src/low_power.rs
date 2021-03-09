@@ -2,10 +2,13 @@
 //! Reference section 5.3.3: `Low power modes` of the Reference Manual.
 
 use crate::{
-    clocks::{InputSrc, PllSrc},
+    clocks::{self, InputSrc},
     pac::{PWR, RCC},
 };
 use cortex_m::{asm::wfi, peripheral::SCB};
+
+// clocks::re_select_input` is separate (in `clocks` instead of here) due to varying significantly
+// among families.
 
 // See L4 Reference Manual section 5.3.6. The values correspond
 // todo PWR_CR1, LPMS field.
@@ -17,65 +20,9 @@ pub enum StopMode {
     Two = 0b010,
 }
 
-/// Re-select innput source; used on Stop and Standby modes, where the system reverts
-/// to HSI after wake.
-fn re_select_input(input_src: InputSrc) {
-    // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
-
-    // Note: It would save code repetition to pass the `Clocks` struct in and re-run setup
-    // todo: But this saves a few reg writes.
-    match input_src {
-        InputSrc::Hse(_) => unsafe {
-            (*RCC::ptr()).cr.modify(|_, w| w.hseon().set_bit());
-            while (*RCC::ptr()).cr.read().hserdy().bit_is_clear() {}
-
-            (*RCC::ptr())
-                .cfgr
-                .modify(|_, w| w.sw().bits(input_src.bits()));
-        },
-        InputSrc::Pll(pll_src) => unsafe {
-            // todo: DRY with above.
-            match pll_src {
-                PllSrc::Hse(_) => {
-                    (*RCC::ptr()).cr.modify(|_, w| w.hseon().set_bit());
-                    while (*RCC::ptr()).cr.read().hserdy().bit_is_clear() {}
-                }
-                PllSrc::Hsi => {
-                    // Generally reverts to MSI (see note below)
-                    (*RCC::ptr()).cr.modify(|_, w| w.hsion().bit(true));
-                    while (*RCC::ptr()).cr.read().hsirdy().bit_is_clear() {}
-                }
-                PllSrc::Msi(_) => (), // Already reverted to this.
-                PllSrc::None => (),
-            }
-
-            (*RCC::ptr()).cr.modify(|_, w| w.pllon().clear_bit());
-            while (*RCC::ptr()).cr.read().pllrdy().bit_is_set() {}
-
-            (*RCC::ptr())
-                .cfgr
-                .modify(|_, w| w.sw().bits(input_src.bits()));
-
-            (*RCC::ptr()).cr.modify(|_, w| w.pllon().set_bit());
-            while (*RCC::ptr()).cr.read().pllrdy().bit_is_clear() {}
-        },
-        InputSrc::Hsi => {
-            unsafe {
-                // From Reference Manual, RCC_CFGR register section:
-                // "Configured by HW to force MSI oscillator selection when exiting Standby or Shutdown mode.
-                // Configured by HW to force MSI or HSI16 oscillator selection when exiting Stop mode or in
-                // case of failure of the HSE oscillator, depending on STOPWUCK value."
-                // In tests, from stop, it tends to revert to MSI.
-                (*RCC::ptr()).cr.modify(|_, w| w.hsion().bit(true));
-                while (*RCC::ptr()).cr.read().hsirdy().bit_is_clear() {}
-            }
-        }
-        InputSrc::Msi(_) => (), // Already reset to this
-    }
-}
-
 /// Ref man, table 24
 /// Note that this assumes you've already reduced clock frequency below 2 Mhz.
+#[cfg(any(feature = "l4", feature = "l5"))]
 pub fn low_power_run(pwr: &mut PWR) {
     // Decrease the system clock frequency below 2 MHz
     // LPR = 1
@@ -85,6 +32,7 @@ pub fn low_power_run(pwr: &mut PWR) {
 /// Ref man, table 24
 /// Return to normal run mode from low-power run. Requires you to increase the clock speed
 /// manually after running this.
+#[cfg(any(feature = "l4", feature = "l5"))]
 pub fn return_from_low_power_run(pwr: &mut PWR) {
     // LPR = 0
     pwr.cr1.modify(|_, w| w.lpr().clear_bit());
@@ -109,95 +57,177 @@ pub fn sleep_now(scb: &mut SCB) {
     // scb.clear_sleepdeep();
     // scb.set_sleeponexit();
 
+    // Sleep-now: if the SLEEPONEXIT bit is cleared, the MCU enters Sleep mode as soon
+    // as WFI or WFE instruction is executed.
+    scb.clear_sleeponexit();
+
     wfi();
 }
 
-/// Enter Stop 0, Stop 1, or Stop 2 modes. Reference manual, section 5.3.6. Tables 27, 28, and 29.
-pub fn stop(scb: &mut SCB, pwr: &mut PWR, mode: StopMode, input_src: InputSrc) {
-    // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
-    // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
-    scb.set_sleepdeep();
-    // – No interrupt (for WFI) or event (for WFE) is pending
-    // – LPMS = (according to mode) in PWR_CR1
-    pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(mode as u8) });
+/// F303 Ref man, table 19.
+pub fn sleep_on_exit(scb: &mut SCB) {
+    // WFI (Wait for Interrupt) (eg `cortext_m::asm::wfi()) or WFE (Wait for Event) while:
 
-    // Or, unimplemented:
-    // On Return from ISR while:
-    // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
-    // – SLEEPONEXIT = 1
-    // – No interrupt is pending
-    // – LPMS = “000” in PWR_CR1
+    // SLEEPDEEP = 0 and SLEEPONEXIT = 1
+    scb.clear_sleepdeep();
+    // Sleep-on-exit: if the SLEEPONEXIT bit is set, the MCU enters Sleep mode as soon
+    // as it exits the lowest priority ISR.
+    scb.set_sleeponexit();
 
     wfi();
-
-    re_select_input(input_src);
 }
 
-/// Enter `Standby` mode. See
-/// Table 30.
-pub fn standby(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc) {
-    // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
-    scb.set_sleepdeep();
-    // – No interrupt (for WFI) or event (for WFE) is pending
-    // – LPMS = “011” in PWR_CR1
-    pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(0b011) });
-    // – WUFx bits are cleared in power status register 1 (PWR_SR1)
-    // (Clear by setting cwfuf bits in `pwr_scr`.)
-    pwr.scr.write(|w| unsafe { w.bits(0) });
-    // todo: Unsure why setting the individual bits isn't working; PWR.scr doesn't have modify method?
-    // pwr.scr.modify(|_, w| {
-    //     w.cwuf1().set_bit();
-    //     w.cwuf2().set_bit();
-    //     w.cwuf3().set_bit();
-    //     w.cwuf4().set_bit();
-    //     w.cwuf5().set_bit();
-    // })
+cfg_if::cfg_if! {
+    if #[cfg(feature = "f3")] {
+        /// Enter `Stop` mode: the middle of the 3 low-power states avail on the
+        /// STM32f3.
+        /// To exit:  Any EXTI Line configured in Interrupt mode (the corresponding EXTI
+        /// Interrupt vector must be enabled in the NVIC). Refer to Table 82.
+        /// Ref man, table 20.
+        #[cfg(feature = "f3")]
+        pub fn stop(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc, rcc: &mut RCC) {
+            //WFI (Wait for Interrupt) or WFE (Wait for Event) while:
 
-    // Or, unimplemented:
-    // On return from ISR while:
-    // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
-    // – SLEEPONEXIT = 1
-    // – No interrupt is pending
-    // – LPMS = “011” in PWR_CR1 and
-    // – WUFx bits are cleared in power status register 1 (PWR_SR1)
-    // – The RTC flag corresponding to the chosen wakeup source (RTC Alarm
-    // A, RTC Alarm B, RTC wakeup, tamper or timestamp flags) is cleared
-    wfi();
+            // Set SLEEPDEEP bit in ARM® Cortex®-M4 System Control register
+            scb.set_sleepdeep();
 
-    re_select_input(input_src);
-}
+            // Clear PDDS bit in Power Control register (PWR_CR)
+            // This bit is set and cleared by software. It works together with the LPDS bit.
+            // 0: Enter Stop mode when the CPU enters Deepsleep. The regulator status
+            // depends on the LPDS bit.
+            // 1: Enter Standby mode when the CPU enters Deepsleep.
+            pwr.cr.modify(|_, w| w.pdds().clear_bit());
 
-/// Enter `Shutdown mode` mode: the lowest-power of the 3 low-power states avail. See
-/// Table 31.
-pub fn shutdown(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc) {
-    // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
-    scb.set_sleepdeep();
-    // – No interrupt (for WFI) or event (for WFE) is pending
-    // – LPMS = “011” in PWR_CR1
-    pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(0b100) });
-    // – WUFx bits are cleared in power status register 1 (PWR_SR1)
-    // (Clear by setting cwfuf bits in `pwr_scr`.)
-    pwr.scr.write(|w| unsafe { w.bits(0) });
-    // todo: Unsure why setting the individual bits isn't working; PWR.scr doesn't have modify method?
-    // pwr.scr.modify(|_, w| {
-    //     w.cwuf1().set_bit();
-    //     w.cwuf2().set_bit();
-    //     w.cwuf3().set_bit();
-    //     w.cwuf4().set_bit();
-    //     w.cwuf5().set_bit();
-    // })
+            // Select the voltage regulator mode by configuring LPDS bit in PWR_CR
+            // This bit is set and cleared by software. It works together with the PDDS bit.
+            // 0: Voltage regulator on during Stop mode
+            // 1: Voltage regulator in low-power mode during Stop mode
+            // pwr.cr.modify(|_, w| w.pdds().clear_bit());
+            pwr.cr.modify(|_, w| w.lpds().set_bit());
 
-    // Or, unimplemented:
-    // On return from ISR while:
-    // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
-    // – SLEEPONEXT = 1
-    // – No interrupt is pending
-    // – LPMS = “1XX” in PWR_CR1 and
-    // – WUFx bits are cleared in power status register 1 (PWR_SR1)
-    // – The RTC flag corresponding to the chosen wakeup source (RTC
-    // Alarm A, RTC Alarm B, RTC wakeup, tamper or timestamp flags) is
-    // cleared
-    wfi();
+            wfi();
 
-    re_select_input(input_src);
+            clocks::re_select_input(input_src, rcc);
+        }
+
+        /// Enter `Standby` mode: the lowest-power of the 3 low-power states avail on the
+        /// STM32f3.
+        /// To exit: WKUP pin rising edge, RTC alarm event’s rising edge, external Reset in
+        /// NRST pin, IWDG Reset.
+        /// Ref man, table 21.
+        pub fn standby(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc, rcc: &mut RCC) {
+            // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
+
+            // Set SLEEPDEEP bit in ARM® Cortex®-M4 System Control register
+            scb.set_sleepdeep();
+
+            // Set PDDS bit in Power Control register (PWR_CR)
+            // This bit is set and cleared by software. It works together with the LPDS bit.
+            // 0: Enter Stop mode when the CPU enters Deepsleep. The regulator status
+            // depends on the LPDS bit.
+            // 1: Enter Standby mode when the CPU enters Deepsleep.
+            pwr.cr.modify(|_, w| w.pdds().set_bit());
+
+            // Clear WUF bit in Power Control/Status register (PWR_CSR) (Must do this by setting CWUF bit in
+            // PWR_CR.)
+            pwr.cr.modify(|_, w| w.cwuf().set_bit());
+
+            wfi();
+
+            clocks::re_select_input(input_src, rcc);
+        }
+
+    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+        /// Enter Stop 0, Stop 1, or Stop 2 modes. Reference manual, section 5.3.6. Tables 27, 28, and 29.
+        #[cfg(any(feature = "l4", feature = "l5"))]
+        pub fn stop(scb: &mut SCB, pwr: &mut PWR, mode: StopMode, input_src: InputSrc, rcc: &mut RCC) {
+            // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
+            // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
+            scb.set_sleepdeep();
+            // – No interrupt (for WFI) or event (for WFE) is pending
+            // – LPMS = (according to mode) in PWR_CR1
+            pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(mode as u8) });
+
+            // Or, unimplemented:
+            // On Return from ISR while:
+            // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
+            // – SLEEPONEXIT = 1
+            // – No interrupt is pending
+            // – LPMS = “000” in PWR_CR1
+
+            wfi();
+
+            clocks::re_select_input(input_src, rcc);
+        }
+
+
+        /// Enter `Standby` mode. See
+        /// Table 30.
+        pub fn standby(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc, rcc: &mut RCC) {
+            // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
+            scb.set_sleepdeep();
+            // – No interrupt (for WFI) or event (for WFE) is pending
+            // – LPMS = “011” in PWR_CR1
+            pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(0b011) });
+            // – WUFx bits are cleared in power status register 1 (PWR_SR1)
+            // (Clear by setting cwfuf bits in `pwr_scr`.)
+            pwr.scr.write(|w| unsafe { w.bits(0) });
+            // todo: Unsure why setting the individual bits isn't working; PWR.scr doesn't have modify method?
+            // pwr.scr.modify(|_, w| {
+            //     w.cwuf1().set_bit();
+            //     w.cwuf2().set_bit();
+            //     w.cwuf3().set_bit();
+            //     w.cwuf4().set_bit();
+            //     w.cwuf5().set_bit();
+            // })
+
+            // Or, unimplemented:
+            // On return from ISR while:
+            // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
+            // – SLEEPONEXIT = 1
+            // – No interrupt is pending
+            // – LPMS = “011” in PWR_CR1 and
+            // – WUFx bits are cleared in power status register 1 (PWR_SR1)
+            // – The RTC flag corresponding to the chosen wakeup source (RTC Alarm
+            // A, RTC Alarm B, RTC wakeup, tamper or timestamp flags) is cleared
+            wfi();
+
+            clocks::re_select_input(input_src, rcc);
+        }
+
+        /// Enter `Shutdown mode` mode: the lowest-power of the 3 low-power states avail. See
+        /// Table 31.
+        pub fn shutdown(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc, rcc: &mut RCC) {
+            // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
+            scb.set_sleepdeep();
+            // – No interrupt (for WFI) or event (for WFE) is pending
+            // – LPMS = “011” in PWR_CR1
+            pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(0b100) });
+            // – WUFx bits are cleared in power status register 1 (PWR_SR1)
+            // (Clear by setting cwfuf bits in `pwr_scr`.)
+            pwr.scr.write(|w| unsafe { w.bits(0) });
+            // todo: Unsure why setting the individual bits isn't working; PWR.scr doesn't have modify method?
+            // pwr.scr.modify(|_, w| {
+            //     w.cwuf1().set_bit();
+            //     w.cwuf2().set_bit();
+            //     w.cwuf3().set_bit();
+            //     w.cwuf4().set_bit();
+            //     w.cwuf5().set_bit();
+            // })
+
+            // Or, unimplemented:
+            // On return from ISR while:
+            // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
+            // – SLEEPONEXT = 1
+            // – No interrupt is pending
+            // – LPMS = “1XX” in PWR_CR1 and
+            // – WUFx bits are cleared in power status register 1 (PWR_SR1)
+            // – The RTC flag corresponding to the chosen wakeup source (RTC
+            // Alarm A, RTC Alarm B, RTC wakeup, tamper or timestamp flags) is
+            // cleared
+            wfi();
+
+            clocks::re_select_input(input_src, rcc);
+        }
+    }
 }

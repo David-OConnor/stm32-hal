@@ -13,6 +13,8 @@ use stm32_hal::{
     delay::Delay,
     event::Timeout,
     flash::Flash,
+    i2c::{I2c, I2cDevice},
+    low_power,
     pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
     timer::{Event::TimeOut, Timer},
@@ -53,17 +55,24 @@ fn main() -> ! {
     let flash_contents = flash.read(10, 0);
 
     // Set up an I2C peripheral.
-    let i2c = I2c::i2c1(dp.I2C1, (scl, sda), 100_000, &clocks, &mut dp.RCC);
+    // let i2c = I2c::new(dp.I2C1, (scl, sda), 100_000, &clocks, &mut dp.RCC);
+    let i2c = I2c::new_unchecked(dp.I2C1, I2cDevice::One, 100_000, &clocks, &mut dp.RCC);
 
     // Set up the Digital-to-analog converter
-    let mut dac = Dac::new(dp.DAC, dac_pin, DacChannel::One, Bits::TwelveR, 3.3);
+    let mut dac = Dac::new_unchecked(dp.DAC, dac_pin, DacChannel::One, Bits::TwelveR, 3.3);
     dac.enable(&mut dp.RCC);
 
     // Set up and start a timer; set it to fire interrupts.
     let mut timer_1 = Timer::tim3(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
     timer.listen(TimeOut); // Enable update event interrupts.
 
-    loop {}
+
+    loop {
+        delay.delay_ms(1_000_u16);
+
+        // Enter a low power mode.
+        low_power::sleep_now(&mut cp.SCB);
+    }
 }
 
 // same panicking *behavior* as `panic-probe` but doesn't print a panic message

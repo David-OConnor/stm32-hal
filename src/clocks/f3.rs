@@ -457,3 +457,38 @@ fn calc_sysclock(input_src: InputSrc, prediv: Prediv, pll_mul: PllMul) -> f32 {
 
     sysclk
 }
+
+// todo: make `re_select_input` a method of
+
+/// Re-select innput source; used on Stop and Standby modes, where the system reverts
+/// to HSI after wake.
+pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
+    // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
+
+    // Note: It would save code repetition to pass the `Clocks` struct in and re-run setup
+    // todo: But this saves a few reg writes.
+    match input_src {
+        InputSrc::Hse(_) => {
+            rcc.cr.modify(|_, w| w.hseon().set_bit());
+            while rcc.cr.read().hserdy().is_not_ready() {}
+
+            rcc.cfgr
+                .modify(|_, w| unsafe { w.sw().bits(input_src.bits()) });
+        }
+        InputSrc::Pll(_) => {
+            // todo: DRY with above.
+            rcc.cr.modify(|_, w| w.hseon().set_bit());
+            while rcc.cr.read().hserdy().is_not_ready() {}
+
+            rcc.cr.modify(|_, w| w.pllon().off());
+            while rcc.cr.read().pllrdy().is_ready() {}
+
+            rcc.cfgr
+                .modify(|_, w| unsafe { w.sw().bits(input_src.bits()) });
+
+            rcc.cr.modify(|_, w| w.pllon().on());
+            while rcc.cr.read().pllrdy().is_not_ready() {}
+        }
+        InputSrc::Hsi => (), // Already reset to this.
+    }
+}

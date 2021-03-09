@@ -17,7 +17,7 @@ If using concurrently with another hal, you need to instantiate a set of
 MCU peripherals for each. Ie:
 ```rust
 let mut dp = stm32_hal::pac::Peripherals::take().unwrap();
-let mut dp2 = unsafe { old_pac::Peripherals::steal() };
+let mut dp2 = unsafe { stm32l4xx_hal::pac::Peripherals::steal() };
 ```
 
 Examples of features this crate includes that aren't present in some HALs:
