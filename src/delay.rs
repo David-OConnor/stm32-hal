@@ -6,7 +6,7 @@ use cortex_m::peripheral::SYST;
 
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
-use crate::clocks::ClockCfg;
+use crate::traits::ClockCfg;
 
 /// System timer (SysTick) as a delay provider
 pub struct Delay {

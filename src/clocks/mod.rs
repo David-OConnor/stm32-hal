@@ -1,56 +1,30 @@
+//! This module contains clock configurations for various MCUs. They tend to be significantly
+//! different from one another, so we've feature-gated these files, rather than
+//! code within the files, to differentiate families.
+//!
+//! See STM32CubeIDE for an interactive editor that's very useful for seeing what
+//! settings are available, and validating them.
+//!
+//! See the Reference Manuals for non-interactive visualizations.
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "f3")] {
         mod f3;
         pub use f3::*;
-    } else if #[cfg(feature = "l4")] {
-        mod l4;
-        pub use l4::*;
-    } else if #[cfg(feature = "l5")] {
-        mod l5;
-        pub use l5::*;
+    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+        mod l4_5;
+        pub use l4_5::*;
+    } else if #[cfg(feature = "u5")] {
+        // todo once SVD is out
+    } else if #[cfg(feature = "h7")] {
+        // todo
     }
 }
 
-/// This trait allows you to return information about a common's speeds.
-/// It's used for configuring peripherals.
-pub trait ClockCfg {
-    /// System clock speed, in Hz.
-    fn sysclk(&self) -> u32;
-
-    /// HCLK speed, in Hz. Ie AHB bus, core, memory, and DMA.
-    fn hclk(&self) -> u32;
-
-    /// Cortex System timer speed, in Hz.
-    fn systick(&self) -> u32;
-
-    /// USB speed, in Hz.
-    fn usb(&self) -> u32;
-
-    /// APB1 peripheral common speed, in Hz.
-    fn apb1(&self) -> u32;
-
-    /// APB1 timer common speed, in Hz.
-    fn apb1_timer(&self) -> u32;
-
-    /// APB2 timer common speed, in Hz.
-    fn apb2(&self) -> u32;
-
-    /// APB2 peripheral common speed, in Hz.
-    fn apb2_timer(&self) -> u32;
-
-    /// Validate that the clocks speeds are all within the acceptable range
-    /// for the MCU
-    fn validate_speeds(&self) -> Validation; // todo Separate USB validation?
-}
+// Dat structures and functions that are shared between clock modules go here.
 
 // todo: Continue working through DRY between the clock modules.
-/// Is a set of speeds valid?
-#[derive(Clone, Copy)]
-#[repr(u8)]
-pub enum Validation {
-    Valid,
-    NotValid,
-}
+
 
 /// Speed out of limits.
 pub struct SpeedError {}

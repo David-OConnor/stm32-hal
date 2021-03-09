@@ -7,7 +7,7 @@ use embedded_hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use paste::paste;
 
 use crate::{
-    clocks::ClockCfg,
+    traits::ClockCfg,
     pac::{RCC, SPI1, SPI2, SPI3},
 };
 

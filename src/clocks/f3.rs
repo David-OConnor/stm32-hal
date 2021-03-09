@@ -1,16 +1,7 @@
-//! This file provides an alternative way to set common than in the `rcc` modules`,
-//! which may be less error prone, and is more opaque. It works by setting
-//! scalers etc, then calculating frequencies, instead of solving for a set of scalers
-//! that meet specified frequeincies.
-//!
-//! See STM32CubeIDE for an interactive editor that's very useful for seeing what
-//! settings are available, and validating them.
-//!
-//! See Figure 15 of the Reference Manual for a non-interactive visualization.
-
 use crate::{
-    clocks::{ClockCfg, SpeedError, Validation},
+    clocks::SpeedError,
     pac::{FLASH, RCC},
+    traits::{ClockCfg, ClocksValid}
 };
 
 #[derive(Clone, Copy)]
@@ -239,7 +230,7 @@ impl Clocks {
     /// https://docs.rs/stm32f3xx-hal/0.5.0/stm32f3xx_hal/rcc/struct.CFGR.html
     /// Use the STM32CubeIDE Clock Configuration tab to help.
     pub fn setup(&self, rcc: &mut RCC, flash: &mut FLASH) -> Result<(), SpeedError> {
-        if let Validation::NotValid = self.validate_speeds() {
+        if let ClocksValid::NotValid = self.validate_speeds() {
             return Err(SpeedError {});
         }
 
@@ -397,24 +388,24 @@ impl ClockCfg for Clocks {
         }
     }
 
-    fn validate_speeds(&self) -> Validation {
-        let mut result = Validation::Valid;
+    fn validate_speeds(&self) -> ClocksValid {
+        let mut result = ClocksValid::Valid;
 
         // todo: QC these limits
         if self.sysclk() > 72_000_000 || self.sysclk() < 16_000_000 {
-            result = Validation::NotValid;
+            result = ClocksValid::NotValid;
         }
 
         if self.hclk() > 72_000_000 {
-            result = Validation::NotValid;
+            result = ClocksValid::NotValid;
         }
 
         if self.apb1() > 36_000_000 || self.apb1() < 10_000_000 {
-            result = Validation::NotValid;
+            result = ClocksValid::NotValid;
         }
 
         if self.apb2() > 72_000_000 {
-            result = Validation::NotValid;
+            result = ClocksValid::NotValid;
         }
 
         result

@@ -67,6 +67,8 @@ l4x3 = ["stm32l4/stm32l4x3", "l4"]
 l4x5 = ["stm32l4/stm32l4x5", "l4"]
 l4x6 = ["stm32l4/stm32l4x6", "l4"]
 
+# todo: Handle l4+ (P, R, S, Q)
+
 # [L5](https://docs.rs/crate/stm32l5/0.13.0/source/Cargo.toml)
 l552 = ["stm32l5/stm32l552", "l5"]
 l562 = ["stm32l5/stm32l562", "l5"]

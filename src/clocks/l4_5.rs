@@ -1,18 +1,13 @@
-//! This file provides an alternative way to set common than in the `rcc` modules`,
-//! which may be less error prone, and is more opaque. It works by setting
-//! scalers etc, then calculating frequencies, instead of solving for a set of scalers
-//! that meet specified frequeincies.
-//!
 //! See STM32CubeIDE for an interactive editor that's very useful for seeing what
 //! settings are available, and validating them.
 //!
 //! See Figure 15 of the Reference Manual for a non-interactive visualization.
 
 use crate::{
-    clocks::{ClockCfg, SpeedError, Validation},
+    clocks::SpeedError,
     pac::{FLASH, RCC},
+    traits::{ClockCfg, ClocksValid}
 };
-
 #[derive(Clone, Copy)]
 #[repr(u8)]
 pub enum Clk48Src {
@@ -259,7 +254,7 @@ impl Clocks {
     /// https://docs.rs/stm32f3xx-hal/0.5.0/stm32f3xx_hal/rcc/struct.CFGR.html
     /// Use the STM32CubeIDE Clock Configuration tab to help.
     pub fn setup(&self, rcc: &mut RCC, flash: &mut FLASH) -> Result<(), SpeedError> {
-        if let Validation::NotValid = self.validate_speeds() {
+        if let ClocksValid::NotValid = self.validate_speeds() {
             return Err(SpeedError {});
         }
 
@@ -509,8 +504,16 @@ impl ClockCfg for Clocks {
         }
     }
 
-    fn validate_speeds(&self) -> Validation {
-        let mut result = Validation::Valid;
+    fn validate_speeds(&self) -> ClocksValid {
+        let mut result = ClocksValid::Valid;
+
+        #[cfg(feature = "l4")]
+        let max_clock = 80_000_000;
+
+        #[cfg(feature = "l5")]
+        let max_clock = 110_000_000;
+
+        // todo: L4+ (ie R, S, P, Q) can go up to 120_000.
 
         if self.pll_vco_mul < 7
             || self.pll_vco_mul > 86
@@ -519,26 +522,26 @@ impl ClockCfg for Clocks {
             || self.pll_sai2_mul < 7
             || self.pll_sai2_mul > 86
         {
-            return Validation::NotValid;
+            return ClocksValid::NotValid;
         }
 
         // todo: QC these limits
         // todo: Note that this involves repeatedly calculating sysclk.
         // todo. We could work around thsi by calcing it once here.
-        if self.sysclk() > 80_000_000 {
-            result = Validation::NotValid;
+        if self.sysclk() > max_clock {
+            result = ClocksValid::NotValid;
         }
 
-        if self.hclk() > 80_000_000 {
-            result = Validation::NotValid;
+        if self.hclk() > max_clock {
+            result = ClocksValid::NotValid;
         }
 
-        if self.apb1() > 80_000_000 {
-            result = Validation::NotValid;
+        if self.apb1() > max_clock {
+            result = ClocksValid::NotValid;
         }
 
-        if self.apb2() > 80_000_000 {
-            result = Validation::NotValid;
+        if self.apb2() > max_clock {
+            result = ClocksValid::NotValid;
         }
 
         result

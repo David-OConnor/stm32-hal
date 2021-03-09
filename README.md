@@ -34,6 +34,12 @@ Examples of features this crate includes that aren't present in some HALs:
 The intent isn't to support every STM32 family: Main support will be for newer ones,
 like L4, L5, H7, and U5.
 
-Pre-release. Currently only supports F3 and L4.
+Most peripheral modules are independent: The only dependency they have within the crate
+is the `ClockCfg` trait, which we may move to a standalone crate later. This makes
+it easy to interchange them with other projects.
+
+Pre-release. Currently only supports F3, L4, and L5.
+
+The `syntax_overview` example provides a demonstration of how to get started.
 
 PRs encouraged.

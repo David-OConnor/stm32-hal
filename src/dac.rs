@@ -6,7 +6,7 @@ use core::fmt;
 // todo: Implement DAC2 (and 3?)
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "l4x6")] {
+    if #[cfg(any(feature = "l4x6", feature = "f302"))] {
         use crate::pac::{DAC, RCC};
     } else {
         use crate::pac::{DAC1, RCC};
@@ -85,7 +85,7 @@ impl Trigger {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "l4x6")] {
+    if #[cfg(any(feature = "l4x6", feature = "f302"))] {
         pub struct Dac {
             regs: DAC,
             channel: Channel,
@@ -105,7 +105,7 @@ cfg_if::cfg_if! {
 // todo: Checked constructor that makes sure the pin is a valid DAC pin configured in analog mode.
 impl Dac {
     cfg_if::cfg_if! {
-        if #[cfg(feature = "l4x6")] {
+        if #[cfg(any(feature = "l4x6", feature = "f302"))] {
             /// Create a new DAC instance
             pub fn new_unchecked(regs: DAC, channel: Channel, bits: Bits, vref: f32) -> Self {
                 Self {

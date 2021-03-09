@@ -9,7 +9,7 @@ use embedded_hal::timer::{CountDown, Periodic};
 use void::Void;
 
 use crate::{
-    clocks::ClockCfg,
+    traits::ClockCfg,
     pac::{RCC, TIM15, TIM16, TIM2, TIM6, TIM7},
 };
 
@@ -21,7 +21,7 @@ use paste::paste;
 use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM19, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "f302")]
-use crate::pac::{TIM1, TIM17, TIM18, TIM20, TIM3, TIM4, TIM8};
+use crate::pac::{TIM1, TIM17, TIM20, TIM3, TIM4, TIM8};
 
 #[cfg(feature = "f303")]
 use crate::pac::{TIM1, TIM17, TIM20, TIM3, TIM4, TIM8};
@@ -623,15 +623,19 @@ hal! {
     },
 }
 
+#[cfg(not(any(feature = "f302")))]
+hal! {
+    {
+        TIM7: (tim7, apb1, enr1, rstr1),
+    },
+}
+
 hal! {
     {
         TIM2: (tim2, apb1, enr1, rstr1),
     },
     {
         TIM6: (tim6, apb1, enr1, rstr1),
-    },
-        {
-        TIM7: (tim7, apb1, enr1, rstr1),
     },
     {
         TIM15: (tim15, apb2, enr, rstr),
@@ -649,7 +653,6 @@ pwm_features! {
 }
 
 #[cfg(any(
-    feature = "f302",
     feature = "f303",
     feature = "l4x5",
     feature = "l4x6",
@@ -668,11 +671,12 @@ hal! {
     },
 }
 
-#[cfg(any(feature = "f302", feature = "f303"))]
+// { todo This is causing duplicates when compiling with f303. Why?
+//     TIM18: (tim18, apb2, enr, rstr),
+// },
+#[cfg(any(feature = "f303"))]
 hal! {
-    // { todo This is causing duplicates when compiling with f303. Why?
-    //     TIM18: (tim18, apb2, enr, rstr),
-    // },
+
     {
         TIM20: (tim20, apb2, enr, rstr),
     },
@@ -689,7 +693,8 @@ hal! {
     {
         TIM14: (tim14, apb1, enr1, rstr1),
     },
-    {
-        TIM19: (tim19, apb2, enr, rstr),
-    },
 }
+
+    // {
+    //     TIM19: (tim19, apb2, enr, rstr),
+    // },
