@@ -1,13 +1,17 @@
-name: CI
+name: Rust
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  check:
-    name: Check
+  seven:
+    name: Thumbv7
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -24,6 +28,13 @@ jobs:
           - l4x6
           - l552
           - l562
+          - h743
+          - h743v
+          - h747cm4
+          - h747cm7
+          - h753
+          - h753v
+          - h7b3
 
     steps:
       - uses: actions/checkout@v2
@@ -31,10 +42,30 @@ jobs:
         with:
           toolchain: stable
           target: thumbv7em-none-eabihf
+          components: rust-src
           override: true
-          profile: minimal
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --features=${{ matrix.mcu }},${{ matrix.features }} --lib --examples
-
+      - name: Build
+        run: cargo build --features=${{ matrix.mcu }} --lib --examples
+      - name: Run tests
+        run: cargo test --features=${{ matrix.mcu }} --lib --examples
+#  eight:
+#      name: Thumbv8
+#      runs-on: ubuntu-latest
+#      strategy:
+#        matrix:
+#          mcu:
+#            - l552
+#            - l562
+#
+#      steps:
+#        - uses: actions/checkout@v2
+#        - uses: actions-rs/toolchain@v1
+#          with:
+#            toolchain: stable
+#            target: thumbv8em-none-eabi
+#            components: rust-src
+#            override: true
+#        - name: Build
+#          run: cargo build --features=${{ matrix.mcu }} --lib --examples
+#        - name: Run tests
+#          run: cargo test --features=${{ matrix.mcu }} --lib --examples
