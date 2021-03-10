@@ -13,7 +13,7 @@ use stm32_hal::{
     delay::Delay,
     event::Timeout,
     flash::Flash,
-    gpio::{Port, Pin, PinNum, PinMode},
+    gpio::{Port, Pin, PinNum, PinMode, OutputType, AltFn, Pull},
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
@@ -58,8 +58,10 @@ fn main() -> ! {
 
     // Enable up the GPIOA port.
 
-    let gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
-    let pa15 = gpioa::new_pin(PinNum::P15, PinMode::Output);
+    let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
+    let mut pa15 = gpioa::new_pin(PinNum::P15, PinMode::Output);
+    pa15.alt_fn(AltFn::AF7, &mut gpioa.regs);
+    pa15.output_type(OutputType::OpenDrain, &mut gpioa.regs);
 
     // Set up an I2C peripheral
     // let i2c = I2c::new(dp.I2C1, (scl, sda), 100_000, &clocks, &mut dp.RCC);
