@@ -14,6 +14,23 @@ jobs:
         mcu:
           - f301
           - f302
+          - f303
+          - f373
+          - f3x4
+          - l4x1
+          - l4x2
+          - l4x3
+          - l4x5
+          - l4x6
+          - l552
+          - l562
+          - h743
+          - h743v
+          - h747cm4
+          - h747cm7
+          - h753
+          - h753v
+          - h7b3
 
     steps:
       - uses: actions/checkout@v2
