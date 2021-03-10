@@ -3,22 +3,51 @@
 //! register traits; this allows for the `embedded-hal` Pin abstraction; STM32 registers
 //! are organized by port, not pin.
 
+use core::convert::Infallible;
+
 // todo: Other GPIO ports on certain variants?
-use crate::pac::{GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOH, RCC};
+use crate::pac::{EXTI, GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, RCC, SYSCFG};
+
+#[cfg(not(feature = "f373"))]
+use crate::pac::GPIOH;
+
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
 
 use paste::paste;
 
 // todo: Implement traits for type-state-programming checks.
 
+// #[derive(Copy, Clone)]
+// #[repr(u8)]
+// /// Values for `GPIOx_MODER`
+// pub enum PinMode {
+//     Input = 0b00,
+//     Output = 0b01,
+//     Alt(AltFn) = 0b10,
+//     Analog = 0b11,
+// }
+
 #[derive(Copy, Clone)]
 #[repr(u8)]
 /// Values for `GPIOx_MODER`
 pub enum PinMode {
-    Input = 0b00,
-    Output = 0b01,
-    Alt = 0b10,
-    Analog = 0b11,
+    Input,
+    Output,
+    Alt(AltFn),
+    Analog,
+}
+
+impl PinMode {
+    /// We use this function to find the value bits due to being unable to repr(u8) with
+    /// the wrapped `AltFn` value.
+    fn val(&self) -> u8 {
+        match self {
+            Self::Input => 0b00,
+            Self::Output => 0b01,
+            Self::Alt(_) => 0b10,
+            Self::Analog => 0b11,
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -43,8 +72,8 @@ pub enum OutputSpeed {
 /// Values for `GPIOx_PUPDR`
 pub enum Pull {
     Floating = 0b00,
-    PullUp = 0b01,
-    PullDn = 0b10,
+    Up = 0b01,
+    Dn = 0b10,
 }
 
 #[derive(Copy, Clone)]
@@ -125,22 +154,30 @@ pub enum PinNum {
     P15,
 }
 
-pub struct GpioError {}
+// pub struct GpioError {}
 
-// macro_rules! set_field  {
-//     ($field:ident, $value:ident) => {
-//         match self.pin {
-//             PinNum::P0 => self.$field.modify(|_, w| w.moder0().bits($value as u8)),
-//         }
-//     };
-// }
+// todo: Should this trait be in `traits.rs` (or eventually crate) ?
+/// Gpio pin traits. Used to check pin config when passing to peripheral constructors.
+pub trait GpioPin {
+    /// Port letter (eg A)
+    fn get_port(&self) -> PortLetter;
+
+    /// Pin num (eg P4)
+    fn get_pin(&self) -> PinNum;
+
+    /// Pin mode (input, output, alt, analog), and the alt function if applicable.
+    fn get_mode(&self) -> PinMode;
+
+    /// Output type. Ie open drain or push pull.
+    fn get_output_type(&self) -> OutputType;
+}
 
 macro_rules! make_port {
     ($Port:ident, $port:ident) => {
         paste! {
             /// GPIO port
             pub struct [<Gpio $Port>] {
-                regs: [<GPIO $Port>],
+                pub regs: [<GPIO $Port>],
             }
 
             impl [<Gpio $Port>] {
@@ -159,9 +196,75 @@ macro_rules! make_port {
                 }
 
                 pub fn new_pin(&mut self, pin: PinNum, mode: PinMode) -> [<Gpio $Port Pin>] {
-                    let mut result = [<Gpio $Port Pin>] { port: PortLetter::[<$Port>], pin };
+                    let mut result = [<Gpio $Port Pin>] {
+                        port: PortLetter::[<$Port>],
+                        pin,
+                        mode,
+                        output_type: OutputType::PushPull, // Registers initialize to this.
+                    };
                     result.mode(mode, &mut self.regs);
+
+
                     result
+                }
+            }
+        }
+    };
+}
+
+// todo: Can we simplify this further so we don't need to write each match arm?
+macro_rules! set_field {
+    ($fn_name:ident, $reg:ident, $field:ident, $type:ident, $regs:ident) => {
+        paste! {
+            pub fn $fn_name(&mut self, value: $type, regs: &mut $regs) {
+                unsafe { // Only unsafe on some PACs.
+                    match self.pin {
+                        // PinNum::[<P $pin>] => regs.$field.modify(|_, w| w.[<$field $pin>]().bits(value as u8)),
+                        PinNum::P0 => regs.$reg.modify(|_, w| w.[<$field 0>]().bits(value as u8)),
+                        PinNum::P1 => regs.$reg.modify(|_, w| w.[<$field 1>]().bits(value as u8)),
+                        PinNum::P2 => regs.$reg.modify(|_, w| w.[<$field 2>]().bits(value as u8)),
+                        PinNum::P3 => regs.$reg.modify(|_, w| w.[<$field 3>]().bits(value as u8)),
+                        PinNum::P4 => regs.$reg.modify(|_, w| w.[<$field 4>]().bits(value as u8)),
+                        PinNum::P5 => regs.$reg.modify(|_, w| w.[<$field 5>]().bits(value as u8)),
+                        PinNum::P6 => regs.$reg.modify(|_, w| w.[<$field 6>]().bits(value as u8)),
+                        PinNum::P7 => regs.$reg.modify(|_, w| w.[<$field 7>]().bits(value as u8)),
+                        PinNum::P8 => regs.$reg.modify(|_, w| w.[<$field 8>]().bits(value as u8)),
+                        PinNum::P9 => regs.$reg.modify(|_, w| w.[<$field 9>]().bits(value as u8)),
+                        PinNum::P10 => regs.$reg.modify(|_, w| w.[<$field 10>]().bits(value as u8)),
+                        PinNum::P11 => regs.$reg.modify(|_, w| w.[<$field 11>]().bits(value as u8)),
+                        PinNum::P12 => regs.$reg.modify(|_, w| w.[<$field 12>]().bits(value as u8)),
+                        PinNum::P13 => regs.$reg.modify(|_, w| w.[<$field 13>]().bits(value as u8)),
+                        PinNum::P14 => regs.$reg.modify(|_, w| w.[<$field 14>]().bits(value as u8)),
+                        PinNum::P15 => regs.$reg.modify(|_, w| w.[<$field 15>]().bits(value as u8)),
+                    }
+                }
+            }
+        }
+    };
+}
+
+macro_rules! set_field_bit {
+    ($fn_name:ident, $reg:ident, $field:ident, $type:ident, $regs:ident) => {
+        paste! {
+            pub fn $fn_name(&mut self, value: $type, regs: &mut $regs) {
+                match self.pin {
+                    // PinNum::[<P $pin>] => regs.$field.modify(|_, w| w.[<$field $pin>]().bits(value as u8)),
+                    PinNum::P0 => regs.$reg.modify(|_, w| w.[<$field 0>]().bit(value as u8 != 0)),
+                    PinNum::P1 => regs.$reg.modify(|_, w| w.[<$field 1>]().bit(value as u8 != 0)),
+                    PinNum::P2 => regs.$reg.modify(|_, w| w.[<$field 2>]().bit(value as u8 != 0)),
+                    PinNum::P3 => regs.$reg.modify(|_, w| w.[<$field 3>]().bit(value as u8 != 0)),
+                    PinNum::P4 => regs.$reg.modify(|_, w| w.[<$field 4>]().bit(value as u8 != 0)),
+                    PinNum::P5 => regs.$reg.modify(|_, w| w.[<$field 5>]().bit(value as u8 != 0)),
+                    PinNum::P6 => regs.$reg.modify(|_, w| w.[<$field 6>]().bit(value as u8 != 0)),
+                    PinNum::P7 => regs.$reg.modify(|_, w| w.[<$field 7>]().bit(value as u8 != 0)),
+                    PinNum::P8 => regs.$reg.modify(|_, w| w.[<$field 8>]().bit(value as u8 != 0)),
+                    PinNum::P9 => regs.$reg.modify(|_, w| w.[<$field 9>]().bit(value as u8 != 0)),
+                    PinNum::P10 => regs.$reg.modify(|_, w| w.[<$field 10>]().bit(value as u8 != 0)),
+                    PinNum::P11 => regs.$reg.modify(|_, w| w.[<$field 11>]().bit(value as u8 != 0)),
+                    PinNum::P12 => regs.$reg.modify(|_, w| w.[<$field 12>]().bit(value as u8 != 0)),
+                    PinNum::P13 => regs.$reg.modify(|_, w| w.[<$field 13>]().bit(value as u8 != 0)),
+                    PinNum::P14 => regs.$reg.modify(|_, w| w.[<$field 14>]().bit(value as u8 != 0)),
+                    PinNum::P15 => regs.$reg.modify(|_, w| w.[<$field 15>]().bit(value as u8 != 0)),
                 }
             }
         }
@@ -174,39 +277,47 @@ macro_rules! make_pin {
 
         /// Represents a single GPIO pin.
         pub struct [<Gpio $Port Pin>] {
-            port: PortLetter,
-            pin: PinNum,
+            pub port: PortLetter,
+            pub pin: PinNum,
+            pub mode: PinMode,
+            pub output_type: OutputType,
         }
 
         impl [<Gpio $Port Pin>] {
-            // pub fn new(port: PortLetter, pin: PinNum, reg: &mut [<GPIO $port>]) -> Self {
-            //     Self { port, pin }
-            // }
+            // We use macros where we can reduce code, and full functions where there's a difference
+            // from the macros.
 
             /// Set pin mode.
             pub fn mode(&mut self, value: PinMode, regs: &mut [<GPIO $Port>]) {
-                match self.pin {
-                    // todo DRY. reduce DRY with a  macro?
-                    PinNum::P0 => regs.moder.modify(|_, w| w.moder0().bits(value as u8)),
-                    PinNum::P1 => regs.moder.modify(|_, w| w.moder1().bits(value as u8)),
-                    PinNum::P2 => regs.moder.modify(|_, w| w.moder2().bits(value as u8)),
-                    PinNum::P3 => regs.moder.modify(|_, w| w.moder3().bits(value as u8)),
-                    PinNum::P4 => regs.moder.modify(|_, w| w.moder4().bits(value as u8)),
-                    PinNum::P5 => regs.moder.modify(|_, w| w.moder5().bits(value as u8)),
-                    PinNum::P6 => regs.moder.modify(|_, w| w.moder6().bits(value as u8)),
-                    PinNum::P7 => regs.moder.modify(|_, w| w.moder7().bits(value as u8)),
-                    PinNum::P8 => regs.moder.modify(|_, w| w.moder8().bits(value as u8)),
-                    PinNum::P9 => regs.moder.modify(|_, w| w.moder9().bits(value as u8)),
-                    PinNum::P10 => regs.moder.modify(|_, w| w.moder10().bits(value as u8)),
-                    PinNum::P11 => regs.moder.modify(|_, w| w.moder11().bits(value as u8)),
-                    PinNum::P12 => regs.moder.modify(|_, w| w.moder12().bits(value as u8)),
-                    PinNum::P13 => regs.moder.modify(|_, w| w.moder13().bits(value as u8)),
-                    PinNum::P14 => regs.moder.modify(|_, w| w.moder14().bits(value as u8)),
-                    PinNum::P15 => regs.moder.modify(|_, w| w.moder15().bits(value as u8)),
-                };
+                unsafe {
+                    match self.pin {
+                        PinNum::P0 => regs.moder.modify(|_, w| w.moder0().bits(value.val())),
+                        PinNum::P1 => regs.moder.modify(|_, w| w.moder1().bits(value.val())),
+                        PinNum::P2 => regs.moder.modify(|_, w| w.moder2().bits(value.val())),
+                        PinNum::P3 => regs.moder.modify(|_, w| w.moder3().bits(value.val())),
+                        PinNum::P4 => regs.moder.modify(|_, w| w.moder4().bits(value.val())),
+                        PinNum::P5 => regs.moder.modify(|_, w| w.moder5().bits(value.val())),
+                        PinNum::P6 => regs.moder.modify(|_, w| w.moder6().bits(value.val())),
+                        PinNum::P7 => regs.moder.modify(|_, w| w.moder7().bits(value.val())),
+                        PinNum::P8 => regs.moder.modify(|_, w| w.moder8().bits(value.val())),
+                        PinNum::P9 => regs.moder.modify(|_, w| w.moder9().bits(value.val())),
+                        PinNum::P10 => regs.moder.modify(|_, w| w.moder10().bits(value.val())),
+                        PinNum::P11 => regs.moder.modify(|_, w| w.moder11().bits(value.val())),
+                        PinNum::P12 => regs.moder.modify(|_, w| w.moder12().bits(value.val())),
+                        PinNum::P13 => regs.moder.modify(|_, w| w.moder13().bits(value.val())),
+                        PinNum::P14 => regs.moder.modify(|_, w| w.moder14().bits(value.val())),
+                        PinNum::P15 => regs.moder.modify(|_, w| w.moder15().bits(value.val())),
+                    }
+                }
+
+                self.mode = value;
+
+                if let PinMode::Alt(alt) = value {
+                    self.alt_fn(alt, regs);
+                }
             }
 
-            /// Set output type.
+            /// Set output type
             pub fn output_type(&mut self, value: OutputType, regs: &mut [<GPIO $Port>]) {
                 match self.pin {
                     PinNum::P0 => regs.otyper.modify(|_, w| w.ot0().bit(value as u8 != 0)),
@@ -225,61 +336,27 @@ macro_rules! make_pin {
                     PinNum::P13 => regs.otyper.modify(|_, w| w.ot13().bit(value as u8 != 0)),
                     PinNum::P14 => regs.otyper.modify(|_, w| w.ot14().bit(value as u8 != 0)),
                     PinNum::P15 => regs.otyper.modify(|_, w| w.ot15().bit(value as u8 != 0)),
-                };
+                }
+
+                self.output_type = value;
             }
 
-            /// Set output speed.
-            pub fn output_speed(
-                &mut self,
-                value: OutputSpeed,
-                regs: &mut [<GPIO $Port>]
-            ) {
-                // unsafe here etc applies to f3, but not l4.
-                unsafe {
-                    match self.pin {
-                        PinNum::P0 => regs.ospeedr.modify(|_, w| w.ospeedr0().bits(value as u8)),
-                        PinNum::P1 => regs.ospeedr.modify(|_, w| w.ospeedr1().bits(value as u8)),
-                        PinNum::P2 => regs.ospeedr.modify(|_, w| w.ospeedr2().bits(value as u8)),
-                        PinNum::P3 => regs.ospeedr.modify(|_, w| w.ospeedr3().bits(value as u8)),
-                        PinNum::P4 => regs.ospeedr.modify(|_, w| w.ospeedr4().bits(value as u8)),
-                        PinNum::P5 => regs.ospeedr.modify(|_, w| w.ospeedr5().bits(value as u8)),
-                        PinNum::P6 => regs.ospeedr.modify(|_, w| w.ospeedr6().bits(value as u8)),
-                        PinNum::P7 => regs.ospeedr.modify(|_, w| w.ospeedr7().bits(value as u8)),
-                        PinNum::P8 => regs.ospeedr.modify(|_, w| w.ospeedr8().bits(value as u8)),
-                        PinNum::P9 => regs.ospeedr.modify(|_, w| w.ospeedr9().bits(value as u8)),
-                        PinNum::P10 => regs.ospeedr.modify(|_, w| w.ospeedr10().bits(value as u8)),
-                        PinNum::P11 => regs.ospeedr.modify(|_, w| w.ospeedr11().bits(value as u8)),
-                        PinNum::P12 => regs.ospeedr.modify(|_, w| w.ospeedr12().bits(value as u8)),
-                        PinNum::P13 => regs.ospeedr.modify(|_, w| w.ospeedr13().bits(value as u8)),
-                        PinNum::P14 => regs.ospeedr.modify(|_, w| w.ospeedr14().bits(value as u8)),
-                        PinNum::P15 => regs.ospeedr.modify(|_, w| w.ospeedr15().bits(value as u8)),
-                    };
-                }
-            }
+            // todo: How do we make these work as doc comments?
 
-            /// Set internal pull up/down resistor, or leave floating.
-            pub fn pull(&mut self, value: Pull, regs: &mut [<GPIO $Port>]) {
-                unsafe {
-                    match self.pin {
-                        PinNum::P0 => regs.pupdr.modify(|_, w| w.pupdr0().bits(value as u8)),
-                        PinNum::P1 => regs.pupdr.modify(|_, w| w.pupdr1().bits(value as u8)),
-                        PinNum::P2 => regs.pupdr.modify(|_, w| w.pupdr2().bits(value as u8)),
-                        PinNum::P3 => regs.pupdr.modify(|_, w| w.pupdr3().bits(value as u8)),
-                        PinNum::P4 => regs.pupdr.modify(|_, w| w.pupdr4().bits(value as u8)),
-                        PinNum::P5 => regs.pupdr.modify(|_, w| w.pupdr5().bits(value as u8)),
-                        PinNum::P6 => regs.pupdr.modify(|_, w| w.pupdr6().bits(value as u8)),
-                        PinNum::P7 => regs.pupdr.modify(|_, w| w.pupdr7().bits(value as u8)),
-                        PinNum::P8 => regs.pupdr.modify(|_, w| w.pupdr8().bits(value as u8)),
-                        PinNum::P9 => regs.pupdr.modify(|_, w| w.pupdr9().bits(value as u8)),
-                        PinNum::P10 => regs.pupdr.modify(|_, w| w.pupdr10().bits(value as u8)),
-                        PinNum::P11 => regs.pupdr.modify(|_, w| w.pupdr11().bits(value as u8)),
-                        PinNum::P12 => regs.pupdr.modify(|_, w| w.pupdr12().bits(value as u8)),
-                        PinNum::P13 => regs.pupdr.modify(|_, w| w.pupdr13().bits(value as u8)),
-                        PinNum::P14 => regs.pupdr.modify(|_, w| w.pupdr14().bits(value as u8)),
-                        PinNum::P15 => regs.pupdr.modify(|_, w| w.pupdr15().bits(value as u8)),
-                    };
-                }
-            }
+            // Set output speed.
+            set_field!(output_speed, ospeedr, ospeedr, OutputSpeed, [<GPIO $Port>]);
+
+            // Set internal pull resistor: Pull up, pull down, or floating.
+            set_field!(pull, pupdr, pupdr, Pull, [<GPIO $Port>]);
+
+            // Set the output_data register.
+            set_field_bit!(output_data, odr, odr, PinState, [<GPIO $Port>]);
+
+
+            // It appears f373 doesn't have lckr on ports C or E.
+            #[cfg(not(feature = "f373"))]
+            // Lock or unlock a port configuration.
+            set_field_bit!(cfg_lock, lckr, lck, CfgLock, [<GPIO $Port>]);
 
             /// Set internal pull up/down resistor, or leave floating.
             pub fn input_data(&mut self, regs: &mut [<GPIO $Port>]) -> PinState {
@@ -307,28 +384,6 @@ macro_rules! make_pin {
                 } else {
                     PinState::Low
                 }
-            }
-
-            /// Set the output_data register.
-            pub fn output_data(&mut self, value: PinState, regs: &mut [<GPIO $Port>]) {
-                match self.pin {
-                    PinNum::P0 => regs.odr.modify(|_, w| w.odr0().bit(value as u8 != 0)),
-                    PinNum::P1 => regs.odr.modify(|_, w| w.odr1().bit(value as u8 != 0)),
-                    PinNum::P2 => regs.odr.modify(|_, w| w.odr2().bit(value as u8 != 0)),
-                    PinNum::P3 => regs.odr.modify(|_, w| w.odr3().bit(value as u8 != 0)),
-                    PinNum::P4 => regs.odr.modify(|_, w| w.odr4().bit(value as u8 != 0)),
-                    PinNum::P5 => regs.odr.modify(|_, w| w.odr5().bit(value as u8 != 0)),
-                    PinNum::P6 => regs.odr.modify(|_, w| w.odr6().bit(value as u8 != 0)),
-                    PinNum::P7 => regs.odr.modify(|_, w| w.odr7().bit(value as u8 != 0)),
-                    PinNum::P8 => regs.odr.modify(|_, w| w.odr8().bit(value as u8 != 0)),
-                    PinNum::P9 => regs.odr.modify(|_, w| w.odr9().bit(value as u8 != 0)),
-                    PinNum::P10 => regs.odr.modify(|_, w| w.odr10().bit(value as u8 != 0)),
-                    PinNum::P11 => regs.odr.modify(|_, w| w.odr11().bit(value as u8 != 0)),
-                    PinNum::P12 => regs.odr.modify(|_, w| w.odr12().bit(value as u8 != 0)),
-                    PinNum::P13 => regs.odr.modify(|_, w| w.odr13().bit(value as u8 != 0)),
-                    PinNum::P14 => regs.odr.modify(|_, w| w.odr14().bit(value as u8 != 0)),
-                    PinNum::P15 => regs.odr.modify(|_, w| w.odr15().bit(value as u8 != 0)),
-                };
             }
 
             /// Set a pin state.
@@ -360,48 +415,74 @@ macro_rules! make_pin {
                 }
             }
 
-            /// Lock or unlock a port configuration.
-            pub fn cfg_lock(&mut self, value: CfgLock, regs: &mut [<GPIO $Port>]) {
+            /// Lock or unlock a port configuration. Private - we set this using `mode`.
+            fn alt_fn(&mut self, value: AltFn, regs: &mut [<GPIO $Port>]) {
                 match self.pin {
-                    PinNum::P0 => regs.lckr.modify(|_, w| w.lck0().bit(value as u8 != 0)),
-                    PinNum::P1 => regs.lckr.modify(|_, w| w.lck1().bit(value as u8 != 0)),
-                    PinNum::P2 => regs.lckr.modify(|_, w| w.lck2().bit(value as u8 != 0)),
-                    PinNum::P3 => regs.lckr.modify(|_, w| w.lck3().bit(value as u8 != 0)),
-                    PinNum::P4 => regs.lckr.modify(|_, w| w.lck4().bit(value as u8 != 0)),
-                    PinNum::P5 => regs.lckr.modify(|_, w| w.lck5().bit(value as u8 != 0)),
-                    PinNum::P6 => regs.lckr.modify(|_, w| w.lck6().bit(value as u8 != 0)),
-                    PinNum::P7 => regs.lckr.modify(|_, w| w.lck7().bit(value as u8 != 0)),
-                    PinNum::P8 => regs.lckr.modify(|_, w| w.lck8().bit(value as u8 != 0)),
-                    PinNum::P9 => regs.lckr.modify(|_, w| w.lck9().bit(value as u8 != 0)),
-                    PinNum::P10 => regs.lckr.modify(|_, w| w.lck10().bit(value as u8 != 0)),
-                    PinNum::P11 => regs.lckr.modify(|_, w| w.lck11().bit(value as u8 != 0)),
-                    PinNum::P12 => regs.lckr.modify(|_, w| w.lck12().bit(value as u8 != 0)),
-                    PinNum::P13 => regs.lckr.modify(|_, w| w.lck13().bit(value as u8 != 0)),
-                    PinNum::P14 => regs.lckr.modify(|_, w| w.lck14().bit(value as u8 != 0)),
-                    PinNum::P15 => regs.lckr.modify(|_, w| w.lck15().bit(value as u8 != 0)),
-                };
-            }
-
-            /// Lock or unlock a port configuration.
-            pub fn alt_fn(&mut self, value: AltFn, regs: &mut [<GPIO $Port>]) {
-                match self.pin {
-                    PinNum::P0 => regs.afrl.modify(|_, w| w.afrl0().bits(value as u8)),
-                    PinNum::P1 => regs.afrl.modify(|_, w| w.afrl1().bits(value as u8)),
-                    PinNum::P2 => regs.afrl.modify(|_, w| w.afrl2().bits(value as u8)),
-                    PinNum::P3 => regs.afrl.modify(|_, w| w.afrl3().bits(value as u8)),
-                    PinNum::P4 => regs.afrl.modify(|_, w| w.afrl4().bits(value as u8)),
-                    PinNum::P5 => regs.afrl.modify(|_, w| w.afrl5().bits(value as u8)),
-                    PinNum::P6 => regs.afrl.modify(|_, w| w.afrl6().bits(value as u8)),
-                    PinNum::P7 => regs.afrl.modify(|_, w| w.afrl7().bits(value as u8)),
-                    PinNum::P8 => regs.afrh.modify(|_, w| w.afrh8().bits(value as u8)),
-                    PinNum::P9 => regs.afrh.modify(|_, w| w.afrh9().bits(value as u8)),
-                    PinNum::P10 => regs.afrh.modify(|_, w| w.afrh10().bits(value as u8)),
-                    PinNum::P11 => regs.afrh.modify(|_, w| w.afrh11().bits(value as u8)),
-                    PinNum::P12 => regs.afrh.modify(|_, w| w.afrh12().bits(value as u8)),
-                    PinNum::P13 => regs.afrh.modify(|_, w| w.afrh13().bits(value as u8)),
-                    PinNum::P14 => regs.afrh.modify(|_, w| w.afrh14().bits(value as u8)),
-                    PinNum::P15 => regs.afrh.modify(|_, w| w.afrh15().bits(value as u8)),
-                };
+                    PinNum::P0 => {
+                        regs.moder.modify(|_, w| w.moder0().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afrl0().bits(value as u8));
+                    }
+                    PinNum::P1 => {
+                        regs.moder.modify(|_, w| w.moder1().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afrl1().bits(value as u8));
+                    }
+                    PinNum::P2 => {
+                        regs.moder.modify(|_, w| w.moder2().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afrl2().bits(value as u8));
+                    }
+                    PinNum::P3 => {
+                        regs.moder.modify(|_, w| w.moder3().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afrl3().bits(value as u8));
+                    }
+                    PinNum::P4 => {
+                        regs.moder.modify(|_, w| w.moder4().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afrl4().bits(value as u8));
+                    }
+                    PinNum::P5 => {
+                        regs.moder.modify(|_, w| w.moder5().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afrl5().bits(value as u8));
+                    }
+                    PinNum::P6 => {
+                        regs.moder.modify(|_, w| w.moder6().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afrl6().bits(value as u8));
+                    }
+                    PinNum::P7 => {
+                        regs.moder.modify(|_, w| w.moder7().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afrl7().bits(value as u8));
+                    }
+                    PinNum::P8 => {
+                        regs.moder.modify(|_, w| w.moder8().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afrh8().bits(value as u8));
+                    }
+                    PinNum::P9 => {
+                        regs.moder.modify(|_, w| w.moder9().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afrh9().bits(value as u8));
+                    }
+                    PinNum::P10 => {
+                        regs.moder.modify(|_, w| w.moder10().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afrh10().bits(value as u8));
+                    }
+                    PinNum::P11 => {
+                        regs.moder.modify(|_, w| w.moder11().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afrh11().bits(value as u8));
+                    }
+                    PinNum::P12 => {
+                        regs.moder.modify(|_, w| w.moder12().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afrh12().bits(value as u8));
+                    }
+                    PinNum::P13 => {
+                        regs.moder.modify(|_, w| w.moder13().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afrh13().bits(value as u8));
+                    }
+                    PinNum::P14 => {
+                        regs.moder.modify(|_, w| w.moder14().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afrh14().bits(value as u8));
+                    }
+                    PinNum::P15 => {
+                        regs.moder.modify(|_, w| w.moder15().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afrh15().bits(value as u8));
+                    }
+                }
             }
 
             // todo: Can't find the field in PAC. Figure it out, adn implement A/R
@@ -432,7 +513,7 @@ macro_rules! make_pin {
         // accept a register block.
 
         impl InputPin for [<Gpio $Port Pin>] {
-            type Error = GpioError;
+            type Error = Infallible;
 
             fn is_high(&self) -> Result<bool, Self::Error> {
                 // todo: DRy with `input_data`.
@@ -466,7 +547,7 @@ macro_rules! make_pin {
         }
 
         impl OutputPin for [<Gpio $Port Pin>] {
-            type Error = GpioError;
+            type Error = Infallible;
 
             fn set_low(&mut self) -> Result<(), Self::Error> {
                 // tood; DRY with `set_state`
@@ -525,7 +606,7 @@ macro_rules! make_pin {
         }
 
         impl ToggleableOutputPin for [<Gpio $Port Pin>] {
-            type Error = GpioError;
+            type Error = Infallible;
 
             fn toggle(&mut self) -> Result<(), Self::Error> {
                 if self.is_high()? {
@@ -536,6 +617,25 @@ macro_rules! make_pin {
                 Ok(())
             }
         }
+
+        impl GpioPin for [<Gpio $Port Pin>] {
+            fn get_port(&self) -> PortLetter {
+                self.port
+            }
+
+            fn get_pin(&self) -> PinNum {
+                self.pin
+            }
+
+            fn get_mode(&self) -> PinMode {
+                self.mode
+            }
+
+            fn get_output_type(&self) -> OutputType {
+                self.output_type
+            }
+        }
+
         }
     };
 }
@@ -545,6 +645,8 @@ make_pin!(B);
 make_pin!(C);
 make_pin!(D);
 make_pin!(E);
+
+#[cfg(not(feature = "f373"))]
 make_pin!(H);
 
 make_port!(A, a);
@@ -552,4 +654,6 @@ make_port!(B, b);
 make_port!(C, c);
 make_port!(D, d);
 make_port!(E, e);
+
+#[cfg(not(feature = "f373"))]
 make_port!(H, h);

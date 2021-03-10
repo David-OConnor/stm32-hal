@@ -1,8 +1,8 @@
 #![no_std]
-
 // Some reg modifications are marked `unsafe` in some PAC crates, but not others.
 // Disable these warnings.
-#[allow(unused_unsafe)]
+#![allow(unused_unsafe)]
+
 #[cfg(not(any(
     feature = "f301",
     feature = "f302",
@@ -91,8 +91,13 @@ pub use stm32h7::stm32h7b3 as pac;
 
 mod traits;
 
+/// In the prelude, we export the `embedded-hal` traits we implement
 pub mod prelude {
-    pub use crate::traits::*;
+    // pub use crate::traits::*;
+    pub use embedded_hal::{
+        blocking::delay::{DelayMs, DelayUs},
+        digital::v2::{InputPin, OutputPin, ToggleableOutputPin},
+    };
 }
 
 // pub mod adc;

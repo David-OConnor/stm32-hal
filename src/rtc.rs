@@ -396,8 +396,11 @@ impl Rtc {
         // interrupt mode and select the rising edge sensitivity.
         // Sleep time is in seconds
 
+        #[cfg(not(feature = "f373"))]
         exti.imr1.modify(|_, w| w.mr20().unmasked());
+        #[cfg(not(feature = "f373"))]
         exti.rtsr1.modify(|_, w| w.tr20().bit(true));
+        #[cfg(not(feature = "f373"))]
         exti.ftsr1.modify(|_, w| w.tr20().bit(false));
 
         // We can't use the `edit_regs` abstraction here due to being unable to call a method

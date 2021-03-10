@@ -4,6 +4,7 @@
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 use crate::{
+    gpio::{AltFn, GpioPin, OutputType, PinMode},
     pac::{i2c1, RCC},
     traits::ClockCfg,
 };
@@ -66,23 +67,35 @@ impl<I2C> I2c<I2C>
 where
     I2C: Deref<Target = i2c1::RegisterBlock>,
 {
-    /// Configures the I2C peripheral to work in master mode.
-    /// `freq` is in Hz.
-    pub fn new_unchecked<C>(
+    /// Configures the I2C peripheral. `freq` is in Hz. Checks pin cfg.
+    pub fn new<C: ClockCfg, SDA: GpioPin, SCL: GpioPin>(
+        i2c: I2C,
+        device: I2cDevice,
+        sda: SDA,
+        scl: SCL,
+        freq: u32,
+        clocks: &C,
+        rcc: &mut RCC,
+    ) -> Self {
+        if let OutputType::PushPull = sda.get_output_type() {
+            panic!("SDA pin must be configured as open drain.")
+        }
+        if let OutputType::PushPull = scl.get_output_type() {
+            panic!("SCL pin must be configured as open drain.")
+        }
+        // todo: Check we're using the right pins, and the alt fns.
+
+        Self::new_unchecked(i2c, device, freq, clocks, rcc)
+    }
+
+    /// Configures the I2C peripheral. `freq` is in Hz. Doesn't check pin config.
+    pub fn new_unchecked<C: ClockCfg>(
         i2c: I2C,
         device: I2cDevice,
         freq: u32,
         clocks: &C,
         rcc: &mut RCC,
-    ) -> Self
-    // todo: Add checked `new` fn that verifies pins are valid I2C pins, in the right alternate mode,
-    // todo and are open drain.
-    // pub fn new<C>(i2c: I2C, pins: (SCL, SDA), freq: u32, clocks: &C) -> Self
-    where
-        C: ClockCfg,
-        // SCL: SclPin<I2C>,
-        // SDA: SdaPin<I2C>,
-    {
+    ) -> Self {
         match device {
             I2cDevice::One => {
                 cfg_if::cfg_if! {

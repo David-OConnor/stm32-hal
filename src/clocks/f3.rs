@@ -305,7 +305,7 @@ impl Clocks {
             rcc.cfgr.modify(|_, w| {
                 // f301 uses a 'bit' field instead. Haven't looked up how to handle.
                 cfg_if::cfg_if! {
-                    if #[cfg(feature = "f301")] {
+                    if #[cfg(any(feature = "f301", feature = "f373"))] {
                         w.pllmul().bits(self.pll_mul as u8) // eg: 8Mhz HSE x 9 = 72Mhz
                     } else {
                         w.pllmul().bits(self.pll_mul as u8); // eg: 8Mhz HSE x 9 = 72Mhz

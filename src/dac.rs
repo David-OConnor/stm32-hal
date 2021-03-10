@@ -3,6 +3,8 @@
 
 use core::fmt;
 
+use crate::gpio::{GpioPin, PinMode};
+
 // todo: Implement DAC2 (and 3?)
 
 cfg_if::cfg_if! {
@@ -109,7 +111,18 @@ macro_rules! make_impl {
         impl Dac {
             cfg_if::cfg_if! {
                 if #[cfg(any(feature = "l4x6", feature = "l5", feature = "f302"))] {
-                    /// Create a new DAC instance
+                    /// Create a new DAC instance.
+                    pub fn new<P: GpioPin>(regs: DAC, pin: P, channel: Channel, bits: Bits, vref: f32) -> Self {
+                        // todo: Check for a valid pin too.
+                        match pin.get_mode() {
+                            PinMode::Analog => (),
+                            _ => panic!("DAC pin must be configured as analog")
+                        }
+
+                        Self::new_unchecked(regs, channel, bits, vref)
+                    }
+
+                    /// Create a new DAC instance, without checking the output pin
                     pub fn new_unchecked(regs: DAC, channel: Channel, bits: Bits, vref: f32) -> Self {
                         Self {
                             regs,
@@ -118,8 +131,19 @@ macro_rules! make_impl {
                             vref,
                         }
                     }
-                } else {
-                    /// Create a new DAC instance
+                } else { // todo dry to change 1 char.
+                    /// Create a new DAC instance.
+                    pub fn new<P: GpioPin>(regs: DAC1, pin: P, channel: Channel, bits: Bits, vref: f32) -> Self {
+                        // todo: Check for a valid pin too.
+                        match pin.get_mode() {
+                            PinMode::Analog => (),
+                            _ => panic!("DAC pin must be configured as analog")
+                        }
+
+                        Self::new_unchecked(regs, channel, bits, vref)
+                    }
+
+                    /// Create a new DAC instance, without checking the output pin
                     pub fn new_unchecked(regs: DAC1, channel: Channel, bits: Bits, vref: f32) -> Self {
                         Self {
                             regs,

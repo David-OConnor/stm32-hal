@@ -13,10 +13,11 @@ use stm32_hal::{
     delay::Delay,
     event::Timeout,
     flash::Flash,
-    gpio::{Port, Pin, PinNum, PinMode, OutputType, AltFn, Pull},
+    gpio::{GpioA, GpioB, PinNum, PinMode, OutputType, AltFn, Pull},
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
+    prelude::*,
     rtc::{Rtc, RtcClockSource, RtcConfig},
     spi::Spi,
     timer::{Event::TimeOut, Timer},
@@ -59,15 +60,27 @@ fn main() -> ! {
     // Enable up the GPIOA port.
 
     let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
-    let mut pa15 = gpioa::new_pin(PinNum::P15, PinMode::Output);
+    let mut pa15 = gpioa.new_pin(PinNum::P15, PinMode::Output);
     pa15.alt_fn(AltFn::AF7, &mut gpioa.regs);
     pa15.output_type(OutputType::OpenDrain, &mut gpioa.regs);
 
+    pa15.set_high().ok();
+
     // Set up an I2C peripheral
+    let scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
+    scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
+
+    let sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::AF4));
+    sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
+    scl.alt_fn(AltFn::Af4, &mut gpiob.regs);
     // let i2c = I2c::new(dp.I2C1, (scl, sda), 100_000, &clocks, &mut dp.RCC);
     let i2c = I2c::new_unchecked(dp.I2C1, I2cDevice::One, 100_000, &clocks, &mut dp.RCC);
 
     // Set up an SPI peripheral
+    let sck = gpioa.new_pin(PinNum::P5, PinMode::Alt(AltFn::Af5));
+    let miso = gpioa.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af5));
+    let mosi = gpioa.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af5));
+
     let spi = Spi::spi1_unchecked(
         dp.SPI1,
         spi_mode,
@@ -77,6 +90,8 @@ fn main() -> ! {
     );
 
     // Set up the Analog-to-digital converter
+    let mut _adc_pin = gpiob.new_pin(PinNum::P5, PinMode::Analog);
+
     let mut adc = Adc::adc1_unchecked(
         dp.ADC1,
         &mut dp.ADC1_2,
@@ -86,7 +101,8 @@ fn main() -> ! {
     );
 
     // Set up the Digital-to-analog converter
-    let mut dac = Dac::new_unchecked(dp.DAC, dac_pin, DacChannel::One, Bits::TwelveR, 3.3);
+    let mut dac_pin = gpioa.new_pin(PinNum::P12, PinMode::Analog);
+    let mut dac = Dac::new(dp.DAC, dac_pin, DacChannel::One, Bits::TwelveR, 3.3);
     dac.enable(&mut dp.RCC);
 
     // Set up and start a timer; set it to fire interrupts.
