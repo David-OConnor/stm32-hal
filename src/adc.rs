@@ -11,19 +11,10 @@
 //!
 //! [examples/adc.rs]: https://github.com/stm32-rs/stm32f3xx-hal/blob/v0.6.0/examples/adc.rs
 
-
 use cortex_m::asm;
 use embedded_hal::adc::{Channel, OneShot};
 
-use crate::{
-    // gpio::{gpioa, gpiob, gpioc},
-};
-
-// #[cfg(feature = "f3")]
-// use crate::pac::{adc1::cfgr::ALIGN_A, adc1_2::ccr::CKMODE_A};
-
-// #[cfg(any(feature = "l4", feature = "l5"))]
-// use crate::pac::{adc_common::cfgr::CKMODE_A};
+use crate::traits::ClockCfg;
 
 // todo: what other features support ADC3 and 4? Trim this down as you get errors
 #[cfg(any(
@@ -41,10 +32,16 @@ use crate::{
 
 // todo: what other features support ADC3 and 4? Trim this down as you get errors
 #[cfg(any(
-    feature = "f301",
+    feature = "f373",
+))]
+use crate::{
+    pac::ADC1,
+};
+
+// todo: what other features support ADC3 and 4? Trim this down as you get errors
+#[cfg(any(
     feature = "f302",
     feature = "f303",
-    feature = "f373",
     feature = "f3x4",
     feature = "h743",
     feature = "h743v",
@@ -61,8 +58,14 @@ use crate::{
 // todo: what other features support ADC3 and 4? Trim this down as you get errors
 #[cfg(any(
     feature = "f301",
+))]
+use crate::{
+    pac::{ADC1, ADC1_2},
+};
+
+// todo: what other features support ADC3 and 4? Trim this down as you get errors
+#[cfg(any(
     feature = "f303",
-    feature = "f373",
     feature = "f3x4",
     feature = "h743",
     feature = "h743v",
@@ -79,15 +82,13 @@ use crate::{
 const MAX_ADVREGEN_STARTUP_US: u32 = 10;
 
 
-
-
 /// Analog Digital Converter Peripheral
 // TODO: Remove `pub` from the register block once all functionalities are implemented.
 // Leave it here until then as it allows easy access to the registers.
 pub struct Adc<ADC> {
     /// ADC Register
     pub rb: ADC,
-    ckmode: CkMode,
+    ckmode: ClockMode,
     operation_mode: Option<OperationMode>,
 }
 
@@ -150,20 +151,20 @@ pub enum OperationMode {
 #[derive(Clone, Copy, PartialEq)]
 /// ADC CkMode
 // TODO: Add ASYNCHRONOUS mode
-pub enum CkMode {
+pub enum ClockMode {
     // /// Use Kernel Clock adc_ker_ck_input divided by PRESC. Asynchronous to AHB clock
     // ASYNCHRONOUS = 0,
     /// Use AHB clock rcc_hclk3. In this case rcc_hclk must equal sys_d1cpre_ck
-    SYNCDIV1 = 1,
+    SyncDiv1 = 1,
     /// Use AHB clock rcc_hclk3 divided by 2
-    SYNCDIV2 = 2,
+    SyncDiv2 = 2,
     /// Use AHB clock rcc_hclk3 divided by 4
-    SYNCDIV4 = 4,
+    SyncDiv4 = 4,
 }
 
-impl Default for CkMode {
+impl Default for ClockMode {
     fn default() -> Self {
-        CkMode::SYNCDIV2
+        Self::SyncDiv2
     }
 }
 
@@ -202,139 +203,139 @@ impl Default for Align {
 //     }
 // }
 
-/// Maps pins to ADC Channels.
-macro_rules! adc_pins {
-    ($ADC:ident, $($pin:ty => $chan:expr),+ $(,)*) => {
-        $(
-            impl Channel<$ADC> for $pin {
-                type ID = u8;
-
-                fn channel() -> u8 { $chan }
-            }
-        )+
-    };
-}
+// /// Maps pins to ADC Channels.
+// macro_rules! adc_pins {
+//     ($ADC:ident, $($pin:ty => $chan:expr),+ $(,)*) => {
+//         $(
+//             impl Channel<$ADC> for $pin {
+//                 type ID = u8;
+//
+//                 fn channel() -> u8 { $chan }
+//             }
+//         )+
+//     };
+// }
 
 // # ADC1 Pin/Channel mapping
 // ## f303
 
-#[cfg(feature = "stm32f303")]
-adc_pins!(ADC1,
-    gpioa::PA0<Analog> => 1,
-    gpioa::PA1<Analog> => 2,
-    gpioa::PA2<Analog> => 3,
-    gpioa::PA3<Analog> => 4,
-    gpioc::PC0<Analog> => 6,
-    gpioc::PC1<Analog> => 7,
-    gpioc::PC2<Analog> => 8,
-    gpioc::PC3<Analog> => 9,
-);
+// #[cfg(feature = "stm32f303")]
+// adc_pins!(ADC1,
+//     gpioa::PA0<Analog> => 1,
+//     gpioa::PA1<Analog> => 2,
+//     gpioa::PA2<Analog> => 3,
+//     gpioa::PA3<Analog> => 4,
+//     gpioc::PC0<Analog> => 6,
+//     gpioc::PC1<Analog> => 7,
+//     gpioc::PC2<Analog> => 8,
+//     gpioc::PC3<Analog> => 9,
+// );
 
-#[cfg(any(feature = "stm32f303x6", feature = "stm32f303x8"))]
-adc_pins!(ADC1,
-    gpiob::PB0<Analog> => 11,
-    gpiob::PB1<Analog> => 12,
-    gpiob::PB13<Analog> => 13,
-);
+// #[cfg(any(feature = "stm32f303x6", feature = "stm32f303x8"))]
+// adc_pins!(ADC1,
+//     gpiob::PB0<Analog> => 11,
+//     gpiob::PB1<Analog> => 12,
+//     gpiob::PB13<Analog> => 13,
+// );
 
-#[cfg(any(
-    feature = "stm32f303xb",
-    feature = "stm32f303xc",
-    feature = "stm32f303xd",
-    feature = "stm32f303xe",
-))]
-adc_pins!(ADC1,
-    gpiof::PF4<Analog> => 5,
-    gpiof::PF2<Analog> => 10,
-);
+// #[cfg(any(
+//     feature = "stm32f303xb",
+//     feature = "stm32f303xc",
+//     feature = "stm32f303xd",
+//     feature = "stm32f303xe",
+// ))]
+// adc_pins!(ADC1,
+//     gpiof::PF4<Analog> => 5,
+//     gpiof::PF2<Analog> => 10,
+// );
 
 // # ADC2 Pin/Channel mapping
 // ## f303
 
-#[cfg(feature = "stm32f303")]
-adc_pins!(ADC2,
-    gpioa::PA4<Analog> => 1,
-    gpioa::PA5<Analog> => 2,
-    gpioa::PA6<Analog> => 3,
-    gpioa::PA7<Analog> => 4,
-    gpioc::PC4<Analog> => 5,
-    gpioc::PC0<Analog> => 6,
-    gpioc::PC1<Analog> => 7,
-    gpioc::PC2<Analog> => 8,
-    gpioc::PC3<Analog> => 9,
-    gpioc::PC5<Analog> => 11,
-    gpiob::PB2<Analog> => 12,
-);
+// #[cfg(feature = "stm32f303")]
+// adc_pins!(ADC2,
+//     gpioa::PA4<Analog> => 1,
+//     gpioa::PA5<Analog> => 2,
+//     gpioa::PA6<Analog> => 3,
+//     gpioa::PA7<Analog> => 4,
+//     gpioc::PC4<Analog> => 5,
+//     gpioc::PC0<Analog> => 6,
+//     gpioc::PC1<Analog> => 7,
+//     gpioc::PC2<Analog> => 8,
+//     gpioc::PC3<Analog> => 9,
+//     gpioc::PC5<Analog> => 11,
+//     gpiob::PB2<Analog> => 12,
+// );
 
-#[cfg(any(feature = "stm32f303x6", feature = "stm32f303x8"))]
-adc_pins!(ADC2,
-    gpiob::PB12<Analog> => 13,
-    gpiob::PB14<Analog> => 14,
-    gpiob::PB15<Analog> => 15,
-);
+// #[cfg(any(feature = "stm32f303x6", feature = "stm32f303x8"))]
+// adc_pins!(ADC2,
+//     gpiob::PB12<Analog> => 13,
+//     gpiob::PB14<Analog> => 14,
+//     gpiob::PB15<Analog> => 15,
+// );
 
-#[cfg(any(
-    feature = "stm32f303xb",
-    feature = "stm32f303xc",
-    feature = "stm32f303xd",
-    feature = "stm32f303xe",
-))]
-adc_pins!(ADC2,
-    gpiof::PF2<Analog> => 10,
-);
+// #[cfg(any(
+//     feature = "stm32f303xb",
+//     feature = "stm32f303xc",
+//     feature = "stm32f303xd",
+//     feature = "stm32f303xe",
+// ))]
+// adc_pins!(ADC2,
+//     gpiof::PF2<Analog> => 10,
+// );
 
 // # ADC3 Pin/Channel mapping
 // ## f303
-
-#[cfg(any(
-    feature = "stm32f303xb",
-    feature = "stm32f303xc",
-    feature = "stm32f303xd",
-    feature = "stm32f303xe",
-))]
-adc_pins!(ADC3,
-    gpiob::PB1<Analog> => 1,
-    gpioe::PE9<Analog> => 2,
-    gpioe::PE13<Analog> => 3,
-    // There is no ADC3 Channel #4
-    gpiob::PB13<Analog> => 5,
-    gpioe::PE8<Analog> => 6,
-    gpiod::PD10<Analog> => 7,
-    gpiod::PD11<Analog> => 8,
-    gpiod::PD12<Analog> => 9,
-    gpiod::PD13<Analog> => 10,
-    gpiod::PD14<Analog> => 11,
-    gpiob::PB0<Analog> => 12,
-    gpioe::PE7<Analog> => 13,
-    gpioe::PE10<Analog> => 14,
-    gpioe::PE11<Analog> => 15,
-    gpioe::PE12<Analog> => 16,
-);
+//
+// #[cfg(any(
+//     feature = "stm32f303xb",
+//     feature = "stm32f303xc",
+//     feature = "stm32f303xd",
+//     feature = "stm32f303xe",
+// ))]
+// adc_pins!(ADC3,
+//     gpiob::PB1<Analog> => 1,
+//     gpioe::PE9<Analog> => 2,
+//     gpioe::PE13<Analog> => 3,
+//     // There is no ADC3 Channel #4
+//     gpiob::PB13<Analog> => 5,
+//     gpioe::PE8<Analog> => 6,
+//     gpiod::PD10<Analog> => 7,
+//     gpiod::PD11<Analog> => 8,
+//     gpiod::PD12<Analog> => 9,
+//     gpiod::PD13<Analog> => 10,
+//     gpiod::PD14<Analog> => 11,
+//     gpiob::PB0<Analog> => 12,
+//     gpioe::PE7<Analog> => 13,
+//     gpioe::PE10<Analog> => 14,
+//     gpioe::PE11<Analog> => 15,
+//     gpioe::PE12<Analog> => 16,
+// );
 
 // # ADC4 Pin/Channel mapping
 // ## f303
-
-#[cfg(any(
-    feature = "stm32f303xb",
-    feature = "stm32f303xc",
-    feature = "stm32f303xd",
-    feature = "stm32f303xe",
-))]
-adc_pins!(ADC4,
-    gpioe::PE14<Analog> => 1,
-    gpioe::PE15<Analog> => 2,
-    gpiob::PB12<Analog> => 3,
-    gpiob::PB14<Analog> => 4,
-    gpiob::PB15<Analog> => 5,
-    gpioe::PE8<Analog> => 6,
-    gpiod::PD10<Analog> => 7,
-    gpiod::PD11<Analog> => 8,
-    gpiod::PD12<Analog> => 9,
-    gpiod::PD13<Analog> => 10,
-    gpiod::PD14<Analog> => 11,
-    gpiod::PD8<Analog> => 12,
-    gpiod::PD9<Analog> => 13,
-);
+//
+// #[cfg(any(
+//     feature = "stm32f303xb",
+//     feature = "stm32f303xc",
+//     feature = "stm32f303xd",
+//     feature = "stm32f303xe",
+// ))]
+// adc_pins!(ADC4,
+//     gpioe::PE14<Analog> => 1,
+//     gpioe::PE15<Analog> => 2,
+//     gpiob::PB12<Analog> => 3,
+//     gpiob::PB14<Analog> => 4,
+//     gpiob::PB15<Analog> => 5,
+//     gpioe::PE8<Analog> => 6,
+//     gpiod::PD10<Analog> => 7,
+//     gpiod::PD11<Analog> => 8,
+//     gpiod::PD12<Analog> => 9,
+//     gpiod::PD13<Analog> => 10,
+//     gpiod::PD14<Analog> => 11,
+//     gpiod::PD8<Analog> => 12,
+//     gpiod::PD9<Analog> => 13,
+// );
 
 // Abstract implementation of ADC functionality
 // Do not use directly. See adc12_hal for a applicable Macro.
@@ -388,9 +389,9 @@ macro_rules! adc_hal {
 
                 /// Software can use CkMode::SYNCDIV1 only if
                 /// hclk and sysclk are the same. (see reference manual 15.3.3)
-                fn clocks_welldefined(&self, clocks: Clocks) -> bool {
+                fn clocks_welldefined<C: ClockCfg>(&self, clocks: &C) -> bool {
                     if (self.ckmode == CkMode::SYNCDIV1) {
-                        clocks.hclk().0 == clocks.sysclk().0
+                        clocks.hclk() == clocks.sysclk()
                     } else {
                         true
                     }
@@ -566,10 +567,11 @@ macro_rules! adc12_hal {
 // Macro to implement ADC functionallity for ADC3 and ADC4
 // TODO: Extend/differentiate beyond f303.
 #[cfg(any(
-    feature = "stm32f303xb",
-    feature = "stm32f303xc",
-    feature = "stm32f303xd",
-    feature = "stm32f303xe",
+    feature = "f301",
+    feature = "f302",
+    feature = "f303",
+    feature = "f373",
+    feature = "f3x4",
 ))]
 macro_rules! adc34_hal {
     ($(
@@ -598,16 +600,23 @@ macro_rules! adc34_hal {
     }
 }
 
-#[cfg(feature = "stm32f303")]
+#[cfg(any(
+    feature = "f301",
+    feature = "f302",
+    feature = "f303",
+    feature = "f373",
+    feature = "f3x4",
+))]
 adc12_hal! {
     ADC1: (adc1),
     ADC2: (adc2),
 }
 #[cfg(any(
-    feature = "stm32f303xb",
-    feature = "stm32f303xc",
-    feature = "stm32f303xd",
-    feature = "stm32f303xe",
+    feature = "f301",
+    feature = "f302",
+    feature = "f303",
+    feature = "f373",
+    feature = "f3x4",
 ))]
 adc34_hal! {
     ADC3: (adc3),

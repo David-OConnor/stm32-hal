@@ -7,8 +7,8 @@ use embedded_hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use paste::paste;
 
 use crate::{
-    traits::ClockCfg,
     pac::{RCC, SPI1, SPI2, SPI3},
+    traits::ClockCfg,
 };
 
 /// SPI error
@@ -270,7 +270,7 @@ macro_rules! hal {
 //     feature = "l4x6"
 // ))]
 
-// #[cfg(feature = "f3")]
+#[cfg(any(feature = "f302", feature = "f303", feature = "f373", feature = "f3x4",))]
 hal! {
     SPI1: (spi1, spi1_unchecked, apb2, enr, rstr, spi1en),
 }

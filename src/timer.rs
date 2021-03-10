@@ -9,14 +9,17 @@ use embedded_hal::timer::{CountDown, Periodic};
 use void::Void;
 
 use crate::{
-    traits::ClockCfg,
     pac::{RCC, TIM15, TIM16, TIM2, TIM6, TIM7},
+    traits::ClockCfg,
 };
 
 use paste::paste;
 
 // I'm not sure where to get a good list of which variants use which timers.
 // Info's in the Ref mans, but buried.
+
+// Some of these can be imported from the PAC, but have errors when attempting to enable or
+// reset (eg with f301.)
 #[cfg(feature = "f301")]
 use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM19, TIM3, TIM4, TIM5};
 
@@ -27,7 +30,7 @@ use crate::pac::{TIM1, TIM17, TIM20, TIM3, TIM4, TIM8};
 use crate::pac::{TIM1, TIM17, TIM20, TIM3, TIM4, TIM8};
 
 #[cfg(feature = "f373")]
-use crate::pac::{TIM10, TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM3, TIM4, TIM5};
+use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "f3x4")]
 use crate::pac::{TIM1, TIM17, TIM3, TIM4};
@@ -199,7 +202,7 @@ impl OutputCompare {
 
 macro_rules! hal {
     ($({
-        $TIMX:ident: ($tim:ident, $apb:ident, $enr:ident, $rst:ident),
+        $TIMX:ident: ($tim:ident, $apb:ident, $enr:ident, $rst:ident)
     },)+) => {
         $(
             impl Periodic for Timer<$TIMX> {}
@@ -575,14 +578,20 @@ macro_rules! pwm_features {
 #[cfg(not(feature = "f373"))]
 hal! {
     {
-        TIM1: (tim1, apb2, enr, rstr),
+        TIM1: (tim1, apb2, enr, rstr)
     },
 }
 
-#[cfg(not(any(feature = "f552", feature = "l4x3", feature = "l4x1")))]
+#[cfg(not(any(
+    feature = "f301",
+    feature = "f552",
+    feature = "l4x3",
+    feature = "l4x1",
+    feature = "l552"
+)))]
 hal! {
     {
-        TIM3: (tim3, apb1, enr1, rstr1),
+        TIM3: (tim3, apb1, enr1, rstr1)
     },
 }
 
@@ -593,13 +602,19 @@ pwm_features! {
     },
 }
 
-#[cfg(not(any(feature = "l4x1", feature = "l4x2", feature = "l4x3", feature = "l552")))]
+#[cfg(not(any(
+    feature = "f301",
+    feature = "l4x1",
+    feature = "l4x2",
+    feature = "l4x3",
+    feature = "l552"
+)))]
 hal! {
     {
-        TIM4: (tim4, apb1, enr1, rstr1),
+        TIM4: (tim4, apb1, enr1, rstr1)
     },
     {
-        TIM17: (tim17, apb2, enr, rstr),
+        TIM17: (tim17, apb2, enr, rstr)
     },
 }
 
@@ -610,38 +625,32 @@ pwm_features! {
     },
 }
 
-#[cfg(any(
-    feature = "f301",
-    feature = "f373",
-    feature = "l4x5",
-    feature = "l4x6",
-    feature = "l562"
-))]
+#[cfg(any(feature = "f373", feature = "l4x5", feature = "l4x6", feature = "l562"))]
 hal! {
     {
-        TIM5: (tim5, apb1, enr1, rstr1),
+        TIM5: (tim5, apb1, enr1, rstr1)
     },
 }
 
-#[cfg(not(any(feature = "f302")))]
+#[cfg(not(any(feature = "f301", feature = "f302")))]
 hal! {
     {
-        TIM7: (tim7, apb1, enr1, rstr1),
+        TIM7: (tim7, apb1, enr1, rstr1)
     },
 }
 
 hal! {
     {
-        TIM2: (tim2, apb1, enr1, rstr1),
+        TIM2: (tim2, apb1, enr1, rstr1)
     },
     {
-        TIM6: (tim6, apb1, enr1, rstr1),
+        TIM6: (tim6, apb1, enr1, rstr1)
     },
     {
-        TIM15: (tim15, apb2, enr, rstr),
+        TIM15: (tim15, apb2, enr, rstr)
     },
     {
-        TIM16: (tim16, apb2, enr, rstr),
+        TIM16: (tim16, apb2, enr, rstr)
     },
 }
 
@@ -652,22 +661,10 @@ pwm_features! {
     },
 }
 
-#[cfg(any(
-    feature = "f303",
-    feature = "l4x5",
-    feature = "l4x6",
-    feature = "l562",
-))]
+#[cfg(any(feature = "f303", feature = "l4x5", feature = "l4x6", feature = "l562",))]
 hal! {
     {
-        TIM8: (tim8, apb2, enr, rstr),
-    },
-}
-
-#[cfg(feature = "f373")]
-hal! {
-    {
-        TIM10: (tim10, apb2, enr, rstr),
+        TIM8: (tim8, apb2, enr, rstr)
     },
 }
 
@@ -678,23 +675,22 @@ hal! {
 hal! {
 
     {
-        TIM20: (tim20, apb2, enr, rstr),
+        TIM20: (tim20, apb2, enr, rstr)
     },
 }
 
-#[cfg(any(feature = "f301", feature = "f373"))]
+#[cfg(any(feature = "f373"))]
 hal! {
     {
-        TIM12: (tim12, apb1, enr1, rstr1),
+        TIM12: (tim12, apb1, enr1, rstr1)
     },
     {
-        TIM13: (tim13, apb1, enr1, rstr1),
+        TIM13: (tim13, apb1, enr1, rstr1)
     },
     {
-        TIM14: (tim14, apb1, enr1, rstr1),
+        TIM14: (tim14, apb1, enr1, rstr1)
+    },
+    {
+        TIM19: (tim19, apb2, enr, rstr)
     },
 }
-
-    // {
-    //     TIM19: (tim19, apb2, enr, rstr),
-    // },

@@ -95,11 +95,13 @@ pub mod prelude {
     pub use crate::traits::*;
 }
 
-pub mod adc;
+// pub mod adc;
 pub mod clocks;
 pub mod dac;
 pub mod delay;
+#[cfg(not(feature = "l5"))] // todo
 pub mod flash;
+pub mod gpio;
 pub mod i2c;
 pub mod low_power;
 pub mod rtc;

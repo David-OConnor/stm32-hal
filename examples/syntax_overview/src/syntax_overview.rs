@@ -13,6 +13,7 @@ use stm32_hal::{
     delay::Delay,
     event::Timeout,
     flash::Flash,
+    gpio::{Port, Pin, PinNum, PinMode},
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
@@ -55,6 +56,11 @@ fn main() -> ! {
 
     let flash_contents = flash.read(10, 0);
 
+    // Enable up the GPIOA port.
+
+    let gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
+    let pa15 = gpioa::new_pin(PinNum::P15, PinMode::Output);
+
     // Set up an I2C peripheral
     // let i2c = I2c::new(dp.I2C1, (scl, sda), 100_000, &clocks, &mut dp.RCC);
     let i2c = I2c::new_unchecked(dp.I2C1, I2cDevice::One, 100_000, &clocks, &mut dp.RCC);
@@ -66,6 +72,15 @@ fn main() -> ! {
         4_000_000,
         &clocks,
         &mut dp.RCC,
+    );
+
+    // Set up the Analog-to-digital converter
+    let mut adc = Adc::adc1_unchecked(
+        dp.ADC1,
+        &mut dp.ADC1_2,
+        &mut dp.RCC,
+        adc::CkMode::default(),
+        &clocks,
     );
 
     // Set up the Digital-to-analog converter

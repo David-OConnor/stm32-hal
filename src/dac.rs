@@ -6,7 +6,7 @@ use core::fmt;
 // todo: Implement DAC2 (and 3?)
 
 cfg_if::cfg_if! {
-    if #[cfg(any(feature = "l4x6", feature = "f302"))] {
+    if #[cfg(any(feature = "l4x6", feature = "l5", feature = "f302"))] {
         use crate::pac::{DAC, RCC};
     } else {
         use crate::pac::{DAC1, RCC};
@@ -85,7 +85,7 @@ impl Trigger {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(any(feature = "l4x6", feature = "f302"))] {
+    if #[cfg(any(feature = "l4x6", feature = "l5", feature = "f302"))] {
         pub struct Dac {
             regs: DAC,
             channel: Channel,
@@ -102,143 +102,148 @@ cfg_if::cfg_if! {
     }
 }
 
-// todo: Checked constructor that makes sure the pin is a valid DAC pin configured in analog mode.
-impl Dac {
-    cfg_if::cfg_if! {
-        if #[cfg(any(feature = "l4x6", feature = "f302"))] {
-            /// Create a new DAC instance
-            pub fn new_unchecked(regs: DAC, channel: Channel, bits: Bits, vref: f32) -> Self {
-                Self {
-                    regs,
-                    channel,
-                    bits,
-                    vref,
+// We use a macro to simplify code due to L5 using a different register names. ( eg`dac_cr`)
+macro_rules! make_impl {
+    ($cr:ident, $d81:ident, $d12l1:ident, $d12r1:ident, $d82:ident, $d12l2:ident, $d12r2:ident) => {
+        // todo: Checked constructor that makes sure the pin is a valid DAC pin configured in analog mode.
+        impl Dac {
+            cfg_if::cfg_if! {
+                if #[cfg(any(feature = "l4x6", feature = "l5", feature = "f302"))] {
+                    /// Create a new DAC instance
+                    pub fn new_unchecked(regs: DAC, channel: Channel, bits: Bits, vref: f32) -> Self {
+                        Self {
+                            regs,
+                            channel,
+                            bits,
+                            vref,
+                        }
+                    }
+                } else {
+                    /// Create a new DAC instance
+                    pub fn new_unchecked(regs: DAC1, channel: Channel, bits: Bits, vref: f32) -> Self {
+                        Self {
+                            regs,
+                            channel,
+                            bits,
+                            vref,
+                        }
+                    }
                 }
             }
-        } else {
-            /// Create a new DAC instance
-            pub fn new_unchecked(regs: DAC1, channel: Channel, bits: Bits, vref: f32) -> Self {
-                Self {
-                    regs,
-                    channel,
-                    bits,
-                    vref,
+
+            /// Enable the DAC.
+            pub fn enable(&mut self, rcc: &mut RCC) {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "f3")] {
+                        rcc.apb1enr.modify(|_, w| w.dac1en().set_bit());
+                    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                        rcc.apb1enr1.modify(|_, w| w.dac1en().set_bit());
+                    }
+                }
+
+                match self.channel {
+                    Channel::One => self.regs.$cr.modify(|_, w| w.en1().set_bit()),
+                    Channel::Two => self.regs.$cr.modify(|_, w| w.en2().set_bit()),
                 }
             }
-        }
-    }
 
-    /// Enable the DAC.
-    pub fn enable(&mut self, rcc: &mut RCC) {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "f3")] {
-                rcc.apb1enr.modify(|_, w| w.dac1en().set_bit());
-            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
-                rcc.apb1enr1.modify(|_, w| w.dac1en().set_bit());
+            /// Disable the DAC
+            pub fn disable(&mut self, rcc: &mut RCC) {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "f3")] {
+                        rcc.apb1enr.modify(|_, w| w.dac1en().clear_bit());
+                    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                        rcc.apb1enr1.modify(|_, w| w.dac1en().clear_bit());
+                    }
+                }
+
+                match self.channel {
+                    Channel::One => self.regs.$cr.modify(|_, w| w.en1().clear_bit()),
+                    Channel::Two => self.regs.$cr.modify(|_, w| w.en2().clear_bit()),
+                }
+            }
+
+            /// Set the DAC value as an integer.
+            pub fn set_value(&mut self, val: u32) {
+                match self.channel {
+                    Channel::One => match self.bits {
+                        Bits::EightR => self.regs.$d81.modify(|_, w| unsafe { w.bits(val) }),
+                        Bits::TwelveL => self.regs.$d12l1.modify(|_, w| unsafe { w.bits(val) }),
+                        Bits::TwelveR => self.regs.$d12r1.modify(|_, w| unsafe { w.bits(val) }),
+                    },
+                    Channel::Two => match self.bits {
+                        Bits::EightR => self.regs.$d82.modify(|_, w| unsafe { w.bits(val) }),
+                        Bits::TwelveL => self.regs.$d12l2.modify(|_, w| unsafe { w.bits(val) }),
+                        Bits::TwelveR => self.regs.$d12r2.modify(|_, w| unsafe { w.bits(val) }),
+                    },
+                }
+            }
+
+            /// Set the DAC voltage. `v` is in Volts.
+            pub fn set_voltage(&mut self, volts: f32) {
+                let val = match self.bits {
+                    Bits::EightR => ((volts / self.vref) * 255.) as u32,
+                    Bits::TwelveL => ((volts / self.vref) * 4_095.) as u32,
+                    Bits::TwelveR => ((volts / self.vref) * 4_095.) as u32,
+                };
+
+                self.set_value(val);
+            }
+
+            // Select and activate a trigger. See f303 Reference manual, section 16.5.4.
+            pub fn set_trigger(&mut self, trigger: Trigger) {
+                match self.channel {
+                    Channel::One => {
+                        self.regs.$cr.modify(|_, w| w.ten1().set_bit());
+                        self.regs
+                            .$cr
+                            .modify(|_, w| unsafe { w.tsel1().bits(trigger.bits()) });
+                    }
+                    Channel::Two => {
+                        self.regs.$cr.modify(|_, w| w.ten2().set_bit());
+                        self.regs
+                            .$cr
+                            .modify(|_, w| unsafe { w.tsel2().bits(trigger.bits()) });
+                    }
+                }
+            }
+
+            /// Independent trigger with single LFSR generation
+            /// See f303 Reference Manual section 16.5.2
+            pub fn trigger_lfsr(&mut self, trigger: Trigger, data: u32) {
+                // todo: This may not be correct.
+                match self.channel {
+                    Channel::One => {
+                        self.regs.$cr.modify(|_, w| unsafe { w.wave1().bits(0b01) });
+                        self.regs.$cr.modify(|_, w| unsafe { w.mamp1().bits(0b01) });
+                    }
+                    Channel::Two => {
+                        self.regs.$cr.modify(|_, w| unsafe { w.wave2().bits(0b01) });
+                        self.regs.$cr.modify(|_, w| unsafe { w.mamp2().bits(0b01) });
+                    }
+                }
+                self.set_trigger(trigger);
+                self.set_value(data);
+            }
+
+            /// Independent trigger with single triangle generation
+            /// See f303 Reference Manual section 16.5.2
+            pub fn trigger_triangle(&mut self, trigger: Trigger, data: u32) {
+                // todo: This may not be correct.
+                match self.channel {
+                    Channel::One => {
+                        self.regs.$cr.modify(|_, w| unsafe { w.wave1().bits(0b10) });
+                        self.regs.$cr.modify(|_, w| unsafe { w.mamp1().bits(0b10) });
+                    }
+                    Channel::Two => {
+                        self.regs.$cr.modify(|_, w| unsafe { w.wave2().bits(0b10) });
+                        self.regs.$cr.modify(|_, w| unsafe { w.mamp2().bits(0b10) });
+                    }
+                }
+                self.set_trigger(trigger);
+                self.set_value(data);
             }
         }
-
-        match self.channel {
-            Channel::One => self.regs.cr.modify(|_, w| w.en1().set_bit()),
-            Channel::Two => self.regs.cr.modify(|_, w| w.en2().set_bit()),
-        }
-    }
-
-    /// Disable the DAC
-    pub fn disable(&mut self, rcc: &mut RCC) {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "f3")] {
-                rcc.apb1enr.modify(|_, w| w.dac1en().clear_bit());
-            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
-                rcc.apb1enr1.modify(|_, w| w.dac1en().clear_bit());
-            }
-        }
-
-        match self.channel {
-            Channel::One => self.regs.cr.modify(|_, w| w.en1().clear_bit()),
-            Channel::Two => self.regs.cr.modify(|_, w| w.en2().clear_bit()),
-        }
-    }
-
-    /// Set the DAC value as an integer.
-    pub fn set_value(&mut self, val: u32) {
-        match self.channel {
-            Channel::One => match self.bits {
-                Bits::EightR => self.regs.dhr8r1.modify(|_, w| unsafe { w.bits(val) }),
-                Bits::TwelveL => self.regs.dhr12l1.modify(|_, w| unsafe { w.bits(val) }),
-                Bits::TwelveR => self.regs.dhr12r1.modify(|_, w| unsafe { w.bits(val) }),
-            },
-            Channel::Two => match self.bits {
-                Bits::EightR => self.regs.dhr8r2.modify(|_, w| unsafe { w.bits(val) }),
-                Bits::TwelveL => self.regs.dhr12l2.modify(|_, w| unsafe { w.bits(val) }),
-                Bits::TwelveR => self.regs.dhr12r2.modify(|_, w| unsafe { w.bits(val) }),
-            },
-        }
-    }
-
-    /// Set the DAC voltage. `v` is in Volts.
-    pub fn set_voltage(&mut self, volts: f32) {
-        let val = match self.bits {
-            Bits::EightR => ((volts / self.vref) * 255.) as u32,
-            Bits::TwelveL => ((volts / self.vref) * 4_095.) as u32,
-            Bits::TwelveR => ((volts / self.vref) * 4_095.) as u32,
-        };
-
-        self.set_value(val);
-    }
-
-    // Select and activate a trigger. See f303 Reference manual, section 16.5.4.
-    pub fn set_trigger(&mut self, trigger: Trigger) {
-        match self.channel {
-            Channel::One => {
-                self.regs.cr.modify(|_, w| w.ten1().set_bit());
-                self.regs
-                    .cr
-                    .modify(|_, w| unsafe { w.tsel1().bits(trigger.bits()) });
-            }
-            Channel::Two => {
-                self.regs.cr.modify(|_, w| w.ten2().set_bit());
-                self.regs
-                    .cr
-                    .modify(|_, w| unsafe { w.tsel2().bits(trigger.bits()) });
-            }
-        }
-    }
-
-    /// Independent trigger with single LFSR generation
-    /// See f303 Reference Manual section 16.5.2
-    pub fn trigger_lfsr(&mut self, trigger: Trigger, data: u32) {
-        // todo: This may not be correct.
-        match self.channel {
-            Channel::One => {
-                self.regs.cr.modify(|_, w| unsafe { w.wave1().bits(0b01) });
-                self.regs.cr.modify(|_, w| unsafe { w.mamp1().bits(0b01) });
-            }
-            Channel::Two => {
-                self.regs.cr.modify(|_, w| unsafe { w.wave2().bits(0b01) });
-                self.regs.cr.modify(|_, w| unsafe { w.mamp2().bits(0b01) });
-            }
-        }
-        self.set_trigger(trigger);
-        self.set_value(data);
-    }
-
-    /// Independent trigger with single triangle generation
-    /// See f303 Reference Manual section 16.5.2
-    pub fn trigger_triangle(&mut self, trigger: Trigger, data: u32) {
-        // todo: This may not be correct.
-        match self.channel {
-            Channel::One => {
-                self.regs.cr.modify(|_, w| unsafe { w.wave1().bits(0b10) });
-                self.regs.cr.modify(|_, w| unsafe { w.mamp1().bits(0b10) });
-            }
-            Channel::Two => {
-                self.regs.cr.modify(|_, w| unsafe { w.wave2().bits(0b10) });
-                self.regs.cr.modify(|_, w| unsafe { w.mamp2().bits(0b10) });
-            }
-        }
-        self.set_trigger(trigger);
-        self.set_value(data);
     }
 }
 
@@ -263,3 +268,17 @@ impl SingleChannelDac<u32> for Dac {
         Ok(())
     }
 }
+
+#[cfg(feature = "l5")]
+make_impl!(
+    dac_cr,
+    dac_dhr8r2,
+    dac_dhr12l2,
+    dac_dhr12r2,
+    dac_dhr8r2,
+    dac_dhr12l2,
+    dac_dhr12r2
+);
+
+#[cfg(not(feature = "l5"))]
+make_impl!(cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);

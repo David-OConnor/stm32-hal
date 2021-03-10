@@ -4,8 +4,8 @@
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 use crate::{
-    traits::ClockCfg,
     pac::{i2c1, RCC},
+    traits::ClockCfg,
 };
 
 use cast::{u16, u8};

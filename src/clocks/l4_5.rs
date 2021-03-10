@@ -6,7 +6,7 @@
 use crate::{
     clocks::SpeedError,
     pac::{FLASH, RCC},
-    traits::{ClockCfg, ClocksValid}
+    traits::{ClockCfg, ClocksValid},
 };
 #[derive(Clone, Copy)]
 #[repr(u8)]

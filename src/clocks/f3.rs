@@ -1,7 +1,7 @@
 use crate::{
     clocks::SpeedError,
     pac::{FLASH, RCC},
-    traits::{ClockCfg, ClocksValid}
+    traits::{ClockCfg, ClocksValid},
 };
 
 #[derive(Clone, Copy)]
@@ -303,8 +303,15 @@ impl Clocks {
             while rcc.cr.read().pllrdy().is_ready() {}
 
             rcc.cfgr.modify(|_, w| {
-                w.pllmul().bits(self.pll_mul as u8); // eg: 8Mhz HSE x 9 = 72Mhz
-                unsafe { w.pllsrc().bits(pll_src.bits()) } // eg: Set HSE as PREDIV1 entry.
+                // f301 uses a 'bit' field instead. Haven't looked up how to handle.
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "f301")] {
+                        w.pllmul().bits(self.pll_mul as u8) // eg: 8Mhz HSE x 9 = 72Mhz
+                    } else {
+                        w.pllmul().bits(self.pll_mul as u8); // eg: 8Mhz HSE x 9 = 72Mhz
+                        unsafe { w.pllsrc().bits(pll_src.bits()) } // eg: Set HSE as PREDIV1 entry.
+                    }
+                }
             });
 
             rcc.cfgr2.modify(|_, w| w.prediv().bits(self.prediv as u8));
@@ -316,6 +323,7 @@ impl Clocks {
         }
 
         rcc.cfgr.modify(|_, w| {
+            #[cfg(not(feature = "f301"))]
             w.usbpre().bit(self.usb_pre.bit()); // eg: Divide by 1.5: 72/1.5 = 48Mhz, required by USB clock.
 
             unsafe { w.sw().bits(self.input_src.bits()) };
