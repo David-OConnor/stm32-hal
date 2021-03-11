@@ -1,6 +1,5 @@
 //! Inter-Integrated Circuit (I2C) bus. Based on `stm32h7xx-hal`.
 
-// use crate::gpio::{Alternate, OpenDrain, Output, AF4};
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 use crate::{
@@ -27,30 +26,6 @@ pub enum Error {
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
 }
-
-// #[doc(hidden)]
-// mod private {
-//     pub trait Sealed {}
-// }
-//
-// /// SCL pin. This trait is sealed and cannot be implemented.
-// pub trait SclPin<I2C>: private::Sealed {}
-//
-// /// SDA pin. This trait is sealed and cannot be implemented.
-// pub trait SdaPin<I2C>: private::Sealed {}
-//
-// macro_rules! pins {
-//     ($spi:ident, $af:ident, SCL: [$($scl:ident),*], SDA: [$($sda:ident),*]) => {
-//         $(
-//             impl private::Sealed for $scl<Alternate<$af, Output<OpenDrain>>> {}
-//             impl SclPin<$spi> for $scl<Alternate<$af, Output<OpenDrain>>> {}
-//         )*
-//         $(
-//             impl private::Sealed for $sda<Alternate<$af, Output<OpenDrain>>> {}
-//             impl SdaPin<$spi> for $sda<Alternate<$af, Output<OpenDrain>>> {}
-//         )*
-//     }
-// }
 
 #[derive(Clone, Copy)]
 pub enum I2cDevice {
@@ -187,7 +162,7 @@ where
         let scll = u8(scll).unwrap();
 
         // Configure for "fast mode" (400 KHz)
-        i2c.timingr.write(|w| {
+        i2c.timingr.write(|w| unsafe {
             w.presc()
                 .bits(presc)
                 .scll()
@@ -219,11 +194,11 @@ macro_rules! flush_txdr {
     ($i2c:expr) => {
         // If a pending TXIS flag is set, write dummy data to TXDR
         if $i2c.isr.read().txis().bit_is_set() {
-            $i2c.txdr.write(|w| w.txdata().bits(0));
+            $i2c.txdr.write(|w| unsafe { w.txdata().bits(0) });
         }
 
         // If TXDR is not flagged as empty, write 1 to flush it
-        if $i2c.isr.read().txe().is_not_empty() {
+        if $i2c.isr.read().txe().bit_is_clear() {
             $i2c.isr.write(|w| w.txe().set_bit());
         }
     };
@@ -237,10 +212,10 @@ macro_rules! busy_wait {
 
             if isr.$flag().$variant() {
                 break;
-            } else if isr.berr().is_error() {
+            } else if isr.berr().bit_is_set() {
                 $i2c.icr.write(|w| w.berrcf().set_bit());
                 return Err(Error::Bus);
-            } else if isr.arlo().is_lost() {
+            } else if isr.arlo().bit_is_set() {
                 $i2c.icr.write(|w| w.arlocf().set_bit());
                 return Err(Error::Arbitration);
             } else if isr.nackf().bit_is_set() {
@@ -274,32 +249,34 @@ where
         // START bit can be set even if the bus is BUSY or
         // I2C is in slave mode.
         self.i2c.cr2.write(|w| {
-            w.start()
-                .set_bit()
-                .sadd()
-                .bits(u16(addr << 1 | 0))
-                .add10()
-                .clear_bit()
-                .rd_wrn()
-                .write()
-                .nbytes()
-                .bits(bytes.len() as u8)
-                .autoend()
-                .software()
+            unsafe {
+                w.start()
+                    .set_bit()
+                    .sadd()
+                    .bits(u16(addr << 1 | 0))
+                    .add10()
+                    .clear_bit()
+                    .rd_wrn()
+                    .clear_bit()
+                    .nbytes()
+                    .bits(bytes.len() as u8)
+                    .autoend()
+                    .clear_bit() // software end mode
+            }
         });
 
         for byte in bytes {
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte when
             // through)
-            busy_wait!(self.i2c, txis, is_empty);
+            busy_wait!(self.i2c, txis, bit_is_set);
 
             // Put byte on the wire
-            self.i2c.txdr.write(|w| w.txdata().bits(*byte));
+            self.i2c.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
         }
 
         // Wait until the write finishes
-        busy_wait!(self.i2c, tc, is_complete);
+        busy_wait!(self.i2c, tc, bit_is_set);
 
         // Stop
         self.i2c.cr2.write(|w| w.stop().set_bit());
@@ -328,21 +305,23 @@ where
         // `buffer`. The START bit can be set even if the bus
         // is BUSY or I2C is in slave mode.
         self.i2c.cr2.write(|w| {
-            w.sadd()
-                .bits((addr << 1 | 0) as u16)
-                .rd_wrn()
-                .read()
-                .nbytes()
-                .bits(buffer.len() as u8)
-                .start()
-                .set_bit()
-                .autoend()
-                .automatic()
+            unsafe {
+                w.sadd()
+                    .bits((addr << 1 | 0) as u16)
+                    .rd_wrn()
+                    .set_bit() // read
+                    .nbytes()
+                    .bits(buffer.len() as u8)
+                    .start()
+                    .set_bit()
+                    .autoend()
+                    .set_bit() // automatic end mode
+            }
         });
 
         for byte in buffer {
             // Wait until we have received something
-            busy_wait!(self.i2c, rxne, is_not_empty);
+            busy_wait!(self.i2c, rxne, bit_is_set);
 
             *byte = self.i2c.rxdr.read().rxdata().bits();
         }
@@ -379,51 +358,55 @@ where
         // START bit can be set even if the bus is BUSY or
         // I2C is in slave mode.
         self.i2c.cr2.write(|w| {
-            w.start()
-                .set_bit()
-                .sadd()
-                .bits(u16(addr << 1 | 0))
-                .add10()
-                .clear_bit()
-                .rd_wrn()
-                .write()
-                .nbytes()
-                .bits(bytes.len() as u8)
-                .autoend()
-                .software()
+            unsafe {
+                w.start()
+                    .set_bit()
+                    .sadd()
+                    .bits(u16(addr << 1 | 0))
+                    .add10()
+                    .clear_bit()
+                    .rd_wrn()
+                    .clear_bit() // write
+                    .nbytes()
+                    .bits(bytes.len() as u8)
+                    .autoend()
+                    .clear_bit() // software end mode
+            }
         });
 
         for byte in bytes {
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte went through)
-            busy_wait!(self.i2c, txis, is_empty);
+            busy_wait!(self.i2c, txis, bit_is_set);
 
             // Put byte on the wire
-            self.i2c.txdr.write(|w| w.txdata().bits(*byte));
+            self.i2c.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
         }
 
         // Wait until the write finishes before beginning to read.
-        busy_wait!(self.i2c, tc, is_complete);
+        busy_wait!(self.i2c, tc, bit_is_set);
 
         // reSTART and prepare to receive bytes into `buffer`
         self.i2c.cr2.write(|w| {
-            w.sadd()
-                .bits(u16(addr << 1 | 1))
-                .add10()
-                .clear_bit()
-                .rd_wrn()
-                .read()
-                .nbytes()
-                .bits(buffer.len() as u8)
-                .start()
-                .set_bit()
-                .autoend()
-                .automatic()
+            unsafe {
+                w.sadd()
+                    .bits(u16(addr << 1 | 1))
+                    .add10()
+                    .clear_bit()
+                    .rd_wrn()
+                    .set_bit()
+                    .nbytes()
+                    .bits(buffer.len() as u8)
+                    .start()
+                    .set_bit()
+                    .autoend()
+                    .set_bit() // automatic end mode
+            }
         });
 
         for byte in buffer {
             // Wait until we have received something
-            busy_wait!(self.i2c, rxne, is_not_empty);
+            busy_wait!(self.i2c, rxne, bit_is_set);
 
             *byte = self.i2c.rxdr.read().rxdata().bits();
         }
@@ -431,27 +414,3 @@ where
         Ok(())
     }
 }
-
-// use crate::gpio::gpioa::{PA10, PA9};
-// use crate::gpio::gpiob::{PB10, PB11, PB6, PB7};
-//
-// #[cfg(feature = "l4x5")]
-// use crate::gpio::gpioc::{PC0, PC1};
-//
-// pins!(I2C1, AF4,
-//     SCL: [PA9, PB6],
-//     SDA: [PA10, PB7]);
-//
-// pins!(I2C2, AF4, SCL: [PB10], SDA: [PB11]);
-//
-// #[cfg(any(feature = "l4x1", feature = "l4x6"))]
-// use crate::gpio::gpiob::{PB13, PB14, PB8, PB9};
-//
-// #[cfg(any(feature = "l4x1", feature = "l4x6"))]
-// pins!(I2C1, AF4, SCL: [PB8], SDA: [PB9]);
-//
-// #[cfg(any(feature = "l4x1", feature = "l4x6"))]
-// pins!(I2C2, AF4, SCL: [PB13], SDA: [PB14]);
-//
-// #[cfg(feature = "l4x5")]
-// pins!(I2C3, AF4, SCL: [PC0], SDA: [PC1]);

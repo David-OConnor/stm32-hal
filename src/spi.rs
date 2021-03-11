@@ -315,21 +315,14 @@ hal! {
     SPI3: (spi3, spi3_unchecked, apb1, enr1, rstr1, spi3en),
 }
 
-#[cfg(any(
-    feature = "l4x1",
-    feature = "l4x4",
-    feature = "l4x5",
-    feature = "l4x6",
-    feature = "l552",
-    feature = "l562",
-))]
+#[cfg(any(feature = "l4x1", feature = "l4x4", feature = "l4x5", feature = "l4x6",))]
 hal! {
     SPI3: (spi3, spi3_unchecked, apb1, enr1, rstr1, spi3en),
 }
 
-// The final argument of the macro appears to be needed due to a typo
+// The final argument of the macro appears to be needed due to a differene
 // in the SPI3 L4 RM and SVDs: It's `sp3en` instead of `spi3en` for some variants.
-#[cfg(any(feature = "l4x3",))]
+#[cfg(any(feature = "l4x3", feature = "l552", feature = "l562"))]
 hal! {
     SPI3: (spi3, spi3_unchecked, apb1, enr1, rstr1, sp3en),
 }

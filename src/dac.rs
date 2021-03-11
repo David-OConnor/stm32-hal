@@ -214,17 +214,23 @@ macro_rules! make_impl {
                 self.set_value(val);
             }
 
-            // Select and activate a trigger. See f303 Reference manual, section 16.5.4.
+            // todo: Trouble finding right `tsel` fields for l5. RM shows same as others. PAC bug?
+            // todo Or is the PAC breaking the bits field into multiple bits?
+            #[cfg(not(feature = "l5"))]
+            /// Select and activate a trigger. See f303 Reference manual, section 16.5.4.
             pub fn set_trigger(&mut self, trigger: Trigger) {
                 match self.channel {
                     Channel::One => {
                         self.regs.$cr.modify(|_, w| w.ten1().set_bit());
+
                         self.regs
                             .$cr
                             .modify(|_, w| unsafe { w.tsel1().bits(trigger.bits()) });
+
                     }
                     Channel::Two => {
                         self.regs.$cr.modify(|_, w| w.ten2().set_bit());
+
                         self.regs
                             .$cr
                             .modify(|_, w| unsafe { w.tsel2().bits(trigger.bits()) });
@@ -232,6 +238,7 @@ macro_rules! make_impl {
                 }
             }
 
+            #[cfg(not(feature = "l5"))] // See note on `set_trigger`.
             /// Independent trigger with single LFSR generation
             /// See f303 Reference Manual section 16.5.2
             pub fn trigger_lfsr(&mut self, trigger: Trigger, data: u32) {
@@ -250,6 +257,7 @@ macro_rules! make_impl {
                 self.set_value(data);
             }
 
+            #[cfg(not(feature = "l5"))] // See note on `set_trigger`.
             /// Independent trigger with single triangle generation
             /// See f303 Reference Manual section 16.5.2
             pub fn trigger_triangle(&mut self, trigger: Trigger, data: u32) {

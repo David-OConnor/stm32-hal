@@ -441,6 +441,76 @@ macro_rules! make_pin {
 
             /// Lock or unlock a port configuration. Private - we set this using `mode`.
             fn alt_fn(&mut self, value: AltFn, regs: &mut [<GPIO $Port>]) {
+
+                #[cfg(feature = "l5")]
+                match self.pin {
+                    PinNum::P0 => {
+                        regs.moder.modify(|_, w| w.moder0().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afsel0().bits(value as u8));
+                    }
+                    PinNum::P1 => {
+                        regs.moder.modify(|_, w| w.moder1().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afsel1().bits(value as u8));
+                    }
+                    PinNum::P2 => {
+                        regs.moder.modify(|_, w| w.moder2().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afsel2().bits(value as u8));
+                    }
+                    PinNum::P3 => {
+                        regs.moder.modify(|_, w| w.moder3().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afsel3().bits(value as u8));
+                    }
+                    PinNum::P4 => {
+                        regs.moder.modify(|_, w| w.moder4().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afsel4().bits(value as u8));
+                    }
+                    PinNum::P5 => {
+                        regs.moder.modify(|_, w| w.moder5().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afsel5().bits(value as u8));
+                    }
+                    PinNum::P6 => {
+                        regs.moder.modify(|_, w| w.moder6().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afsel6().bits(value as u8));
+                    }
+                    PinNum::P7 => {
+                        regs.moder.modify(|_, w| w.moder7().bits(PinMode::Alt as u8));
+                        regs.afrl.modify(|_, w| w.afsel7().bits(value as u8));
+                    }
+                    PinNum::P8 => {
+                        regs.moder.modify(|_, w| w.moder8().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afsel8().bits(value as u8));
+                    }
+                    PinNum::P9 => {
+                        regs.moder.modify(|_, w| w.moder9().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afsel9().bits(value as u8));
+                    }
+                    PinNum::P10 => {
+                        regs.moder.modify(|_, w| w.moder10().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afsel10().bits(value as u8));
+                    }
+                    PinNum::P11 => {
+                        regs.moder.modify(|_, w| w.moder11().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afsel11().bits(value as u8));
+                    }
+                    PinNum::P12 => {
+                        regs.moder.modify(|_, w| w.moder12().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afsel12().bits(value as u8));
+                    }
+                    PinNum::P13 => {
+                        regs.moder.modify(|_, w| w.moder13().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afsel13().bits(value as u8));
+                    }
+                    PinNum::P14 => {
+                        regs.moder.modify(|_, w| w.moder14().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afsel14().bits(value as u8));
+                    }
+                    PinNum::P15 => {
+                        regs.moder.modify(|_, w| w.moder15().bits(PinMode::Alt as u8));
+                        regs.afrh.modify(|_, w| w.afsel15().bits(value as u8));
+                    }
+                }
+
+                #[cfg(not(feature = "l5"))]
                 match self.pin {
                     PinNum::P0 => {
                         regs.moder.modify(|_, w| w.moder0().bits(PinMode::Alt as u8));
@@ -532,7 +602,8 @@ macro_rules! make_pin {
             //     };
             // }
 
-            #[cfg(not(feature = "f373"))]  // Does f373 not have GPIO interrupts?
+            // todo: Look up how you do EXTI on L5.
+            #[cfg(not(any(feature = "f373", feature = "l5")))]  // Does f373 not have GPIO interrupts?
             /// Configure this pin as an interrupt source.
             pub fn enable_interrupt(&mut self, edge: Edge, exti: &mut EXTI, syscfg: &mut SYSCFG) {
                 let rise_trigger = match edge {

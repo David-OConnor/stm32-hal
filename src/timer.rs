@@ -220,7 +220,7 @@ macro_rules! hal {
 
                     // Trigger an update event to load the prescaler value to the clock
                     // NOTE(write): uses all bits in this register.
-                    self.tim.egr.write(|w| w.ug().update());
+                    self.tim.egr.write(|w| w.ug().set_bit());
                     // The above line raises an update event which will indicate
                     // that the timer is already finished. Since this is not the case,
                     // it should be cleared
@@ -231,7 +231,7 @@ macro_rules! hal {
                 }
 
                 fn wait(&mut self) -> nb::Result<(), Void> {
-                    if self.tim.sr.read().uif().is_clear() {
+                    if self.tim.sr.read().uif().bit_is_clear() {
                         Err(nb::Error::WouldBlock)
                     } else {
                         self.clear_update_interrupt_flag();
@@ -259,7 +259,7 @@ macro_rules! hal {
                                 rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().set_bit());
                                 rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().clear_bit());
                             }
-                        } else if # [cfg(any(feature = "l4", feature = "l5"))] {
+                        } else if #[cfg(any(feature = "l4", feature = "l5"))] {
                             paste! {
                                 // We use `$enr` and $rst, since we only add `1` after for apb1.
                                 // This isn't required on f3.
@@ -335,6 +335,12 @@ macro_rules! hal {
                    let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;
 
                     self.tim.arr.write(|w| unsafe { w.bits(arr.into()) });
+
+                    // #[cfg(feature = "l5")]
+                    // todoI'm getting alternating `field, not a method`, and the inverse errors. PAC error on L5?
+                    // self.tim.psc().write(|w| unsafe { w.bits(psc.into()) });
+
+                    #[cfg(not(feature = "l5"))]
                     self.tim.psc.write(|w| unsafe { w.bits(psc.into()) });
 
                     Ok(())

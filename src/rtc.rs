@@ -29,6 +29,10 @@ macro_rules! make_wakeup_interrupt_handler {
                     (*pac::RTC::ptr()).wpr.write(|w| w.bits(0x53));
                     (*pac::RTC::ptr()).cr.modify(|_, w| w.wute().clear_bit());
 
+                    #[cfg(feature = "l5")]
+                    (*pac::RTC::ptr()).icsr.modify(|_, w| w.wutf().clear_bit());
+
+                    #[cfg(not(feature = "l5"))]
                     (*pac::RTC::ptr()).isr.modify(|_, w| w.wutf().clear_bit());
 
                     (*pac::RTC::ptr()).cr.modify(|_, w| w.wute().set_bit());
@@ -396,11 +400,13 @@ impl Rtc {
         // interrupt mode and select the rising edge sensitivity.
         // Sleep time is in seconds
 
-        #[cfg(not(feature = "f373"))]
+        // todo: How do you set up the line on L5?
+
+        #[cfg(not(any(feature = "f373", feature = "l5")))]
         exti.imr1.modify(|_, w| w.mr20().unmasked());
-        #[cfg(not(feature = "f373"))]
+        #[cfg(not(any(feature = "f373", feature = "l5")))]
         exti.rtsr1.modify(|_, w| w.tr20().bit(true));
-        #[cfg(not(feature = "f373"))]
+        #[cfg(not(any(feature = "f373", feature = "l5")))]
         exti.ftsr1.modify(|_, w| w.tr20().bit(false));
 
         // We can't use the `edit_regs` abstraction here due to being unable to call a method
@@ -413,6 +419,10 @@ impl Rtc {
 
         // Ensure access to Wakeup auto-reload counter and bits WUCKSEL[2:0] is allowed.
         // Poll WUTWF until it is set in RTC_ISR (RTC2)/RTC_ICSR (RTC3) (May not be avail on F3)
+        #[cfg(feature = "l5")]
+        while self.regs.icsr.read().wutwf().bit_is_clear() {}
+
+        #[cfg(not(feature = "l5"))]
         while self.regs.isr.read().wutwf().bit_is_clear() {}
 
         self.set_wakeup_interval_inner(sleep_time);
@@ -423,7 +433,13 @@ impl Rtc {
         // Enable the wakeup timer interrupt.
         self.regs.cr.modify(|_, w| w.wutie().set_bit());
 
+        // todo: This wakeup functionality may not work on l5 without clearing the WTUF flag.. Fix it.
         // Clear the  wakeup flag.
+        // #[cfg(feature = "l5")]
+        // // todo: Do we want to do this on l4 too? `rtc_sr` is not present on f3 or h7(?).
+        // self.regs.scr.modify(|_, w| w.cwutf().set_bit());
+
+        #[cfg(not(feature = "l5"))]
         self.regs.isr.modify(|_, w| w.wutf().clear_bit());
 
         self.regs.wpr.write(|w| unsafe { w.bits(0xFF) });
@@ -462,6 +478,11 @@ impl Rtc {
         self.regs.wpr.write(|w| unsafe { w.bits(0x53) });
 
         self.regs.cr.modify(|_, w| w.wute().clear_bit());
+
+        #[cfg(feature = "l5")]
+        while self.regs.icsr.read().wutwf().bit_is_clear() {}
+
+        #[cfg(not(feature = "l5"))]
         while self.regs.isr.read().wutwf().bit_is_clear() {}
 
         self.set_wakeup_interval_inner(sleep_time);
@@ -476,6 +497,12 @@ impl Rtc {
     pub fn clear_wakeup_flag(&mut self) {
         self.edit_regs(false, |regs| {
             regs.cr.modify(|_, w| w.wute().clear_bit());
+
+            // todo: This wakeup functionality may not work on l5 without clearing the WTUF flag.. Fix it.
+            // #[cfg(feature = "l5")]
+            // regs.icsr.modify(|_, w| w.wutf().clear_bit());
+
+            #[cfg(not(feature = "l5"))]
             regs.isr.modify(|_, w| w.wutf().clear_bit());
             regs.cr.modify(|_, w| w.wute().set_bit());
         });
@@ -493,20 +520,38 @@ impl Rtc {
         self.regs.wpr.write(|w| unsafe { w.bits(0xCA) });
         self.regs.wpr.write(|w| unsafe { w.bits(0x53) });
 
-        // Enter init mode if required. This is generally used to edit the clock or calendar,
-        // but not for initial enabling steps.
-        if init_mode && self.regs.isr.read().initf().bit_is_clear() {
-            // are we already in init mode?
-            self.regs.isr.modify(|_, w| w.init().set_bit());
-            while self.regs.isr.read().initf().bit_is_clear() {} // wait to return to init state
-        }
+        // todo: L4 has ICSR and ISR regs. Maybe both for backwards compat?
 
-        // Edit the regs specified in the closure, now that they're writable.
-        closure(&mut self.regs);
+        cfg_if::cfg_if! {
+             if #[cfg(feature = "l5")] {
+                 // Enter init mode if required. This is generally used to edit the clock or calendar,
+                 // but not for initial enabling steps.
+                 if init_mode && self.regs.icsr.read().initf().bit_is_clear() {
+                     // are we already in init mode?
+                     self.regs.icsr.modify(|_, w| w.init().set_bit());
+                     while self.regs.icsr.read().initf().bit_is_clear() {} // wait to return to init state
+                 }
 
-        if init_mode {
-            self.regs.isr.modify(|_, w| w.init().clear_bit()); // Exits init mode
-            while self.regs.isr.read().initf().bit_is_set() {}
+                 // Edit the regs specified in the closure, now that they're writable.
+                 closure(&mut self.regs);
+
+                 if init_mode {
+                     self.regs.icsr.modify(|_, w| w.init().clear_bit()); // Exits init mode
+                     while self.regs.icsr.read().initf().bit_is_set() {}
+                 }
+             } else {
+                 if init_mode && self.regs.isr.read().initf().bit_is_clear() {
+                     self.regs.isr.modify(|_, w| w.init().set_bit());
+                     while self.regs.isr.read().initf().bit_is_clear() {} // wait to return to init state
+                 }
+
+                 closure(&mut self.regs);
+
+                 if init_mode {
+                     self.regs.isr.modify(|_, w| w.init().clear_bit()); // Exits init mode
+                     while self.regs.isr.read().initf().bit_is_set() {}
+                 }
+             }
         }
 
         // Re-enable write protection.

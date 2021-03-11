@@ -424,8 +424,13 @@ impl Clocks {
 
         rcc.cr.modify(|_, w| w.csson().bit(self.security_system));
 
+        #[cfg(feature = "l4")]
         rcc.ccipr
             .modify(|_, w| unsafe { w.clk48sel().bits(self.clk48_src as u8) });
+
+        #[cfg(feature = "l5")]
+        rcc.ccipr1
+            .modify(|_, w| unsafe { w.clk48msel().bits(self.clk48_src as u8) });
 
         // Enable the HSI48 as required, which is used for USB, RNG, etc.
         // Only valid for STM32L49x/L4Ax devices.

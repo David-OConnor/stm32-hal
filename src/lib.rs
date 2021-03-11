@@ -1,3 +1,23 @@
+// Some overall notes:
+// We generally don't use the named field methods provided by PACs, as these are inconsistently
+// implemented among PACs. Ie f3's may have a `'`.enabled()` method, but `l4` does not;
+// in these cases, writing `set_bit()` works for both.
+
+// We use a combination of macros and feature-gating to handle differences in families, as appropriate.
+// We leverage the `paste` and `cfg-if` crates to improve syntax.
+
+// The main way we divide MCUs is by PAC modules. Note that there are sub-variants that may have differences
+// that this doesn't take into account. (eg different USB memory sizes among f303 variants)
+
+// We use `unsafe` blocks for most multi-fit field writes. This is required by some PACs, but not others.
+// Using `unsafe` for all is cleaner than feature-gating, due to how many fields this affects. We've allowed
+// these warnings; ie hidden during build.
+
+// todo issues hidden in modules we need to fix:
+// - RTC wakeup clearing WUTF flag on L5. Not sure how to do it; SR? (Can't modify) ICSR? (don't remember the problme there)
+// - Timer can't set PSC on L5: getting alternating `field, not a method`, and the inverse errors.
+// - timer on L5 is effectively broken until this is fixed.
+
 #![no_std]
 // Some reg modifications are marked `unsafe` in some PAC crates, but not others.
 // Disable these warnings.
@@ -115,5 +135,13 @@ pub mod spi;
 pub mod timer;
 
 // In the l4 series, only l4x2 and l4x3 have USB.
-#[cfg(not(any(feature = "l4x1", feature = "l4x5", feature = "l4x6")))]
-pub mod usb;
+cfg_if::cfg_if! {
+    if #[cfg(all(
+        feature = "usb",
+        not(any(feature = "l4x1", feature = "l4x5", feature = "l4x6", feature = "h7"))
+    ))] {
+        pub mod usb;
+    } else if #[cfg(all(feature ="h7", feature = "usb"))] {
+        pub mod usb_h7 as usb;
+    }
+}
