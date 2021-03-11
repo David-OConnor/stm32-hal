@@ -232,25 +232,16 @@ macro_rules! hal {
                     rcc: &mut RCC,
                 ) -> Self {
                     // enable or reset $USARTX
-                    apb.enr().modify(|_, w| w.$usartXen().set_bit());
-                    apb.rstr().modify(|_, w| w.$usartXrst().set_bit());
-                    apb.rstr().modify(|_, w| w.$usartXrst().clear_bit());
 
                     cfg_if::cfg_if! {
                         if #[cfg(feature = "f3")] {
-                            paste! {
-                                rcc.[<$apb enr>].modify(|_, w| w.$usartXen().set_bit());
-                                rcc.[<$apb rstr>].modify(|_, w| w.$usartXrst().set_bit());
-                                rcc.[<$apb rstr>].modify(|_, w| w.$usartXrst().clear_bit());
-                            }
+                            rcc.apb1enr.modify(|_, w| w.$usartXen().set_bit());
+                            rcc.apb1rstr.modify(|_, w| w.$usartXrst().set_bit());
+                            rcc.apb1rstr.modify(|_, w| w.$usartXrst().clear_bit());
                         } else if # [cfg(any(feature = "l4", feature = "l5"))] {
-                            paste! {
-                                // We use `$enr` and $rst, since we only add `1` after for apb1.
-                                // This isn't required on f3.
-                                rcc.[<$apb $enr>].modify(|_, w| w.$usartXen().set_bit());
-                                rcc.[<$apb $rst>].modify(|_, w| w.$usartXrst().set_bit());
-                                rcc.[<$apb $rst>].modify(|_, w| w.$usartXrst().clear_bit());
-                            }
+                            rcc.apb1enr1.modify(|_, w| w.$usartXen().set_bit());
+                            rcc.apb1rstr1.modify(|_, w| w.$usartXrst().set_bit());
+                            rcc.apb1rstr1.modify(|_, w| w.$usartXrst().clear_bit());
                         }
                     }
 

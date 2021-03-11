@@ -113,3 +113,7 @@ pub mod rtc;
 // pub mod serial;
 pub mod spi;
 pub mod timer;
+
+// In the l4 series, only l4x2 and l4x3 have USB.
+#[cfg(not(any(feature = "l4x1", feature = "l4x5", feature = "l4x6")))]
+pub mod usb;
