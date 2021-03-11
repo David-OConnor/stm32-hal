@@ -13,7 +13,7 @@ use stm32_hal::{
     delay::Delay,
     event::Timeout,
     flash::Flash,
-    gpio::{GpioA, GpioB, PinNum, PinMode, OutputType, AltFn, Pull},
+    gpio::{GpioA, GpioB, Edge, PinNum, PinMode, OutputType, AltFn, Pull},
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
@@ -22,8 +22,6 @@ use stm32_hal::{
     spi::Spi,
     timer::{Event::TimeOut, Timer},
 };
-
-use embedded_hal::prelude::*;
 
 #[entry]
 fn main() -> ! {
@@ -46,7 +44,7 @@ fn main() -> ! {
         dp.RTC,
         &mut dp.RCC,
         &mut dp.PWR,
-        RtcConfig::default().clock_source(RtcClockSource::Lse), // .bypass_lse_output(true),
+        RtcConfig::default().clock_source(RtcClockSource::Lse), // .bypass_lse_output(true)
     );
 
     // Read from and write to the flash memory:
@@ -57,14 +55,15 @@ fn main() -> ! {
 
     let flash_contents = flash.read(10, 0);
 
-    // Enable up the GPIOA port.
-
+    // Enable up the GPIOA and GPIOB ports.
     let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
-    let mut pa15 = gpioa.new_pin(PinNum::P15, PinMode::Output);
-    pa15.alt_fn(AltFn::AF7, &mut gpioa.regs);
-    pa15.output_type(OutputType::OpenDrain, &mut gpioa.regs);
+    let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
 
+    // An example GPIO pinn.
+    let mut pa15 = gpioa.new_pin(PinNum::P15, PinMode::Output);
     pa15.set_high().ok();
+
+    pa15.enable_interrupt(Edge::Rising, &mut dp.EXTI, &mut dp.SYSCFG);
 
     // Set up an I2C peripheral
     let scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
@@ -72,8 +71,7 @@ fn main() -> ! {
 
     let sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::AF4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
-    scl.alt_fn(AltFn::Af4, &mut gpiob.regs);
-    // let i2c = I2c::new(dp.I2C1, (scl, sda), 100_000, &clocks, &mut dp.RCC);
+
     let i2c = I2c::new_unchecked(dp.I2C1, I2cDevice::One, 100_000, &clocks, &mut dp.RCC);
 
     // Set up an SPI peripheral

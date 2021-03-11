@@ -303,9 +303,9 @@ impl Clocks {
             while rcc.cr.read().pllrdy().is_ready() {}
 
             rcc.cfgr.modify(|_, w| {
-                // f301 uses a 'bit' field instead. Haven't looked up how to handle.
+                // Some f3 varients uses a 'bit' field instead. Haven't looked up how to handle.
                 cfg_if::cfg_if! {
-                    if #[cfg(any(feature = "f301", feature = "f373"))] {
+                    if #[cfg(any(feature = "f301", feature = "f373", feature = "f3x4"))] {
                         w.pllmul().bits(self.pll_mul as u8) // eg: 8Mhz HSE x 9 = 72Mhz
                     } else {
                         w.pllmul().bits(self.pll_mul as u8); // eg: 8Mhz HSE x 9 = 72Mhz
@@ -323,7 +323,7 @@ impl Clocks {
         }
 
         rcc.cfgr.modify(|_, w| {
-            #[cfg(not(feature = "f301"))]
+            #[cfg(not(any(feature = "f301", feature = "f3x4")))]
             w.usbpre().bit(self.usb_pre.bit()); // eg: Divide by 1.5: 72/1.5 = 48Mhz, required by USB clock.
 
             unsafe { w.sw().bits(self.input_src.bits()) };

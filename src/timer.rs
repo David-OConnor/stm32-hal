@@ -33,7 +33,7 @@ use crate::pac::{TIM1, TIM17, TIM20, TIM3, TIM4, TIM8};
 use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "f3x4")]
-use crate::pac::{TIM1, TIM17, TIM3, TIM4};
+use crate::pac::{TIM1, TIM17, TIM3};
 
 #[cfg(feature = "l4x1")]
 use crate::pac::TIM1;
@@ -604,6 +604,7 @@ pwm_features! {
 
 #[cfg(not(any(
     feature = "f301",
+    feature = "f3x4",
     feature = "l4x1",
     feature = "l4x2",
     feature = "l4x3",

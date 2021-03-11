@@ -205,6 +205,11 @@ where
 
         I2c { i2c }
     }
+
+    /// Frees the I2C peripheral
+    pub fn free(self) -> I2C {
+        self.i2c
+    }
 }
 
 /// Copy+pasted from H7. Called from c+p `busy_wait`

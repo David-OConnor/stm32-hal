@@ -13,6 +13,9 @@ As of this library's creation, this is not feasible with existing HAL crates due
 to lack of maintainer time, and differing priorities. When the `stm32fyxx` ecosystem
 is viewed as a whole, there's a lot of DRY.
 
+The library is heavily influence by the `stm32fyxx` HALs, and a number of the modules here are modified 
+versions of those.
+
 If using concurrently with another hal, you need to instantiate a set of
 MCU peripherals for each. Ie:
 ```rust

@@ -6,9 +6,12 @@
 use core::convert::Infallible;
 
 // todo: Other GPIO ports on certain variants?
-use crate::pac::{EXTI, GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, RCC, SYSCFG};
+use crate::pac::{EXTI, GPIOA, GPIOB, GPIOC, GPIOD, RCC, SYSCFG};
 
-#[cfg(not(feature = "f373"))]
+#[cfg(not(any(feature = "f3x4")))]
+use crate::pac::GPIOE;
+
+#[cfg(not(any(feature = "f301", feature = "f373", feature = "f3x4")))]
 use crate::pac::GPIOH;
 
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
@@ -133,6 +136,20 @@ pub enum PortLetter {
     H,
 }
 
+impl PortLetter {
+    /// See F3 ref manual section 12.1.3: each reg has an associated value
+    fn cr_val(&self) -> u8 {
+        match self {
+            Self::A => 0,
+            Self::B => 1,
+            Self::C => 2,
+            Self::D => 3,
+            Self::E => 4,
+            Self::H => 7,
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 /// Pin number; 0 through 15. For example, use 5 for PA5 or PB5.
 pub enum PinNum {
@@ -152,6 +169,13 @@ pub enum PinNum {
     P13,
     P14,
     P15,
+}
+
+#[derive(Copy, Clone, Debug)]
+// A pulse edge, used to trigger interrupts.
+pub enum Edge {
+    Rising,
+    Falling,
 }
 
 // pub struct GpioError {}
@@ -507,6 +531,222 @@ macro_rules! make_pin {
             //         PinNum::P15 => regs.brr.modify(|_, w| w.brr15().bits(value as u8)),
             //     };
             // }
+
+            #[cfg(not(feature = "f373"))]  // Does f373 not have GPIO interrupts?
+            /// Configure this pin as an interrupt source.
+            pub fn enable_interrupt(&mut self, edge: Edge, exti: &mut EXTI, syscfg: &mut SYSCFG) {
+                let rise_trigger = match edge {
+                    Edge::Rising => {
+                        // configure EXTI line to trigger on rising edge, disable trigger on falling edge.
+                        true
+                    }
+                    Edge::Falling => {
+                        // configure EXTI$line to trigger on falling edge, disable trigger on rising edge
+                        false
+                    }
+                };
+
+                match self.pin {
+                    // todo: This DRY is worse than the ones above due to 4 lines each.
+                    PinNum::P0 => {
+                        exti.imr1.modify(|_, w| w.mr0().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr0().bit(rise_trigger);
+                            w.tr0().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr1
+                            .modify(|_, w| unsafe { w.exti0().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P1 => {
+                        exti.imr1.modify(|_, w| w.mr1().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr1().bit(rise_trigger);
+                            w.tr1().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr1
+                            .modify(|_, w| unsafe { w.exti1().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P2 => {
+                        exti.imr1.modify(|_, w| w.mr2().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr2().bit(rise_trigger);
+                            w.tr2().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr1
+                            .modify(|_, w| unsafe { w.exti2().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P3 => {
+                        exti.imr1.modify(|_, w| w.mr3().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr3().bit(rise_trigger);
+                            w.tr3().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr1
+                            .modify(|_, w| unsafe { w.exti3().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P4 => {
+                        exti.imr1.modify(|_, w| w.mr4().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr4().bit(rise_trigger);
+                            w.tr4().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr2
+                            .modify(|_, w| unsafe { w.exti4().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P5 => {
+                        exti.imr1.modify(|_, w| w.mr5().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr5().bit(rise_trigger);
+                            w.tr5().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr2
+                            .modify(|_, w| unsafe { w.exti5().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P6 => {
+                        exti.imr1.modify(|_, w| w.mr6().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr6().bit(rise_trigger);
+                            w.tr6().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr2
+                            .modify(|_, w| unsafe { w.exti6().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P7 => {
+                        exti.imr1.modify(|_, w| w.mr7().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr7().bit(rise_trigger);
+                            w.tr7().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr2
+                            .modify(|_, w| unsafe { w.exti7().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P8 => {
+                        exti.imr1.modify(|_, w| w.mr8().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr8().bit(rise_trigger);
+                            w.tr8().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr3
+                            .modify(|_, w| unsafe { w.exti8().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P9 => {
+                        exti.imr1.modify(|_, w| w.mr9().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr9().bit(rise_trigger);
+                            w.tr9().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr3
+                            .modify(|_, w| unsafe { w.exti9().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P10 => {
+                        exti.imr1.modify(|_, w| w.mr10().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr10().bit(rise_trigger);
+                            w.tr10().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr3
+                            .modify(|_, w| unsafe { w.exti10().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P11 => {
+                        exti.imr1.modify(|_, w| w.mr11().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr11().bit(rise_trigger);
+                            w.tr11().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr3
+                            .modify(|_, w| unsafe { w.exti11().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P12 => {
+                        exti.imr1.modify(|_, w| w.mr12().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr12().bit(rise_trigger);
+                            w.tr12().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr4
+                            .modify(|_, w| unsafe { w.exti12().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P13 => {
+                        exti.imr1.modify(|_, w| w.mr13().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr13().bit(rise_trigger);
+                            w.tr13().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr4
+                            .modify(|_, w| unsafe { w.exti13().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P14 => {
+                        exti.imr1.modify(|_, w| w.mr14().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr14().bit(rise_trigger);
+                            w.tr14().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr4
+                            .modify(|_, w| unsafe { w.exti14().bits(self.port.cr_val()) });
+                    }
+                    PinNum::P15 => {
+                        exti.imr1.modify(|_, w| w.mr15().unmasked());  // Unmask the line.
+                        // Configure the trigger edge
+                        exti.rtsr1.modify(|_, w| {
+                            w.tr15().bit(rise_trigger);
+                            w.tr15().bit(!rise_trigger)
+                        });
+                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        syscfg
+                            .exticr4
+                            .modify(|_, w| unsafe { w.exti15().bits(self.port.cr_val()) });
+                    }
+                };
+            }
+
+            /// Disable interrupts on this pin.
+            pub fn disable_interrupt() {
+                // todo
+            }
         }
 
         // Implement `embedded-hal` traits. We use raw pointers, since these traits can't
@@ -644,16 +884,20 @@ make_pin!(A);
 make_pin!(B);
 make_pin!(C);
 make_pin!(D);
+
+#[cfg(not(any(feature = "f301", feature = "f3x4")))]
 make_pin!(E);
 
-#[cfg(not(feature = "f373"))]
+#[cfg(not(any(feature = "f373", feature = "f301", feature = "f3x4")))]
 make_pin!(H);
 
 make_port!(A, a);
 make_port!(B, b);
 make_port!(C, c);
 make_port!(D, d);
+
+#[cfg(not(any(feature = "f301", feature = "f3x4")))]
 make_port!(E, e);
 
-#[cfg(not(feature = "f373"))]
+#[cfg(not(any(feature = "f373", feature = "f301", feature = "f3x4")))]
 make_port!(H, h);
