@@ -262,13 +262,16 @@ macro_rules! hal {
 // ))]
 // use crate::{gpio::AF6, stm32::SPI3};
 
-// #[cfg(any(
-//     feature = "l4x1",
-//     feature = "l4x2",
-//     feature = "l4x3",
-//     feature = "l4x5",
-//     feature = "l4x6"
-// ))]
+#[cfg(any(
+    feature = "l4x1",
+    feature = "l4x2",
+    feature = "l4x3",
+    feature = "l4x5",
+    feature = "l4x6"
+))]
+hal! {
+    SPI1: (spi1, spi1_unchecked, apb2, enr, rstr, spi1en),
+}
 
 #[cfg(any(feature = "f302", feature = "f303", feature = "f373", feature = "f3x4",))]
 hal! {

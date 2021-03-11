@@ -10,6 +10,8 @@
 // that this doesn't take into account. (eg different USB memory sizes among f303 variants)
 
 // We use `unsafe` blocks for most multi-fit field writes. This is required by some PACs, but not others.
+// The rust embedded team removes requirement for `unsafe` on fields that are deemed sufficiently
+// constrained as to not need these blocks.
 // Using `unsafe` for all is cleaner than feature-gating, due to how many fields this affects. We've allowed
 // these warnings; ie hidden during build.
 

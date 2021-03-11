@@ -335,12 +335,6 @@ macro_rules! hal {
                    let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;
 
                     self.tim.arr.write(|w| unsafe { w.bits(arr.into()) });
-
-                    // #[cfg(feature = "l5")]
-                    // todoI'm getting alternating `field, not a method`, and the inverse errors. PAC error on L5?
-                    // self.tim.psc().write(|w| unsafe { w.bits(psc.into()) });
-
-                    #[cfg(not(feature = "l5"))]
                     self.tim.psc.write(|w| unsafe { w.bits(psc.into()) });
 
                     Ok(())
@@ -654,10 +648,15 @@ hal! {
         TIM6: (tim6, apb1, enr1, rstr1)
     },
     {
-        TIM15: (tim15, apb2, enr, rstr)
-    },
-    {
         TIM16: (tim16, apb2, enr, rstr)
+    },
+}
+
+// Todo: the L5 PAC has an address error on TIM15 - remove it until solved.
+#[cfg(not(any(feature = "l5")))]
+hal! {
+    {
+        TIM15: (tim15, apb2, enr, rstr)
     },
 }
 
