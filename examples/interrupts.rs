@@ -30,7 +30,7 @@ fn main() -> ! {
         defmt::error!("Unable to configure clocks due to a speed error.")
     };
 
-    // Enable up the GPIOA and GPIOB ports.
+    // Enable the GPIOA port.
     let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
 
     // Configure PA0 to trigger a GPIO interrupt.

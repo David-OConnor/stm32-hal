@@ -55,7 +55,7 @@ fn main() -> ! {
 
     let flash_contents = flash.read(10, 0);
 
-    // Enable up the GPIOA and GPIOB ports.
+    // Enable the GPIOA and GPIOB ports.
     let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
 
@@ -90,7 +90,7 @@ fn main() -> ! {
     // Set up the Analog-to-digital converter
     let mut _adc_pin = gpiob.new_pin(PinNum::P5, PinMode::Analog);
 
-    let mut adc = Adc::adc1_unchecked(
+    let mut adc = Adc::new_adc1_unchecked(
         dp.ADC1,
         &mut dp.ADC1_2,
         &mut dp.RCC,

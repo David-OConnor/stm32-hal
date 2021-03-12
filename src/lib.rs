@@ -122,7 +122,7 @@ pub mod prelude {
     };
 }
 
-// pub mod adc;
+pub mod adc;
 pub mod clocks;
 pub mod dac;
 pub mod delay;

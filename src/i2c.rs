@@ -204,7 +204,6 @@ macro_rules! flush_txdr {
     };
 }
 
-/// Copy+Pasted from H7. For use in `write_read`.
 macro_rules! busy_wait {
     ($i2c:expr, $flag:ident, $variant:ident) => {
         loop {
@@ -257,7 +256,7 @@ where
                     .add10()
                     .clear_bit()
                     .rd_wrn()
-                    .clear_bit()
+                    .clear_bit() // write
                     .nbytes()
                     .bits(bytes.len() as u8)
                     .autoend()
@@ -269,20 +268,19 @@ where
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte when
             // through)
-            busy_wait!(self.i2c, txis, bit_is_set);
+            busy_wait!(self.i2c, txis, bit_is_set); // TXDR register is empty
 
             // Put byte on the wire
             self.i2c.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
         }
 
         // Wait until the write finishes
-        busy_wait!(self.i2c, tc, bit_is_set);
+        busy_wait!(self.i2c, tc, bit_is_set); // transfer is complete
 
         // Stop
         self.i2c.cr2.write(|w| w.stop().set_bit());
 
         Ok(())
-        // Tx::new(&self.i2c)?.write(addr, bytes)
     }
 }
 
@@ -329,7 +327,6 @@ where
         // automatic STOP
 
         Ok(())
-        // Rx::new(&self.i2c)?.read(addr, buffer)
     }
 }
 
@@ -340,11 +337,6 @@ where
     type Error = Error;
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
-        // Copy+paste from H7 to support repeating starts.
-        // todo: It's worth investigating if we should port more of the
-        // todo H7 I2C module, like `read` and `write`, and remove the `Tx`, et
-        // todo structs here.
-
         // TODO support transfers of more than 255 bytes
         assert!(bytes.len() < 256 && bytes.len() > 0);
         assert!(buffer.len() < 256 && buffer.len() > 0);
@@ -377,14 +369,15 @@ where
         for byte in bytes {
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte went through)
-            busy_wait!(self.i2c, txis, bit_is_set);
+
+            busy_wait!(self.i2c, txis, bit_is_set); // TXDR register is empty
 
             // Put byte on the wire
             self.i2c.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
         }
 
         // Wait until the write finishes before beginning to read.
-        busy_wait!(self.i2c, tc, bit_is_set);
+        busy_wait!(self.i2c, tc, bit_is_set); // transfer is complete
 
         // reSTART and prepare to receive bytes into `buffer`
         self.i2c.cr2.write(|w| {
@@ -394,7 +387,7 @@ where
                     .add10()
                     .clear_bit()
                     .rd_wrn()
-                    .set_bit()
+                    .set_bit() // read mode
                     .nbytes()
                     .bits(buffer.len() as u8)
                     .start()

@@ -395,37 +395,25 @@ macro_rules! pwm_features {
                 pub fn set_output_compare(&mut self, channel: Channel, mode: OutputCompare) {
                     match channel {
                         Channel::One => {
-                            self.tim.ccmr1_output().modify(|_, w| w.oc1m().bits(mode as u8));
-                            cfg_if::cfg_if! {
-                                if #[cfg(feature = "f3")] {
-                                    self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
-                                } else if # [cfg(any(feature = "l4", feature = "l5"))] {
-                                    self.tim.ccmr1_output().modify(|_, w| w.oc1m_2().bit(mode.left_bit()));
-                                }
-                            }
+                            self.tim.ccmr1_output().modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
+                            // todo: Confirm other platforms handle everything using `oc1m`, and don't
+                            // todo need the `oc1m_3` equiv.
+                            #[cfg(feature = "f3")]
+                            self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
                         }
                         Channel::Two => {
-                             self.tim.ccmr1_output().modify(|_, w| w.oc1m().bits(mode as u8));
-                            cfg_if::cfg_if! {
-                                if #[cfg(feature = "f3")] {
-                                    self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
-                                } else if # [cfg(any(feature = "l4", feature = "l5"))] {
-                                    self.tim.ccmr1_output().modify(|_, w| w.oc1m_2().bit(mode.left_bit()));
-                                }
-                            }
+                            self.tim.ccmr1_output().modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
+                            #[cfg(feature = "f3")]  // todo see note above
+                            self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
                         }
                         Channel::Three => {
-                             self.tim.ccmr1_output().modify(|_, w| w.oc1m().bits(mode as u8));
-                            cfg_if::cfg_if! {
-                                if #[cfg(feature = "f3")] {
-                                    self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
-                                } else if # [cfg(any(feature = "l4", feature = "l5"))] {
-                                    self.tim.ccmr1_output().modify(|_, w| w.oc1m_2().bit(mode.left_bit()));
-                                }
-                            }
+                            self.tim.ccmr1_output().modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
+                            #[cfg(feature = "f3")]  // todo see note above
+                            self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
                         }
                         Channel::Four => {
-                            self.tim.ccmr2_output().modify(|_, w| w.oc4m().bits(mode as u8));
+                            self.tim.ccmr2_output().modify(|_, w| unsafe { w.oc4m().bits(mode as u8) });
+                            #[cfg(feature = "f3")]  // todo see note above
                             self.tim.ccmr2_output().modify(|_, w| w.oc4m_3().bit(mode.left_bit()));
                         }
                     }
@@ -595,7 +583,8 @@ hal! {
     },
 }
 
-#[cfg(feature = "f303")] // todo
+// todo dup issue with l4x3
+#[cfg(not(any(feature = "l4x1", feature = "l4x3", feature = "l5")))]
 pwm_features! {
     {
        TIM3: u16
@@ -619,7 +608,7 @@ hal! {
     },
 }
 
-#[cfg(feature = "f303")] // todo
+#[cfg(not(any(feature = "l4x1", feature = "l4x2", feature = "l4x3", feature = "l5")))]
 pwm_features! {
     {
         TIM4: u16
@@ -660,7 +649,7 @@ hal! {
     },
 }
 
-#[cfg(feature = "f303")] // todo
+#[cfg(not(any(feature = "l4x1", feature = "l5")))]
 pwm_features! {
     {
         TIM2: u32

@@ -23,6 +23,7 @@ cortex-m = "0.7.1"
 stm32f3 = { version = "0.13.0", optional = true }
 stm32l4 = { version = "0.13.0", optional = true }
 stm32l5 = { version = "0.13.0", optional = true }
+stm32g4 = { version = "0.13.0", optional = true }
 stm32h7 = { version = "0.13.0", optional = true }
 
 # Embedded traits
@@ -53,6 +54,7 @@ features = ["l4rt", "stm32l4x3", "stm32-usbd"]
 f3rt = ["stm32f3/rt"]
 l4rt = ["stm32l4/rt"]
 l5rt = ["stm32l5/rt"]
+g4rt = ["stm32g4/rt"]
 h7rt = ["stm32h7/rt"]
 # Features defined here are those taken from the SVD-generated STM32 PACs.
 
@@ -69,12 +71,22 @@ l4x2 = ["stm32l4/stm32l4x2", "l4"]
 l4x3 = ["stm32l4/stm32l4x3", "l4"]
 l4x5 = ["stm32l4/stm32l4x5", "l4"]
 l4x6 = ["stm32l4/stm32l4x6", "l4"]
-
 # todo: Handle l4+ (P, R, S, Q)
 
 # [L5](https://docs.rs/crate/stm32l5/0.13.0/source/Cargo.toml)
 l552 = ["stm32l5/stm32l552", "l5"]
 l562 = ["stm32l5/stm32l562", "l5"]
+
+# [G4](https://docs.rs/crate/stm32g4/0.13.0/source/Cargo.toml)
+g431 = ["stm32g4/stm32g431", "g4"]
+g441 = ["stm32g4/stm32g441", "g4"]
+g471 = ["stm32g4/stm32g471", "g4"]
+g473 = ["stm32g4/stm32g473", "g4"]
+g474 = ["stm32g4/stm32g474", "g4"]
+g483 = ["stm32g4/stm32g483", "g4"]
+g484 = ["stm32g4/stm32g484", "g4"]
+g491 = ["stm32g4/stm32g491", "g4"]
+g4a1 = ["stm32g4/stm32g4a1", "g4"]
 
 # [H7](https://docs.rs/crate/stm32h7/0.13.0/source/Cargo.toml)
 h743 = ["stm32h7/stm32h743", "h7"]
@@ -92,4 +104,5 @@ usb = ["stm32-usbd"]
 f3 = []
 l4 = []
 l5 = []
+g4 = []
 h7 = []
