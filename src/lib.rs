@@ -19,6 +19,7 @@
 // - RTC wakeup clearing WUTF flag on L5. Not sure how to do it; SR? (Can't modify) ICSR? (don't remember the problme there)
 // - Timer can't set PSC on L5: getting alternating `field, not a method`, and the inverse errors.
 // - timer on L5 is effectively broken until this is fixed.
+// - EXTI / interrupts on L5 and H7. What are the steps and regs?
 
 #![no_std]
 // Some reg modifications are marked `unsafe` in some PAC crates, but not others.
@@ -111,7 +112,7 @@ pub use stm32h7::stm32h7b3 as pac;
 
 // todo: U5 once SVD is out.
 
-mod traits;
+pub mod traits;
 
 /// In the prelude, we export the `embedded-hal` traits we implement
 pub mod prelude {
@@ -122,11 +123,12 @@ pub mod prelude {
     };
 }
 
+#[cfg(not(any(feature = "l5", feature = "h7")))] // todo
 pub mod adc;
 pub mod clocks;
 pub mod dac;
 pub mod delay;
-#[cfg(not(feature = "l5"))] // todo
+#[cfg(not(any(feature = "l5", feature = "h7")))] // todo
 pub mod flash;
 pub mod gpio;
 pub mod i2c;

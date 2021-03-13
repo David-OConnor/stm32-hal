@@ -209,7 +209,7 @@ impl UsbPrescaler {
     }
 }
 
-/// Settings used to configure common
+/// Settings used to configure clocks.
 pub struct Clocks {
     pub input_src: InputSrc,           //
     pub prediv: Prediv,                // Input source predivision, for PLL.
@@ -238,12 +238,12 @@ impl Clocks {
         // We need to do this before enabling PLL, or it won't enable.
         let sysclk = calc_sysclock(self.input_src, self.prediv, self.pll_mul);
 
-        let hclk = sysclk / self.hclk_prescaler.value() as f32;
+        let hclk = sysclk / self.hclk_prescaler.value() as u32;
         // f3 ref man section 4.5.1.
         flash.acr.modify(|_, w| {
-            if hclk <= 24. {
+            if hclk <= 24 {
                 w.latency().ws0()
-            } else if hclk <= 48. {
+            } else if hclk <= 48 {
                 w.latency().ws1()
             } else {
                 w.latency().ws2()
@@ -322,14 +322,14 @@ impl Clocks {
             while rcc.cr.read().pllrdy().is_not_ready() {}
         }
 
-        rcc.cfgr.modify(|_, w| {
+        rcc.cfgr.modify(|_, w| unsafe {
             #[cfg(not(any(feature = "f301", feature = "f3x4")))]
             w.usbpre().bit(self.usb_pre.bit()); // eg: Divide by 1.5: 72/1.5 = 48Mhz, required by USB clock.
 
-            unsafe { w.sw().bits(self.input_src.bits()) };
-            unsafe { w.hpre().bits(self.hclk_prescaler as u8) }; // eg: Divide SYSCLK by 2 to get HCLK of 36Mhz.
-            unsafe { w.ppre2().bits(self.apb2_prescaler as u8) }; // HCLK division for APB2.
-            unsafe { w.ppre1().bits(self.apb1_prescaler as u8) } // HCLK division for APB1
+            w.sw().bits(self.input_src.bits());
+            w.hpre().bits(self.hclk_prescaler as u8); // eg: Divide SYSCLK by 2 to get HCLK of 36Mhz.
+            w.ppre2().bits(self.apb2_prescaler as u8); // HCLK division for APB2.
+            w.ppre1().bits(self.apb1_prescaler as u8) // HCLK division for APB1
         });
 
         rcc.cr.modify(|_, w| w.csson().bit(self.security_system));
@@ -357,7 +357,7 @@ impl Clocks {
 
 impl ClockCfg for Clocks {
     fn sysclk(&self) -> u32 {
-        (calc_sysclock(self.input_src, self.prediv, self.pll_mul) * 1_000_000.) as u32
+        calc_sysclock(self.input_src, self.prediv, self.pll_mul) * 1_000_000
     }
 
     fn hclk(&self) -> u32 {
@@ -440,7 +440,7 @@ impl Default for Clocks {
 }
 
 /// Calculate the systick, and input frequency.
-fn calc_sysclock(input_src: InputSrc, prediv: Prediv, pll_mul: PllMul) -> f32 {
+fn calc_sysclock(input_src: InputSrc, prediv: Prediv, pll_mul: PllMul) -> u32 {
     let sysclk = match input_src {
         InputSrc::Pll(pll_src) => {
             let input_freq = match pll_src {
@@ -448,10 +448,10 @@ fn calc_sysclock(input_src: InputSrc, prediv: Prediv, pll_mul: PllMul) -> f32 {
                 PllSrc::HsiDiv2 => 4,
                 PllSrc::Hse(freq) => freq,
             };
-            input_freq as f32 / prediv.value() as f32 * pll_mul.value() as f32
+            input_freq as u32 / prediv.value() as u32 * pll_mul.value() as u32
         }
-        InputSrc::Hsi => 8.,
-        InputSrc::Hse(freq) => freq as f32,
+        InputSrc::Hsi => 8,
+        InputSrc::Hse(freq) => freq as u32,
     };
 
     sysclk

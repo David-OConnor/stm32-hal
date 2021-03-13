@@ -400,9 +400,9 @@ impl Rtc {
         // interrupt mode and select the rising edge sensitivity.
         // Sleep time is in seconds
 
-        // todo: How do you set up the line on L5?
+        // todo: How do you set up the line on L5 and H7?
 
-        #[cfg(not(any(feature = "f373", feature = "l5")))]
+        #[cfg(not(any(feature = "f373", feature = "l5", feature = "h7")))]
         exti.imr1.modify(|_, w| w.mr20().unmasked());
         #[cfg(not(any(feature = "f373", feature = "l5")))]
         exti.rtsr1.modify(|_, w| w.tr20().bit(true));

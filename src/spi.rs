@@ -226,42 +226,6 @@ macro_rules! hal {
     }
 }
 
-// #[cfg(any(
-//     feature = "stm32l4x1",
-//     feature = "stm32l4x3",
-//     feature = "stm32l4x5",
-//     feature = "stm32l4x6",
-// ))]
-// use crate::gpio::gpiod::*;
-// #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
-// use crate::gpio::gpiog::*;
-// use crate::gpio::{gpioa::*, gpiob::*, gpioc::*, gpioe::*};
-//
-// use crate::stm32::SPI1;
-
-// #[cfg(any(
-//     feature = "stm32l4x1",
-//     feature = "stm32l4x2",
-//     feature = "stm32l4x3",
-//     feature = "stm32l4x5",
-//     feature = "stm32l4x6"
-// ))]
-// pins!(SPI1, AF5,
-//     SCK: [PA5, PB3, PE13],
-//     MISO: [PA6, PB4, PE14],
-//     MOSI: [PA7, PB5, PE15]);
-//
-// #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
-// pins!(SPI1, AF5, SCK: [PG2], MISO: [PG3], MOSI: [PG4]);
-
-// #[cfg(any(
-//     feature = "stm32l4x1",
-//     feature = "stm32l4x2",
-//     feature = "stm32l4x5",
-//     feature = "stm32l4x6",
-// ))]
-// use crate::{gpio::AF6, stm32::SPI3};
-
 #[cfg(any(
     feature = "l4x1",
     feature = "l4x2",
@@ -283,13 +247,7 @@ hal! {
 //     SPI1: (spi1, APB2, enr, rstr),
 // }
 
-#[cfg(any(
-    feature = "f301",
-    feature = "f302",
-    feature = "f303",
-    feature = "f373",
-    feature = "f3x4",
-))]
+#[cfg(any(feature = "f301", feature = "f302", feature = "f303", feature = "f373",))]
 hal! {
     SPI2: (spi2, spi2_unchecked, apb1, enr1, rstr1, spi2en),
 }
@@ -307,13 +265,7 @@ hal! {
     SPI2: (spi2, spi2_unchecked, apb1, enr1, rstr1, spi2en),
 }
 
-#[cfg(any(
-    feature = "f301",
-    feature = "f302",
-    feature = "f303",
-    feature = "f373",
-    feature = "f3x4",
-))]
+#[cfg(any(feature = "f301", feature = "f302", feature = "f303", feature = "f373",))]
 hal! {
     SPI3: (spi3, spi3_unchecked, apb1, enr1, rstr1, spi3en),
 }

@@ -217,7 +217,11 @@ macro_rules! make_port {
                             rcc.ahbenr.modify(|_, w| w.[<iop $port en>]().set_bit());
                             rcc.ahbrstr.modify(|_, w| w.[<iop $port rst>]().set_bit());
                             rcc.ahbrstr.modify(|_, w| w.[<iop $port rst>]().clear_bit());
-                        } else  {
+                        } else if #[cfg(feature = "h7")] {
+                            rcc.ahb4enr.modify(|_, w| w.[<gpio $port en>]().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
+                        } else {
                             rcc.ahb2enr.modify(|_, w| w.[<gpio $port en>]().set_bit());
                             rcc.ahb2rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
                             rcc.ahb2rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
@@ -453,142 +457,212 @@ macro_rules! make_pin {
                 }
             }
 
-            /// Lock or unlock a port configuration. Private - we set this using `mode`.
+            /// Set up a pin's alternate function. We set this up initially using `mode()`.
             fn alt_fn(&mut self, value: AltFn, regs: &mut [<GPIO $Port>]) {
-                #[cfg(feature = "l5")]
-                match self.pin {
-                    PinNum::P0 => {
-                        regs.moder.modify(|_, w| w.moder0().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afsel0().bits(value as u8));
+                cfg_if::cfg_if! {
+
+                if #[cfg(feature = "l5")] {
+                    match self.pin {
+                        PinNum::P0 => {
+                            regs.moder.modify(|_, w| w.moder0().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afsel0().bits(value as u8));
+                        }
+                        PinNum::P1 => {
+                            regs.moder.modify(|_, w| w.moder1().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afsel1().bits(value as u8));
+                        }
+                        PinNum::P2 => {
+                            regs.moder.modify(|_, w| w.moder2().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afsel2().bits(value as u8));
+                        }
+                        PinNum::P3 => {
+                            regs.moder.modify(|_, w| w.moder3().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afsel3().bits(value as u8));
+                        }
+                        PinNum::P4 => {
+                            regs.moder.modify(|_, w| w.moder4().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afsel4().bits(value as u8));
+                        }
+                        PinNum::P5 => {
+                            regs.moder.modify(|_, w| w.moder5().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afsel5().bits(value as u8));
+                        }
+                        PinNum::P6 => {
+                            regs.moder.modify(|_, w| w.moder6().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afsel6().bits(value as u8));
+                        }
+                        PinNum::P7 => {
+                            regs.moder.modify(|_, w| w.moder7().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afsel7().bits(value as u8));
+                        }
+                        PinNum::P8 => {
+                            regs.moder.modify(|_, w| w.moder8().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afsel8().bits(value as u8));
+                        }
+                        PinNum::P9 => {
+                            regs.moder.modify(|_, w| w.moder9().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afsel9().bits(value as u8));
+                        }
+                        PinNum::P10 => {
+                            regs.moder.modify(|_, w| w.moder10().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afsel10().bits(value as u8));
+                        }
+                        PinNum::P11 => {
+                            regs.moder.modify(|_, w| w.moder11().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afsel11().bits(value as u8));
+                        }
+                        PinNum::P12 => {
+                            regs.moder.modify(|_, w| w.moder12().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afsel12().bits(value as u8));
+                        }
+                        PinNum::P13 => {
+                            regs.moder.modify(|_, w| w.moder13().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afsel13().bits(value as u8));
+                        }
+                        PinNum::P14 => {
+                            regs.moder.modify(|_, w| w.moder14().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afsel14().bits(value as u8));
+                        }
+                        PinNum::P15 => {
+                            regs.moder.modify(|_, w| w.moder15().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afsel15().bits(value as u8));
+                        }
                     }
-                    PinNum::P1 => {
-                        regs.moder.modify(|_, w| w.moder1().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afsel1().bits(value as u8));
+                } else if #[cfg(feature = "h7")] {
+                    match self.pin {
+                        PinNum::P0 => {
+                            regs.moder.modify(|_, w| w.moder0().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afr0().bits(value as u8));
+                        }
+                        PinNum::P1 => {
+                            regs.moder.modify(|_, w| w.moder1().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afr1().bits(value as u8));
+                        }
+                        PinNum::P2 => {
+                            regs.moder.modify(|_, w| w.moder2().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afr2().bits(value as u8));
+                        }
+                        PinNum::P3 => {
+                            regs.moder.modify(|_, w| w.moder3().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afr3().bits(value as u8));
+                        }
+                        PinNum::P4 => {
+                            regs.moder.modify(|_, w| w.moder4().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afr4().bits(value as u8));
+                        }
+                        PinNum::P5 => {
+                            regs.moder.modify(|_, w| w.moder5().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afr5().bits(value as u8));
+                        }
+                        PinNum::P6 => {
+                            regs.moder.modify(|_, w| w.moder6().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afr6().bits(value as u8));
+                        }
+                        PinNum::P7 => {
+                            regs.moder.modify(|_, w| w.moder7().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afr7().bits(value as u8));
+                        }
+                        PinNum::P8 => {
+                            regs.moder.modify(|_, w| w.moder8().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afr8().bits(value as u8));
+                        }
+                        PinNum::P9 => {
+                            regs.moder.modify(|_, w| w.moder9().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afr9().bits(value as u8));
+                        }
+                        PinNum::P10 => {
+                            regs.moder.modify(|_, w| w.moder10().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afr10().bits(value as u8));
+                        }
+                        PinNum::P11 => {
+                            regs.moder.modify(|_, w| w.moder11().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afr11().bits(value as u8));
+                        }
+                        PinNum::P12 => {
+                            regs.moder.modify(|_, w| w.moder12().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afr12().bits(value as u8));
+                        }
+                        PinNum::P13 => {
+                            regs.moder.modify(|_, w| w.moder13().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afr13().bits(value as u8));
+                        }
+                        PinNum::P14 => {
+                            regs.moder.modify(|_, w| w.moder14().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afr14().bits(value as u8));
+                        }
+                        PinNum::P15 => {
+                            regs.moder.modify(|_, w| w.moder15().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afr15().bits(value as u8));
+                        }
                     }
-                    PinNum::P2 => {
-                        regs.moder.modify(|_, w| w.moder2().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afsel2().bits(value as u8));
-                    }
-                    PinNum::P3 => {
-                        regs.moder.modify(|_, w| w.moder3().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afsel3().bits(value as u8));
-                    }
-                    PinNum::P4 => {
-                        regs.moder.modify(|_, w| w.moder4().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afsel4().bits(value as u8));
-                    }
-                    PinNum::P5 => {
-                        regs.moder.modify(|_, w| w.moder5().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afsel5().bits(value as u8));
-                    }
-                    PinNum::P6 => {
-                        regs.moder.modify(|_, w| w.moder6().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afsel6().bits(value as u8));
-                    }
-                    PinNum::P7 => {
-                        regs.moder.modify(|_, w| w.moder7().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afsel7().bits(value as u8));
-                    }
-                    PinNum::P8 => {
-                        regs.moder.modify(|_, w| w.moder8().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afsel8().bits(value as u8));
-                    }
-                    PinNum::P9 => {
-                        regs.moder.modify(|_, w| w.moder9().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afsel9().bits(value as u8));
-                    }
-                    PinNum::P10 => {
-                        regs.moder.modify(|_, w| w.moder10().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afsel10().bits(value as u8));
-                    }
-                    PinNum::P11 => {
-                        regs.moder.modify(|_, w| w.moder11().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afsel11().bits(value as u8));
-                    }
-                    PinNum::P12 => {
-                        regs.moder.modify(|_, w| w.moder12().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afsel12().bits(value as u8));
-                    }
-                    PinNum::P13 => {
-                        regs.moder.modify(|_, w| w.moder13().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afsel13().bits(value as u8));
-                    }
-                    PinNum::P14 => {
-                        regs.moder.modify(|_, w| w.moder14().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afsel14().bits(value as u8));
-                    }
-                    PinNum::P15 => {
-                        regs.moder.modify(|_, w| w.moder15().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afsel15().bits(value as u8));
+                } else {
+                    match self.pin {
+                        PinNum::P0 => {
+                            regs.moder.modify(|_, w| w.moder0().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afrl0().bits(value as u8));
+                        }
+                        PinNum::P1 => {
+                            regs.moder.modify(|_, w| w.moder1().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afrl1().bits(value as u8));
+                        }
+                        PinNum::P2 => {
+                            regs.moder.modify(|_, w| w.moder2().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afrl2().bits(value as u8));
+                        }
+                        PinNum::P3 => {
+                            regs.moder.modify(|_, w| w.moder3().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afrl3().bits(value as u8));
+                        }
+                        PinNum::P4 => {
+                            regs.moder.modify(|_, w| w.moder4().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afrl4().bits(value as u8));
+                        }
+                        PinNum::P5 => {
+                            regs.moder.modify(|_, w| w.moder5().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afrl5().bits(value as u8));
+                        }
+                        PinNum::P6 => {
+                            regs.moder.modify(|_, w| w.moder6().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afrl6().bits(value as u8));
+                        }
+                        PinNum::P7 => {
+                            regs.moder.modify(|_, w| w.moder7().bits(PinMode::Alt(value).val()));
+                            regs.afrl.modify(|_, w| w.afrl7().bits(value as u8));
+                        }
+                        PinNum::P8 => {
+                            regs.moder.modify(|_, w| w.moder8().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afrh8().bits(value as u8));
+                        }
+                        PinNum::P9 => {
+                            regs.moder.modify(|_, w| w.moder9().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afrh9().bits(value as u8));
+                        }
+                        PinNum::P10 => {
+                            regs.moder.modify(|_, w| w.moder10().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afrh10().bits(value as u8));
+                        }
+                        PinNum::P11 => {
+                            regs.moder.modify(|_, w| w.moder11().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afrh11().bits(value as u8));
+                        }
+                        PinNum::P12 => {
+                            regs.moder.modify(|_, w| w.moder12().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afrh12().bits(value as u8));
+                        }
+                        PinNum::P13 => {
+                            regs.moder.modify(|_, w| w.moder13().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afrh13().bits(value as u8));
+                        }
+                        PinNum::P14 => {
+                            regs.moder.modify(|_, w| w.moder14().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afrh14().bits(value as u8));
+                        }
+                        PinNum::P15 => {
+                            regs.moder.modify(|_, w| w.moder15().bits(PinMode::Alt(value).val()));
+                            regs.afrh.modify(|_, w| w.afrh15().bits(value as u8));
+                        }
                     }
                 }
-
-                #[cfg(not(feature = "l5"))]
-                match self.pin {
-                    PinNum::P0 => {
-                        regs.moder.modify(|_, w| w.moder0().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afrl0().bits(value as u8));
-                    }
-                    PinNum::P1 => {
-                        regs.moder.modify(|_, w| w.moder1().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afrl1().bits(value as u8));
-                    }
-                    PinNum::P2 => {
-                        regs.moder.modify(|_, w| w.moder2().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afrl2().bits(value as u8));
-                    }
-                    PinNum::P3 => {
-                        regs.moder.modify(|_, w| w.moder3().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afrl3().bits(value as u8));
-                    }
-                    PinNum::P4 => {
-                        regs.moder.modify(|_, w| w.moder4().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afrl4().bits(value as u8));
-                    }
-                    PinNum::P5 => {
-                        regs.moder.modify(|_, w| w.moder5().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afrl5().bits(value as u8));
-                    }
-                    PinNum::P6 => {
-                        regs.moder.modify(|_, w| w.moder6().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afrl6().bits(value as u8));
-                    }
-                    PinNum::P7 => {
-                        regs.moder.modify(|_, w| w.moder7().bits(PinMode::Alt(value).val()));
-                        regs.afrl.modify(|_, w| w.afrl7().bits(value as u8));
-                    }
-                    PinNum::P8 => {
-                        regs.moder.modify(|_, w| w.moder8().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afrh8().bits(value as u8));
-                    }
-                    PinNum::P9 => {
-                        regs.moder.modify(|_, w| w.moder9().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afrh9().bits(value as u8));
-                    }
-                    PinNum::P10 => {
-                        regs.moder.modify(|_, w| w.moder10().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afrh10().bits(value as u8));
-                    }
-                    PinNum::P11 => {
-                        regs.moder.modify(|_, w| w.moder11().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afrh11().bits(value as u8));
-                    }
-                    PinNum::P12 => {
-                        regs.moder.modify(|_, w| w.moder12().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afrh12().bits(value as u8));
-                    }
-                    PinNum::P13 => {
-                        regs.moder.modify(|_, w| w.moder13().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afrh13().bits(value as u8));
-                    }
-                    PinNum::P14 => {
-                        regs.moder.modify(|_, w| w.moder14().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afrh14().bits(value as u8));
-                    }
-                    PinNum::P15 => {
-                        regs.moder.modify(|_, w| w.moder15().bits(PinMode::Alt(value).val()));
-                        regs.afrh.modify(|_, w| w.afrh15().bits(value as u8));
-                    }
                 }
             }
 
@@ -615,8 +689,8 @@ macro_rules! make_pin {
             //     };
             // }
 
-            // todo: Look up how you do EXTI on L5.
-            #[cfg(not(any(feature = "f373", feature = "l5")))]  // Does f373 not have GPIO interrupts?
+            // todo: Look up how you do EXTI on L5 and H7.
+            #[cfg(not(any(feature = "f373", feature = "l5", feature = "h7")))]
             /// Configure this pin as an interrupt source.
             pub fn enable_interrupt(&mut self, edge: Edge, exti: &mut EXTI, syscfg: &mut SYSCFG) {
                 let rise_trigger = match edge {

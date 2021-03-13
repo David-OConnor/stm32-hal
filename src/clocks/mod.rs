@@ -17,7 +17,8 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "u5")] {
         // todo once SVD is out
     } else if #[cfg(feature = "h7")] {
-        // todo
+        mod h7;
+        pub use h7::*;
     }
 }
 

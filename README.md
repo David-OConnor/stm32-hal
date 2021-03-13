@@ -41,7 +41,7 @@ Most peripheral modules are independent: The only dependency they have within th
 is the `ClockCfg` trait, which we may move to a standalone crate later. This makes
 it easy to interchange them with other projects.
 
-Pre-release. Currently only supports F3, L4, and L5.
+Pre-release. Currently supports F3, L4, and L5, and H7.
 
 The `syntax_overview` example provides a demonstration of how to get started.
 

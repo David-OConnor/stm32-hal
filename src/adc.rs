@@ -18,29 +18,22 @@ use crate::{pac::RCC, traits::ClockCfg};
 
 use paste::paste;
 
-#[cfg(any(
-    feature = "f301",
-    feature = "f302",
-    feature = "f303",
-    feature = "h743",
-    feature = "h743v",
-    feature = "h747cm3",
-    feature = "h747cm7",
-    feature = "h753",
-    feature = "h753v",
-    feature = "h7b3",
-))]
+#[cfg(any(feature = "f301", feature = "f302", feature = "f303",))]
 use crate::pac::{ADC1, ADC1_2};
 
-#[cfg(any(
-    feature = "f302",
-    feature = "f303",
-))]
+#[cfg(any(feature = "f302", feature = "f303",))]
 use crate::pac::ADC2;
 
 // todo: what other features support ADC3 and 4? Trim this down as you get errors
+#[cfg(any(feature = "f303",))]
+use crate::pac::{ADC3, ADC3_4, ADC4};
+
+#[cfg(any(feature = "l4", feature = "l5"))]
+use crate::pac::ADC_COMMON;
+
+// todo: Figure out which H7 variants work on ADCs 2, 3, 4.
 #[cfg(any(
-    feature = "f303",
+    feature = "l4x3",
     feature = "h743",
     feature = "h743v",
     feature = "h747cm3",
@@ -49,22 +42,9 @@ use crate::pac::ADC2;
     feature = "h753v",
     feature = "h7b3",
 ))]
-use crate::pac::{ADC3, ADC3_4, ADC4};
+use crate::pac::ADC1;
 
-#[cfg(not(feature = "f3"))]
-use crate::pac::ADC_COMMON;
-
-#[cfg(any(
-    feature = "l4x3",
-))]
-use crate::pac::{ADC1};
-
-#[cfg(any(
-    feature = "l4x1",
-    feature = "l4x2",
-    feature = "l4x5",
-    feature = "l4x6",
-))]
+#[cfg(any(feature = "l4x1", feature = "l4x2", feature = "l4x5", feature = "l4x6",))]
 use crate::pac::{ADC1, ADC2};
 
 #[cfg(any(feature = "l4x5", feature = "l4x6"))]
@@ -77,6 +57,7 @@ const MAX_ADVREGEN_STARTUP_US: u32 = 10;
 
 /// https://github.com/rust-embedded/embedded-hal/issues/267
 /// We are simulating an enum due to how the `embedded-hal` trait is set up.
+#[allow(non_snake_case)]
 pub mod AdcChannel {
     pub struct C1;
     pub struct C2;
@@ -122,27 +103,27 @@ pub struct Adc<ADC> {
 /// 13 + 19 = 32 ADC Clock Cycles
 pub enum SampleTime {
     /// 1.5 ADC clock cycles
-    T_1,
+    T1,
     /// 2.5 ADC clock cycles
-    T_2,
+    T2,
     /// 4.5 ADC clock cycles
-    T_4,
+    T4,
     /// 7.5 ADC clock cycles
-    T_7,
+    T7,
     /// 19.5 ADC clock cycles
-    T_19,
+    T19,
     /// 61.5 ADC clock cycles
-    T_61,
+    T61,
     /// 181.5 ADC clock cycles
-    T_181,
+    T181,
     /// 601.5 ADC clock cycles
-    T_601,
+    T601,
 }
 
 impl Default for SampleTime {
     /// T_1 is also the reset value.
     fn default() -> Self {
-        SampleTime::T_1
+        SampleTime::T1
     }
 }
 
@@ -150,14 +131,14 @@ impl SampleTime {
     /// Conversion to bits for SMP
     fn bitcode(&self) -> u8 {
         match self {
-            SampleTime::T_1 => 0b000,
-            SampleTime::T_2 => 0b001,
-            SampleTime::T_4 => 0b010,
-            SampleTime::T_7 => 0b011,
-            SampleTime::T_19 => 0b100,
-            SampleTime::T_61 => 0b101,
-            SampleTime::T_181 => 0b110,
-            SampleTime::T_601 => 0b111,
+            SampleTime::T1 => 0b000,
+            SampleTime::T2 => 0b001,
+            SampleTime::T4 => 0b010,
+            SampleTime::T7 => 0b011,
+            SampleTime::T19 => 0b100,
+            SampleTime::T61 => 0b101,
+            SampleTime::T181 => 0b110,
+            SampleTime::T601 => 0b111,
         }
     }
 }
@@ -549,11 +530,7 @@ macro_rules! hal {
 
 // todo: l and h. and rest of f3
 
-#[cfg(any(
-    feature = "f301",
-    feature = "f302",
-    feature = "f303",
-))]
+#[cfg(any(feature = "f301", feature = "f302", feature = "f303",))]
 hal!(ADC1, ADC1_2, adc1, AdcNum::One);
 
 #[cfg(any(feature = "f302", feature = "f303",))]
@@ -588,3 +565,15 @@ cfg_if::cfg_if! {
         hal!(ADC, ADC_COMMON, adc, AdcNum:One);  // Todo: Channel 2. Fight through that chan imp to do it.
     }
 }
+
+// todo: Beyond ADC1 for H7.
+#[cfg(any(
+    feature = "h743",
+    feature = "h743v",
+    feature = "h747cm3",
+    feature = "h747cm7",
+    feature = "h753",
+    feature = "h753v",
+    feature = "h7b3",
+))]
+hal!(ADC1, ADC1, adc1, AdcNum::One);

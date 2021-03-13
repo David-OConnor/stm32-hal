@@ -1,7 +1,5 @@
 //! Timers. Based on `stm32f3xx-hal`
 
-use cast::{u16, u32};
-// use core::convert::{From, TryFrom};
 use num_traits::float::Float;
 
 use embedded_hal::timer::{CountDown, Periodic};
@@ -55,6 +53,27 @@ use crate::pac::TIM1;
 
 #[cfg(feature = "l562")]
 use crate::pac::{TIM1, TIM17, TIM3, TIM4, TIM5, TIM8};
+
+#[cfg(feature = "h743")]
+use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+
+#[cfg(feature = "h743v")]
+use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+
+#[cfg(feature = "h747cm3")]
+use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+
+#[cfg(feature = "h747cm7")]
+use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+
+#[cfg(feature = "h753")]
+use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+
+#[cfg(feature = "h753v")]
+use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+
+#[cfg(feature = "h7b3")]
+use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 
 #[derive(Clone, Copy)]
 /// Used for when attempting to set a timer period that is out of range.
@@ -597,7 +616,7 @@ pwm_features! {
     feature = "l4x1",
     feature = "l4x2",
     feature = "l4x3",
-    feature = "l552"
+    feature = "l552",
 )))]
 hal! {
     {
@@ -608,14 +627,26 @@ hal! {
     },
 }
 
-#[cfg(not(any(feature = "f3x4", feature = "l4x1", feature = "l4x2", feature = "l4x3", feature = "l5")))]
+#[cfg(not(any(
+    feature = "f3x4",
+    feature = "l4x1",
+    feature = "l4x2",
+    feature = "l4x3",
+    feature = "l5"
+)))]
 pwm_features! {
     {
         TIM4: u16
     },
 }
 
-#[cfg(any(feature = "f373", feature = "l4x5", feature = "l4x6", feature = "l562"))]
+#[cfg(any(
+    feature = "f373",
+    feature = "l4x5",
+    feature = "l4x6",
+    feature = "l562",
+    feature = "h7"
+))]
 hal! {
     {
         TIM5: (tim5, apb1, enr1, rstr1)
@@ -656,7 +687,7 @@ pwm_features! {
     },
 }
 
-#[cfg(any(feature = "f303", feature = "l4x5", feature = "l4x6", feature = "l562",))]
+#[cfg(any(feature = "f303", feature = "l4x5", feature = "l4x6", feature = "l562"))]
 hal! {
     {
         TIM8: (tim8, apb2, enr, rstr)

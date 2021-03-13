@@ -35,6 +35,8 @@ pub trait ClockCfg {
     /// APB2 peripheral common speed, in Hz.
     fn apb2_timer(&self) -> u32;
 
+    // Todo: Optional APB3, APB4, AHB2, AHB4, HCLK3. These are for H7.
+
     /// Validate that the clocks speeds are all within the acceptable range
     /// for the MCU
     /// // todo Separate USB validation? back to `Validation enum`, or keep it simple?

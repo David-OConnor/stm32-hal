@@ -9,8 +9,8 @@ use cortex_m_rt::entry;
 
 use stm32_hal::{
     clocks::{ClockCfg, Clocks},
-    low_power,
-    pac::{self, TIM3},
+    gpio::GpioA,
+    pac,
     usb::{Peripheral, UsbBus, UsbBusType},
 };
 
@@ -40,39 +40,33 @@ fn main() -> ! {
     let usb_bus = UsbBus::new(usb);
     let usb_serial = SerialPort::new(usb_bus);
 
-    let usb_dev =
-        UsbDeviceBuilder::new(USB_BUS.as_ref().unwrap(), UsbVidPid(0x16c0, 0x27dd))
-            .manufacturer("AnyLeaf")
-            .product("Serial port")
-            // We use `serial_number` to identify the device to the PC. If it's too long,
-            // we get permissions errors on the PC.
-            .serial_number("WM")
-            .device_class(USB_CLASS_CDC)
-            .build();
-
-
+    let usb_dev = UsbDeviceBuilder::new(USB_BUS.as_ref().unwrap(), UsbVidPid(0x16c0, 0x27dd))
+        .manufacturer("A Company")
+        .product("Serial port")
+        // We use `serial_number` to identify the device to the PC. If it's too long,
+        // we get permissions errors on the PC.
+        .serial_number("SN")
+        .device_class(USB_CLASS_CDC)
+        .build();
 
     loop {
         // It's probably better to do this with an interrupt than polling. Polling here
         // keep the syntax simple. To use in an interrupt, set up the USB-related structs as
         // `Mutex<RefCell<Option<...>>>`, and use the `USB_LP_CAN_RX0` interrupt handler etc.
         // See the `interrupts` example.
-        if !usb_device.poll(&mut [usb_serial])
-        {
-            continue
+        if !usb_device.poll(&mut [usb_serial]) {
+            continue;
         }
 
         let mut buf = [0u8; 8];
         match usb_serial.read(&mut buf) {
             // todo: match all start bits and end bits. Running into an error using the naive approach.
             Ok(count) => {
-                serial.write(// ..).ok();
-                _ => {}
-            },
+                serial.write(&[1, 2, 3]).ok();
+            }
             Err(_) => {
                 //...
             }
         }
-
     }
 }

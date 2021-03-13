@@ -1,8 +1,3 @@
-//! See STM32CubeIDE for an interactive editor that's very useful for seeing what
-//! settings are available, and validating them.
-//!
-//! See Figure 15 of the Reference Manual for a non-interactive visualization.
-
 use crate::{
     clocks::SpeedError,
     pac::{FLASH, RCC},
@@ -228,7 +223,7 @@ impl ApbPrescaler {
     }
 }
 
-/// Settings used to configure common
+/// Settings used to configure clocks.
 pub struct Clocks {
     pub input_src: InputSrc, //
     pub pllm: Pllm,          // PLL divider
@@ -262,16 +257,16 @@ impl Clocks {
         // We need to do this before enabling PLL, or it won't enable.
         let (_, sysclk) = calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
 
-        let hclk = sysclk / self.hclk_prescaler.value() as f32;
+        let hclk = sysclk / self.hclk_prescaler.value() as u32;
         // Reference manual section 3.3.3
         flash.acr.modify(|_, w| unsafe {
-            if hclk <= 16. {
+            if hclk <= 16 {
                 w.latency().bits(0b000)
-            } else if hclk <= 32. {
+            } else if hclk <= 32 {
                 w.latency().bits(0b001)
-            } else if hclk <= 48. {
+            } else if hclk <= 48 {
                 w.latency().bits(0b010)
-            } else if hclk <= 64. {
+            } else if hclk <= 64 {
                 w.latency().bits(0b011)
             } else {
                 w.latency().bits(0b100)
@@ -415,11 +410,11 @@ impl Clocks {
             }
         }
 
-        rcc.cfgr.modify(|_, w| {
-            unsafe { w.sw().bits(self.input_src.bits()) };
-            unsafe { w.hpre().bits(self.hclk_prescaler as u8) }; // eg: Divide SYSCLK by 2 to get HCLK of 36Mhz.
-            unsafe { w.ppre2().bits(self.apb2_prescaler as u8) }; // HCLK division for APB2.
-            unsafe { w.ppre1().bits(self.apb1_prescaler as u8) } // HCLK division for APB1
+        rcc.cfgr.modify(|_, w| unsafe {
+            w.sw().bits(self.input_src.bits());
+            w.hpre().bits(self.hclk_prescaler as u8); // eg: Divide SYSCLK by 2 to get HCLK of 36Mhz.
+            w.ppre2().bits(self.apb2_prescaler as u8); // HCLK division for APB2.
+            w.ppre1().bits(self.apb1_prescaler as u8) // HCLK division for APB1
         });
 
         rcc.cr.modify(|_, w| w.csson().bit(self.security_system));
@@ -469,7 +464,7 @@ impl Clocks {
 impl ClockCfg for Clocks {
     fn sysclk(&self) -> u32 {
         let (_, sysclk) = calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
-        (sysclk * 1_000_000.) as u32
+        sysclk * 1_000_000
     }
 
     fn hclk(&self) -> u32 {
@@ -482,7 +477,7 @@ impl ClockCfg for Clocks {
 
     fn usb(&self) -> u32 {
         let (input_freq, _) = calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
-        (input_freq * 1_000_000.) as u32 / self.pllm.value() as u32 * self.pll_sai1_mul as u32 / 2
+        input_freq * 1_000_000 / self.pllm.value() as u32 * self.pll_sai1_mul as u32 / 2
     }
 
     fn apb1(&self) -> u32 {
@@ -578,29 +573,29 @@ impl Default for Clocks {
 }
 
 /// Calculate the systick, and input frequency.
-fn calc_sysclock(input_src: InputSrc, pllm: Pllm, pll_vco_mul: u8, pllr: Pllr) -> (f32, f32) {
+fn calc_sysclock(input_src: InputSrc, pllm: Pllm, pll_vco_mul: u8, pllr: Pllr) -> (u32, u32) {
     let input_freq;
     let sysclk = match input_src {
         InputSrc::Pll(pll_src) => {
             input_freq = match pll_src {
-                PllSrc::Msi(range) => range.value() as f32 / 1_000_000.,
-                PllSrc::Hsi => 16.,
-                PllSrc::Hse(freq) => freq as f32,
-                PllSrc::None => 0., // todo?
+                PllSrc::Msi(range) => range.value() as u32 / 1_000_000,
+                PllSrc::Hsi => 16,
+                PllSrc::Hse(freq) => freq as u32,
+                PllSrc::None => 0, // todo?
             };
-            input_freq as f32 / pllm.value() as f32 * pll_vco_mul as f32 / pllr.value() as f32
+            input_freq as u32 / pllm.value() as u32 * pll_vco_mul as u32 / pllr.value() as u32
         }
 
         InputSrc::Msi(range) => {
-            input_freq = range.value() as f32 / 1_000_000.;
+            input_freq = range.value() as u32 / 1_000_000;
             input_freq
         }
         InputSrc::Hsi => {
-            input_freq = 16.;
+            input_freq = 16;
             input_freq
         }
         InputSrc::Hse(freq) => {
-            input_freq = freq as f32;
+            input_freq = freq as u32;
             input_freq
         }
     };

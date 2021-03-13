@@ -5,7 +5,10 @@
 
 use core::cell::{Cell, RefCell};
 
-use cortex_m::{interrupt::{free, Mutex}, peripheral::NVIC};
+use cortex_m::{
+    interrupt::{free, Mutex},
+    peripheral::NVIC,
+};
 use cortex_m_rt::entry;
 
 use stm32_hal::{
@@ -24,7 +27,7 @@ static SENSOR_READING: Mutex<Cell<f32>> = Mutex::new(Cell::new(335.));
 
 // More complex values go in `RefCell`s. Use an option, since we need to set this up
 // before we initialize the peripheral it stores.
-static ADC: Mutex<RefCell<Option<ADC<ADC1>>> = Mutex::new(RefCell::new(None));
+static ADC: Mutex<RefCell<Option<ADC<ADC1>>>> = Mutex::new(RefCell::new(None));
 
 #[entry]
 fn main() -> ! {
@@ -113,7 +116,6 @@ fn EXTI0() {
         let reading = sensor.read(AdcChannel::C1).unwrap();
         SENSOR_READING.borrow(cs).replace(reading);
     });
-
 }
 
 #[interrupt]
