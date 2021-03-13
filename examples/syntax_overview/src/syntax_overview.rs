@@ -8,6 +8,7 @@ use defmt_rtt as _;
 use panic_probe as _;
 
 use stm32_hal::{
+    adc::{Adc, AdcChannel},
     clocks::{ClockCfg, Clocks},
     dac::{Dac, Channel as DacChannel, Bits as DacBits},
     delay::Delay,
@@ -88,15 +89,17 @@ fn main() -> ! {
     );
 
     // Set up the Analog-to-digital converter
-    let mut _adc_pin = gpiob.new_pin(PinNum::P5, PinMode::Analog);
+    let _adc_pin = gpiob.new_pin(PinNum::P5, PinMode::Analog);
 
     let mut adc = Adc::new_adc1_unchecked(
         dp.ADC1,
-        &mut dp.ADC1_2,
-        &mut dp.RCC,
+        &mut dp.ADC1,
         adc::CkMode::default(),
         &clocks,
+        &mut dp.RCC,
     );
+
+    let reading = adc.read(&mut AdcChannel::C1);
 
     // Set up the Digital-to-analog converter
     let mut dac_pin = gpioa.new_pin(PinNum::P12, PinMode::Analog);

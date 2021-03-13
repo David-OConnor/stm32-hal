@@ -397,23 +397,23 @@ macro_rules! pwm_features {
                         Channel::One => {
                             self.tim.ccmr1_output().modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
                             // todo: Confirm other platforms handle everything using `oc1m`, and don't
-                            // todo need the `oc1m_3` equiv.
-                            #[cfg(feature = "f3")]
+                            // todo need the `oc1m_3` equiv. L5 and 4?
+                            #[cfg(any(feature = "f302", feature = "f303"))]
                             self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
                         }
                         Channel::Two => {
                             self.tim.ccmr1_output().modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
-                            #[cfg(feature = "f3")]  // todo see note above
+                            #[cfg(any(feature = "f302", feature = "f303"))]  // todo see note above
                             self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
                         }
                         Channel::Three => {
                             self.tim.ccmr1_output().modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
-                            #[cfg(feature = "f3")]  // todo see note above
+                            #[cfg(any(feature = "f302", feature = "f303"))]  // todo see note above
                             self.tim.ccmr1_output().modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
                         }
                         Channel::Four => {
                             self.tim.ccmr2_output().modify(|_, w| unsafe { w.oc4m().bits(mode as u8) });
-                            #[cfg(feature = "f3")]  // todo see note above
+                            #[cfg(any(feature = "f302", feature = "f303"))]  // todo see note above
                             self.tim.ccmr2_output().modify(|_, w| w.oc4m_3().bit(mode.left_bit()));
                         }
                     }
@@ -608,7 +608,7 @@ hal! {
     },
 }
 
-#[cfg(not(any(feature = "l4x1", feature = "l4x2", feature = "l4x3", feature = "l5")))]
+#[cfg(not(any(feature = "f3x4", feature = "l4x1", feature = "l4x2", feature = "l4x3", feature = "l5")))]
 pwm_features! {
     {
         TIM4: u16

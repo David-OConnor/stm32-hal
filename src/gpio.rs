@@ -920,18 +920,6 @@ make_pin!(E);
 #[cfg(not(any(feature = "f301", feature = "f3x4")))]
 make_port!(E, e);
 
-#[cfg(any(feature = "l4x5", feature = "l4x6"))]
-make_pin!(F);
-
-#[cfg(any(feature = "l4x5", feature = "l4x6"))]
-make_port!(F, f);
-
-#[cfg(any(feature = "l4x5", feature = "l4x6"))]
-make_pin!(G);
-
-#[cfg(any(feature = "l4x5", feature = "l4x6"))]
-make_port!(G, g);
-
 #[cfg(not(any(feature = "f373", feature = "f301", feature = "f3x4", feature = "l4")))]
 make_pin!(H);
 

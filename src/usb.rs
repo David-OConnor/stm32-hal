@@ -1,4 +1,5 @@
-//! Based on `stm32f3xx-hal`
+//! Based on `stm32f3xx-hal` This module is a thin wrapper required to work with
+//! the `usbd` crate.
 
 //! USB peripheral
 //!
@@ -20,10 +21,6 @@ pub use stm32_usbd::UsbBus;
 pub struct Peripheral {
     /// USB Register Block
     pub usb: USB,
-    // Data Negativ Pin
-    // pub pin_dm: PA11<AF14>,
-    // /// Data Positiv Pin
-    // pub pin_dp: PA12<AF14>,
 }
 
 unsafe impl Sync for Peripheral {}
@@ -37,11 +34,14 @@ unsafe impl UsbPeripheral for Peripheral {
     // #[cfg(any(feature = "stm32f303xd", feature = "stm32f303xe"))]
 
     // f303 subvariants have diff mem sizes and bits/word scheme. :/
+
+    // todo: Is there a way to pass `EP_MEMORY_SIZE` as an arg?
+
     #[cfg(feature = "f303")]
     const EP_MEMORY_SIZE: usize = 512;
     // todo: Feature-gate various memory sizes
 
-    #[cfg(not(feature = "l4"))]
+    #[cfg(feature = "l4")]
     const EP_MEMORY_SIZE: usize = 1024;
 
     fn enable() {

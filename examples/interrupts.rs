@@ -3,19 +3,28 @@
 #![no_main]
 #![no_std]
 
-use cortex_m::{interrupt::free, peripheral::NVIC};
+use core::cell::{Cell, RefCell};
 
+use cortex_m::{interrupt::{free, Mutex}, peripheral::NVIC};
 use cortex_m_rt::entry;
 
 use stm32_hal::{
+    adc::{Adc, AdcChannel},
     clocks::{ClockCfg, Clocks},
     event::Timeout,
     gpio::{Edge, GpioA, PinMode, PinNum},
     low_power,
-    pac::{self, TIM3},
+    pac::{self, ADC1, EXTI},
     rtc::{Rtc, RtcClockSource, RtcConfig},
     timer::{Event::TimeOut, Timer},
 };
+
+// Copy type variables can go in `Cell`s, which are easier to access.
+static SENSOR_READING: Mutex<Cell<f32>> = Mutex::new(Cell::new(335.));
+
+// More complex values go in `RefCell`s. Use an option, since we need to set this up
+// before we initialize the peripheral it stores.
+static ADC: Mutex<RefCell<Option<ADC<ADC1>>> = Mutex::new(RefCell::new(None));
 
 #[entry]
 fn main() -> ! {
@@ -52,6 +61,19 @@ fn main() -> ! {
     // Set the RTC to trigger an interrupt every 30 seconds.
     rtc.set_wakeup(&mut dp.EXTI, 30.);
 
+    let mut adc = Adc::new_adc1_unchecked(
+        dp.ADC1,
+        &mut dp.ADC_COMMON,
+        adc::CkMode::default(),
+        &clocks,
+        &mut dp.RCC,
+    );
+
+    // Set up our ADC as a global variable accessible in interrupts, now that it's initialized.
+    free(|cs| {
+        ADC.borrow(cs).replace(Some(adc));
+    });
+
     // Unmask the interrupt lines.
     unsafe {
         NVIC::unmask(pac::Interrupt::EXTI0); // GPIO
@@ -83,9 +105,15 @@ fn EXTI0() {
             // Clear the interrupt flag, to prevent continous firing.
             (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr0().bit(true));
         }
+
+        // Update our global sensor reading. This section dmeonstrates boilerplate
+        // for Mutexes etc.
+        let mut s = ADC::borrow(cs).borrow_mut();
+        let sensor = s.as_mut().unwrap();
+        let reading = sensor.read(AdcChannel::C1).unwrap();
+        SENSOR_READING.borrow(cs).replace(reading);
     });
 
-    // Do something.
 }
 
 #[interrupt]

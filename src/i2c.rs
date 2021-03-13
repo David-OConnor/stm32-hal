@@ -88,7 +88,7 @@ where
 
             I2cDevice::Two => {
                 cfg_if::cfg_if! {
-                    if #[cfg(feature = "f3")] {
+                    if #[cfg(any(feature = "f301", feature = "f302", feature = "f303", feature = "f373"))] {
                         rcc.apb1enr.modify( | _, w| w.i2c2en().set_bit());
                         rcc.apb1rstr.modify( | _, w | w.i2c2rst().set_bit());
                         rcc.apb1rstr.modify(| _, w | w.i2c2rst().clear_bit());
