@@ -378,9 +378,9 @@ impl ClockCfg for Clocks {
 
     fn apb1_timer(&self) -> u32 {
         if let ApbPrescaler::Div1 = self.apb1_prescaler {
-            self.apb1() as u32
+            self.apb1()
         } else {
-            self.apb1() as u32 * 2
+            self.apb1() * 2
         }
     }
 
@@ -390,9 +390,9 @@ impl ClockCfg for Clocks {
 
     fn apb2_timer(&self) -> u32 {
         if let ApbPrescaler::Div1 = self.apb2_prescaler {
-            self.apb2() as u32
+            self.apb2()
         } else {
-            self.apb2() as u32 * 2
+            self.apb2() * 2
         }
     }
 

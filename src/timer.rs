@@ -271,6 +271,7 @@ macro_rules! hal {
                     // enable and reset peripheral to a clean slate state
                     // todo: Feature-gate, adn use the right apb1 vs apb2.
 
+                    // todo: H7!!
                     cfg_if::cfg_if! {
                         if #[cfg(feature = "f3")] {
                             paste! {
@@ -291,9 +292,7 @@ macro_rules! hal {
 
                     paste! {
                         let mut timer = Timer { clock_speed: clocks.[<$apb _timer>](), tim };
-
                         timer.start(freq);
-
                         timer
                     }
                 }
@@ -314,6 +313,11 @@ macro_rules! hal {
                 /// Disable the timer.
                 pub fn disable(&mut self) {
                     self.tim.cr1.modify(|_, w| w.cen().clear_bit());
+                }
+
+                /// Check if the timer is enabled.
+                pub fn is_enabled(&self) -> bool {
+                    self.tim.cr1.read().cen().bit_is_set()
                 }
 
                 /// Clears interrupt associated with `event`.
@@ -351,6 +355,9 @@ macro_rules! hal {
                 /// Set the timer frequency, in Hz. Overrides the period or frequency set
                 /// in the constructor.
                 pub fn set_freq(&mut self, freq: f32) -> Result<(), ValueError> {
+                   // todo: Take into account settings like Center alignment, and
+                   // todo the `tim1sw` bit in RCC CFGR3, which change how the
+                   // todo freq behaves.
                    let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;
 
                     self.tim.arr.write(|w| unsafe { w.bits(arr.into()) });

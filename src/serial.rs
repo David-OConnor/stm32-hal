@@ -16,18 +16,16 @@ use stable_deref_trait::StableDeref;
 
 use embedded_hal::serial::{self, Write};
 
-// use crate::dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender};
 use crate::{
+    dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender},
     pac::{self, RCC},
     traits::ClockCfg,
 };
 
 use paste::paste;
 
-// todo: DMA
-
-// #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-// use crate::dma::dma2;
+#[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
+use crate::dma::dma2;
 
 /// Interrupt event
 pub enum Event {
@@ -89,7 +87,7 @@ pub enum Oversampling {
 
 /// USART Configuration structure
 pub struct Config {
-    baudrate: Bps,
+    baudrate: u32,
     parity: Parity,
     stopbits: StopBits,
     oversampling: Oversampling,
@@ -101,7 +99,7 @@ pub struct Config {
 
 impl Config {
     /// Set the baudrate to a specific value
-    pub fn baudrate(mut self, baudrate: Bps) -> Self {
+    pub fn baudrate(mut self, baudrate: u32) -> Self {
         self.baudrate = baudrate;
         self
     }
@@ -166,7 +164,7 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Config {
-        let baudrate = 115_200_u32.bps();
+        let baudrate = 115_200;
         Config {
             baudrate,
             parity: Parity::ParityNone,
@@ -183,6 +181,7 @@ impl Default for Config {
 /// Serial abstraction
 pub struct Serial<USART> {
     usart: USART,
+    // pins: PINS,
 }
 
 /// Serial receiver
@@ -199,11 +198,10 @@ macro_rules! hal {
     ($(
         $(#[$meta:meta])*
         $USARTX:ident: (
-            $usartX:ident,
-            $RCC:ident,
-            $usartXen:ident,
-            $usartXrst:ident,
-            $pclkX:ident,
+            $usart:ident,
+            $apb:ident,
+            $enr:ident,
+            $rst:ident,
             tx: ($dmacst:ident, $tx_chan:path),
             rx: ($dmacsr:ident, $rx_chan:path)
         ),
@@ -225,23 +223,30 @@ macro_rules! hal {
                 /// `MAPR` and `APBX` are register handles which are passed for
                 /// configuration. (`MAPR` is used to map the USART to the
                 /// corresponding pins. `APBX` is used to reset the USART.)
-                pub fn $usartX<C: ClockCfg>(
+                pub fn $usart<C: ClockCfg>(
                     usart: pac::$USARTX,
                     config: Config,
                     clocks: &C,
                     rcc: &mut RCC,
-                ) -> Self {
+                ) -> Self
+                where {
                     // enable or reset $USARTX
-
+                    // todo: H7!!
                     cfg_if::cfg_if! {
                         if #[cfg(feature = "f3")] {
-                            rcc.apb1enr.modify(|_, w| w.$usartXen().set_bit());
-                            rcc.apb1rstr.modify(|_, w| w.$usartXrst().set_bit());
-                            rcc.apb1rstr.modify(|_, w| w.$usartXrst().clear_bit());
-                        } else if # [cfg(any(feature = "l4", feature = "l5"))] {
-                            rcc.apb1enr1.modify(|_, w| w.$usartXen().set_bit());
-                            rcc.apb1rstr1.modify(|_, w| w.$usartXrst().set_bit());
-                            rcc.apb1rstr1.modify(|_, w| w.$usartXrst().clear_bit());
+                            paste! {
+                                rcc.[<$apb enr>].modify(|_, w| w.[<$usart en>]().set_bit());
+                                rcc.[<$apb rstr>].modify(|_, w| w.[<$usart rst>]().set_bit());
+                                rcc.[<$apb rstr>].modify(|_, w| w.[<$usart rst>]().clear_bit());
+                            }
+                        } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                            paste! {
+                                // We use `$enr` and $rst, since we only add `1` after for apb1.
+                                // This isn't required on f3.
+                                rcc.[<$apb $enr>].modify(|_, w| w.[<$usart en>]().set_bit());
+                                rcc.[<$apb $rst>].modify(|_, w| w.[<$usart rst>]().set_bit());
+                                rcc.[<$apb $rst>].modify(|_, w| w.[<$usart rst>]().clear_bit());
+                            }
                         }
                     }
 
@@ -253,7 +258,7 @@ macro_rules! hal {
                     // Configure baud rate
                     match config.oversampling {
                         Oversampling::Over8 => {
-                            let uartdiv = 2 * clocks.$pclkX().0 / config.baudrate.0;
+                            let uartdiv = 2 * clocks.$apb() / config.baudrate;
                             assert!(uartdiv >= 16, "impossible baud rate");
 
                             let lower = (uartdiv & 0xf) >> 1;
@@ -263,7 +268,7 @@ macro_rules! hal {
                             usart.brr.write(|w| unsafe { w.bits(brr) });
                         }
                         Oversampling::Over16 => {
-                            let brr = clocks.$pclkX().0 / config.baudrate.0;
+                            let brr = clocks.$apb() / config.baudrate;
                             assert!(brr >= 16, "impossible baud rate");
 
                             usart.brr.write(|w| unsafe { w.bits(brr) });
@@ -277,17 +282,17 @@ macro_rules! hal {
                     // enable DMA transfers
                     usart.cr3.modify(|_, w| w.dmat().set_bit().dmar().set_bit());
 
-                    // Configure hardware flow control (CTS/RTS or RS485 Driver Enable)
-
-                    // todo?
+                    // todo
+                    // // Configure hardware flow control (CTS/RTS or RS485 Driver Enable)
                     // if PINS::FLOWCTL {
                     //     usart.cr3.modify(|_, w| w.rtse().set_bit().ctse().set_bit());
                     // } else if PINS::DEM {
                     //     usart.cr3.modify(|_, w| w.dem().set_bit());
+                    //
                     //     // Pre/post driver enable set conservative to the max time
                     //     usart.cr1.modify(|_, w| w.deat().bits(0b1111).dedt().bits(0b1111));
                     // } else {
-                    //     usart.cr3.modify(|_, w| w.rtse().clear_bit().ctse().clear_bit());
+                    usart.cr3.modify(|_, w| w.rtse().clear_bit().ctse().clear_bit());
                     // }
 
                     // Enable One bit sampling method
@@ -301,9 +306,9 @@ macro_rules! hal {
                         }
 
                         // configure Half Duplex
-                        if PINS::HALF_DUPLEX {
-                            w.hdsel().set_bit();
-                        }
+                        // if PINS::HALF_DUPLEX {  // todo
+                        //     w.hdsel().set_bit();
+                        // }
 
                         w
                     });
@@ -423,7 +428,7 @@ macro_rules! hal {
                 }
 
                 /// Frees the USART peripheral
-                pub fn free(self) -> pac::$USARTX {
+                pub fn release(self) -> pac::$USARTX {
                     self.usart
                 }
             }
@@ -737,9 +742,11 @@ macro_rules! hal {
     }
 }
 
+// todo: Impl for things beyond L4!
+
 hal! {
-    USART1: (usart1, APB2, usart1en, usart1rst, pclk2, tx: (c4s, dma1::C4), rx: (c5s, dma1::C5)),
-    USART2: (usart2, APB1R1, usart2en, usart2rst, pclk1, tx: (c7s, dma1::C7), rx: (c6s, dma1::C6)),
+    USART1: (usart1, apb2, enr, rstr, tx: (c4s, dma1::C4), rx: (c5s, dma1::C5)),
+    USART2: (usart2, apb1, enr1, rstr1, tx: (c7s, dma1::C7), rx: (c6s, dma1::C6)),
 }
 
 #[cfg(any(
@@ -749,17 +756,17 @@ hal! {
     feature = "stm32l4x6",
 ))]
 hal! {
-    USART3: (usart3, APB1R1, usart3en, usart3rst, pclk1, tx: (c2s, dma1::C2), rx: (c3s, dma1::C3)),
+    USART3: (usart3, apb1, enr1, rstr1, tx: (c2s, dma1::C2), rx: (c3s, dma1::C3)),
 }
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
-    UART4: (uart4, APB1R1, uart4en, uart4rst, pclk1, tx: (c3s, dma2::C3), rx: (c5s, dma2::C5)),
+    UART4: (uart4, apb1, enr1, rstr1, tx: (c3s, dma2::C3), rx: (c5s, dma2::C5)),
 }
 
 #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
 hal! {
-    UART5: (uart5, APB1R1, uart5en, uart5rst, pclk1, tx: (c1s, dma2::C1), rx: (c2s, dma2::C2)),
+    UART5: (uart5, apb1, enr1, rstr1, tx: (c1s, dma2::C1), rx: (c2s, dma2::C2)),
 }
 
 impl<USART> fmt::Write for Serial<USART>
@@ -789,80 +796,198 @@ where
         Ok(())
     }
 }
+//
+// /// Marks pins as being as being TX pins for the given USART instance
+// pub trait TxPin<Instance>: private::SealedTx {}
+//
+// /// Marks pins as being TX Half Duplex pins for the given USART instance
+// pub trait TxHalfDuplexPin<Instance>: private::SealedTxHalfDuplex {}
+//
+// /// Marks pins as being as being RX pins for the given USART instance
+// pub trait RxPin<Instance>: private::SealedRx {}
+//
+// /// Marks pins as being as being RTS pins for the given USART instance
+// pub trait RtsDePin<Instance>: private::SealedRtsDe {}
+//
+// /// Marks pins as being as being CTS pins for the given USART instance
+// pub trait CtsPin<Instance>: private::SealedCts {}
+//
+// macro_rules! impl_pin_traits {
+//     (
+//         $(
+//             $instance:ident: {
+//                 $(
+//                     $af:ident: {
+//                         TX: $($tx:ident),*;
+//                         RX: $($rx:ident),*;
+//                         RTS_DE: $($rts_de:ident),*;
+//                         CTS: $($cts:ident),*;
+//                     }
+//                 )*
+//             }
+//         )*
+//     ) => {
+//         $(
+//             $(
+//                 $(
+//                     impl private::SealedTx for
+//                         gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
+//                     impl TxPin<pac::$instance> for
+//                         gpio::$tx<Alternate<gpio::$af, Input<Floating>>> {}
+//                 )*
+//
+//                 $(
+//                     impl private::SealedTxHalfDuplex for
+//                         gpio::$tx<AlternateOD<gpio::$af, Input<Floating>>> {}
+//                     impl TxHalfDuplexPin<pac::$instance> for
+//                         gpio::$tx<AlternateOD<gpio::$af, Input<Floating>>> {}
+//                 )*
+//
+//                 $(
+//                     impl private::SealedRx for
+//                         gpio::$rx<Alternate<gpio::$af, Input<Floating>>> {}
+//                     impl RxPin<pac::$instance> for
+//                         gpio::$rx<Alternate<gpio::$af, Input<Floating>>> {}
+//                 )*
+//
+//                 $(
+//                     impl private::SealedRtsDe for
+//                         gpio::$rts_de<Alternate<gpio::$af, Input<Floating>>> {}
+//                     impl RtsDePin<pac::$instance> for
+//                         gpio::$rts_de<Alternate<gpio::$af, Input<Floating>>> {}
+//                 )*
+//
+//                 $(
+//                     impl private::SealedCts for
+//                         gpio::$cts<Alternate<gpio::$af, Input<Floating>>> {}
+//                     impl CtsPin<pac::$instance> for
+//                         gpio::$cts<Alternate<gpio::$af, Input<Floating>>> {}
+//                 )*
+//             )*
+//         )*
+//     };
+// }
 
-/// Marks pins as being as being TX pins for the given USART instance
-pub trait TxPin<Instance>: private::SealedTx {}
+// impl_pin_traits! {
+//     USART1: {
+//         AF7: {
+//             TX: PA9, PB6;
+//             RX: PA10, PB7;
+//             RTS_DE: PA12, PB3;
+//             CTS: PA11, PB4;
+//         }
+//     }
+//     USART2: {
+//         AF7: {
+//             TX: PA2, PD5;
+//             RX: PA3, PD6;
+//             RTS_DE: PA1, PD4;
+//             CTS: PA0, PD3;
+//         }
+//         AF3: {
+//             TX: ;
+//             RX: PA15;
+//             RTS_DE: ;
+//             CTS: ;
+//         }
+//     }
+// }
+//
+// #[cfg(any(
+//     feature = "stm32l4x2",
+//     feature = "stm32l4x3",
+//     feature = "stm32l4x5",
+//     feature = "stm32l4x6",
+// ))]
+// impl_pin_traits! {
+//     USART3: {
+//         AF7: {
+//             TX: PB10, PC4, PC10, PD8;
+//             RX: PB11, PC5, PC11, PD9;
+//             RTS_DE: PB1, PB14, PD2, PD12;
+//             CTS: PA6, PB13, PD11;
+//         }
+//     }
+// }
+//
+// #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6"))]
+// impl_pin_traits! {
+//     UART4: {
+//         AF8: {
+//             TX: PA0, PC10;
+//             RX: PA1, PC11;
+//             RTS_DE: PA15;
+//             CTS: PB7;
+//         }
+//     }
+//     UART5: {
+//         AF8: {
+//             TX: PC12;
+//             RX: PD2;
+//             RTS_DE: PB4;
+//             CTS: PB5;
+//         }
+//     }
+// }
+//
+// /// Pins trait for detecting hardware flow control or RS485 mode.
+// pub trait Pins<USART> {
+//     const FLOWCTL: bool;
+//     const DEM: bool;
+//     const HALF_DUPLEX: bool;
+// }
+//
+// // No flow control, just Rx+Tx
+// impl<Instance, Tx, Rx> Pins<Instance> for (Tx, Rx)
+// where
+//     Tx: TxPin<Instance>,
+//     Rx: RxPin<Instance>,
+// {
+//     const FLOWCTL: bool = false;
+//     const DEM: bool = false;
+//     const HALF_DUPLEX: bool = false;
+// }
+//
+// // No flow control Half_duplex, just Tx
+// impl<Instance, Tx> Pins<Instance> for (Tx,)
+// where
+//     Tx: TxHalfDuplexPin<Instance>,
+// {
+//     const FLOWCTL: bool = false;
+//     const DEM: bool = false;
+//     const HALF_DUPLEX: bool = true;
+// }
+//
+// // Hardware flow control, Rx+Tx+Rts+Cts
+// impl<Instance, Tx, Rx, Rts, Cts> Pins<Instance> for (Tx, Rx, Rts, Cts)
+// where
+//     Tx: TxPin<Instance>,
+//     Rx: RxPin<Instance>,
+//     Rts: RtsDePin<Instance>,
+//     Cts: CtsPin<Instance>,
+// {
+//     const FLOWCTL: bool = true;
+//     const DEM: bool = false;
+//     const HALF_DUPLEX: bool = false;
+// }
+//
+// // DEM for RS485 mode
+// impl<Instance, Tx, Rx, De> Pins<Instance> for (Tx, Rx, De)
+// where
+//     Tx: TxPin<Instance>,
+//     Rx: RxPin<Instance>,
+//     De: RtsDePin<Instance>,
+// {
+//     const FLOWCTL: bool = false;
+//     const DEM: bool = true;
+//     const HALF_DUPLEX: bool = false;
+// }
 
-/// Marks pins as being TX Half Duplex pins for the given USART instance
-pub trait TxHalfDuplexPin<Instance>: private::SealedTxHalfDuplex {}
-
-/// Marks pins as being as being RX pins for the given USART instance
-pub trait RxPin<Instance>: private::SealedRx {}
-
-/// Marks pins as being as being RTS pins for the given USART instance
-pub trait RtsDePin<Instance>: private::SealedRtsDe {}
-
-/// Marks pins as being as being CTS pins for the given USART instance
-pub trait CtsPin<Instance>: private::SealedCts {}
-
-/// Pins trait for detecting hardware flow control or RS485 mode.
-pub trait Pins<USART> {
-    const FLOWCTL: bool;
-    const DEM: bool;
-    const HALF_DUPLEX: bool;
-}
-
-// No flow control, just Rx+Tx
-impl<Instance, Tx, Rx> Pins<Instance> for (Tx, Rx)
-where
-    Tx: TxPin<Instance>,
-    Rx: RxPin<Instance>,
-{
-    const FLOWCTL: bool = false;
-    const DEM: bool = false;
-    const HALF_DUPLEX: bool = false;
-}
-
-// No flow control Half_duplex, just Tx
-impl<Instance, Tx> Pins<Instance> for (Tx,)
-where
-    Tx: TxHalfDuplexPin<Instance>,
-{
-    const FLOWCTL: bool = false;
-    const DEM: bool = false;
-    const HALF_DUPLEX: bool = true;
-}
-
-// Hardware flow control, Rx+Tx+Rts+Cts
-impl<Instance, Tx, Rx, Rts, Cts> Pins<Instance> for (Tx, Rx, Rts, Cts)
-where
-    Tx: TxPin<Instance>,
-    Rx: RxPin<Instance>,
-    Rts: RtsDePin<Instance>,
-    Cts: CtsPin<Instance>,
-{
-    const FLOWCTL: bool = true;
-    const DEM: bool = false;
-    const HALF_DUPLEX: bool = false;
-}
-
-// DEM for RS485 mode
-impl<Instance, Tx, Rx, De> Pins<Instance> for (Tx, Rx, De)
-where
-    Tx: TxPin<Instance>,
-    Rx: RxPin<Instance>,
-    De: RtsDePin<Instance>,
-{
-    const FLOWCTL: bool = false;
-    const DEM: bool = true;
-    const HALF_DUPLEX: bool = false;
-}
-
-/// Contains supertraits used to restrict which traits users can implement
-mod private {
-    pub trait SealedTx {}
-    pub trait SealedTxHalfDuplex {}
-    pub trait SealedRx {}
-    pub trait SealedRtsDe {}
-    pub trait SealedCts {}
-}
+// /// Contains supertraits used to restrict which traits users can implement
+// mod private {
+//     pub trait SealedTx {}
+//     pub trait SealedTxHalfDuplex {}
+//     pub trait SealedRx {}
+//     pub trait SealedRtsDe {}
+//     pub trait SealedCts {}
+// }

@@ -128,13 +128,16 @@ pub mod adc;
 pub mod clocks;
 pub mod dac;
 pub mod delay;
+#[cfg(any(feature = "l4", feature = "f3"))]  // todo
+mod dma;
 #[cfg(not(any(feature = "l5", feature = "h7")))] // todo
 pub mod flash;
 pub mod gpio;
 pub mod i2c;
 pub mod low_power;
 pub mod rtc;
-// pub mod serial;
+#[cfg(any(feature = "l4", feature = "f3"))]  // todo
+pub mod serial;
 pub mod spi;
 pub mod timer;
 

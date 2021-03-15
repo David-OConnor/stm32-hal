@@ -214,6 +214,7 @@ impl Clocks {
 
         let hclk = sysclk / self.ahb_prescaler.value() as u32;
         // Reference manual section 3.3.3
+        // todo: What should this be?
         flash.acr.modify(|_, w| unsafe {
             if hclk <= 16 {
                 w.latency().bits(0b000)
@@ -402,9 +403,9 @@ impl ClockCfg for Clocks {
 
     fn apb1_timer(&self) -> u32 {
         if let ApbPrescaler::Div1 = self.d2_prescaler1 {
-            self.apb1() as u32
+            self.apb1()
         } else {
-            self.apb1() as u32 * 2
+            self.apb1() * 2
         }
     }
 
@@ -414,9 +415,9 @@ impl ClockCfg for Clocks {
 
     fn apb2_timer(&self) -> u32 {
         if let ApbPrescaler::Div1 = self.d2_prescaler2 {
-            self.apb2() as u32
+            self.apb2()
         } else {
-            self.apb2() as u32 * 2
+            self.apb2() * 2
         }
     }
 
