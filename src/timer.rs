@@ -7,7 +7,7 @@ use embedded_hal::timer::{CountDown, Periodic};
 use void::Void;
 
 use crate::{
-    pac::{RCC, TIM15, TIM16, TIM2, TIM6, TIM7},
+    pac::{RCC, TIM2, TIM6, TIM7},
     traits::ClockCfg,
 };
 
@@ -74,6 +74,9 @@ use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "h7b3")]
 use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+
+#[cfg(not(feature = "f446"))]
+use crate::pac::{ TIM15, TIM16};
 
 #[derive(Clone, Copy)]
 /// Used for when attempting to set a timer period that is out of range.
@@ -674,13 +677,18 @@ hal! {
     {
         TIM6: (tim6, apb1, enr1, rstr1)
     },
+}
+
+#[cfg(not(feature = "f446"))]
+hal! {
     {
         TIM16: (tim16, apb2, enr, rstr)
     },
 }
 
 // Todo: the L5 PAC has an address error on TIM15 - remove it until solved.
-#[cfg(not(any(feature = "l5")))]
+// Note: the F446 does not have this timer.
+#[cfg(not(any(feature = "l5", feature = "f446")))]
 hal! {
     {
         TIM15: (tim15, apb2, enr, rstr)
