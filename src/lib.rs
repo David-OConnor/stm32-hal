@@ -19,7 +19,8 @@
 // - RTC wakeup clearing WUTF flag on L5. Not sure how to do it; SR? (Can't modify) ICSR? (don't remember the problme there)
 // - Timer can't set PSC on L5: getting alternating `field, not a method`, and the inverse errors.
 // - timer on L5 is effectively broken until this is fixed.
-// - EXTI / interrupts on L5 and H7. What are the steps and regs?
+// - EXTI / interrupts on L5 and H7. What are the steps for H7? We have it compiling on H5,
+// - but I don't think the EXTICRn register writes are set up correctly.
 
 #![no_std]
 // Some reg modifications are marked `unsafe` in some PAC crates, but not others.

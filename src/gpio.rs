@@ -263,22 +263,39 @@ macro_rules! set_field {
     }
 }
 
-/// Reduce DRY for sett ing up interrupts.
+/// Reduce DRY for setting up interrupts. For older MCUs.
 macro_rules! set_exti {
     ($pin:expr, $exti:expr, $syscfg:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr)),+]) => {
         paste! {
             match $pin {
                 $(
                     PinNum::[<P $num>] => {
-                        // Unmask the line.
                         $exti.imr1.modify(|_, w| w.[<mr $num>]().unmasked());
-                        // Configure the trigger edge
-                        $exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($trigger));  // Rising trigger
-                        $exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit(!$trigger));   // Falling trigger
-                        // Select this GPIO pin as source input for EXTI line external interrupt
+                        $exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($trigger));
+                        $exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit(!$trigger));
                         $syscfg
                             .[<exticr $crnum>]
                             .modify(|_, w| unsafe { w.[<exti $num>]().bits($val) });
+                    }
+                )+
+            }
+        }
+    }
+}
+
+/// See `set_exti!`. For newer MCUs like L5 and H7.
+macro_rules! set_exti_new {
+    ($pin:expr, $exti:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
+        paste! {
+            match $pin {
+                $(
+                    PinNum::[<P $num>] => {
+                        $exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());  // unmask
+                        $exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($trigger));  // Rising trigger
+                        $exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit(!$trigger));   // Falling trigger
+                        $exti
+                            .[<exticr $crnum>]
+                            .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
                     }
                 )+
             }
@@ -440,33 +457,40 @@ macro_rules! make_pin {
                 }
             }
 
-            // todo: Can't find the field due to an error in L4 PAC.
-            // /// Reset an Output Data bit.
-            // pub fn reset(&mut self, value: ResetState, regs: &mut [<GPIO $Port>]) {
-            //     match self.pin {
-            //         PinNum::P0 => regs.brr.modify(|_, w| w.brr0().bits(value as u8)),
-            //         PinNum::P1 => regs.brr.modify(|_, w| w.brr1().bits(value as u8)),
-            //         PinNum::P2 => regs.brr.modify(|_, w| w.brr2().bits(value as u8)),
-            //         PinNum::P3 => regs.brr.modify(|_, w| w.brr3().bits(value as u8)),
-            //         PinNum::P4 => regs.brr.modify(|_, w| w.brr4().bits(value as u8)),
-            //         PinNum::P5 => regs.brr.modify(|_, w| w.brr5().bits(value as u8)),
-            //         PinNum::P6 => regs.brr.modify(|_, w| w.brr6().bits(value as u8)),
-            //         PinNum::P7 => regs.br.modify(|_, w| w.brr7().bits(value as u8)),
-            //         PinNum::P8 => regs.br.modify(|_, w| w.brr8().bits(value as u8)),
-            //         PinNum::P9 => regs.br.modify(|_, w| w.brr9().bits(value as u8)),
-            //         PinNum::P10 => regs.br.modify(|_, w| w.brr10().bits(value as u8)),
-            //         PinNum::P11 => regs.br.modify(|_, w| w.brr11().bits(value as u8)),
-            //         PinNum::P12 => regs.br.modify(|_, w| w.brr12().bits(value as u8)),
-            //         PinNum::P13 => regs.br.modify(|_, w| w.brr13().bits(value as u8)),
-            //         PinNum::P14 => regs.brr.modify(|_, w| w.brr14().bits(value as u8)),
-            //         PinNum::P15 => regs.brr.modify(|_, w| w.brr15().bits(value as u8)),
-            //     };
-            // }
+            #[cfg(not(any(feature = "l4", feature = "h7")))] // todo Error on L4 PAC: BRR is missing. H7 too?
+            /// Reset an Output Data bit.
+            pub fn reset(&mut self, value: ResetState, regs: &mut [<GPIO $Port>]) {
+                let offset = match value {
+                    ResetState::NoAction => 16,
+                    ResetState::Reset => 0,
+                };
+                unsafe {
+                    match self.pin {
+                        PinNum::P0 => regs.brr.write(|w| w.bits(1 << (offset + 0))),
+                        PinNum::P1 => regs.brr.write(|w| w.bits(1 << (offset + 1))),
+                        PinNum::P2 => regs.brr.write(|w| w.bits(1 << (offset + 2))),
+                        PinNum::P3 => regs.brr.write(|w| w.bits(1 << (offset + 3))),
+                        PinNum::P4 => regs.brr.write(|w| w.bits(1 << (offset + 4))),
+                        PinNum::P5 => regs.brr.write(|w| w.bits(1 << (offset + 5))),
+                        PinNum::P6 => regs.brr.write(|w| w.bits(1 << (offset + 6))),
+                        PinNum::P7 => regs.brr.write(|w| w.bits(1 << (offset + 7))),
+                        PinNum::P8 => regs.brr.write(|w| w.bits(1 << (offset + 8))),
+                        PinNum::P9 => regs.brr.write(|w| w.bits(1 << (offset + 9))),
+                        PinNum::P10 => regs.brr.write(|w| w.bits(1 << (offset + 10))),
+                        PinNum::P11 => regs.brr.write(|w| w.bits(1 << (offset + 11))),
+                        PinNum::P12 => regs.brr.write(|w| w.bits(1 << (offset + 12))),
+                        PinNum::P13 => regs.brr.write(|w| w.bits(1 << (offset + 13))),
+                        PinNum::P14 => regs.brr.write(|w| w.bits(1 << (offset + 14))),
+                        PinNum::P15 => regs.brr.write(|w| w.bits(1 << (offset + 15))),
+                    };
+                }
+            }
 
-            // todo: Look up how you do EXTI on L5 and H7.
-            #[cfg(not(any(feature = "f373", feature = "l5", feature = "h7")))]
+            // todo: Look up how you do EXTI on H7. It maybe similar to L5.
+            #[cfg(not(any(feature = "f373", feature = "h7")))]
             /// Configure this pin as an interrupt source.
             pub fn enable_interrupt(&mut self, edge: Edge, exti: &mut EXTI, syscfg: &mut SYSCFG) {
+                // todo: On newer ones, don't accept SYSCFG for this function.
                 let rise_trigger = match edge {
                     Edge::Rising => {
                         // configure EXTI line to trigger on rising edge, disable trigger on falling edge.
@@ -478,9 +502,18 @@ macro_rules! make_pin {
                     }
                 };
 
-                set_exti!(self.pin, exti, syscfg, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
-                (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
-                (13, 4), (14, 4), (15, 4)])
+                cfg_if::cfg_if! {
+                    if #[cfg(any(feature = "l5", feature = "h7"))] {
+                        set_exti_new!(self.pin, exti, rise_trigger, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
+                            (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
+                            (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
+                            (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)])
+                    } else {
+                        set_exti!(self.pin, exti, syscfg, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
+                            (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
+                            (13, 4), (14, 4), (15, 4)])
+                    }
+                }
             }
 
             /// Disable interrupts on this pin.

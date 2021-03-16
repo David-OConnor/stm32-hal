@@ -60,7 +60,7 @@ use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 #[cfg(feature = "h743v")]
 use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 
-#[cfg(feature = "h747cm3")]
+#[cfg(feature = "h747cm4")]
 use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "h747cm7")]

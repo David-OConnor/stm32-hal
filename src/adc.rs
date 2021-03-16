@@ -36,7 +36,7 @@ use crate::pac::ADC_COMMON;
     feature = "l4x3",
     feature = "h743",
     feature = "h743v",
-    feature = "h747cm3",
+    feature = "h747cm4",
     feature = "h747cm7",
     feature = "h753",
     feature = "h753v",
@@ -220,7 +220,7 @@ macro_rules! hal {
                         panic!("Clock already enabled with a different setting");
                     }
                     this_adc.set_align(Align::default());
-                    this_adc.calibrate(clocks);
+                    // this_adc.calibrate(clocks);  // todo: This is hanging on L4 currently!
                     // Reference Manual: "ADEN bit cannot be set during ADCAL=1
                     // and 4 ADC clock cycle after the ADCAL
                     // bit is cleared by hardware."
@@ -570,7 +570,7 @@ cfg_if::cfg_if! {
 #[cfg(any(
     feature = "h743",
     feature = "h743v",
-    feature = "h747cm3",
+    feature = "h747cm4",
     feature = "h747cm7",
     feature = "h753",
     feature = "h753v",
