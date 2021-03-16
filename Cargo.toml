@@ -1,5 +1,5 @@
 [package]
-name = "stm32-hal"
+name = "stm32-hal2"
 version = "0.1.0"
 authors = ["David O'Connor <david.alan.oconnor@gmail.com>"]
 description = "Hardware abstraction layer for the stm32 chips"
