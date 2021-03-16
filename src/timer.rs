@@ -17,6 +17,9 @@ use paste::paste;
 
 // todo: Make constructor new_tim1 etc?
 
+#[cfg(feature = "f446")]
+use crate::pac::{TIM1, TIM8, TIM5, TIM3,TIM4,TIM9, TIM10, TIM11, TIM12, TIM13, TIM14};
+
 #[derive(Clone, Copy)]
 /// Used for when attempting to set a timer period that is out of range.
 pub struct ValueError {}
