@@ -75,6 +75,38 @@ use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 #[cfg(feature = "h7b3")]
 use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 
+#[cfg(any(
+feature = f301
+feature = f302
+feature = f303
+feature = f373
+feature = f3x4
+feature = l4x1
+feature = l4x2
+feature = l4x3
+feature = l4x5
+feature = l4x6
+feature = l552
+feature = l562
+feature = g431
+feature = g441
+feature = g471
+feature = g473
+feature = g474
+feature = g483
+feature = g484
+feature = g491
+feature = g4a1
+feature = h743
+feature = h743v
+feature = h747cm4
+feature = h747cm7
+feature = h753
+feature = h753v
+feature = h7b3
+))]
+use pac::{ TIM15, TIM16};
+
 #[derive(Clone, Copy)]
 /// Used for when attempting to set a timer period that is out of range.
 pub struct ValueError {}
