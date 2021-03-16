@@ -128,15 +128,15 @@ pub mod adc;
 pub mod clocks;
 pub mod dac;
 pub mod delay;
-#[cfg(any(feature = "l4", feature = "f3"))]  // todo
-mod dma;
+#[cfg(any(feature = "l4"))] // todo
+pub mod dma;
 #[cfg(not(any(feature = "l5", feature = "h7")))] // todo
 pub mod flash;
 pub mod gpio;
 pub mod i2c;
 pub mod low_power;
 pub mod rtc;
-#[cfg(any(feature = "l4", feature = "f3"))]  // todo
+#[cfg(any(feature = "l4"))] // todo
 pub mod serial;
 pub mod spi;
 pub mod timer;
@@ -151,4 +151,15 @@ cfg_if::cfg_if! {
     } else if #[cfg(all(feature ="h7", feature = "usb"))] {
         pub mod usb_h7 as usb;
     }
+}
+
+// todo: should `access_global` be removed from this? It has nothing to do with STM32.
+/// Reduce boilerplate for getting mutable static global variants. Eg for use
+/// in interrupts.
+#[macro_export]
+macro_rules! access_global {
+    ($NAME_GLOBAL:ident, $name_local:ident, $cs:expr) => {
+        let mut part1 = $NAME_GLOBAL.borrow($cs).borrow_mut();
+        let $name_local = part1.as_mut().unwrap();
+    };
 }

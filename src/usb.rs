@@ -27,8 +27,16 @@ unsafe impl Sync for Peripheral {}
 
 unsafe impl UsbPeripheral for Peripheral {
     const REGISTERS: *const () = USB::ptr() as *const ();
-    const DP_PULL_UP_FEATURE: bool = false; // todo: What should this be?
+
+    // Embedded pull-up resistor on USB_DP line
+    const DP_PULL_UP_FEATURE: bool = true; // todo: What should this be?
+
+    // Pointer to the endpoint memory
     const EP_MEMORY: *const () = 0x4000_6000 as _;
+
+    // Endpoint memory access scheme. Check RM.
+    // Set to `true` if "2x16 bits/word" access scheme is used, otherwise set to `false`.
+    const EP_MEMORY_ACCESS_2X16: bool = true;
     // #[cfg(any(feature = "stm32f303xb", feature = "stm32f303xc"))]
     // const EP_MEMORY_SIZE: usize = 512;
     // #[cfg(any(feature = "stm32f303xd", feature = "stm32f303xe"))]
@@ -37,7 +45,8 @@ unsafe impl UsbPeripheral for Peripheral {
 
     // todo: Is there a way to pass `EP_MEMORY_SIZE` as an arg?
 
-    #[cfg(feature = "f303")]
+    // Endpoint memory size in bytes
+    #[cfg(feature = "f3")]
     const EP_MEMORY_SIZE: usize = 512;
     // todo: Feature-gate various memory sizes
 

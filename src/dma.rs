@@ -893,6 +893,7 @@ macro_rules! dma {
     }
 }
 
+#[cfg(any(feature = "l4", feature = "l5"))]
 dma! {
     DMA1: (dma1, enr, rstr1, {
         C1: (
@@ -1016,6 +1017,140 @@ dma! {
         ),
         C7: (
             ccr7, CCR7,
+            cndtr7, CNDTR7,
+            cpar7, CPAR7,
+            cmar7, CMAR7,
+            htif7, tcif7,
+            chtif7, ctcif7, cgif7,
+            teif7, cteif7
+        ),
+    }),
+}
+
+#[cfg(any(feature = "f3"))]
+dma! {
+    DMA1: (dma1, enr, rstr1, {
+        C1: (
+            cr1, CR1,
+            cndtr1, CNDTR1,
+            cpar1, CPAR1,
+            cmar1, CMAR1,
+            htif1, tcif1,
+            chtif1, ctcif1, cgif1,
+            teif1, cteif1
+        ),
+        C2: (
+            cr2, CR2,
+            cndtr2, CNDTR2,
+            cpar2, CPAR2,
+            cmar2, CMAR2,
+            htif2, tcif2,
+            chtif2, ctcif2, cgif2,
+            teif2, cteif2
+        ),
+        C3: (
+            cr3, CR3,
+            cndtr3, CNDTR3,
+            cpar3, CPAR3,
+            cmar3, CMAR3,
+            htif3, tcif3,
+            chtif3, ctcif3, cgif3,
+            teif3, cteif3
+        ),
+        C4: (
+            cr4, CR4,
+            cndtr4, CNDTR4,
+            cpar4, CPAR4,
+            cmar4, CMAR4,
+            htif4, tcif4,
+            chtif4, ctcif4, cgif4,
+            teif4, cteif4
+        ),
+        C5: (
+            cr5, CR5,
+            cndtr5, CNDTR5,
+            cpar5, CPAR5,
+            cmar5, CMAR5,
+            htif5, tcif5,
+            chtif5, ctcif5, cgif5,
+            teif5, cteif5
+        ),
+        C6: (
+            cr6, CR6,
+            cndtr6, CNDTR6,
+            cpar6, CPAR6,
+            cmar6, CMAR6,
+            htif6, tcif6,
+            chtif6, ctcif6, cgif6,
+            teif6, cteif6
+        ),
+        C7: (
+            cr7, CR7,
+            cndtr7, CNDTR7,
+            cpar7, CPAR7,
+            cmar7, CMAR7,
+            htif7, tcif7,
+            chtif7, ctcif7, cgif7,
+            teif7, cteif7
+        ),
+    }),
+    DMA2: (dma2, enr, rstr1, {
+        C1: (
+            cr1, CR1,
+            cndtr1, CNDTR1,
+            cpar1, CPAR1,
+            cmar1, CMAR1,
+            htif1, tcif1,
+            chtif1, ctcif1, cgif1,
+            teif1, cteif1
+        ),
+        C2: (
+            cr2, CR2,
+            cndtr2, CNDTR2,
+            cpar2, CPAR2,
+            cmar2, CMAR2,
+            htif2, tcif2,
+            chtif2, ctcif2, cgif2,
+            teif2, cteif2
+        ),
+        C3: (
+            cr3, CR3,
+            cndtr3, CNDTR3,
+            cpar3, CPAR3,
+            cmar3, CMAR3,
+            htif3, tcif3,
+            chtif3, ctcif3, cgif3,
+            teif3, cteif3
+        ),
+        C4: (
+            cr4, CR4,
+            cndtr4, CNDTR4,
+            cpar4, CPAR4,
+            cmar4, CMAR4,
+            htif4, tcif4,
+            chtif4, ctcif4, cgif4,
+            teif4, cteif4
+        ),
+        C5: (
+            cr5, CR5,
+            cndtr5, CNDTR5,
+            cpar5, CPAR5,
+            cmar5, CMAR5,
+            htif5, tcif5,
+            chtif5, ctcif5, cgif5,
+            teif5, cteif5
+        ),
+        C6: (
+            cr6, CR6,
+            cndtr6, CNDTR6,
+            cpar6, CPAR6,
+            cmar6, CMAR6,
+            htif6, tcif6,
+            chtif6, ctcif6, cgif6,
+            teif6, cteif6
+        ),
+        C7: (
+            cr7, CR7,
             cndtr7, CNDTR7,
             cpar7, CPAR7,
             cmar7, CMAR7,
