@@ -10,6 +10,7 @@ categories = [
     "no-std",
 ]
 repository = "https://github.com/David-OConnor/stm32-hal"
+documentation = "https://docs.rs/stm32-hal2"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 exclude = [".gitignore"]

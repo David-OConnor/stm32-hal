@@ -269,8 +269,6 @@ macro_rules! hal {
                     // `freq` is in Hz.
 
                     // enable and reset peripheral to a clean slate state
-                    // todo: Feature-gate, adn use the right apb1 vs apb2.
-
                     // todo: H7!!
                     cfg_if::cfg_if! {
                         if #[cfg(feature = "f3")] {

@@ -1,6 +1,6 @@
 # STM32-HAL
 
-[![Build Status](https://github.com/david-oconnor/stm32-hal/workflows/CI/badge.svg)](https://github.com/david-oconnor/stm32-hal/actions)
+[![Build Status](https://github.com/David-OConnor/stm32-hal/workflows/CI/badge.svg)](https://github.com/david-oconnor/stm32-hal/actions)
 [![Crate](https://img.shields.io/crates/v/stm32-hal2.svg)](https://crates.io/crates/stm32-hal2)
 [![Docs](https://docs.rs/stm32-hal2/badge.svg)](https://docs.rs/stm32-hal2)
 

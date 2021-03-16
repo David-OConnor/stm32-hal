@@ -107,7 +107,7 @@ fn main() -> ! {
     dac.enable(&mut dp.RCC);
 
     // Set up and start a timer; set it to fire interrupts.
-    let mut timer_1 = Timer::tim3(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
+    let mut timer = Timer::tim3(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
     timer.listen(TimeOut); // Enable update event interrupts.
 
     loop {
