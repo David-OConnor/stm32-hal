@@ -353,11 +353,13 @@ macro_rules! hal {
                 }
 
                 /// Set the timer frequency, in Hz. Overrides the period or frequency set
-                /// in the constructor.
+                /// in the constructor. If you use `center` aligned PWM, make sure to
+                /// enter twice the freq you normally would.
                 pub fn set_freq(&mut self, freq: f32) -> Result<(), ValueError> {
                    // todo: Take into account settings like Center alignment, and
                    // todo the `tim1sw` bit in RCC CFGR3, which change how the
-                   // todo freq behaves.
+                   // todo freq behaves. Center alignment halves the frequency;
+                   // todo: Double `freq` here to compensate.
                    let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;
 
                     self.tim.arr.write(|w| unsafe { w.bits(arr.into()) });
