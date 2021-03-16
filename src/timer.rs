@@ -19,64 +19,64 @@ use paste::paste;
 // Some of these can be imported from the PAC, but have errors when attempting to enable or
 // reset (eg with f301.)
 #[cfg(feature = "f301")]
-use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM19, TIM3, TIM4, TIM5};
+use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM19, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "f302")]
-use crate::pac::{TIM1, TIM17, TIM20, TIM3, TIM4, TIM8};
+use crate::pac::{TIM17, TIM20, TIM3, TIM4, TIM8};
 
 #[cfg(feature = "f303")]
-use crate::pac::{TIM1, TIM17, TIM20, TIM3, TIM4, TIM8};
+use crate::pac::{TIM17, TIM20, TIM3, TIM4, TIM8};
 
 #[cfg(feature = "f373")]
 use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "f3x4")]
-use crate::pac::{TIM1, TIM17, TIM3};
+use crate::pac::{TIM17, TIM3};
+
+#[cfg(feature = "f446")]
+use crate::pac::{TIM12, TIM13, TIM14, TIM3, TIM4, TIM5}; // todo: Populate other timers it uses.
 
 #[cfg(feature = "l4x1")]
 use crate::pac::TIM1;
 
 #[cfg(feature = "l4x2")]
-use crate::pac::{TIM1, TIM3};
-
-#[cfg(feature = "l4x3")]
-use crate::pac::TIM1;
+use crate::pac::TIM3;
 
 #[cfg(feature = "l4x5")]
-use crate::pac::{TIM1, TIM17, TIM3, TIM4, TIM5, TIM8};
+use crate::pac::{TIM17, TIM3, TIM4, TIM5, TIM8};
 
 #[cfg(feature = "l4x6")]
-use crate::pac::{TIM1, TIM17, TIM3, TIM4, TIM5, TIM8};
-
-#[cfg(feature = "l552")]
-use crate::pac::TIM1;
+use crate::pac::{TIM17, TIM3, TIM4, TIM5, TIM8};
 
 #[cfg(feature = "l562")]
-use crate::pac::{TIM1, TIM17, TIM3, TIM4, TIM5, TIM8};
+use crate::pac::{TIM17, TIM3, TIM4, TIM5, TIM8};
 
 #[cfg(feature = "h743")]
-use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "h743v")]
-use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "h747cm4")]
-use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "h747cm7")]
-use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "h753")]
-use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "h753v")]
-use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 
 #[cfg(feature = "h7b3")]
-use crate::pac::{TIM1, TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
+use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
 
 #[cfg(not(feature = "f446"))]
-use crate::pac::{ TIM15, TIM16};
+use crate::pac::{TIM15, TIM16};
+
+#[cfg(not(any(feature = "f446", feature = "f373")))]
+use crate::pac::TIM1;
 
 #[derive(Clone, Copy)]
 /// Used for when attempting to set a timer period that is out of range.
@@ -592,7 +592,7 @@ macro_rules! pwm_features {
 // We only implement `pwm_features` for general purpose timers. Perhaps we should implement
 // for advanced-control timers too.
 
-#[cfg(not(feature = "f373"))]
+#[cfg(not(any(feature = "f373", feature = "f446")))]
 hal! {
     {
         TIM1: (tim1, apb2, enr, rstr)
@@ -612,7 +612,6 @@ hal! {
     },
 }
 
-// todo dup issue with l4x3
 #[cfg(not(any(feature = "l4x1", feature = "l4x3", feature = "l5")))]
 pwm_features! {
     {
@@ -627,6 +626,7 @@ pwm_features! {
     feature = "l4x2",
     feature = "l4x3",
     feature = "l552",
+    feature = "f446",
 )))]
 hal! {
     {
@@ -655,7 +655,8 @@ pwm_features! {
     feature = "l4x5",
     feature = "l4x6",
     feature = "l562",
-    feature = "h7"
+    feature = "h7",
+    feature = "f446",
 ))]
 hal! {
     {

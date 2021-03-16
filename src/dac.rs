@@ -8,7 +8,7 @@ use crate::gpio::{GpioPin, PinMode};
 // todo: Implement DAC2 (and 3?)
 
 cfg_if::cfg_if! {
-    if #[cfg(any(feature = "l4x6", feature = "l5", all(feature = "h7", not(feature = "h7b3")), feature = "f302"))] {
+    if #[cfg(any(feature = "l4x6", feature = "l5", all(feature = "h7", not(feature = "h7b3")), feature = "f302", feature = "f4"))] {
         use crate::pac::{DAC, RCC};
     } else {
         use crate::pac::{DAC1, RCC};
@@ -87,7 +87,7 @@ impl Trigger {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(any(feature = "l4x6", feature = "l5", all(feature = "h7", not(feature = "h7b3")), feature = "f302"))] {
+    if #[cfg(any(feature = "l4x6", feature = "l5", all(feature = "h7", not(feature = "h7b3")), feature = "f302", feature = "f4"))] {
         pub struct Dac {
             regs: DAC,
             channel: Channel,
@@ -110,7 +110,7 @@ macro_rules! make_impl {
         // todo: Checked constructor that makes sure the pin is a valid DAC pin configured in analog mode.
         impl Dac {
             cfg_if::cfg_if! {
-                if #[cfg(any(feature = "l4x6", feature = "l5", all(feature = "h7", not(feature = "h7b3")), feature = "f302"))] {
+                if #[cfg(any(feature = "l4x6", feature = "l5", all(feature = "h7", not(feature = "h7b3")), feature = "f302", feature = "f4"))] {
                     /// Create a new DAC instance.
                     pub fn new<P: GpioPin>(regs: DAC, pin: P, channel: Channel, bits: Bits, vref: f32) -> Self {
                         // todo: Check for a valid pin too.

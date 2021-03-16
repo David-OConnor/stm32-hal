@@ -402,12 +402,19 @@ impl Rtc {
 
         // todo: How do you set up the line on L5 and H7?
 
-        #[cfg(not(any(feature = "f373", feature = "l5", feature = "h7")))]
-        exti.imr1.modify(|_, w| w.mr20().unmasked());
-        #[cfg(not(any(feature = "f373", feature = "l5")))]
-        exti.rtsr1.modify(|_, w| w.tr20().bit(true));
-        #[cfg(not(any(feature = "f373", feature = "l5")))]
-        exti.ftsr1.modify(|_, w| w.tr20().bit(false));
+        cfg_if::cfg_if! {
+            if #[cfg(any(feature = "f3", feature = "l4"))] {
+                exti.imr1.modify(|_, w| w.mr20().unmasked());
+                exti.rtsr1.modify(|_, w| w.tr20().bit(true));
+                exti.ftsr1.modify(|_, w| w.tr20().bit(false));
+            } else if #[cfg(any(feature = "f4"))] {
+                exti.imr.modify(|_, w| w.mr20().unmasked());
+                exti.rtsr.modify(|_, w| w.tr20().bit(true));
+                exti.ftsr.modify(|_, w| w.tr20().bit(false));
+            } else {
+                // todo: L5 and h7! Which do they fit?
+            }
+        }
 
         // We can't use the `edit_regs` abstraction here due to being unable to call a method
         // in the closure.

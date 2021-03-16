@@ -17,6 +17,7 @@
 
 // todo issues hidden in modules we need to fix:
 // - RTC wakeup clearing WUTF flag on L5. Not sure how to do it; SR? (Can't modify) ICSR? (don't remember the problme there)
+// - And RTC wakeup on L5 and H7.
 // - Timer can't set PSC on L5: getting alternating `field, not a method`, and the inverse errors.
 // - timer on L5 is effectively broken until this is fixed.
 // - EXTI / interrupts on L5 and H7. What are the steps for H7? We have it compiling on H5,
@@ -109,11 +110,10 @@ pub use stm32h7::stm32h753 as pac;
 #[cfg(feature = "h753v")]
 pub use stm32h7::stm32h753v as pac;
 
-#[cfg(feature = "h7b3")]
-pub use stm32h7::stm32h7b3 as pac;
 #[cfg(feature = "f446")]
 pub use stm32f4::stm32f446 as pac;
-
+#[cfg(feature = "h7b3")]
+pub use stm32h7::stm32h7b3 as pac;
 
 // todo: U5 once SVD is out.
 
