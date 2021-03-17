@@ -35,6 +35,7 @@ jobs:
           - h753
           - h753v
           - h7b3
+          - f4rt
 
     steps:
       - uses: actions/checkout@v2
