@@ -1,4 +1,6 @@
-//! Delays. Started from `stm32l4xx-hal`.
+//! Delays, using Cortex
+
+// Based on `stm32l4xx-hal`.
 
 use cast::u32;
 use cortex_m::peripheral::syst::SystClkSource;

@@ -1,4 +1,6 @@
-//! Inter-Integrated Circuit (I2C) bus. Based on `stm32h7xx-hal`.
+//! Inter-Integrated Circuit (I2C) bus. Also supports SMBUS.
+
+// Based on `stm32h7xx-hal`.
 
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 

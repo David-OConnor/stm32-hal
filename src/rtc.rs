@@ -1,9 +1,8 @@
-//! Real Time Clock
-//!
-//! Interface to the real time clock. Based on `stm32f3xx-hal`.
-
+//! Interface to the real time clock.
 //! For more details, see
 //! [ST AN4759](https:/www.st.com%2Fresource%2Fen%2Fapplication_note%2Fdm00226326-using-the-hardware-realtime-clock-rtc-and-the-tamper-management-unit-tamp-with-stm32-microcontrollers-stmicroelectronics.pdf&usg=AOvVaw3PzvL2TfYtwS32fw-Uv37h)
+
+// Based on `stm32f3xx-hal`.
 
 use crate::pac::{EXTI, PWR, RCC, RTC};
 use core::convert::TryInto;
@@ -403,7 +402,7 @@ impl Rtc {
         // todo: How do you set up the line on L5 and H7?
 
         cfg_if::cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "l4"))] {
+            if #[cfg(any(all(feature = "f3", not(feature = "f373")), feature = "l4"))] {
                 exti.imr1.modify(|_, w| w.mr20().unmasked());
                 exti.rtsr1.modify(|_, w| w.tr20().bit(true));
                 exti.ftsr1.modify(|_, w| w.tr20().bit(false));

@@ -1,8 +1,8 @@
-//! Based on `stm32l4xx-hal`.
-
-//! Serial module
+//! Serial module. Supports U[S]ART, CAN, and RS485 functionality, with DMA access.
 //!
 //! This module support both polling and interrupt based accesses to the serial peripherals.
+
+// Based on `stm32l4xx-hal`.
 
 use as_slice::AsMutSlice;
 use core::fmt;
@@ -14,7 +14,7 @@ use core::sync::atomic::{self, Ordering};
 use generic_array::ArrayLength;
 use stable_deref_trait::StableDeref;
 
-use embedded_hal::serial::{self, Write};
+use embedded_hal::serial::{self, Read, Write};
 
 use crate::{
     dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender},
@@ -178,6 +178,8 @@ impl Default for Config {
     }
 }
 
+// todo: Don't use separate TX and RX structs? Use a more consistent API with SPI and I2C etc.
+
 /// Serial abstraction
 pub struct Serial<USART> {
     usart: USART,
@@ -223,144 +225,146 @@ macro_rules! hal {
                 /// `MAPR` and `APBX` are register handles which are passed for
                 /// configuration. (`MAPR` is used to map the USART to the
                 /// corresponding pins. `APBX` is used to reset the USART.)
-                pub fn $usart<C: ClockCfg>(
-                    usart: pac::$USARTX,
-                    config: Config,
-                    clocks: &C,
-                    rcc: &mut RCC,
-                ) -> Self
-                where {
-                    // enable or reset $USARTX
-                    // todo: H7!!
-                    cfg_if::cfg_if! {
-                        if #[cfg(feature = "f3")] {
-                            paste! {
-                                rcc.[<$apb enr>].modify(|_, w| w.[<$usart en>]().set_bit());
-                                rcc.[<$apb rstr>].modify(|_, w| w.[<$usart rst>]().set_bit());
-                                rcc.[<$apb rstr>].modify(|_, w| w.[<$usart rst>]().clear_bit());
+                paste! {
+                    pub fn [<new_ $usart _unchecked>]<C: ClockCfg>(
+                        usart: pac::$USARTX,
+                        config: Config,
+                        clocks: &C,
+                        rcc: &mut RCC,
+                    ) -> Self
+                    where {
+                        // enable or reset $USARTX
+                        // todo: H7!!
+                        cfg_if::cfg_if! {
+                            if #[cfg(feature = "f3")] {
+                                paste! {
+                                    rcc.[<$apb enr>].modify(|_, w| w.[<$usart en>]().set_bit());
+                                    rcc.[<$apb rstr>].modify(|_, w| w.[<$usart rst>]().set_bit());
+                                    rcc.[<$apb rstr>].modify(|_, w| w.[<$usart rst>]().clear_bit());
+                                }
+                            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                                paste! {
+                                    // We use `$enr` and $rst, since we only add `1` after for apb1.
+                                    // This isn't required on f3.
+                                    rcc.[<$apb $enr>].modify(|_, w| w.[<$usart en>]().set_bit());
+                                    rcc.[<$apb $rst>].modify(|_, w| w.[<$usart rst>]().set_bit());
+                                    rcc.[<$apb $rst>].modify(|_, w| w.[<$usart rst>]().clear_bit());
+                                }
                             }
-                        } else if #[cfg(any(feature = "l4", feature = "l5"))] {
-                            paste! {
-                                // We use `$enr` and $rst, since we only add `1` after for apb1.
-                                // This isn't required on f3.
-                                rcc.[<$apb $enr>].modify(|_, w| w.[<$usart en>]().set_bit());
-                                rcc.[<$apb $rst>].modify(|_, w| w.[<$usart rst>]().set_bit());
-                                rcc.[<$apb $rst>].modify(|_, w| w.[<$usart rst>]().clear_bit());
+                        }
+
+                        // Reset other registers to disable advanced USART features
+                        usart.cr1.reset();
+                        usart.cr2.reset();
+                        usart.cr3.reset();
+
+                        // Configure baud rate
+                        match config.oversampling {
+                            Oversampling::Over8 => {
+                                let uartdiv = 2 * clocks.$apb() / config.baudrate;
+                                assert!(uartdiv >= 16, "impossible baud rate");
+
+                                let lower = (uartdiv & 0xf) >> 1;
+                                let brr = (uartdiv & !0xf) | lower;
+
+                                usart.cr1.modify(|_, w| w.over8().set_bit());
+                                usart.brr.write(|w| unsafe { w.bits(brr) });
+                            }
+                            Oversampling::Over16 => {
+                                let brr = clocks.$apb() / config.baudrate;
+                                assert!(brr >= 16, "impossible baud rate");
+
+                                usart.brr.write(|w| unsafe { w.bits(brr) });
                             }
                         }
-                    }
 
-                    // Reset other registers to disable advanced USART features
-                    usart.cr1.reset();
-                    usart.cr2.reset();
-                    usart.cr3.reset();
-
-                    // Configure baud rate
-                    match config.oversampling {
-                        Oversampling::Over8 => {
-                            let uartdiv = 2 * clocks.$apb() / config.baudrate;
-                            assert!(uartdiv >= 16, "impossible baud rate");
-
-                            let lower = (uartdiv & 0xf) >> 1;
-                            let brr = (uartdiv & !0xf) | lower;
-
-                            usart.cr1.modify(|_, w| w.over8().set_bit());
-                            usart.brr.write(|w| unsafe { w.bits(brr) });
-                        }
-                        Oversampling::Over16 => {
-                            let brr = clocks.$apb() / config.baudrate;
-                            assert!(brr >= 16, "impossible baud rate");
-
-                            usart.brr.write(|w| unsafe { w.bits(brr) });
-                        }
-                    }
-
-                    if let Some(val) = config.receiver_timeout {
-                        usart.rtor.modify(|_, w| w.rto().bits(val));
-                    }
-
-                    // enable DMA transfers
-                    usart.cr3.modify(|_, w| w.dmat().set_bit().dmar().set_bit());
-
-                    // todo
-                    // // Configure hardware flow control (CTS/RTS or RS485 Driver Enable)
-                    // if PINS::FLOWCTL {
-                    //     usart.cr3.modify(|_, w| w.rtse().set_bit().ctse().set_bit());
-                    // } else if PINS::DEM {
-                    //     usart.cr3.modify(|_, w| w.dem().set_bit());
-                    //
-                    //     // Pre/post driver enable set conservative to the max time
-                    //     usart.cr1.modify(|_, w| w.deat().bits(0b1111).dedt().bits(0b1111));
-                    // } else {
-                    usart.cr3.modify(|_, w| w.rtse().clear_bit().ctse().clear_bit());
-                    // }
-
-                    // Enable One bit sampling method
-                    usart.cr3.modify(|_, w| {
-                        if config.onebit_sampling {
-                            w.onebit().set_bit();
+                        if let Some(val) = config.receiver_timeout {
+                            usart.rtor.modify(|_, w| w.rto().bits(val));
                         }
 
-                        if config.disable_overrun {
-                            w.ovrdis().set_bit();
-                        }
+                        // enable DMA transfers
+                        usart.cr3.modify(|_, w| w.dmat().set_bit().dmar().set_bit());
 
-                        // configure Half Duplex
-                        // if PINS::HALF_DUPLEX {  // todo
-                        //     w.hdsel().set_bit();
+                        // todo
+                        // // Configure hardware flow control (CTS/RTS or RS485 Driver Enable)
+                        // if PINS::FLOWCTL {
+                        //     usart.cr3.modify(|_, w| w.rtse().set_bit().ctse().set_bit());
+                        // } else if PINS::DEM {
+                        //     usart.cr3.modify(|_, w| w.dem().set_bit());
+                        //
+                        //     // Pre/post driver enable set conservative to the max time
+                        //     usart.cr1.modify(|_, w| w.deat().bits(0b1111).dedt().bits(0b1111));
+                        // } else {
+                        usart.cr3.modify(|_, w| w.rtse().clear_bit().ctse().clear_bit());
                         // }
 
-                        w
-                    });
+                        // Enable One bit sampling method
+                        usart.cr3.modify(|_, w| {
+                            if config.onebit_sampling {
+                                w.onebit().set_bit();
+                            }
 
-                    // Configure parity and word length
-                    // Unlike most uart devices, the "word length" of this usart device refers to
-                    // the size of the data plus the parity bit. I.e. "word length"=8, parity=even
-                    // results in 7 bits of data. Therefore, in order to get 8 bits and one parity
-                    // bit, we need to set the "word" length to 9 when using parity bits.
-                    let (word_length, parity_control_enable, parity) = match config.parity {
-                        Parity::ParityNone => (false, false, false),
-                        Parity::ParityEven => (true, true, false),
-                        Parity::ParityOdd => (true, true, true),
-                    };
-                    usart.cr1.modify(|_r, w| {
-                        w
-                            .m0().bit(word_length)
-                            .ps().bit(parity)
-                            .pce().bit(parity_control_enable)
-                    });
+                            if config.disable_overrun {
+                                w.ovrdis().set_bit();
+                            }
 
-                    // Configure stop bits
-                    let stop_bits = match config.stopbits {
-                        StopBits::STOP1 => 0b00,
-                        StopBits::STOP0P5 => 0b01,
-                        StopBits::STOP2 => 0b10,
-                        StopBits::STOP1P5 => 0b11,
-                    };
-                    usart.cr2.modify(|_r, w| {
-                        w.stop().bits(stop_bits);
+                            // configure Half Duplex
+                            // if PINS::HALF_DUPLEX {  // todo
+                            //     w.hdsel().set_bit();
+                            // }
 
-                        // Setup character match (if requested)
-                        if let Some(c) = config.character_match {
-                            w.add().bits(c);
-                        }
+                            w
+                        });
 
-                        if config.receiver_timeout.is_some() {
-                            w.rtoen().set_bit();
-                        }
+                        // Configure parity and word length
+                        // Unlike most uart devices, the "word length" of this usart device refers to
+                        // the size of the data plus the parity bit. I.e. "word length"=8, parity=even
+                        // results in 7 bits of data. Therefore, in order to get 8 bits and one parity
+                        // bit, we need to set the "word" length to 9 when using parity bits.
+                        let (word_length, parity_control_enable, parity) = match config.parity {
+                            Parity::ParityNone => (false, false, false),
+                            Parity::ParityEven => (true, true, false),
+                            Parity::ParityOdd => (true, true, true),
+                        };
+                        usart.cr1.modify(|_r, w| {
+                            w
+                                .m0().bit(word_length)
+                                .ps().bit(parity)
+                                .pce().bit(parity_control_enable)
+                        });
 
-                        w
-                    });
+                        // Configure stop bits
+                        let stop_bits = match config.stopbits {
+                            StopBits::STOP1 => 0b00,
+                            StopBits::STOP0P5 => 0b01,
+                            StopBits::STOP2 => 0b10,
+                            StopBits::STOP1P5 => 0b11,
+                        };
+                        usart.cr2.modify(|_r, w| {
+                            w.stop().bits(stop_bits);
+
+                            // Setup character match (if requested)
+                            if let Some(c) = config.character_match {
+                                w.add().bits(c);
+                            }
+
+                            if config.receiver_timeout.is_some() {
+                                w.rtoen().set_bit();
+                            }
+
+                            w
+                        });
 
 
-                    // UE: enable USART
-                    // RE: enable receiver
-                    // TE: enable transceiver
-                    usart
-                        .cr1
-                        .modify(|_, w| w.ue().set_bit().re().set_bit().te().set_bit());
+                        // UE: enable USART
+                        // RE: enable receiver
+                        // TE: enable transceiver
+                        usart
+                            .cr1
+                            .modify(|_, w| w.ue().set_bit().re().set_bit().te().set_bit());
 
-                    Serial { usart }
+                        Serial { usart }
+                    }
                 }
 
                 /// Starts listening for an interrupt event
@@ -433,7 +437,7 @@ macro_rules! hal {
                 }
             }
 
-            impl serial::Read<u8> for Serial<pac::$USARTX> {
+            impl Read<u8> for Serial<pac::$USARTX> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
@@ -444,7 +448,7 @@ macro_rules! hal {
                 }
             }
 
-            impl serial::Read<u8> for Rx<pac::$USARTX> {
+            impl Read<u8> for Rx<pac::$USARTX> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
@@ -464,7 +468,7 @@ macro_rules! hal {
                 }
             }
 
-            impl serial::Write<u8> for Serial<pac::$USARTX> {
+            impl Write<u8> for Serial<pac::$USARTX> {
                 type Error = Error;
 
                 fn flush(&mut self) -> nb::Result<(), Error> {
@@ -482,7 +486,7 @@ macro_rules! hal {
                 }
             }
 
-            impl serial::Write<u8> for Tx<pac::$USARTX> {
+            impl Write<u8> for Tx<pac::$USARTX> {
                 // NOTE(Void) See section "29.7 USART interrupts"; the only possible errors during
                 // transmission are: clear to send (which is disabled in this case) errors and
                 // framing errors (which only occur in SmartCard mode); neither of these apply to

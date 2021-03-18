@@ -89,6 +89,7 @@ impl Prediv {
     }
 }
 
+#[cfg(feature = "f3")]
 #[derive(Clone, Copy)]
 #[repr(u8)]
 pub enum PllMul {
@@ -109,6 +110,7 @@ pub enum PllMul {
     Mul16 = 0b1110,
 }
 
+#[cfg(feature = "f3")]
 impl PllMul {
     pub fn value(&self) -> u8 {
         match self {
@@ -129,6 +131,16 @@ impl PllMul {
             Self::Mul16 => 16,
         }
     }
+}
+
+#[cfg(feature = "f4")]
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum Pllp {
+    Div2 = 0b00,
+    Div4 = 0b01,
+    Div6 = 0b10,
+    Div8 = 0b11,
 }
 
 #[derive(Clone, Copy)]
@@ -211,13 +223,22 @@ impl UsbPrescaler {
 
 /// Settings used to configure clocks.
 pub struct Clocks {
-    pub input_src: InputSrc,           //
-    pub prediv: Prediv,                // Input source predivision, for PLL.
-    pub pll_mul: PllMul,               // PLL multiplier: SYSCLK speed is input source × this value.
-    pub usb_pre: UsbPrescaler,         // USB prescaler, for target of 48Mhz.
+    pub input_src: InputSrc, //
+    pub prediv: Prediv,      // Input source predivision, for PLL.
+
+    #[cfg(feature = "f3")]
+    pub pll_mul: PllMul, // PLL multiplier
+    #[cfg(feature = "f4")]
+    pub pllm: u8,
+    #[cfg(feature = "f4")]
+    pub plln: u8,
+    #[cfg(feature = "f4")]
+    pub pllp: Pllp,
+
+    pub usb_pre: UsbPrescaler, // USB prescaler, for target of 48Mhz.
     pub hclk_prescaler: HclkPrescaler, // The AHB clock divider.
-    pub apb1_prescaler: ApbPrescaler,  // APB1 divider, for the low speed peripheral bus.
-    pub apb2_prescaler: ApbPrescaler,  // APB2 divider, for the high speed peripheral bus.
+    pub apb1_prescaler: ApbPrescaler, // APB1 divider, for the low speed peripheral bus.
+    pub apb2_prescaler: ApbPrescaler, // APB2 divider, for the high speed peripheral bus.
     // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     // frees up the pin for use as GPIO.
     pub hse_bypass: bool,
@@ -307,9 +328,16 @@ impl Clocks {
                 cfg_if::cfg_if! {
                     if #[cfg(any(feature = "f301", feature = "f373", feature = "f3x4"))] {
                         w.pllmul().bits(self.pll_mul as u8) // eg: 8Mhz HSE x 9 = 72Mhz
-                    } else {
+                    } else if #[cfg(any(feature = "f302", feature = "f303"))] {
                         w.pllmul().bits(self.pll_mul as u8); // eg: 8Mhz HSE x 9 = 72Mhz
                         unsafe { w.pllsrc().bits(pll_src.bits()) } // eg: Set HSE as PREDIV1 entry.
+                    } else if #[cfg(feature = "f4")] {
+                        rcc.pllcfgr.modify(|_, w| unsafe {
+                            w.pllsrc().bits(pll_src.bits());
+                            w.plln().bits(self.plln);
+                            w.pllm().bits(self.pllm);
+                            w.pllp().bits(self.pllp as u8)
+                        });
                     }
                 }
             });
@@ -337,8 +365,27 @@ impl Clocks {
         Ok(())
     }
 
+    #[cfg(f3)]
     /// This preset configures common with a HSE, a 48Mhz sysclck. All peripheral common are at
     /// 48Mhz, except for APB1, which is at and 24Mhz. USB is set to 48Mhz.
+    /// HSE output is not bypassed.
+    pub fn hsi_preset() -> Self {
+        Self {
+            input_src: InputSrc::Pll(PllSrc::HsiDiv2),
+            prediv: Prediv::Div1,
+            pll_mul: PllMul::Mul12,
+            usb_pre: UsbPrescaler::Div1,
+            hclk_prescaler: HclkPrescaler::Div1,
+            apb1_prescaler: ApbPrescaler::Div2,
+            apb2_prescaler: ApbPrescaler::Div1,
+            hse_bypass: false,
+            security_system: false,
+        }
+    }
+
+    #[cfg(f4)]
+    /// This preset configures common with a HSE, a _Mhz sysclck. All peripheral common are at
+    /// _Mhz, except for APB1, which is at and 24Mhz. USB is set to _Mhz.
     /// HSE output is not bypassed.
     pub fn hsi_preset() -> Self {
         Self {
@@ -421,8 +468,27 @@ impl ClockCfg for Clocks {
 }
 
 impl Default for Clocks {
+    #[cfg(feature = "f3")]
     /// This default configures common with a HSE, a 72Mhz sysclck. All peripheral common are at
     /// 72 Mhz, except for APB1, which is at and 36Mhz. USB is set to 48Mhz.
+    /// HSE output is not bypassed.
+    fn default() -> Self {
+        Self {
+            input_src: InputSrc::Pll(PllSrc::Hse(8)),
+            prediv: Prediv::Div1,
+            pll_mul: PllMul::Mul9,
+            usb_pre: UsbPrescaler::Div1_5,
+            hclk_prescaler: HclkPrescaler::Div1,
+            apb1_prescaler: ApbPrescaler::Div2,
+            apb2_prescaler: ApbPrescaler::Div1,
+            hse_bypass: false,
+            security_system: false,
+        }
+    }
+
+    #[cfg(feature = "f4")]
+    /// This default configures common with a HSE, a _Mhz sysclck. All peripheral common are at
+    /// _ Mhz, except for APB1, which is at and _Mhz. USB is set to 48Mhz.
     /// HSE output is not bypassed.
     fn default() -> Self {
         Self {

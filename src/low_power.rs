@@ -1,5 +1,5 @@
-//! This module contains code used to place the STM32L4 in low power modes.
-//! Reference section 5.3.3: `Low power modes` of the Reference Manual.
+//! This module contains code used to place the MCU in low power modes.
+//! Reference section 5.3.3: `Low power modes` of the L4 Reference Manual.
 
 use crate::{
     clocks::{self, InputSrc},

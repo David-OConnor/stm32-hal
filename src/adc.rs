@@ -1,57 +1,16 @@
-//! Based on `stm32f3xx-hal`.
-
 //! API for the ADC (Analog to Digital Converter)
-//!
-//! # Examples
-//!
-//! Check out [examles/adc.rs].
-//!
-//! It can be built for the STM32F3Discovery running
-//! `cargo build --example adc --features=stm32f303xc`
-//!
-//! [examples/adc.rs]: https://github.com/stm32-rs/stm32f3xx-hal/blob/v0.6.0/examples/adc.rs
+
+// Based on `stm32f3xx-hal`.
 
 use cortex_m::asm;
 use embedded_hal::adc::{Channel, OneShot};
 
-use crate::{pac::RCC, traits::ClockCfg};
+use crate::{
+    pac::{self, RCC},
+    traits::ClockCfg,
+};
 
 use paste::paste;
-
-#[cfg(any(feature = "f301", feature = "f302", feature = "f303",))]
-use crate::pac::{ADC1, ADC1_2};
-
-#[cfg(any(feature = "f302", feature = "f303",))]
-use crate::pac::ADC2;
-
-// todo: what other features support ADC3 and 4? Trim this down as you get errors
-#[cfg(any(feature = "f303",))]
-use crate::pac::{ADC3, ADC3_4, ADC4};
-
-#[cfg(any(feature = "l4", feature = "l5"))]
-use crate::pac::ADC_COMMON;
-
-// todo: Figure out which H7 variants work on ADCs 2, 3, 4.
-#[cfg(any(
-    feature = "l4x3",
-    feature = "h743",
-    feature = "h743v",
-    feature = "h747cm4",
-    feature = "h747cm7",
-    feature = "h753",
-    feature = "h753v",
-    feature = "h7b3",
-))]
-use crate::pac::ADC1;
-
-#[cfg(any(feature = "l4x1", feature = "l4x2", feature = "l4x5", feature = "l4x6",))]
-use crate::pac::{ADC1, ADC2};
-
-#[cfg(any(feature = "l4x5", feature = "l4x6"))]
-use crate::pac::ADC3;
-
-#[cfg(feature = "l5")]
-use crate::pac::ADC;
 
 const MAX_ADVREGEN_STARTUP_US: u32 = 10;
 
@@ -190,7 +149,7 @@ impl Default for Align {
 // Abstract implementation of ADC functionality
 macro_rules! hal {
     ($ADC:ident, $ADC_COMMON:ident, $adc:ident, $adc_num:expr) => {
-        impl Adc<$ADC> {
+        impl Adc<pac::$ADC> {
             paste! {
                 /// Init a new ADC
                 ///
@@ -202,8 +161,8 @@ macro_rules! hal {
                 /// * the clock was already enabled with a different setting
                 ///
                 pub fn [<new_ $adc _unchecked>]<C: ClockCfg>(
-                    regs: $ADC,
-                    adc_common : &mut $ADC_COMMON,
+                    regs: pac::$ADC,
+                    adc_common : &mut pac::$ADC_COMMON,
                     ckmode: ClockMode,
                     clocks: &C,
                     rcc: &mut RCC,
@@ -232,7 +191,7 @@ macro_rules! hal {
                 }
             }
 
-             fn enable_clock(&self, common_regs: &mut $ADC_COMMON, rcc: &mut RCC) -> bool {
+             fn enable_clock(&self, common_regs: &mut pac::$ADC_COMMON, rcc: &mut RCC) -> bool {
                  // `common_regs` is the same as `self.regs` for non-f3. On f3, it's a diff block,
                  // eg `adc12`.
                 cfg_if::cfg_if! {
@@ -439,10 +398,10 @@ macro_rules! hal {
 
         }
 
-        impl<WORD, PIN> OneShot<$ADC, WORD, PIN> for Adc<$ADC>
+        impl<WORD, PIN> OneShot<pac::$ADC, WORD, PIN> for Adc<pac::$ADC>
         where
             WORD: From<u16>,
-            PIN: Channel<$ADC, ID = u8>,
+            PIN: Channel<pac::$ADC, ID = u8>,
             {
                 type Error = ();
 
@@ -453,82 +412,80 @@ macro_rules! hal {
         }
 
         // todo: This is so janky. There has to be a better way.
-        impl Channel<$ADC> for AdcChannel::C1 {
+        impl Channel<pac::$ADC> for AdcChannel::C1 {
             type ID = u8;
             fn channel() -> u8 { 1 }
         }
-        impl Channel<$ADC> for AdcChannel::C2 {
+        impl Channel<pac::$ADC> for AdcChannel::C2 {
             type ID = u8;
             fn channel() -> u8 { 2 }
         }
-        impl Channel<$ADC> for AdcChannel::C3 {
+        impl Channel<pac::$ADC> for AdcChannel::C3 {
             type ID = u8;
             fn channel() -> u8 { 3}
         }
-        impl Channel<$ADC> for AdcChannel::C4 {
+        impl Channel<pac::$ADC> for AdcChannel::C4 {
             type ID = u8;
             fn channel() -> u8 { 4 }
         }
-        impl Channel<$ADC> for AdcChannel::C5 {
+        impl Channel<pac::$ADC> for AdcChannel::C5 {
             type ID = u8;
             fn channel() -> u8 { 5 }
         }
-        impl Channel<$ADC> for AdcChannel::C6 {
+        impl Channel<pac::$ADC> for AdcChannel::C6 {
             type ID = u8;
             fn channel() -> u8 { 6 }
         }
-        impl Channel<$ADC> for AdcChannel::C7 {
+        impl Channel<pac::$ADC> for AdcChannel::C7 {
             type ID = u8;
             fn channel() -> u8 { 7 }
         }
-        impl Channel<$ADC> for AdcChannel::C8 {
+        impl Channel<pac::$ADC> for AdcChannel::C8 {
             type ID = u8;
             fn channel() -> u8 { 8 }
         }
-        impl Channel<$ADC> for AdcChannel::C9 {
+        impl Channel<pac::$ADC> for AdcChannel::C9 {
             type ID = u8;
             fn channel() -> u8 { 9 }
         }
-        impl Channel<$ADC> for AdcChannel::C10 {
+        impl Channel<pac::$ADC> for AdcChannel::C10 {
             type ID = u8;
             fn channel() -> u8 { 10 }
         }
-        impl Channel<$ADC> for AdcChannel::C11 {
+        impl Channel<pac::$ADC> for AdcChannel::C11 {
             type ID = u8;
             fn channel() -> u8 { 11 }
         }
-        impl Channel<$ADC> for AdcChannel::C12 {
+        impl Channel<pac::$ADC> for AdcChannel::C12 {
             type ID = u8;
             fn channel() -> u8 { 12 }
         }
-        impl Channel<$ADC> for AdcChannel::C13 {
+        impl Channel<pac::$ADC> for AdcChannel::C13 {
             type ID = u8;
             fn channel() -> u8 { 13 }
         }
-        impl Channel<$ADC> for AdcChannel::C14 {
+        impl Channel<pac::$ADC> for AdcChannel::C14 {
             type ID = u8;
             fn channel() -> u8 { 14 }
         }
-        impl Channel<$ADC> for AdcChannel::C15 {
+        impl Channel<pac::$ADC> for AdcChannel::C15 {
             type ID = u8;
             fn channel() -> u8 { 15 }
         }
-        impl Channel<$ADC> for AdcChannel::C16 {
+        impl Channel<pac::$ADC> for AdcChannel::C16 {
             type ID = u8;
             fn channel() -> u8 { 16 }
         }
-        impl Channel<$ADC> for AdcChannel::C17 {
+        impl Channel<pac::$ADC> for AdcChannel::C17 {
             type ID = u8;
             fn channel() -> u8 { 17 }
         }
-        impl Channel<$ADC> for AdcChannel::C18 {
+        impl Channel<pac::$ADC> for AdcChannel::C18 {
             type ID = u8;
             fn channel() -> u8 { 18 }
         }
     }
 }
-
-// todo: l and h. and rest of f3
 
 #[cfg(any(feature = "f301", feature = "f302", feature = "f303",))]
 hal!(ADC1, ADC1_2, adc1, AdcNum::One);

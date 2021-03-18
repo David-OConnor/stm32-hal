@@ -1,4 +1,6 @@
-//! Serial Peripheral Interface (SPI) bus. Based on `stm32l4xx-hal`.
+//! Serial Peripheral Interface (SPI) bus.
+
+// Based on `stm32l4xx-hal`.
 
 use core::ptr;
 

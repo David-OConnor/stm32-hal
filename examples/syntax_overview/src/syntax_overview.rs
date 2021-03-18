@@ -18,7 +18,7 @@ use stm32_hal::{
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
-    prelude::*,
+    prelude::*,  // The prelude imports Embedded Hal traits.
     rtc::{Rtc, RtcClockSource, RtcConfig},
     spi::Spi,
     timer::{Event::TimeOut, Timer},
@@ -107,7 +107,7 @@ fn main() -> ! {
     dac.enable(&mut dp.RCC);
 
     // Set up and start a timer; set it to fire interrupts.
-    let mut timer = Timer::tim3(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
+    let mut timer = Timer::tim3_unchecked(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
     timer.listen(TimeOut); // Enable update event interrupts.
 
     loop {

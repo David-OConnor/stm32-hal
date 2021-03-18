@@ -1,8 +1,8 @@
-//! Based on `stm32h7xx-hal`
+//! USB support, including for simulated COM ports. This module is a thin wrapper required to work with
+//! the `usbd` crate.
+//! Requires the `usb` feature.
 
-//! USB OTG peripherals
-//!
-//! Requires the `usb_hs` feature.
+// Based on `stm3h7xx-hal`
 
 use crate::pac::{self, RCC, PWR};
 

@@ -52,7 +52,6 @@
 )))]
 compile_error!("This crate requires an MCU-specifying feature to be enabled. eg `l552`.");
 
-// F3 PAC
 #[cfg(feature = "f301")]
 pub use stm32f3::stm32f301 as pac;
 
@@ -123,8 +122,13 @@ pub mod traits;
 pub mod prelude {
     // pub use crate::traits::*;
     pub use embedded_hal::{
-        blocking::delay::{DelayMs, DelayUs},
+        adc::OneShot,
+        blocking::{
+            delay::{DelayMs, DelayUs},
+            serial::Write,
+        },
         digital::v2::{InputPin, OutputPin, ToggleableOutputPin},
+        serial::Read,
     };
 }
 

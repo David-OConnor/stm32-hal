@@ -8,9 +8,9 @@
 //! See the Reference Manuals for non-interactive visualizations.
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "f3")] {
-        mod f3;
-        pub use f3::*;
+    if #[cfg(any(feature = "f3", feature = "f4"))] {
+        mod f3_4;
+        pub use f3_4::*;
     } else if #[cfg(any(feature = "l4", feature = "l5"))] {
         mod l4_5;
         pub use l4_5::*;

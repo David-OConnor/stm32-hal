@@ -1,4 +1,6 @@
-//! Timers. Based on `stm32f3xx-hal`
+//! Timers. Includes initialization, countdown functionality, interrupts, and PWM features.
+
+//  Based on `stm32f3xx-hal`
 
 use num_traits::float::Float;
 
@@ -7,76 +9,13 @@ use embedded_hal::timer::{CountDown, Periodic};
 use void::Void;
 
 use crate::{
-    pac::{RCC, TIM2, TIM6, TIM7},
+    pac::{self, RCC},
     traits::ClockCfg,
 };
 
 use paste::paste;
 
-// I'm not sure where to get a good list of which variants use which timers.
-// Info's in the Ref mans, but buried.
-
-// Some of these can be imported from the PAC, but have errors when attempting to enable or
-// reset (eg with f301.)
-#[cfg(feature = "f301")]
-use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM19, TIM3, TIM4, TIM5};
-
-#[cfg(feature = "f302")]
-use crate::pac::{TIM17, TIM20, TIM3, TIM4, TIM8};
-
-#[cfg(feature = "f303")]
-use crate::pac::{TIM17, TIM20, TIM3, TIM4, TIM8};
-
-#[cfg(feature = "f373")]
-use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM18, TIM19, TIM3, TIM4, TIM5};
-
-#[cfg(feature = "f3x4")]
-use crate::pac::{TIM17, TIM3};
-
-#[cfg(feature = "f446")]
-use crate::pac::{TIM12, TIM13, TIM14, TIM3, TIM4, TIM5}; // todo: Populate other timers it uses.
-
-#[cfg(feature = "l4x1")]
-use crate::pac::TIM1;
-
-#[cfg(feature = "l4x2")]
-use crate::pac::TIM3;
-
-#[cfg(feature = "l4x5")]
-use crate::pac::{TIM17, TIM3, TIM4, TIM5, TIM8};
-
-#[cfg(feature = "l4x6")]
-use crate::pac::{TIM17, TIM3, TIM4, TIM5, TIM8};
-
-#[cfg(feature = "l562")]
-use crate::pac::{TIM17, TIM3, TIM4, TIM5, TIM8};
-
-#[cfg(feature = "h743")]
-use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
-
-#[cfg(feature = "h743v")]
-use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
-
-#[cfg(feature = "h747cm4")]
-use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
-
-#[cfg(feature = "h747cm7")]
-use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
-
-#[cfg(feature = "h753")]
-use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
-
-#[cfg(feature = "h753v")]
-use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
-
-#[cfg(feature = "h7b3")]
-use crate::pac::{TIM12, TIM13, TIM14, TIM17, TIM3, TIM4, TIM5};
-
-#[cfg(not(feature = "f446"))]
-use crate::pac::{TIM15, TIM16};
-
-#[cfg(not(any(feature = "f446", feature = "f373")))]
-use crate::pac::TIM1;
+// todo: Make constructor new_tim1 etc?
 
 #[derive(Clone, Copy)]
 /// Used for when attempting to set a timer period that is out of range.
@@ -227,9 +166,9 @@ macro_rules! hal {
         $TIMX:ident: ($tim:ident, $apb:ident, $enr:ident, $rst:ident)
     },)+) => {
         $(
-            impl Periodic for Timer<$TIMX> {}
+            impl Periodic for Timer<pac::$TIMX> {}
 
-            impl CountDown for Timer<$TIMX> {
+            impl CountDown for Timer<pac::$TIMX> {
                 type Time = f32;
 
                 fn start<T>(&mut self, timeout: T)
@@ -262,9 +201,9 @@ macro_rules! hal {
                 }
             }
 
-            impl Timer<$TIMX> {
+            impl Timer<pac::$TIMX> {
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn $tim<T:, C>(tim: $TIMX, freq: T, clocks: &C, rcc: &mut RCC) -> Self
+                pub fn $tim<T:, C>(tim: pac::$TIMX, freq: T, clocks: &C, rcc: &mut RCC) -> Self
                 where
                     T: Into<f32>,
                     C: ClockCfg,
@@ -348,7 +287,7 @@ macro_rules! hal {
                 }
 
                 /// Releases the TIM peripheral
-                pub fn free(mut self) -> $TIMX {
+                pub fn free(mut self) -> pac::$TIMX {
                     self.disable();
                     self.tim
                 }
@@ -419,7 +358,7 @@ macro_rules! pwm_features {
         $TIMX:ident: $res:ident
     },)+) => {
         $(
-            impl Timer<$TIMX> {
+            impl Timer<pac::$TIMX> {
                 /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
                 pub fn set_output_compare(&mut self, channel: Channel, mode: OutputCompare) {
                     match channel {
@@ -688,7 +627,7 @@ hal! {
 }
 
 // Todo: the L5 PAC has an address error on TIM15 - remove it until solved.
-// Note: the F446 does not have this timer.
+// Note: the F446 does not have this TIMer.
 #[cfg(not(any(feature = "l5", feature = "f446")))]
 hal! {
     {

@@ -1,13 +1,9 @@
-//! Based on `stm32f3xx-hal` This module is a thin wrapper required to work with
+//! USB support, including for simulated COM ports. This module is a thin wrapper required to work with
 //! the `usbd` crate.
-
-//! USB peripheral
-//!
 //! Requires the `usb` feature.
-//!
-//! See [examples/usb_serial.rs] for a usage example.
-//!
-//! [examples/usb_serial.rs]: https://github.com/stm32-rs/stm32f3xx-hal/blob/v0.6.1/examples/usb_serial.rs
+
+// Based on `stm32f3xx-hal`
+
 
 use crate::pac::{RCC, USB};
 use stm32_usbd::UsbPeripheral;

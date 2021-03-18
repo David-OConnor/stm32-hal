@@ -1,11 +1,14 @@
-//! Configure the internal DAC on the stm32f3xx.
-//! Incomplete, but includes basic operation.
+//! Digital to Analog converter. Incomplete, but includes basic operation.
+
+// Configure the internal DAC on the stm32f3xx.
+
+// todo: struct Dac<DAC> with trait; build with macros. This will allow support
+// todo for more than 1 dac per platform. Use the `timers` module as an example.
+// todo: Implement DAC2+
 
 use core::fmt;
 
 use crate::gpio::{GpioPin, PinMode};
-
-// todo: Implement DAC2 (and 3?)
 
 cfg_if::cfg_if! {
     if #[cfg(any(feature = "l4x6", feature = "l5", all(feature = "h7", not(feature = "h7b3")), feature = "f302", feature = "f4"))] {
@@ -89,6 +92,7 @@ impl Trigger {
 cfg_if::cfg_if! {
     if #[cfg(any(feature = "l4x6", feature = "l5", all(feature = "h7", not(feature = "h7b3")), feature = "f302", feature = "f4"))] {
         pub struct Dac {
+        // pub struct Dac<$DAC> {
             regs: DAC,
             channel: Channel,
             bits: Bits,

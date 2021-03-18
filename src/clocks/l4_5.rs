@@ -352,11 +352,11 @@ impl Clocks {
             // Wait for the PLL to no longer be ready before executing certain writes.
             while rcc.cr.read().pllrdy().bit_is_set() {}
 
-            rcc.pllcfgr.modify(|_, w| {
-                unsafe { w.pllsrc().bits(pll_src.bits()) };
-                unsafe { w.plln().bits(self.pll_vco_mul) };
-                unsafe { w.pllm().bits(self.pllm as u8) };
-                unsafe { w.pllr().bits(self.pllr as u8) }
+            rcc.pllcfgr.modify(|_, w| unsafe {
+                w.pllsrc().bits(pll_src.bits());
+                w.plln().bits(self.pll_vco_mul);
+                w.pllm().bits(self.pllm as u8);
+                w.pllr().bits(self.pllr as u8)
             });
 
             if self.sai1_enabled {
