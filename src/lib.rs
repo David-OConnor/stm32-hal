@@ -113,8 +113,6 @@ pub use stm32h7::stm32h753v as pac;
 pub use stm32f4::stm32f446 as pac;
 #[cfg(feature = "h7b3")]
 pub use stm32h7::stm32h7b3 as pac;
-#[cfg(feature = "f446")]
-pub use stm32f4::stm32f446 as pac;
 
 
 // todo: U5 once SVD is out.
