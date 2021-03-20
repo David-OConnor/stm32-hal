@@ -22,6 +22,7 @@
 // - timer on L5 is effectively broken until this is fixed.
 // - EXTI / interrupts on L5 and H7. What are the steps for H7? We have it compiling on H5,
 // - but I don't think the EXTICRn register writes are set up correctly.
+// - Setup differential input support and continuous conversion mode on ADC. Should be straightfwd.
 
 #![no_std]
 // Some reg modifications are marked `unsafe` in some PAC crates, but not others.
@@ -118,9 +119,10 @@ pub use stm32h7::stm32h7b3 as pac;
 
 pub mod traits;
 
-/// In the prelude, we export the `embedded-hal` traits we implement
+/// In the prelude, we export the `embedded-hal` traits we implement, and
+/// some custom ones.
 pub mod prelude {
-    // pub use crate::traits::*;
+    pub use crate::traits::*;
     pub use embedded_hal::{
         adc::OneShot,
         blocking::{
@@ -132,7 +134,7 @@ pub mod prelude {
     };
 }
 
-#[cfg(not(any(feature = "l5", feature = "h7")))] // todo
+#[cfg(not(any(feature = "l5")))] // todo
 pub mod adc;
 pub mod clocks;
 pub mod dac;

@@ -237,7 +237,7 @@ macro_rules! hal {
                     }
                 }
 
-                /// Starts listening for an `event`
+                /// Starts listening for an `event`. Used to enable interrupts.
                 pub fn listen(&mut self, event: Event) {
                     match event {
                         // Enable update event interrupt
@@ -260,10 +260,11 @@ macro_rules! hal {
                     self.tim.cr1.read().cen().bit_is_set()
                 }
 
-                /// Clears interrupt associated with `event`.
+                /// Clears interrupt associated with this timer.
                 ///
                 /// If the interrupt is not cleared, it will immediately retrigger after
-                /// the ISR has finished.
+                /// the ISR has finished. For examlpe, place this at the top of your timer's
+                /// interrupt handler.
                 pub fn clear_interrupt(&mut self, event: Event) {
                     match event {
                         Event::TimeOut => {
@@ -273,7 +274,7 @@ macro_rules! hal {
                     }
                 }
 
-                /// Stops listening for an `event`
+                /// Stops listening for an `event`. Used to disable interrupts.
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         // Disable update event interrupt

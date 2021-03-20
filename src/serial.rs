@@ -183,7 +183,6 @@ impl Default for Config {
 /// Serial abstraction
 pub struct Serial<USART> {
     usart: USART,
-    // pins: PINS,
 }
 
 /// Serial receiver
@@ -210,22 +209,22 @@ macro_rules! hal {
     )+) => {
         $(
             impl Serial<pac::$USARTX> {
-                /// Configures the serial interface and creates the interface
-                /// struct.
-                ///
-                /// `Config` is a config struct that configures baud rate, stop bits and parity.
-                ///
-                /// `Clocks` passes information about the current frequencies of
-                /// the clocks.  The existence of the struct ensures that the
-                /// clock settings are fixed.
-                ///
-                /// The `serial` struct takes ownership over the `USARTX` device
-                /// registers and the specified `PINS`
-                ///
-                /// `MAPR` and `APBX` are register handles which are passed for
-                /// configuration. (`MAPR` is used to map the USART to the
-                /// corresponding pins. `APBX` is used to reset the USART.)
                 paste! {
+                    /// Configures the serial interface and creates the interface
+                    /// struct.
+                    ///
+                    /// `Config` is a config struct that configures baud rate, stop bits and parity.
+                    ///
+                    /// `Clocks` passes information about the current frequencies of
+                    /// the clocks.  The existence of the struct ensures that the
+                    /// clock settings are fixed.
+                    ///
+                    /// The `serial` struct takes ownership over the `USARTX` device
+                    /// registers and the specified `PINS`
+                    ///
+                    /// `MAPR` and `APBX` are register handles which are passed for
+                    /// configuration. (`MAPR` is used to map the USART to the
+                    /// corresponding pins. `APBX` is used to reset the USART.)
                     pub fn [<new_ $usart _unchecked>]<C: ClockCfg>(
                         usart: pac::$USARTX,
                         config: Config,

@@ -1,6 +1,5 @@
 # STM32-HAL
 
-[![Build Status](https://github.com/David-OConnor/stm32-hal/workflows/CI/badge.svg)](https://github.com/david-oconnor/stm32-hal/actions)
 [![Crate](https://img.shields.io/crates/v/stm32-hal2.svg)](https://crates.io/crates/stm32-hal2)
 [![Docs](https://docs.rs/stm32-hal2/badge.svg)](https://docs.rs/stm32-hal2)
 
@@ -20,24 +19,6 @@ is viewed as a whole, there's a lot of DRY.
 
 The library is heavily influence by the `stm32fyxx` HALs, and a number of the modules here are modified 
 versions of those.
-
-If using concurrently with another hal, you need to instantiate a set of
-MCU peripherals for each. Ie:
-```rust
-let mut dp = stm32_hal::pac::Peripherals::take().unwrap();
-let mut dp2 = unsafe { stm32l4xx_hal::pac::Peripherals::steal() };
-```
-
-Examples of features this crate includes that aren't present in some HALs:
-
-    - Low power modes
-    - RTC wakeup handler; RTCC trait support
-    - Repeating starts on I2C/SMBUS
-    - PWM features
-    - Timer frequency < 1Hz
-    - More predictable clock cfg
-    - Read and write onboard flash
-    - DAC support
     
 The intent isn't to support every STM32 family: Main support will be for newer ones,
 like L4, L5, H7, and U5.

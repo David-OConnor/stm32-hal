@@ -20,6 +20,7 @@ use stm32_hal::{
     pac,
     prelude::*,  // The prelude imports Embedded Hal traits.
     rtc::{Rtc, RtcClockSource, RtcConfig},
+    serial::{self, Serial},
     spi::Spi,
     timer::{Event::TimeOut, Timer},
 };
@@ -87,6 +88,12 @@ fn main() -> ! {
         &clocks,
         &mut dp.RCC,
     );
+
+    // Set up UART
+    let _uart_tx = gpioa.new_pin(PinNum::P9, PinMode::Alt(AltFn::Af7));
+    let _uart_rx = gpioa.new_pin(PinNum::P10, PinMode::Alt(AltFn::Af7));
+    let mut serial = Serial::new_uart1_unchecked(dp.USART1, 9_600, &clocks, &mut dp.RCC);
+    let (tx, rx) = serial.split();
 
     // Set up the Analog-to-digital converter
     let _adc_pin = gpiob.new_pin(PinNum::P5, PinMode::Analog);
