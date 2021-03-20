@@ -376,8 +376,8 @@ macro_rules! hal {
                         // `F303 RM, 15.3.6:
                         // 1. Change ADVREGEN[1:0] bits from ‘10’ (disabled state, reset state) into ‘00’.
                         // 2. Change ADVREGEN[1:0] bits from ‘00’ into ‘01’ (enabled state).
-                        self.regs.cr.modify(|_, w| w.advregen().bits(0b00));
-                        self.regs.cr.modify(|_, w| w.advregen().bits(0b01));
+                        self.regs.cr.modify(|_, w| unsafe { w.advregen().bits(0b00)});
+                        self.regs.cr.modify(|_, w| unsafe { w.advregen().bits(0b01)});
                     } else {
                         // L443 RM, 16.4.6:
                         // By default, the ADC is in Deep-power-down mode where its supply is internally switched off
@@ -402,8 +402,8 @@ macro_rules! hal {
                         // `F303 RM, 15.3.6:
                         // 1. Change ADVREGEN[1:0] bits from ‘01’ (enabled state) into ‘00’.
                         // 2. Change ADVREGEN[1:0] bits from ‘00’ into ‘10’ (disabled state)
-                        self.regs.cr.modify(|_, w| w.advregen().bits(0b00));
-                        self.regs.cr.modify(|_, w| w.advregen().bits(0b10));
+                        self.regs.cr.modify(|_, w| unsafe { w.advregen().bits(0b00) });
+                        self.regs.cr.modify(|_, w| unsafe { w.advregen().bits(0b10) });
                     } else {
                         // L4 RM, 16.4.6: Writing DEEPPWD=1 automatically disables the ADC voltage
                         // regulator and bit ADVREGEN is automatically cleared.
@@ -690,15 +690,19 @@ hal!(ADC3, ADC3_4, adc3, AdcNum::Three);
 #[cfg(any(feature = "f303"))]
 hal!(ADC4, ADC3_4, adc4, AdcNum::Four);
 
-#[cfg(any(feature = "l4", feature = "l5"))]
+#[cfg(any(feature = "l4"))]
 hal!(ADC1, ADC_COMMON, adc1, AdcNum::One);
+
+// todo: ADC 1 vs 2 on L5? L5 supports up to 2 ADCs, so I'm not sure what's going on here.
+#[cfg(any(feature = "l5"))]
+hal!(ADC, ADC_COMMON, adc1, AdcNum::One);
+
 
 #[cfg(any(
     feature = "l4x1",
     feature = "l4x2",
     feature = "l4x5",
     feature = "l4x6",
-    feature = "l5"
 ))]
 hal!(ADC2, ADC_COMMON, adc2, AdcNum::Two);
 

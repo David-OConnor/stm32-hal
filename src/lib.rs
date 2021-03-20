@@ -134,7 +134,7 @@ pub mod prelude {
     };
 }
 
-#[cfg(not(any(feature = "l5")))] // todo
+// #[cfg(not(any(feature = "l5")))] // todo
 pub mod adc;
 pub mod clocks;
 pub mod dac;
