@@ -22,9 +22,6 @@
 // - timer on L5 is effectively broken until this is fixed.
 // - EXTI / interrupts on L5 and H7. What are the steps for H7? We have it compiling on L5,
 // - but I don't think the EXTICRn register writes are set up correctly.
-// - Setup differential input support and continuous conversion mode on ADC. Should be straightfwd.
-// - Cross-check ADC conversion and cross-check code against RM. Document as in other parts,
-// - and change code as required. Clock cfg in particular needs to be reddone, esp for H7.
 
 #![no_std]
 // Some reg modifications are marked `unsafe` in some PAC crates, but not others.
@@ -136,6 +133,7 @@ pub mod prelude {
     };
 }
 
+#[cfg(not(any(feature = "f301", feature = "f302")))]
 pub mod adc;
 pub mod clocks;
 pub mod dac;

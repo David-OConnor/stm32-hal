@@ -58,6 +58,8 @@ pub struct Adc<ADC> {
     cal_differential: Option<u16>, // Stored calibration value for differential
 }
 
+// todo: Adc sampling time below depends on the STM32 family. Eg the numbers below
+// todo are wrong for L4, but the idea is the same.
 /// ADC sampling time
 ///
 /// Each channel can be sampled with a different sample time.
@@ -96,7 +98,7 @@ impl Default for SampleTime {
 #[repr(u8)]
 /// Select single-ended, or differential inputs. Sets bits in the ADC[x]_DIFSEL register.
 pub enum InputType {
-    SingleEnded = 0, // todo check these values in reg table.
+    SingleEnded = 0,
     Differential = 1,
 }
 
@@ -107,7 +109,7 @@ pub enum InputType {
 pub enum OperationMode {
     /// OneShot Mode
     OneShot = 0,
-    Continuous = 1, // todo QC this.
+    Continuous = 1,
 }
 
 // #[cfg(any(feature = "l4", feature = "l5"))]
@@ -228,73 +230,67 @@ macro_rules! hal {
                         cal_differential: None,
                     };
 
-                    if !(this_adc.enable_clock(adc_common, rcc)){
-                        panic!("Clock already enabled with a different setting");
-                    }
+                    this_adc.enable_clock(adc_common, rcc);
                     this_adc.set_align(Align::default());
 
                     this_adc.advregen_enable(clocks);
 
-                    // todo: Differential cal!
                     this_adc.calibrate(InputType::SingleEnded, clocks);
+                    this_adc.calibrate(InputType::Differential, clocks);
                     // Reference Manual: "ADEN bit cannot be set during ADCAL=1
                     // and 4 ADC clock cycle after the ADCAL
                     // bit is cleared by hardware."
                     asm::delay(ckmode as u32 * 4);
                     this_adc.enable();
 
-                    this_adc.setup_oneshot(); // todo: Setup Differential
+                    this_adc.setup_oneshot(); // todo: Setup Continuous
 
                     this_adc
                 }
             }
 
             /// Enable the ADC clock, and set the clock mode.
-            // todo: Come back to this! - march 2021.
-            fn enable_clock(&self, common_regs: &mut pac::$ADC_COMMON, rcc: &mut RCC) -> bool {
+            fn enable_clock(&self, common_regs: &mut pac::$ADC_COMMON, rcc: &mut RCC) {
                  // `common_regs` is the same as `self.regs` for non-f3. On f3, it's a diff block,
                  // eg `adc12`.
                 cfg_if::cfg_if! {
-                    if #[cfg(any(feature = "f3", feature = "h7"))] { // todo: This is broken on H7.
+                    if #[cfg(any(feature = "f3", feature = "f4"))] {
                         match $adc_num {
                             AdcNum::One | AdcNum::Two => {
-                                #[cfg(any(feature = "f301"))]
-                                if rcc.ahbenr.read().adc1en().is_enabled() {
-                                    return (common_regs.ccr.read().ckmode().bits() == self.ckmode as u8);
-                                }
-                                #[cfg(any(feature = "f301"))]
-                                rcc.ahbenr.modify(|_, w| w.adc1en().set_bit());
-
-                                #[cfg(not(any(feature = "f301")))]
-                                if rcc.ahbenr.read().adc12en().is_enabled() {
-                                    return (common_regs.ccr.read().ckmode().bits() == self.ckmode as u8);
-                                }
-                                #[cfg(not(any(feature = "f301")))]
                                 rcc.ahbenr.modify(|_, w| w.adc12en().set_bit());
+                                rcc.ahbrstr.modify(|_, w| w.adc12rst().set_bit());
+                                rcc.ahbrstr.modify(|_, w| w.adc12rst().clear_bit());
                             }
                             AdcNum::Three | AdcNum::Four => {
-                                #[cfg(not(any(feature = "f301", feature = "f302")))]
-                                if rcc.ahbenr.read().adc34en().is_enabled() {
-                                    return (common_regs.ccr.read().ckmode().bits() == self.ckmode as u8);
-                                }
-                                #[cfg(not(any(feature = "f301", feature = "f302")))]
                                 rcc.ahbenr.modify(|_, w| w.adc34en().set_bit());
+                                rcc.ahbrstr.modify(|_, w| w.adc34rst().set_bit());
+                                rcc.ahbrstr.modify(|_, w| w.adc34rst().clear_bit());
                             }
-
+                        }
+                    } else if #[cfg(feature = "h7")] {
+                        match $adc_num {
+                            AdcNum::One | AdcNum::Two => {
+                                rcc.ahb1enr.modify(|_, w| w.adc12en().set_bit());
+                                rcc.ahb1rstr.modify(|_, w| w.adc12rst().set_bit());
+                                rcc.ahb1rstr.modify(|_, w| w.adc12rst().clear_bit());
+                            }
+                            AdcNum::Three | AdcNum::Four => {
+                                rcc.ahb4enr.modify(|_, w| w.adc3en().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.adc3rst().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.adc3rst().clear_bit());
+                            }
                         }
 
                     } else {
-                        if rcc.ahb2enr.read().adcen().bit_is_set() {
-                            return (common_regs.ccr.read().ckmode().bits() == self.ckmode as u8);
-                        }
                         rcc.ahb2enr.modify(|_, w| w.adcen().set_bit());
+                        rcc.ahb2rstr.modify(|_, w| w.adcrst().set_bit());
+                        rcc.ahb2rstr.modify(|_, w| w.adcrst().clear_bit());
                     }
                 }
 
-                common_regs.ccr.modify(|_, w| unsafe { w
-                    .ckmode().bits(self.ckmode as u8)
-                });
-                true
+                // todo: This should be the same with H7, per RM. Likely a PAC bug.
+                #[cfg(not(feature = "h7"))]
+                common_regs.ccr.modify(|_, w| unsafe { w.ckmode().bits(self.ckmode as u8) });
             }
 
             /// sets up adc in one shot mode for a single channel
@@ -357,7 +353,7 @@ macro_rules! hal {
                 // 1. Check that both ADSTART=0 and JADSTART=0 to ensure that no conversion is
                 // ongoing. If required, stop any regular and injected conversion ongoing by setting
                 // ADSTP=1 and JADSTP=1 and then wait until ADSTP=0 and JADSTP=0.
-                self.abort_conversions();
+                self.stop_conversions();
 
                 // 2. Set ADDIS=1.
                 self.regs.cr.modify(|_, w| w.addis().set_bit()); // Disable
@@ -368,8 +364,18 @@ macro_rules! hal {
             }
 
             /// If any conversions are in progress, stop them. This is a step listed in the RMs
-            /// for disable, and calibration procedures.
-            pub fn abort_conversions(&mut self) {
+            /// for disable, and calibration procedures. See L4 RM: 16.4.17.
+            /// When the ADSTP bit is set by software, any ongoing regular conversion is aborted with
+            /// partial result discarded (ADC_DR register is not updated with the current conversion).
+            /// When the JADSTP bit is set by software, any ongoing injected conversion is aborted with
+            /// partial result discarded (ADC_JDRy register is not updated with the current conversion).
+            /// The scan sequence is also aborted and reset (meaning that relaunching the ADC would
+            /// restart a new sequence).
+            pub fn stop_conversions(&mut self) {
+                // The software can decide to stop regular conversions ongoing by setting ADSTP=1 and
+                // injected conversions ongoing by setting JADSTP=1.
+                // Stopping conversions will reset the ongoing ADC operation. Then the ADC can be
+                // reconfigured (ex: changing the channel selection or the trigger) ready for a new operation.
                 let cr_val = self.regs.cr.read();
                 if cr_val.adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set() {
                     self.regs.cr.modify(|_, w| {
@@ -396,7 +402,7 @@ macro_rules! hal {
             }
 
             /// Enable the voltage regulator, and exit deep sleep mode (some MCUs)
-            fn advregen_enable<C: ClockCfg>(&mut self, clocks: &C){
+            pub fn advregen_enable<C: ClockCfg>(&mut self, clocks: &C){
                 cfg_if::cfg_if! {
                     if #[cfg(feature = "f3")] {
                         // `F303 RM, 15.3.6:
@@ -422,7 +428,7 @@ macro_rules! hal {
             /// Disable power, eg to save power in low power modes. Inferred from RM,
             /// we should run this before entering `STOP` mode, in conjunction with with
             /// disabling the ADC.
-            fn advregen_disable(&mut self){
+            pub fn advregen_disable(&mut self){
                 cfg_if::cfg_if! {
                     if #[cfg(feature = "f3")] {
                         // `F303 RM, 15.3.6:
@@ -460,16 +466,19 @@ macro_rules! hal {
             /// Calibrate. See L4 RM, 16.5.8, or F404 RM, section 15.3.8.
             /// Stores calibration values, which can be re-inserted later,
             /// eg after entering ADC deep sleep mode, or MCU STANDBY or VBAT.
-            fn calibrate<C: ClockCfg>(&mut self, input_type: InputType, clocks: &C) {
+            pub fn calibrate<C: ClockCfg>(&mut self, input_type: InputType, clocks: &C) {
                 // 1. Ensure DEEPPWD=0, ADVREGEN=1 and that ADC voltage regulator startup time has
                 // elapsed.
                 if !self.is_advregen_enabled() {
                     self.advregen_enable(clocks);
                 }
 
+                let was_enabled = self.is_enabled();
                 // Calibration can only be initiated when the ADC is disabled (when ADEN=0).
                 // 2. Ensure that ADEN=0
-                self.disable();
+                if was_enabled {
+                    self.disable();
+                }
 
                 self.regs.cr.modify(|_, w| w
                     // RM:
@@ -508,17 +517,21 @@ macro_rules! hal {
                          self.cal_differential = Some(val);
                     }
                 }
+
+                if was_enabled {
+                    self.enable();
+                }
             }
 
             /// Insert a previously-saved calibration value into the ADC.
             /// Se L4 RM, 16.4.8.
-            fn inject_calibration(&mut self) {
+            pub fn inject_calibration(&mut self) {
                 // 1. Ensure ADEN=1 and ADSTART=0 and JADSTART=0 (ADC enabled and no
                 // conversion is ongoing).
                 if !self.is_enabled() {
                     self.enable();
                 }
-                self.abort_conversions();
+                self.stop_conversions();
 
 
                 // 2. Write CALFACT_S and CALFACT_D with the new calibration factors.
@@ -546,47 +559,62 @@ macro_rules! hal {
                 // into bits DIFSEL[15:1] in the ADC_DIFSEL register. This configuration must be written while
                 // the ADC is disabled (ADEN=0). Note that DIFSEL[18:16,0] are fixed to single ended
                 // channels and are always read as 0.
-                if self.is_enabled() {
+                let was_enabled = self.is_enabled();
+                if was_enabled {
                     self.disable();
-                    // difsel!(self.regs, channel, input_type);
-                    // todo: Figure out how you do the bit shift math here; we don't have individual fields.
-                    // self.regs.difsel.write(|w| w.difsel_1_15r().bits(input_type as u8));
-                    self.enable()
-                } else {
-                    // difsel!(self.regs, channel, input_type);
-                    // todo: Figure out how you do the bit shift math here; we don't have individual fields.
-                    // self.regs.difsel.write(|w| w.difsel_1_15r().bits(input_type as u8));
+                }
+
+                // todo: Figure out how you do the bit shift math here; we don't have individual fields.
+                // difsel!(self.regs, channel, input_type);
+                // self.regs.difsel.write(|w| w.difsel_1_15r().bits(input_type as u8));
+
+                if was_enabled {
+                    self.enable();
                 }
             }
 
-            /// Take a single measurement.
-            fn convert_one(&mut self, chan: u8, input_type: InputType) -> u16 {
-                // match self.operation_mode {
-                //     OperationMode::OneShot => {}
-                // }
-                // self.setup_oneshot(); // todo: Continuous.
+            /// Start a conversion: Either a single measurement, or continuous conversions.
+            /// See L4 RM 16.4.15 for details.
+            pub fn start_conversion(&mut self, chan: u8, input_type: InputType, mode: OperationMode) {
+                // Set continuous or differential mode.
+                self.regs.cfgr.modify(|_, w| w.cont().bit(mode as u8 != 0));
+                self.select_channel(chan);
 
-                self.set_channel(chan, SampleTime::default());
-                self.select_single_chan(chan);
-
+                // L4 RM: In Single conversion mode, the ADC performs once all the conversions of the channels.
+                // This mode is started with the CONT bit at 0 by either:
+                // • Setting the ADSTART bit in the ADC_CR register (for a regular channel)
+                // • Setting the JADSTART bit in the ADC_CR register (for an injected channel)
+                // • External hardware trigger event (for a regular or injected channel)
+                // (Here, we assume a regular channel)
                 self.regs.cr.modify(|_, w| w.adstart().set_bit());  // Start
+
+                // After the regular sequence is complete, after each conversion is complete,
+                // the EOC (end of regular conversion) flag is set.
+                // After the regular sequence is complete: The EOS (end of regular sequence) flag is set.
+                // (We're ignoring eoc, since this module doesn't currently support sequences)
                 while self.regs.isr.read().eos().bit_is_clear() {}  // wait until complete.
-                self.regs.isr.modify(|_, w| w.eos().set_bit());  // Clear
-                return self.regs.dr.read().bits() as u16;  // todo make sure you don't need rdata field.
             }
 
-            /// This should only be invoked with the defined channels for the particular
-            /// device. (See Pin/Channel mapping above)
-            fn select_single_chan(&self, chan: u8) {
+            /// Read data from a conversion. In OneShot mode, this will generally be run right
+            /// after `start_conversion`.
+            pub fn read_result(&mut self) -> u16 {
+                self.regs.dr.read().bits() as u16
+            }
+
+            /// Select the channel to sample. Note that this register allows setting a sequence,
+            /// but for now, we only support converting one channel at a time.
+            /// (Single-ended or differential, but not a sequence.)
+            fn select_channel(&self, chan: u8) {
                 // Channel as u8 is the ADC channel to use.
-                self.regs.sqr1.modify(|_, w| unsafe { w.sq1().bits(chan) }
-                );
+                self.regs.sqr1.modify(|_, w| unsafe { w.sq1().bits(chan) });
             }
 
-            /// Select the ADC channel to use.Note: only allowed when ADSTART = 0
-            // TODO: there are boundaries on how this can be set depending on the hardware.
-            fn set_channel(&self, chan: u8, smp: SampleTime) {
+            /// Select the sample time for a given channel.
+            pub fn set_sample_time(&mut self, chan: u8, smp: SampleTime) {
                 // Channel is the ADC channel to use.
+
+                // RM: Note: only allowed when ADSTART = 0 and JADSTART = 0.
+                self.stop_conversions();
                 unsafe {
                     match chan {
                         1 => self.regs.smpr1.modify(|_, w| w.smp1().bits(smp as u8)),
@@ -606,8 +634,8 @@ macro_rules! hal {
                         16 => self.regs.smpr2.modify(|_, w| w.smp16().bits(smp as u8)),
                         17 => self.regs.smpr2.modify(|_, w| w.smp17().bits(smp as u8)),
                         18 => self.regs.smpr2.modify(|_, w| w.smp18().bits(smp as u8)),
-                        19 => self.regs.smpr2.modify(|_, w| w.smp18().bits(smp as u8)),
-                        20 => self.regs.smpr2.modify(|_, w| w.smp18().bits(smp as u8)),
+                        // 19 => self.regs.smpr2.modify(|_, w| w.smp19().bits(smp as u8)),
+                        // 20 => self.regs.smpr2.modify(|_, w| w.smp20().bits(smp as u8)),
                         _ => unreachable!(),
                     };
                 }
@@ -622,10 +650,8 @@ macro_rules! hal {
                 type Error = ();
 
                 fn read(&mut self, _pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
-                    // Note that when using the EH trait, we don't support differential mode
-                    // due to the large number of channel combos available.
-                    let res = self.convert_one(PIN::channel(), InputType::SingleEnded);
-                    return Ok(res.into());
+                    self.start_conversion(PIN::channel(), InputType::SingleEnded, OperationMode::OneShot);
+                    return Ok(self.read_result().into());
                 }
         }
 

@@ -10,7 +10,7 @@ families. It's based on the
 [svd2rust](https://github.com/rust-embedded/svd2rust).
 
 It provides a consistent API across multiple families, with minimal code repetition.
-This makes it easyto switch MCUs within, or across families, for a given project. 
+This makes it easy to switch MCUs within, or across families, for a given project. 
 
 Motivation: Use STM32s in real-world hardware projects. Be able to switch MCUs with
 minimal code change. 
@@ -23,14 +23,15 @@ is viewed as a whole, there's a lot of DRY.
 ## Getting started
 Review the [syntax overview example](https://github.com/David-OConnor/stm32-hal/blob/main/examples/syntax_overview/src/syntax_overview.rs)
 for example uses of many of this library's features. Copy and paste the whole example folder (It's set up
-using [Knurling's app template](https://github.com/knurling-rs/app-template), or copy parts of `main.rs` as required.
+using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml` 
+and `main.rs` as required.
 
 ### Example highlights:
 ```rust
 use cortex_m_rt::entry;
 use stm32_hal::{
     clocks::Clocks,
-    gpio::{GpioA,PinNum, PinMode, OutputType, AltFn},
+    gpio::{GpioB,PinNum, PinMode, OutputType, AltFn},
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
@@ -45,17 +46,17 @@ fn main() -> ! {
     let clocks = Clocks::default();
     clocks.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
-    let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
-    let mut pa15 = gpioa.new_pin(PinNum::P15, PinMode::Output);
-    pa15.set_high().ok();
+    let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
+    let mut pb15 = gpioa.new_pin(PinNum::P15, PinMode::Output);
+    pb15.set_high().ok();
 
     let mut timer = Timer::tim3_unchecked(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
     timer.listen(TimeOut);
 
-    let scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
+    let mut scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::AF4));
+    let mut sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::AF4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
     let i2c = I2c::new_unchecked(dp.I2C1, I2cDevice::One, 100_000, &clocks, &mut dp.RCC);
@@ -63,6 +64,7 @@ fn main() -> ! {
     loop {
         low_power::sleep_now(&mut cp.SCB);
     }
+}
 ```
 
 The library is heavily influence by the `stm32fyxx` HALs, and a number of the modules here are modified 
@@ -71,7 +73,7 @@ versions of those.
 The intent isn't to support every STM32 family: Main support will be for newer ones,
 like L4, L5, H7, and U5.
 
-Most peripheral modules are independent: The only dependency they have within the crate
+Most peripheral modules are independent: The only dependency they have within this library
 is the `ClockCfg` trait, which we may move to a standalone crate later. This makes
 it easy to interchange them with other projects.
 
