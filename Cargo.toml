@@ -27,7 +27,6 @@ stm32l4 = { version = "0.13.0", optional = true }
 stm32l5 = { version = "0.13.0", optional = true }
 stm32g4 = { version = "0.13.0", optional = true }
 stm32h7 = { version = "0.13.0", optional = true }
-stm32f4 = { version = "0.13.0", optional = true}
 
 # Embedded traits
 embedded-hal = { version = "0.2.4", features = ["unproven"] }
@@ -111,9 +110,6 @@ h753v = ["stm32h7/stm32h753v", "h7"]
 h7b3 = ["stm32h7/stm32h7b3", "h7"]
 
 usb = ["stm32-usbd"]
-
-# [f4]
-f446 = ["stm32f4/stm32f446", "f4"]
 
 # These features are used to featured gate sections of code that apply
 # to an entire family.
