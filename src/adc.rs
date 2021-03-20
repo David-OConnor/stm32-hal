@@ -1,7 +1,5 @@
 //! API for the ADC (Analog to Digital Converter)
 
-// Based on `stm32f3xx-hal`.
-
 use cortex_m::asm;
 use embedded_hal::adc::{Channel, OneShot};
 
@@ -55,8 +53,9 @@ pub struct Adc<ADC> {
     regs: ADC,
     ckmode: ClockMode,
     operation_mode: OperationMode,
-    cal_single_ended: Option<u8>, // Stored calibration value for single-ended
-    cal_differential: Option<u8>, // Stored calibration value for differential
+    // Most families use u8 values for calibration, but H7 uses u16.
+    cal_single_ended: Option<u16>, // Stored calibration value for single-ended
+    cal_differential: Option<u16>, // Stored calibration value for differential
 }
 
 /// ADC sampling time
@@ -152,6 +151,7 @@ impl Default for ClockMode {
     }
 }
 
+#[cfg(not(feature = "h7"))]
 /// ADC data register alignment
 #[derive(Clone, Copy)]
 #[repr(u8)]
@@ -162,20 +162,42 @@ pub enum Align {
     Left = 1,
 }
 
+#[cfg(not(feature = "h7"))]
 impl Default for Align {
     fn default() -> Self {
         Align::Right
     }
 }
 
-// /// Reduce DRY
-// macro_rules! difsel {
-//     ($regs:expr, $channel:expr, $input_type:expr) => {
-//         paste! {
-//             $regs.difsel.modify(|_, w| w.[<difsel $channel>]().bit($input_type as u8));
-//         }
-//     }
-// }
+#[cfg(feature = "h7")]
+/// ADC data register alignment
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum Align {
+    NoShift = 0,
+    L1 = 1,
+    L2 = 2,
+    L3 = 3,
+    L4 = 4,
+    L5 = 5,
+    L6 = 6,
+    L7 = 7,
+    L8 = 8,
+    L9 = 9,
+    L10 = 10,
+    L11 = 11,
+    L12 = 12,
+    L13 = 13,
+    L14 = 14,
+    L15 = 15,
+}
+
+#[cfg(feature = "h7")]
+impl Default for Align {
+    fn default() -> Self {
+        Align::NoShift
+    }
+}
 
 // Abstract implementation of ADC functionality
 macro_rules! hal {
@@ -233,7 +255,7 @@ macro_rules! hal {
                  // `common_regs` is the same as `self.regs` for non-f3. On f3, it's a diff block,
                  // eg `adc12`.
                 cfg_if::cfg_if! {
-                    if #[cfg(any(feature = "f3"))] {
+                    if #[cfg(any(feature = "f3", feature = "h7"))] { // todo: This is broken on H7.
                         match $adc_num {
                             AdcNum::One | AdcNum::Two => {
                                 #[cfg(any(feature = "f301"))]
@@ -306,6 +328,10 @@ macro_rules! hal {
             }
 
             fn set_align(&self, align: Align) {
+                #[cfg(feature = "h7")]
+                self.regs.cfgr2.modify(|_, w| w.lshift().bits(align as u8));
+
+                #[cfg(not(feature = "h7"))]
                 self.regs.cfgr.modify(|_, w| w.align().bit(align as u8 != 0));
             }
 
@@ -470,10 +496,16 @@ macro_rules! hal {
                 // 6. The calibration factor can be read from ADC_CALFACT register.
                 match input_type {
                     InputType::SingleEnded => {
-                        self.cal_single_ended = Some(self.regs.calfact.read().calfact_s().bits());
+                        let val = self.regs.calfact.read().calfact_s().bits();
+                        #[cfg(not(feature = "h7"))]
+                        let val = val as u16;
+                        self.cal_single_ended = Some(val);
                     }
                     InputType::Differential => {
-                         self.cal_differential = Some(self.regs.calfact.read().calfact_d().bits());
+                         let val = self.regs.calfact.read().calfact_d().bits();
+                         #[cfg(not(feature = "h7"))]
+                         let val = val as u16;
+                         self.cal_differential = Some(val);
                     }
                 }
             }
@@ -491,9 +523,13 @@ macro_rules! hal {
 
                 // 2. Write CALFACT_S and CALFACT_D with the new calibration factors.
                 if let Some(cal) = self.cal_single_ended {
+                    #[cfg(not(feature = "h7"))]
+                    let cal = cal as u8;
                     self.regs.calfact.modify(|_, w| unsafe { w.calfact_s().bits(cal) });
                 }
                 if let Some(cal) = self.cal_differential {
+                    #[cfg(not(feature = "h7"))]
+                    let cal = cal as u8;
                     self.regs.calfact.modify(|_, w| unsafe { w.calfact_d().bits(cal) });
                 }
 
@@ -523,14 +559,14 @@ macro_rules! hal {
                 }
             }
 
-            /// Take a single reading
+            /// Take a single measurement.
             fn convert_one(&mut self, chan: u8, input_type: InputType) -> u16 {
                 // match self.operation_mode {
                 //     OperationMode::OneShot => {}
                 // }
                 // self.setup_oneshot(); // todo: Continuous.
 
-                self.set_chan_smps(chan, SampleTime::default());
+                self.set_channel(chan, SampleTime::default());
                 self.select_single_chan(chan);
 
                 self.regs.cr.modify(|_, w| w.adstart().set_bit());  // Start
@@ -542,17 +578,15 @@ macro_rules! hal {
             /// This should only be invoked with the defined channels for the particular
             /// device. (See Pin/Channel mapping above)
             fn select_single_chan(&self, chan: u8) {
-                self.regs.sqr1.modify(|_, w|
-                    // NOTE(unsafe): chan is the x in ADCn_INx
-                    // Channel as u8 is the ADC channel to use.
-                    unsafe { w.sq1().bits(chan) }
+                // Channel as u8 is the ADC channel to use.
+                self.regs.sqr1.modify(|_, w| unsafe { w.sq1().bits(chan) }
                 );
             }
 
-            /// Note: only allowed when ADSTART = 0
+            /// Select the ADC channel to use.Note: only allowed when ADSTART = 0
             // TODO: there are boundaries on how this can be set depending on the hardware.
-            fn set_chan_smps(&self, chan: u8, smp: SampleTime) {
-                // Channel as u8 is the ADC channel to use.
+            fn set_channel(&self, chan: u8, smp: SampleTime) {
+                // Channel is the ADC channel to use.
                 unsafe {
                     match chan {
                         1 => self.regs.smpr1.modify(|_, w| w.smp1().bits(smp as u8)),
@@ -572,11 +606,12 @@ macro_rules! hal {
                         16 => self.regs.smpr2.modify(|_, w| w.smp16().bits(smp as u8)),
                         17 => self.regs.smpr2.modify(|_, w| w.smp17().bits(smp as u8)),
                         18 => self.regs.smpr2.modify(|_, w| w.smp18().bits(smp as u8)),
+                        19 => self.regs.smpr2.modify(|_, w| w.smp18().bits(smp as u8)),
+                        20 => self.regs.smpr2.modify(|_, w| w.smp18().bits(smp as u8)),
                         _ => unreachable!(),
                     };
                 }
             }
-
         }
 
         impl<WORD, PIN> OneShot<pac::$ADC, WORD, PIN> for Adc<pac::$ADC>
@@ -697,25 +732,11 @@ hal!(ADC1, ADC_COMMON, adc1, AdcNum::One);
 #[cfg(any(feature = "l5"))]
 hal!(ADC, ADC_COMMON, adc1, AdcNum::One);
 
-
-#[cfg(any(
-    feature = "l4x1",
-    feature = "l4x2",
-    feature = "l4x5",
-    feature = "l4x6",
-))]
+#[cfg(any(feature = "l4x1", feature = "l4x2", feature = "l4x5", feature = "l4x6",))]
 hal!(ADC2, ADC_COMMON, adc2, AdcNum::Two);
 
 #[cfg(any(feature = "l4x5", feature = "l4x6",))]
 hal!(ADC3, ADC_COMMON, adc3, AdcNum::Three);
-
-// cfg_if::cfg_if! {
-//     if #[cfg(any(
-//         feature = "l5",
-//     ))] {
-//         hal!(ADC, ADC_COMMON, adc, AdcNum:One);  // Todo: ADC 2. Fight through that chan imp to do it.
-//     }
-// }
 
 // todo: Beyond ADC1 for H7.
 #[cfg(any(

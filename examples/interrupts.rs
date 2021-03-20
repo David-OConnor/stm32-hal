@@ -13,11 +13,11 @@ use cortex_m_rt::entry;
 
 use stm32_hal::{
     adc::{Adc, AdcChannel},
-    clocks::{ClockCfg, Clocks},
-    event::Timeout,
+    clocks::Clocks,
     gpio::{Edge, GpioA, PinMode, PinNum},
     low_power,
     pac::{self, ADC1, EXTI},
+    prelude::*,
     rtc::{Rtc, RtcClockSource, RtcConfig},
     timer::{Event::TimeOut, Timer},
 };

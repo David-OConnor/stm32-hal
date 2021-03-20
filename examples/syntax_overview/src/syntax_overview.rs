@@ -9,16 +9,15 @@ use panic_probe as _;
 
 use stm32_hal::{
     adc::{Adc, AdcChannel},
-    clocks::{ClockCfg, Clocks},
+    clocks::Clocks,
     dac::{Dac, Channel as DacChannel, Bits as DacBits},
     delay::Delay,
-    event::Timeout,
     flash::Flash,
     gpio::{GpioA, GpioB, Edge, PinNum, PinMode, OutputType, AltFn, Pull},
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
-    prelude::*,  // The prelude imports Embedded Hal traits.
+    prelude::*,  // The prelude imports Embedded Hal traits, and some custom ones.
     rtc::{Rtc, RtcClockSource, RtcConfig},
     serial::{self, Serial},
     spi::Spi,
@@ -68,10 +67,10 @@ fn main() -> ! {
     pa15.enable_interrupt(Edge::Rising, &mut dp.EXTI, &mut dp.SYSCFG);
 
     // Set up an I2C peripheral
-    let scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
+    let mut scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::AF4));
+    let mut sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::AF4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
     let i2c = I2c::new_unchecked(dp.I2C1, I2cDevice::One, 100_000, &clocks, &mut dp.RCC);

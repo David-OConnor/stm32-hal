@@ -8,7 +8,7 @@ use cortex_m::{interrupt::free, peripheral::NVIC};
 use cortex_m_rt::entry;
 
 use stm32_hal::{
-    clocks::{ClockCfg, Clocks},
+    clocks::Clocks,
     gpio::GpioA,
     pac,
     usb::{Peripheral, UsbBus, UsbBusType},
