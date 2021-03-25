@@ -8,6 +8,7 @@ use crate::{
     traits::ClockCfg,
 };
 
+use cfg_if::cfg_if;
 use paste::paste;
 
 const MAX_ADVREGEN_STARTUP_US: u32 = 10;
@@ -253,7 +254,7 @@ macro_rules! hal {
             fn enable_clock(&self, common_regs: &mut pac::$ADC_COMMON, rcc: &mut RCC) {
                  // `common_regs` is the same as `self.regs` for non-f3. On f3, it's a diff block,
                  // eg `adc12`.
-                cfg_if::cfg_if! {
+                cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "f4"))] {
                         match $adc_num {
                             AdcNum::One | AdcNum::Two => {
@@ -314,7 +315,7 @@ macro_rules! hal {
                 }
 
                 // typo
-                cfg_if::cfg_if! {
+                cfg_if! {
                     if #[cfg(any(feature = "l4x1", feature = "l4x2", feature = "l4x3", feature = "l4x5"))] {
                         self.regs.sqr1.modify(|_, w| unsafe { w.l3().bits(len - 1) });
                     } else {
@@ -392,7 +393,7 @@ macro_rules! hal {
             }
 
             fn is_advregen_enabled(&self) -> bool {
-                cfg_if::cfg_if! {
+                cfg_if! {
                     if #[cfg(feature = "f3")] {
                         self.regs.cr.read().advregen().bits() == 1
                     } else {
@@ -403,7 +404,7 @@ macro_rules! hal {
 
             /// Enable the voltage regulator, and exit deep sleep mode (some MCUs)
             pub fn advregen_enable<C: ClockCfg>(&mut self, clocks: &C){
-                cfg_if::cfg_if! {
+                cfg_if! {
                     if #[cfg(feature = "f3")] {
                         // `F303 RM, 15.3.6:
                         // 1. Change ADVREGEN[1:0] bits from ‘10’ (disabled state, reset state) into ‘00’.
@@ -429,7 +430,7 @@ macro_rules! hal {
             /// we should run this before entering `STOP` mode, in conjunction with with
             /// disabling the ADC.
             pub fn advregen_disable(&mut self){
-                cfg_if::cfg_if! {
+                cfg_if! {
                     if #[cfg(feature = "f3")] {
                         // `F303 RM, 15.3.6:
                         // 1. Change ADVREGEN[1:0] bits from ‘01’ (enabled state) into ‘00’.

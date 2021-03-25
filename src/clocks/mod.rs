@@ -22,6 +22,9 @@ cfg_if::cfg_if! {
     }
 }
 
+// todo: Consider merging the modules into a single file: There's more similar than different.
+// todo: You have a good deal of DRY atm between modules.
+
 // Dat structures and functions that are shared between clock modules go here.
 
 // todo: Continue working through DRY between the clock modules.

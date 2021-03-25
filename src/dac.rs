@@ -1,7 +1,12 @@
 //! Digital to Analog converter.
 
 // Note that we don't use macros hereto the same extent as with other modules,
-// since all families appear to only have a single DAC register block.
+// since all families appear to only have a single DAC register block. For example,
+// the `Dac` struct doesn't accept a trait of its reg block. We may have to
+// change this later as we find exceptions.
+
+// Some MCUs (F3 and G4?) use a second DAC interface - this is currently not
+// implemented.
 
 use core::fmt;
 
@@ -13,21 +18,19 @@ use crate::{
 
 use cfg_if::cfg_if;
 
+// #[derive(Clone, Copy)]
+// /// Select the DAC to use. Most MCUs only have 1.
+// pub enum DacNum {
+//     One,
+//     Two,
+// }
+
 #[derive(Clone, Copy)]
-/// Select the channel
-pub enum DacNum {
+/// Select the channel to output to. Most MCUs only use 2 channels.
+pub enum Channel {
     One,
     Two,
 }
-
-#[derive(Clone, Copy)]
-/// Select the channel
-pub enum Channel {
-    /// Channel 1
-    One,
-    /// Channel 2
-    Two,
-} // todo: More channels?
 
 #[derive(Clone, Copy)]
 /// Three options are available to set DAC precision.
@@ -76,19 +79,17 @@ impl Trigger {
     }
 }
 
-/// Digital to Analog converter peripheral
-pub struct Dac<DAC> {
-    regs: DAC,
-    channel: Channel,
-    bits: Bits,
-    vref: f32,
-}
-
 // note that L5 uses a different register names, hence the verbose macro. ( eg`dac_cr`)
-macro_rules! make_impl {
+macro_rules! hal {
     ($DAC:ident, $cr:ident, $d81:ident, $d12l1:ident, $d12r1:ident, $d82:ident, $d12l2:ident, $d12r2:ident) => {
-        // todo: Checked constructor that makes sure the pin is a valid DAC pin configured in analog mode.
-        impl Dac<pac::$DAC> {
+        /// Digital to Analog converter peripheral
+        pub struct Dac {
+            regs: pac::$DAC,
+            channel: Channel,
+            bits: Bits,
+            vref: f32,
+        }
+        impl Dac {
             /// Create a new DAC instance.
             // pub fn new<P: GpioPin>(regs: DAC, pin: P, channel: Channel, bits: Bits, vref: f32) -> Self {
             //     // todo: Check for a valid pin too.
@@ -103,7 +104,7 @@ macro_rules! make_impl {
             /// Create a new DAC instance, without checking the output pin
             pub fn new_unchecked(
                 regs: pac::$DAC,
-                num: DacNum,
+                // num: DacNum,  // todo implement this, eg for enabling and disabling.
                 channel: Channel,
                 bits: Bits,
                 vref: f32,
@@ -116,7 +117,6 @@ macro_rules! make_impl {
                 }
             }
 
-            // todo: Mod enable to reflect teh num.
             /// Enable the DAC.
             pub fn enable(&mut self, rcc: &mut RCC) {
                 cfg_if::cfg_if! {
@@ -244,7 +244,7 @@ macro_rules! make_impl {
 
         pub struct DacError {}
 
-        impl SingleChannelDac<u32> for Dac<pac::$DAC> {
+        impl SingleChannelDac<u32> for Dac {
             type Error = DacError;
 
             /// Set the DAC value as an integer.
@@ -257,7 +257,7 @@ macro_rules! make_impl {
 }
 
 #[cfg(feature = "l5")]
-make_impl!(
+hal!(
     DAC,
     dac_cr,
     dac_dhr8r2,
@@ -269,10 +269,10 @@ make_impl!(
 );
 
 #[cfg(feature = "l4")]
-make_impl!(DAC1, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
+hal!(DAC1, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
 
 #[cfg(feature = "f3")]
-make_impl!(DAC1, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
+hal!(DAC1, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
 
 #[cfg(feature = "h7")]
-make_impl!(DAC, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
+hal!(DAC, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);

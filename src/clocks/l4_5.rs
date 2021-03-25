@@ -437,13 +437,12 @@ impl Clocks {
         Ok(())
     }
 
-    /// This preset configures common with a HSI, a 80Mhz sysclck. All peripheral common are at
-    /// 80Mhz.
-    /// HSE output is not bypassed.
-    pub fn hsi_preset() -> Self {
+    /// This preset configures common with a 8Mhz HSE, a 80Mhz sysclck. All peripheral clocks are at
+    /// 80Mhz. HSE output is not bypassed.
+    pub fn hse_preset() -> Self {
         Self {
-            input_src: InputSrc::Pll(PllSrc::Hsi),
-            pllm: Pllm::Div2,
+            input_src: InputSrc::Pll(PllSrc::Hse(8)),
+            pllm: Pllm::Div1,
             pll_vco_mul: 20,
             pll_sai1_mul: 8,
             pll_sai2_mul: 8,
@@ -549,13 +548,12 @@ impl ClockCfg for Clocks {
 }
 
 impl Default for Clocks {
-    /// This default configures common with a HSE, a 32Mhz sysclck. All peripheral common are at
-    /// 32 Mhz.
-    /// HSE output is not bypassed.
+    /// This default configures common with a HSI, a 80Mhz sysclck. All peripheral clocks are at
+    /// 80Mhz.
     fn default() -> Self {
         Self {
-            input_src: InputSrc::Pll(PllSrc::Hse(8)),
-            pllm: Pllm::Div1,
+            input_src: InputSrc::Pll(PllSrc::Hsi),
+            pllm: Pllm::Div2,
             pll_vco_mul: 20,
             pll_sai1_mul: 8,
             pll_sai2_mul: 8,

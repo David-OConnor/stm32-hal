@@ -13,6 +13,7 @@ use crate::{
     traits::ClockCfg,
 };
 
+use cfg_if::cfg_if;
 use paste::paste;
 
 // todo: Make constructor new_tim1 etc?
@@ -212,7 +213,7 @@ macro_rules! hal {
 
                     // enable and reset peripheral to a clean slate state
                     // todo: H7!!
-                    cfg_if::cfg_if! {
+                    cfg_if! {
                         if #[cfg(feature = "f3")] {
                             paste! {
                                 rcc.[<$apb enr>].modify(|_, w| w.[<$tim en>]().set_bit());

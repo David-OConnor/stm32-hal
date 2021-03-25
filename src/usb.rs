@@ -51,7 +51,6 @@ unsafe impl UsbPeripheral for Peripheral {
 
     fn enable() {
         let rcc = unsafe { &*RCC::ptr() };
-
         cortex_m::interrupt::free(|_| {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "f3")] {
@@ -61,10 +60,14 @@ unsafe impl UsbPeripheral for Peripheral {
                     // Reset USB peripheral
                     rcc.apb1rstr.modify(|_, w| w.usbrst().reset());
                     rcc.apb1rstr.modify(|_, w| w.usbrst().clear_bit());
-                } else if #[cfg(not(feature = "l4x3"))]{
+                }  else if #[cfg(feature = "l4x3")] {  // todo: rstr fuekd missing in Pac for L4x3.
                     rcc.apb1enr1.modify(|_, w| w.usbfsen().set_bit());
 
-                    // Reset USB peripheral
+                    let rstr_val = rcc.apb1rstr1.read().bits();
+                    rcc.apb1rstr1.modify(|_, w| unsafe { w.bits(rstr_val | (1 << 26)) }); // Set bit 26
+                    rcc.apb1rstr1.modify(|_ ,w| unsafe { w.bits(rstr_val & !(1 << 26)) }); // Clear bit 26
+                } else {
+                    rcc.apb1enr1.modify(|_, w| w.usbfsen().set_bit());
                     rcc.apb1rstr1.modify(|_, w| w.usbfsrst().set_bit());
                     rcc.apb1rstr1.modify(|_, w| w.usbfsrst().clear_bit());
                 }

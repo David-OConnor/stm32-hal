@@ -4,25 +4,52 @@ use crate::{
     traits::{ClockCfg, ClocksValid},
 };
 
-#[derive(Clone, Copy)]
-/// Note that this corresponds to Bits 16:15: Applicable only to some models,
-///303xB/C etc use only bit 16, with bit 15 at reset value (0?) but it's equiv. 303xD/E and xE use bits 16:15.
-pub enum PllSrc {
-    HsiDiv2,
-    Hsi,
-    Hse(u8),
-}
+use cfg_if::cfg_if;
 
-impl PllSrc {
-    /// Required due to numerical value on non-uniform discrim being experimental.
-    /// (ie, can't set on `Pll(Pllsrc)`.
-    pub fn bits(&self) -> u8 {
-        match self {
-            Self::HsiDiv2 => 0b00,
-            Self::Hsi => 0b01,
-            Self::Hse(_) => 0b10,
+// todo: PLLSAI for F4.
+
+cfg_if! {
+   if #[cfg(feature = "f3")] {
+       #[derive(Clone, Copy)]
+        /// The clocks source input used by the PLL.
+        /// Note that this corresponds to Bits 16:15: Applicable only to some models,
+        ///303xB/C etc use only bit 16, with bit 15 at reset value (0?) but it's equiv. 303xD/E and xE use bits 16:15.
+        pub enum PllSrc {
+            HsiDiv2,
+            Hsi,
+            Hse(u8),
         }
-    }
+
+        impl PllSrc {
+            /// Required instead of u8 repr due to numerical value on non-uniform discrim being experimental.
+            /// (ie, can't set on `Pll(Pllsrc)`.
+            fn bits(&self) -> u8 {
+                match self {
+                    Self::HsiDiv2 => 0b00,
+                    Self::Hsi => 0b01,
+                    Self::Hse(_) => 0b10,
+                }
+            }
+       }
+   } else if #[cfg(feature = "f4")] {
+           #[derive(Clone, Copy)]
+            /// The clocks source input used by the PLL.
+            pub enum PllSrc {
+                Hsi,
+                Hse(u8),
+            }
+
+            impl PllSrc {
+                /// Required instead of u8 repr due to numerical value on non-uniform discrim being experimental.
+                /// (ie, can't set on `Pll(Pllsrc)`.
+                fn bits(&self) -> u8 {
+                    match self {
+                        Self::Hsi => 0,
+                        Self::Hse(_) => 1,
+                    }
+                }
+           }
+   }
 }
 
 #[derive(Clone, Copy)]
@@ -262,6 +289,7 @@ impl Clocks {
         // We need to do this before enabling PLL, or it won't enable.
         let sysclk = calc_sysclock(self.input_src, self.prediv, self.pll_mul);
 
+        // todo: Wait states for F4.
         let hclk = sysclk / self.hclk_prescaler.value() as u32;
         // f3 ref man section 4.5.1.
         flash.acr.modify(|_, w| {
@@ -326,24 +354,28 @@ impl Clocks {
             // Wait for the PLL to no longer be ready before executing certain writes.
             while rcc.cr.read().pllrdy().is_ready() {}
 
-            rcc.cfgr.modify(|_, w| {
-                // Some f3 varients uses a 'bit' field instead. Haven't looked up how to handle.
-                cfg_if::cfg_if! {
-                    if #[cfg(any(feature = "f301", feature = "f373", feature = "f3x4"))] {
-                        w.pllmul().bits(self.pll_mul as u8) // eg: 8Mhz HSE x 9 = 72Mhz
-                    } else if #[cfg(any(feature = "f302", feature = "f303"))] {
-                        w.pllmul().bits(self.pll_mul as u8); // eg: 8Mhz HSE x 9 = 72Mhz
-                        unsafe { w.pllsrc().bits(pll_src.bits()) } // eg: Set HSE as PREDIV1 entry.
-                    } else if #[cfg(feature = "f4")] {
-                        rcc.pllcfgr.modify(|_, w| unsafe {
-                            w.pllsrc().bits(pll_src.bits());
-                            w.plln().bits(self.plln);
-                            w.pllm().bits(self.pllm);
-                            w.pllp().bits(self.pllp as u8)
-                        });
+            cfg_if! {
+                if #[cfg(feature = "f3")] {
+                   rcc.cfgr.modify(|_, w| {
+                    // Some f3 varients uses a 'bit' field instead. Haven't looked up how to handle.
+                    cfg_if! {
+                        if #[cfg(any(feature = "f301", feature = "f373", feature = "f3x4"))] {
+                            w.pllmul().bits(self.pll_mul as u8) // eg: 8Mhz HSE x 9 = 72Mhz
+                        } else {
+                            w.pllmul().bits(self.pll_mul as u8); // eg: 8Mhz HSE x 9 = 72Mhz
+                            unsafe { w.pllsrc().bits(pll_src.bits()) } // eg: Set HSE as PREDIV1 entry.
+                        }
                     }
+                });
+                } else if #[cfg(feature = "f4")] {
+                    rcc.pllcfgr.modify(|_, w| unsafe {
+                        w.pllsrc().bits(pll_src.bits());
+                        w.plln().bits(self.plln);
+                        w.pllm().bits(self.pllm);
+                        w.pllp().bits(self.pllp as u8)
+                    });
                 }
-            });
+            }
 
             #[cfg(feature = "f3")]
             rcc.cfgr2.modify(|_, w| w.prediv().bits(self.prediv as u8));
@@ -372,15 +404,15 @@ impl Clocks {
     // todo: Consider making HSI the default, instead of 8MhZ oscillator.
 
     #[cfg(feature = "f3")]
-    /// This preset configures common with a HSE, a 48Mhz sysclck. All peripheral common are at
-    /// 48Mhz, except for APB1, which is at and 24Mhz. USB is set to 48Mhz.
+    /// This preset configures common with a HSE, a 72Mhz sysclck. All peripheral common are at
+    /// 72Mhz, except for APB1, which is at and 36Mhz. USB is set to 48Mhz.
     /// HSE output is not bypassed.
-    pub fn hsi_preset() -> Self {
+    pub fn hse_preset() -> Self {
         Self {
-            input_src: InputSrc::Pll(PllSrc::HsiDiv2),
+            input_src: InputSrc::Pll(PllSrc::Hse(8)),
             prediv: Prediv::Div1,
-            pll_mul: PllMul::Mul12,
-            usb_pre: UsbPrescaler::Div1,
+            pll_mul: PllMul::Mul9,
+            usb_pre: UsbPrescaler::Div1_5,
             hclk_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div2,
             apb2_prescaler: ApbPrescaler::Div1,
@@ -476,15 +508,14 @@ impl ClockCfg for Clocks {
 
 impl Default for Clocks {
     #[cfg(feature = "f3")]
-    /// This default configures common with a HSE, a 72Mhz sysclck. All peripheral common are at
-    /// 72 Mhz, except for APB1, which is at and 36Mhz. USB is set to 48Mhz.
-    /// HSE output is not bypassed.
+    /// This default configures common with a HSI, a 48Mhz sysclck. All peripheral common are at
+    /// 48 Mhz, except for APB1, which is at and 36Mhz. USB is set to 48Mhz.
     fn default() -> Self {
         Self {
-            input_src: InputSrc::Pll(PllSrc::Hse(8)),
+            input_src: InputSrc::Pll(PllSrc::HsiDiv2),
             prediv: Prediv::Div1,
-            pll_mul: PllMul::Mul9,
-            usb_pre: UsbPrescaler::Div1_5,
+            pll_mul: PllMul::Mul12,
+            usb_pre: UsbPrescaler::Div1,
             hclk_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div2,
             apb2_prescaler: ApbPrescaler::Div1,
@@ -540,10 +571,10 @@ fn calc_sysclock(input_src: InputSrc, pllm: u8, plln: u16, pllp: Pllp) -> u32 {
         InputSrc::Pll(pll_src) => {
             let input_freq = match pll_src {
                 PllSrc::Hsi => 8,
-                PllSrc::HsiDiv2 => 4,
                 PllSrc::Hse(freq) => freq,
             };
-            input_freq as u32 / prediv.value() as u32 * pll_mul.value() as u32
+            input_freq as u32 / prediv.value() as u32 / pllm as u32 * plln as u32
+                / pllp as u8 as u32
         }
         InputSrc::Hsi => 8,
         InputSrc::Hse(freq) => freq as u32,
@@ -551,8 +582,6 @@ fn calc_sysclock(input_src: InputSrc, pllm: u8, plln: u16, pllp: Pllp) -> u32 {
 
     sysclk
 }
-
-// todo: make `re_select_input` a method of
 
 /// Re-select innput source; used on Stop and Standby modes, where the system reverts
 /// to HSI after wake.

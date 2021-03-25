@@ -5,7 +5,6 @@
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 use crate::{
-    gpio::{AltFn, GpioPin, OutputType, PinMode},
     pac::{i2c1, RCC},
     traits::ClockCfg,
 };
