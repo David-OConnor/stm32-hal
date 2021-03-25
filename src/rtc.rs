@@ -499,7 +499,7 @@ impl Rtc {
     }
 
     /// Clears the wakeup flag. Must be cleared manually after every RTC wakeup.
-    /// Alternatively, you could handle this in the EXTI handler function.
+    /// Alternatively, you could call this in the RTC wakeup interrupt handler.
     pub fn clear_wakeup_flag(&mut self) {
         self.edit_regs(false, |regs| {
             regs.cr.modify(|_, w| w.wute().clear_bit());

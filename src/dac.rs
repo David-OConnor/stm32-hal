@@ -1,48 +1,35 @@
-//! Digital to Analog converter. Incomplete, but includes basic operation.
+//! Digital to Analog converter.
 
-// Configure the internal DAC on the stm32f3xx.
-
-// todo: struct Dac<DAC> with trait; build with macros. This will allow support
-// todo for more than 1 dac per platform. Use the `timers` module as an example.
-// todo: Implement DAC2+
+// Note that we don't use macros hereto the same extent as with other modules,
+// since all families appear to only have a single DAC register block.
 
 use core::fmt;
 
-use crate::gpio::{GpioPin, PinMode};
+use crate::{
+    gpio::{GpioPin, PinMode},
+    pac::{self, RCC},
+    traits::SingleChannelDac,
+};
 
-cfg_if::cfg_if! {
-    if #[cfg(any(feature = "l4x6", feature = "l5", all(feature = "h7", not(feature = "h7b3")), feature = "f302", feature = "f4"))] {
-        use crate::pac::{DAC, RCC};
-    } else {
-        use crate::pac::{DAC1, RCC};
-    }
+use cfg_if::cfg_if;
+
+#[derive(Clone, Copy)]
+/// Select the channel
+pub enum DacNum {
+    One,
+    Two,
 }
 
-/// Trait representing a single-channel digital-to-analog converter (DAC).
-pub trait SingleChannelDac<Word> {
-    /// Error type returned by DAC methods
-    type Error;
-
-    /// Output a constant signal, given a bit word.
-    fn try_set_value(&mut self, value: Word) -> Result<(), Self::Error>;
-}
-
-// /// This is an abstraction to ensure that the DAC output pin is configured
-// /// as an analog output.
-// pub trait Pins {}
-// impl Pins for PA4<Analog> {}
-// impl Pins for PA5<Analog> {}
-
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 /// Select the channel
 pub enum Channel {
     /// Channel 1
     One,
     /// Channel 2
     Two,
-}
+} // todo: More channels?
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 /// Three options are available to set DAC precision.
 pub enum Bits {
     /// Eight bit precision, right-aligned.
@@ -89,76 +76,47 @@ impl Trigger {
     }
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(any(feature = "l4x6", feature = "l5", all(feature = "h7", not(feature = "h7b3")), feature = "f302", feature = "f4"))] {
-        pub struct Dac {
-        // pub struct Dac<$DAC> {
-            regs: DAC,
-            channel: Channel,
-            bits: Bits,
-            vref: f32,
-        }
-    } else {
-        pub struct Dac {
-            regs: DAC1,
-            channel: Channel,
-            bits: Bits,
-            vref: f32,
-        }
-    }
+/// Digital to Analog converter peripheral
+pub struct Dac<DAC> {
+    regs: DAC,
+    channel: Channel,
+    bits: Bits,
+    vref: f32,
 }
 
-// We use a macro to simplify code due to L5 using a different register names. ( eg`dac_cr`)
+// note that L5 uses a different register names, hence the verbose macro. ( eg`dac_cr`)
 macro_rules! make_impl {
-    ($cr:ident, $d81:ident, $d12l1:ident, $d12r1:ident, $d82:ident, $d12l2:ident, $d12r2:ident) => {
+    ($DAC:ident, $cr:ident, $d81:ident, $d12l1:ident, $d12r1:ident, $d82:ident, $d12l2:ident, $d12r2:ident) => {
         // todo: Checked constructor that makes sure the pin is a valid DAC pin configured in analog mode.
-        impl Dac {
-            cfg_if::cfg_if! {
-                if #[cfg(any(feature = "l4x6", feature = "l5", all(feature = "h7", not(feature = "h7b3")), feature = "f302", feature = "f4"))] {
-                    /// Create a new DAC instance.
-                    pub fn new<P: GpioPin>(regs: DAC, pin: P, channel: Channel, bits: Bits, vref: f32) -> Self {
-                        // todo: Check for a valid pin too.
-                        match pin.get_mode() {
-                            PinMode::Analog => (),
-                            _ => panic!("DAC pin must be configured as analog")
-                        }
+        impl Dac<pac::$DAC> {
+            /// Create a new DAC instance.
+            // pub fn new<P: GpioPin>(regs: DAC, pin: P, channel: Channel, bits: Bits, vref: f32) -> Self {
+            //     // todo: Check for a valid pin too.
+            //     match pin.get_mode() {
+            //         PinMode::Analog => (),
+            //         _ => panic!("DAC pin must be configured as analog")
+            //     }
+            //
+            //     Self::new_unchecked(regs, channel, bits, vref)
+            // }
 
-                        Self::new_unchecked(regs, channel, bits, vref)
-                    }
-
-                    /// Create a new DAC instance, without checking the output pin
-                    pub fn new_unchecked(regs: DAC, channel: Channel, bits: Bits, vref: f32) -> Self {
-                        Self {
-                            regs,
-                            channel,
-                            bits,
-                            vref,
-                        }
-                    }
-                } else { // todo dry to change 1 char.
-                    /// Create a new DAC instance.
-                    pub fn new<P: GpioPin>(regs: DAC1, pin: P, channel: Channel, bits: Bits, vref: f32) -> Self {
-                        // todo: Check for a valid pin too.
-                        match pin.get_mode() {
-                            PinMode::Analog => (),
-                            _ => panic!("DAC pin must be configured as analog")
-                        }
-
-                        Self::new_unchecked(regs, channel, bits, vref)
-                    }
-
-                    /// Create a new DAC instance, without checking the output pin
-                    pub fn new_unchecked(regs: DAC1, channel: Channel, bits: Bits, vref: f32) -> Self {
-                        Self {
-                            regs,
-                            channel,
-                            bits,
-                            vref,
-                        }
-                    }
+            /// Create a new DAC instance, without checking the output pin
+            pub fn new_unchecked(
+                regs: pac::$DAC,
+                num: DacNum,
+                channel: Channel,
+                bits: Bits,
+                vref: f32,
+            ) -> Self {
+                Self {
+                    regs,
+                    channel,
+                    bits,
+                    vref,
                 }
             }
 
+            // todo: Mod enable to reflect teh num.
             /// Enable the DAC.
             pub fn enable(&mut self, rcc: &mut RCC) {
                 cfg_if::cfg_if! {
@@ -166,6 +124,8 @@ macro_rules! make_impl {
                         rcc.apb1enr.modify(|_, w| w.dac1en().set_bit());
                     } else if #[cfg(any(feature = "l4", feature = "l5"))] {
                         rcc.apb1enr1.modify(|_, w| w.dac1en().set_bit());
+                    } else if #[cfg(feature = "h7")] {
+                        rcc.apb1lenr.modify(|_, w| w.dac12en().set_bit());
                     }
                 }
 
@@ -182,6 +142,8 @@ macro_rules! make_impl {
                         rcc.apb1enr.modify(|_, w| w.dac1en().clear_bit());
                     } else if #[cfg(any(feature = "l4", feature = "l5"))] {
                         rcc.apb1enr1.modify(|_, w| w.dac1en().clear_bit());
+                    } else if #[cfg(feature = "h7")] {
+                        rcc.apb1lenr.modify(|_, w| w.dac12en().clear_bit());
                     }
                 }
 
@@ -230,7 +192,6 @@ macro_rules! make_impl {
                         self.regs
                             .$cr
                             .modify(|_, w| unsafe { w.tsel1().bits(trigger.bits()) });
-
                     }
                     Channel::Two => {
                         self.regs.$cr.modify(|_, w| w.ten2().set_bit());
@@ -280,33 +241,24 @@ macro_rules! make_impl {
                 self.set_value(data);
             }
         }
-    }
-}
 
-impl fmt::Debug for Dac {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Dac")
-            .field("channel", &self.channel)
-            .field("bits", &self.bits)
-            .field("vret", &self.vref)
-            .finish()
-    }
-}
+        pub struct DacError {}
 
-pub struct DacError {}
+        impl SingleChannelDac<u32> for Dac<pac::$DAC> {
+            type Error = DacError;
 
-impl SingleChannelDac<u32> for Dac {
-    type Error = DacError;
-
-    /// Set the DAC value as an integer.
-    fn try_set_value(&mut self, val: u32) -> Result<(), DacError> {
-        self.set_value(val);
-        Ok(())
-    }
+            /// Set the DAC value as an integer.
+            fn try_set_value(&mut self, val: u32) -> Result<(), DacError> {
+                self.set_value(val);
+                Ok(())
+            }
+        }
+    };
 }
 
 #[cfg(feature = "l5")]
 make_impl!(
+    DAC,
     dac_cr,
     dac_dhr8r2,
     dac_dhr12l2,
@@ -316,5 +268,11 @@ make_impl!(
     dac_dhr12r2
 );
 
-#[cfg(not(feature = "l5"))]
-make_impl!(cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
+#[cfg(feature = "l4")]
+make_impl!(DAC1, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
+
+#[cfg(feature = "f3")]
+make_impl!(DAC1, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
+
+#[cfg(feature = "h7")]
+make_impl!(DAC, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);

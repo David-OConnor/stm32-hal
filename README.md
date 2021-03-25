@@ -31,7 +31,7 @@ and `main.rs` as required.
 use cortex_m_rt::entry;
 use stm32_hal::{
     clocks::Clocks,
-    gpio::{GpioB,PinNum, PinMode, OutputType, AltFn},
+    gpio::{GpioB, PinNum, PinMode, OutputType, AltFn},
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
@@ -79,4 +79,4 @@ it easy to interchange them with other projects.
 
 Pre-release. Currently supports F3, L4, and L5, and H7.
 
-PRs encouraged. Documenting each step using reference manual is encouraged, but not required.
+PRs encouraged. Documenting each step using reference manuals is encouraged, but not required.

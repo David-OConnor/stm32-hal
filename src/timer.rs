@@ -309,6 +309,16 @@ macro_rules! hal {
                     Ok(())
                 }
 
+                /// Set the auto-reload register value. Used for adjusting frequency.
+                pub fn set_auto_reload(&mut self, arr: u32) {
+                    self.tim.arr.write(|w| unsafe { w.bits(arr.into()) });
+                }
+
+                /// Set the prescaler value. Used for adjusting frequency.
+                pub fn set_prescaler(&mut self, psc: u32) {
+                    self.tim.psc.write(|w| unsafe { w.bits(psc.into()) });
+                }
+
                 /// Reset the countdown; set the counter to 0.
                 pub fn reset_countdown(&mut self) {
                     self.tim.cnt.write(|w| unsafe { w.bits(0) });

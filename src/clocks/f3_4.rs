@@ -44,9 +44,10 @@ impl InputSrc {
     }
 }
 
+#[cfg(feature = "f3")]
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// RCC_cfgr2
+/// RCC_cfgr2. Scales the input source before the PLL.
 pub enum Prediv {
     Div1 = 0b0000,
     Div2 = 0b0001,
@@ -223,11 +224,13 @@ impl UsbPrescaler {
 
 /// Settings used to configure clocks.
 pub struct Clocks {
-    pub input_src: InputSrc, //
-    pub prediv: Prediv,      // Input source predivision, for PLL.
+    pub input_src: InputSrc,
 
     #[cfg(feature = "f3")]
+    pub prediv: Prediv, // Input source predivision, for PLL.
+    #[cfg(feature = "f3")]
     pub pll_mul: PllMul, // PLL multiplier
+
     #[cfg(feature = "f4")]
     pub pllm: u8,
     #[cfg(feature = "f4")]
@@ -342,6 +345,7 @@ impl Clocks {
                 }
             });
 
+            #[cfg(feature = "f3")]
             rcc.cfgr2.modify(|_, w| w.prediv().bits(self.prediv as u8));
 
             // Now turn PLL back on, once we're configured things that can only be set with it off.
@@ -365,7 +369,9 @@ impl Clocks {
         Ok(())
     }
 
-    #[cfg(f3)]
+    // todo: Consider making HSI the default, instead of 8MhZ oscillator.
+
+    #[cfg(feature = "f3")]
     /// This preset configures common with a HSE, a 48Mhz sysclck. All peripheral common are at
     /// 48Mhz, except for APB1, which is at and 24Mhz. USB is set to 48Mhz.
     /// HSE output is not bypassed.
@@ -383,15 +389,16 @@ impl Clocks {
         }
     }
 
-    #[cfg(f4)]
+    #[cfg(feature = "f4")]
     /// This preset configures common with a HSE, a _Mhz sysclck. All peripheral common are at
     /// _Mhz, except for APB1, which is at and 24Mhz. USB is set to _Mhz.
     /// HSE output is not bypassed.
     pub fn hsi_preset() -> Self {
         Self {
             input_src: InputSrc::Pll(PllSrc::HsiDiv2),
-            prediv: Prediv::Div1,
-            pll_mul: PllMul::Mul12,
+            pllm: 16,
+            plln: 192,
+            pllp: Pllp::Div2,
             usb_pre: UsbPrescaler::Div1,
             hclk_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div2,
@@ -486,6 +493,8 @@ impl Default for Clocks {
         }
     }
 
+    // todo: Set these up properly.
+
     #[cfg(feature = "f4")]
     /// This default configures common with a HSE, a _Mhz sysclck. All peripheral common are at
     /// _ Mhz, except for APB1, which is at and _Mhz. USB is set to 48Mhz.
@@ -493,9 +502,9 @@ impl Default for Clocks {
     fn default() -> Self {
         Self {
             input_src: InputSrc::Pll(PllSrc::Hse(8)),
-            prediv: Prediv::Div1,
-            pll_mul: PllMul::Mul9,
-            usb_pre: UsbPrescaler::Div1_5,
+            pllm: 16,
+            plln: 192,
+            pllp: Pllp::Div2,
             hclk_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div2,
             apb2_prescaler: ApbPrescaler::Div1,
@@ -505,8 +514,28 @@ impl Default for Clocks {
     }
 }
 
+#[cfg(feature = "f3")]
 /// Calculate the systick, and input frequency.
 fn calc_sysclock(input_src: InputSrc, prediv: Prediv, pll_mul: PllMul) -> u32 {
+    let sysclk = match input_src {
+        InputSrc::Pll(pll_src) => {
+            let input_freq = match pll_src {
+                PllSrc::Hsi => 8,
+                PllSrc::HsiDiv2 => 4,
+                PllSrc::Hse(freq) => freq,
+            };
+            input_freq as u32 / prediv.value() as u32 * pll_mul.value() as u32
+        }
+        InputSrc::Hsi => 8,
+        InputSrc::Hse(freq) => freq as u32,
+    };
+
+    sysclk
+}
+
+#[cfg(feature = "f4")]
+/// Calculate the systick, and input frequency.
+fn calc_sysclock(input_src: InputSrc, pllm: u8, plln: u16, pllp: Pllp) -> u32 {
     let sysclk = match input_src {
         InputSrc::Pll(pll_src) => {
             let input_freq = match pll_src {

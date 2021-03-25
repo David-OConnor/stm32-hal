@@ -44,26 +44,19 @@ impl<I2C> I2c<I2C>
 where
     I2C: Deref<Target = i2c1::RegisterBlock>,
 {
-    /// Configures the I2C peripheral. `freq` is in Hz. Checks pin cfg.
-    pub fn new<C: ClockCfg, SDA: GpioPin, SCL: GpioPin>(
-        i2c: I2C,
-        device: I2cDevice,
-        sda: SDA,
-        scl: SCL,
-        freq: u32,
-        clocks: &C,
-        rcc: &mut RCC,
-    ) -> Self {
-        if let OutputType::PushPull = sda.get_output_type() {
-            panic!("SDA pin must be configured as open drain.")
-        }
-        if let OutputType::PushPull = scl.get_output_type() {
-            panic!("SCL pin must be configured as open drain.")
-        }
-        // todo: Check we're using the right pins, and the alt fns.
-
-        Self::new_unchecked(i2c, device, freq, clocks, rcc)
-    }
+    // /// Configures the I2C peripheral. `freq` is in Hz. Checks pin cfg.
+    // pub fn new<C: ClockCfg, SDA: GpioPin, SCL: GpioPin>(
+    //     i2c: I2C,
+    //     device: I2cDevice,
+    //     sda: SDA,
+    //     scl: SCL,
+    //     freq: u32,
+    //     clocks: &C,
+    //     rcc: &mut RCC,
+    // ) -> Self {
+    //     // todo
+    //     Self::new_unchecked(i2c, device, freq, clocks, rcc)
+    // }
 
     /// Configures the I2C peripheral. `freq` is in Hz. Doesn't check pin config.
     pub fn new_unchecked<C: ClockCfg>(

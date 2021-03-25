@@ -47,7 +47,7 @@ enum AdcNum {
     Four,
 }
 
-/// Analog Digital Converter Peripheral
+/// Analog to Digital converter peripheral
 pub struct Adc<ADC> {
     /// ADC Register
     regs: ADC,
@@ -308,7 +308,7 @@ macro_rules! hal {
                 self.operation_mode = OperationMode::OneShot;
             }
 
-            fn set_sequence_len(&mut self, len: u8) {
+            pub fn set_sequence_len(&mut self, len: u8) {
                 if len - 1 >= 16 {
                     panic!("ADC sequence length must be in 1..=16")
                 }
@@ -323,7 +323,7 @@ macro_rules! hal {
                 }
             }
 
-            fn set_align(&self, align: Align) {
+            pub fn set_align(&self, align: Align) {
                 #[cfg(feature = "h7")]
                 self.regs.cfgr2.modify(|_, w| w.lshift().bits(align as u8));
 
@@ -575,7 +575,7 @@ macro_rules! hal {
 
             /// Start a conversion: Either a single measurement, or continuous conversions.
             /// See L4 RM 16.4.15 for details.
-            pub fn start_conversion(&mut self, chan: u8, input_type: InputType, mode: OperationMode) {
+            pub fn start_conversion(&mut self, chan: u8, mode: OperationMode) {
                 // Set continuous or differential mode.
                 self.regs.cfgr.modify(|_, w| w.cont().bit(mode as u8 != 0));
                 self.select_channel(chan);
@@ -650,7 +650,7 @@ macro_rules! hal {
                 type Error = ();
 
                 fn read(&mut self, _pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
-                    self.start_conversion(PIN::channel(), InputType::SingleEnded, OperationMode::OneShot);
+                    self.start_conversion(PIN::channel(), OperationMode::OneShot);
                     return Ok(self.read_result().into());
                 }
         }

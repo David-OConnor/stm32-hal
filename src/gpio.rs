@@ -2,6 +2,7 @@
 //! Unlike mOspeedrt other modules, it relies on modifying raw pointers, instead of our
 //! register traits; this allows for the `embedded-hal` Pin abstraction; STM32 registers
 //! are organized by port, not pin.
+//!
 
 use core::convert::Infallible;
 
@@ -239,8 +240,8 @@ macro_rules! make_port {
                     let mut result = [<Gpio $Port Pin>] {
                         port: PortLetter::[<$Port>],
                         pin,
-                        mode,
-                        output_type: OutputType::PushPull, // Registers initialize to this.
+                        // mode,
+                        // output_type: OutputType::PushPull, // Registers initialize to this.
                     };
                     result.mode(mode, &mut self.regs);
 
@@ -357,8 +358,6 @@ macro_rules! make_pin {
         pub struct [<Gpio $Port Pin>] {
             pub port: PortLetter,
             pub pin: PinNum,
-            pub mode: PinMode,
-            pub output_type: OutputType,
         }
 
         impl [<Gpio $Port Pin>] {
@@ -369,7 +368,7 @@ macro_rules! make_pin {
             pub fn mode(&mut self, value: PinMode, regs: &mut [<GPIO $Port>]) {
                 set_field!(self.pin, regs, moder, moder, bits, value.val(), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 
-                self.mode = value;
+                // self.mode = value;
 
                 if let PinMode::Alt(alt) = value {
                     self.alt_fn(alt, regs);
@@ -380,7 +379,7 @@ macro_rules! make_pin {
             pub fn output_type(&mut self, value: OutputType, regs: &mut [<GPIO $Port>]) {
                 set_field!(self.pin, regs, otyper, ot, bit, value as u8 != 0, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 
-                self.output_type = value;
+                // self.output_type = value;
             }
 
             /// Set output speed.
@@ -511,36 +510,55 @@ macro_rules! make_pin {
                 }
             }
 
-            // todo: Look up how you do EXTI on H7. It maybe similar to L5.
-            #[cfg(not(any(feature = "f373", feature = "h7")))]
-            /// Configure this pin as an interrupt source.
-            pub fn enable_interrupt(&mut self, edge: Edge, exti: &mut EXTI, syscfg: &mut SYSCFG) {
-                // todo: On newer ones, don't accept SYSCFG for this function.
-                let rise_trigger = match edge {
-                    Edge::Rising => {
-                        // configure EXTI line to trigger on rising edge, disable trigger on falling edge.
-                        true
-                    }
-                    Edge::Falling => {
-                        // configure EXTI line to trigger on falling edge, disable trigger on rising edge.
-                        false
-                    }
-                };
+            // We split into 2 separate functions, so newer MCUs don't need to pass the SYSCFG register.
+            cfg_if::cfg_if! {
+                if #[cfg(any(feature = "l5", feature = "h7"))] {
+                    /// Configure this pin as an interrupt source.
+                    pub fn enable_interrupt(&mut self, edge: Edge, exti: &mut EXTI) {
+                        // todo: On newer ones, don't accept SYSCFG for this function.
+                        let rise_trigger = match edge {
+                            Edge::Rising => {
+                                // configure EXTI line to trigger on rising edge, disable trigger on falling edge.
+                                true
+                            }
+                            Edge::Falling => {
+                                // configure EXTI line to trigger on falling edge, disable trigger on rising edge.
+                                false
+                            }
+                        };
 
-                cfg_if::cfg_if! {
-                    if #[cfg(any(feature = "l5", feature = "h7"))] {
                         set_exti_new!(self.pin, exti, rise_trigger, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
                             (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
                             (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
                             (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)])
-                    } else if #[cfg(feature = "f4")] {
-                        set_exti_f4!(self.pin, exti, syscfg, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
-                            (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
-                            (13, 4), (14, 4), (15, 4)])
-                    } else {
-                        set_exti!(self.pin, exti, syscfg, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
-                            (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
-                            (13, 4), (14, 4), (15, 4)])
+
+                    }
+                } else if #[cfg(not(feature = "f373"))] {
+                    /// Configure this pin as an interrupt source.
+                    pub fn enable_interrupt(&mut self, edge: Edge, exti: &mut EXTI, syscfg: &mut SYSCFG) {
+                        // todo: On newer ones, don't accept SYSCFG for this function.
+                        let rise_trigger = match edge {
+                            Edge::Rising => {
+                                // configure EXTI line to trigger on rising edge, disable trigger on falling edge.
+                                true
+                            }
+                            Edge::Falling => {
+                                // configure EXTI line to trigger on falling edge, disable trigger on rising edge.
+                                false
+                            }
+                        };
+
+                        cfg_if::cfg_if! {
+                            if #[cfg(feature = "f4")] {
+                                set_exti_f4!(self.pin, exti, syscfg, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
+                                    (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
+                                    (13, 4), (14, 4), (15, 4)])
+                            } else {
+                                set_exti!(self.pin, exti, syscfg, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
+                                    (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
+                                    (13, 4), (14, 4), (15, 4)])
+                            }
+                        }
                     }
                 }
             }
@@ -669,11 +687,15 @@ macro_rules! make_pin {
             }
 
             fn get_mode(&self) -> PinMode {
-                self.mode
+                // self.mode
+                // todo: Reg read.
+                unimplemented!()
             }
 
             fn get_output_type(&self) -> OutputType {
-                self.output_type
+                // self.output_type
+                // todo: Reg read.
+                unimplemented!()
             }
         }
 

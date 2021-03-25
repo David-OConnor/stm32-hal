@@ -77,12 +77,7 @@ macro_rules! hal {
                     freq: u32,
                     clocks: &C,
                     rcc: &mut RCC,
-                ) -> Self
-                // where
-                //     SCK: SckPin<$SPIX>,
-                //     MISO: MisoPin<$SPIX>,
-                //     MOSI: MosiPin<$SPIX>,
-                {
+                ) -> Self {
                     // enable or reset $SPIX
 
                     // todo: this is similar to code we use in `timer.rs`.
