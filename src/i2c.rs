@@ -1,4 +1,4 @@
-//! Inter-Integrated Circuit (I2C) bus. Also supports SMBUS.
+//! Inter-Integrated Circuit (I2C) bus. Also supports SMBUS. Implements traits from `embedded-hal`.
 
 // Based on `stm32h7xx-hal`.
 

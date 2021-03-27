@@ -1,5 +1,5 @@
 //! Serial module. Supports U[S]ART, CAN, and RS485 functionality, with DMA access.
-//!
+//! Implements traits from `embedded-hal`.
 //! This module support both polling and interrupt based accesses to the serial peripherals.
 
 // Based on `stm32l4xx-hal`.

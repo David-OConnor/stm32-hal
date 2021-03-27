@@ -1,4 +1,4 @@
-//! Delays, using Cortex
+//! Hardware delays, using Cortex-m systick.
 
 // Based on `stm32l4xx-hal`.
 

@@ -1,6 +1,6 @@
-//! Based on `stm32l4xx-hal`.
-
 //! Direct Memory Access Engine
+
+// Based on `stm32l4xx-hal`.
 
 #![allow(dead_code)]
 

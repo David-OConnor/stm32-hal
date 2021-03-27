@@ -1,4 +1,4 @@
-//! Serial Peripheral Interface (SPI) bus.
+//! Serial Peripheral Interface (SPI) bus. Implements traits from `embedded-hal`.
 
 // Based on `stm32l4xx-hal`.
 

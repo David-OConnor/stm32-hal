@@ -1,4 +1,5 @@
-// Traits used across the library. Could be used more generally than in this lib.
+//! Traits used across the library. These may find general use beyond this library, and this
+//! module may eventually be moved to a standalone crate.
 
 /// Is a set of speeds valid?
 #[derive(Clone, Copy)]

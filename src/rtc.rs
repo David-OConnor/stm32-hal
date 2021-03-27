@@ -424,7 +424,12 @@ impl Rtc {
                 // exti.imr1.modify(|_, w| w.mr17().unmasked());
                 // exti.rtsr1.modify(|_, w| w.rt17().bit(true));
                 // exti.ftsr1.modify(|_, w| w.ft17().bit(false));
-            } else {
+
+           } else if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
+                exti.c1imr1.modify(|_, w| w.mr20().unmasked());  // todo?
+                exti.rtsr1.modify(|_, w| w.tr20().bit(true));
+                exti.ftsr1.modify(|_, w| w.tr20().bit(false));
+           } else {
                 exti.cpuimr1.modify(|_, w| w.mr20().unmasked());
                 exti.rtsr1.modify(|_, w| w.tr20().bit(true));
                 exti.ftsr1.modify(|_, w| w.tr20().bit(false));

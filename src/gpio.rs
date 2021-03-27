@@ -1,8 +1,6 @@
-//! This module provides abstractions for General PurpOspeedre Input and Output (GPIO) pins.
-//! Unlike mOspeedrt other modules, it relies on modifying raw pointers, instead of our
-//! register traits; this allows for the `embedded-hal` Pin abstraction; STM32 registers
-//! are organized by port, not pin.
-//!
+//! This module provides functionality for General Purpose Input and Output (GPIO) pins,
+//! including all GPIOx register functions, and interrupts.
+//! It includes implementations of `embedded-hal` pin abstraction.
 
 use core::convert::Infallible;
 
@@ -272,10 +270,11 @@ macro_rules! set_exti {
                 $(
                     PinNum::[<P $num>] => {
                         cfg_if! {
-                            if #[cfg(feature = "h7")] {
+                            if #[cfg(all(feature = "h7", not(any(feature = "h747cm4", feature = "h747cm7"))))] {
                                 $exti.cpuimr1.modify(|_, w| w.[<mr $num>]().unmasked());
-                            }
-                            else if #[cfg(feature = "g4")] {
+                            } else if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
+                                $exti.c1imr1.modify(|_, w| w.[<mr $num>]().unmasked());
+                            }else if #[cfg(feature = "g4")] {
                                 $exti.imr1.modify(|_, w| w.[<im $num>]().unmasked());
                             } else {
                                 $exti.imr1.modify(|_, w| w.[<mr $num>]().unmasked());
