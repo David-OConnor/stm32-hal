@@ -121,8 +121,12 @@ macro_rules! hal {
                         rcc.apb1enr.modify(|_, w| w.dac1en().set_bit());
                     } else if #[cfg(any(feature = "l4", feature = "l5"))] {
                         rcc.apb1enr1.modify(|_, w| w.dac1en().set_bit());
-                    } else if #[cfg(feature = "h7")] {
+                    } else if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
                         rcc.apb1lenr.modify(|_, w| w.dac12en().set_bit());
+                    } else if #[cfg(feature = "h7b3")] {
+                        rcc.apb1lenr.modify(|_, w| w.dac1en().set_bit());
+                    } else { // eg g4
+                        rcc.ahb2enr.modify(|_, w| w.dac1en().set_bit());
                     }
                 }
 
@@ -139,8 +143,12 @@ macro_rules! hal {
                         rcc.apb1enr.modify(|_, w| w.dac1en().clear_bit());
                     } else if #[cfg(any(feature = "l4", feature = "l5"))] {
                         rcc.apb1enr1.modify(|_, w| w.dac1en().clear_bit());
-                    } else if #[cfg(feature = "h7")] {
+                    } else if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
                         rcc.apb1lenr.modify(|_, w| w.dac12en().clear_bit());
+                    } else if #[cfg(feature = "h7b3")] {
+                        rcc.apb1lenr.modify(|_, w| w.dac1en().clear_bit());
+                    } else { // eg g4
+                        rcc.ahb2enr.modify(|_, w| w.dac1en().clear_bit());
                     }
                 }
 
@@ -289,5 +297,5 @@ hal!(
     dac_dhr12r2
 );
 
-#[cfg(feature = "h7")]
+#[cfg(all(feature = "h7", not(feature = "h7b3")))] // todo h7b3?
 hal!(DAC, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
