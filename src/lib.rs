@@ -18,6 +18,7 @@
 // todo issues hidden in modules we need to fix:
 // - Timer can't set PSC on L5 TIM15: getting alternating `field, not a method`, and the inverse errors.
 // - tim15 on L5 is effectively broken until this is fixed.
+// - add ADC for G4.
 
 #![no_std]
 // Some reg modifications are marked `unsafe` in some PAC crates, but not others.

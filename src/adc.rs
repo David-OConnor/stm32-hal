@@ -776,3 +776,5 @@ hal!(ADC3, ADC_COMMON, adc3, AdcNum::Three);
     feature = "h7b3",
 ))]
 hal!(ADC1, ADC1, adc1, AdcNum::One);
+
+// todo: g4

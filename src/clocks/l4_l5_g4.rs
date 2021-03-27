@@ -554,14 +554,16 @@ impl Clocks {
         Ok(())
     }
 
-    /// This preset configures common with a 8Mhz HSE, a 80Mhz sysclck. All peripheral clocks are at
-    /// 80Mhz. HSE output is not bypassed.
+    /// This preset configures common with a 8Mhz HSE, a 80Mhz sysclck (L4). All peripheral clocks are at
+    /// 80Mhz (L4). L5 speeds: 108Mhz. G4 speeds: 168Mhz. HSE output is not bypassed.
     pub fn hse_preset() -> Self {
         Self {
             input_src: InputSrc::Pll(PllSrc::Hse(8)),
             pllm: Pllm::Div1,
-            #[cfg(not(feature = "g4"))]
+            #[cfg(feature = "l4")]
             plln: 20,
+            #[cfg(feature = "l5")]
+            plln: 27,
             #[cfg(feature = "g4")]
             plln: 42,
             #[cfg(not(feature = "g4"))]
@@ -689,14 +691,16 @@ impl ClockCfg for Clocks {
 }
 
 impl Default for Clocks {
-    /// This default configures common with a HSI, a 80Mhz sysclck (l4/5). All peripheral clocks are at
-    /// 80Mhz (l4/5). 168Mhz for G4.
+    /// This default configures common with a HSI, a 80Mhz sysclck (l4). All peripheral clocks are at
+    /// 80Mhz (l4). L5 speeds: 108Mhz. G4 speeds: 168Mhz.
     fn default() -> Self {
         Self {
             input_src: InputSrc::Pll(PllSrc::Hsi),
             pllm: Pllm::Div2,
-            #[cfg(not(feature = "g4"))]
+            #[cfg(feature = "l4")]
             plln: 20,
+            #[cfg(feature = "l5")]
+            plln: 27,
             #[cfg(feature = "g4")]
             plln: 42,
             #[cfg(not(feature = "g4"))]

@@ -265,14 +265,29 @@ hal!(
     dac_dhr12r2
 );
 
-#[cfg(feature = "l4")]
+#[cfg(all(feature = "l4", not(feature = "l4x6")))]
 hal!(DAC1, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
+
+#[cfg(feature = "l4x6")]
+hal!(DAC, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
 
 #[cfg(all(feature = "f3", not(feature = "f302")))]
 hal!(DAC1, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
 
 #[cfg(feature = "f302")]
 hal!(DAC, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
+
+#[cfg(feature = "g4")] // Same as L5, but DAC1.
+hal!(
+    DAC1,
+    dac_cr,
+    dac_dhr8r2,
+    dac_dhr12l2,
+    dac_dhr12r2,
+    dac_dhr8r2,
+    dac_dhr12l2,
+    dac_dhr12r2
+);
 
 #[cfg(feature = "h7")]
 hal!(DAC, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
