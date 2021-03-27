@@ -8,6 +8,8 @@ use crate::pac::{EXTI, PWR, RCC, RTC};
 use core::convert::TryInto;
 use rtcc::{Datelike, Hours, NaiveDate, NaiveDateTime, NaiveTime, Rtcc, Timelike};
 
+use cfg_if::cfg_if;
+
 // todo: QC against other RTC modules.
 
 /// This provides a default handler for RTC inputs that clears the EXTI line and
@@ -28,11 +30,13 @@ macro_rules! make_wakeup_interrupt_handler {
                     (*pac::RTC::ptr()).wpr.write(|w| w.bits(0x53));
                     (*pac::RTC::ptr()).cr.modify(|_, w| w.wute().clear_bit());
 
-                    #[cfg(feature = "l5")]
-                    (*pac::RTC::ptr()).icsr.modify(|_, w| w.wutf().clear_bit());
-
-                    #[cfg(not(feature = "l5"))]
-                    (*pac::RTC::ptr()).isr.modify(|_, w| w.wutf().clear_bit());
+                    cfg_if! {
+                        if #[cfg(any(feature = "l5", feature = "g4"))] {
+                            (*pac::RTC::ptr()).scr.write(|w| w.cwutf().set_bit());
+                        } else {
+                            (*pac::RTC::ptr()).isr.modify(|_, w| w.wutf().clear_bit());
+                        }
+                    }
 
                     (*pac::RTC::ptr()).cr.modify(|_, w| w.wute().set_bit());
                     (*pac::RTC::ptr()).wpr.write(|w| w.bits(0xFF));
@@ -184,7 +188,7 @@ impl Rtc {
         // set. Enable the backup interface by setting PWREN
         // Unlock the backup domain
         // todo: Shortcut to specify just "l4" instead of all these?
-        cfg_if::cfg_if! {
+        cfg_if! {
             if #[cfg(feature = "f3")] {
                 rcc.apb1enr.modify(|_, w| w.pwren().set_bit());
                 pwr.cr.read(); // read to allow the pwr clock to enable
@@ -388,6 +392,7 @@ impl Rtc {
             .modify(|_, w| unsafe { w.wucksel().bits(word) });
     }
 
+    #[cfg(not(feature = "f373"))]
     /// Setup periodic auto-wakeup interrupts. See ST AN4759, Table 11, and more broadly,
     /// section 2.4.1. See also reference manual, section 27.5.
     /// In addition to running this function, set up the interrupt handling function by
@@ -399,19 +404,30 @@ impl Rtc {
         // interrupt mode and select the rising edge sensitivity.
         // Sleep time is in seconds
 
-        // todo: How do you set up the line on L5 and H7?
+        // todo: The exti line in question varies. What is it for L4? Is this section right?
+        // todo: Do we need it?
 
-        cfg_if::cfg_if! {
-            if #[cfg(any(all(feature = "f3", not(feature = "f373")), feature = "l4"))] {
+        cfg_if! {
+            if #[cfg(any(feature = "f3", feature = "l4"))] {
                 exti.imr1.modify(|_, w| w.mr20().unmasked());
                 exti.rtsr1.modify(|_, w| w.tr20().bit(true));
                 exti.ftsr1.modify(|_, w| w.tr20().bit(false));
-            } else if #[cfg(any(feature = "f4"))] {
+            } else if #[cfg(feature = "f4")] {
                 exti.imr.modify(|_, w| w.mr20().unmasked());
                 exti.rtsr.modify(|_, w| w.tr20().bit(true));
                 exti.ftsr.modify(|_, w| w.tr20().bit(false));
+            } else if #[cfg(feature = "g4")]{
+                exti.imr1.modify(|_, w| w.im20().unmasked());
+                exti.rtsr1.modify(|_, w| w.rt20().bit(true));
+                exti.ftsr1.modify(|_, w| w.ft20().bit(false));
+            } else if #[cfg(feature = "l5")] { // todo see note aboev
+                // exti.imr1.modify(|_, w| w.mr17().unmasked());
+                // exti.rtsr1.modify(|_, w| w.rt17().bit(true));
+                // exti.ftsr1.modify(|_, w| w.ft17().bit(false));
             } else {
-                // todo: L5 and h7! Which do they fit?
+                exti.cpuimr1.modify(|_, w| w.mr20().unmasked());
+                exti.rtsr1.modify(|_, w| w.tr20().bit(true));
+                exti.ftsr1.modify(|_, w| w.tr20().bit(false));
             }
         }
 
@@ -425,11 +441,13 @@ impl Rtc {
 
         // Ensure access to Wakeup auto-reload counter and bits WUCKSEL[2:0] is allowed.
         // Poll WUTWF until it is set in RTC_ISR (RTC2)/RTC_ICSR (RTC3) (May not be avail on F3)
-        #[cfg(feature = "l5")]
-        while self.regs.icsr.read().wutwf().bit_is_clear() {}
-
-        #[cfg(not(feature = "l5"))]
-        while self.regs.isr.read().wutwf().bit_is_clear() {}
+        cfg_if! {
+            if #[cfg(any(feature = "l5", feature = "g4"))] {
+                while self.regs.icsr.read().wutwf().bit_is_clear() {}
+            } else {
+                while self.regs.isr.read().wutwf().bit_is_clear() {}
+            }
+        }
 
         self.set_wakeup_interval_inner(sleep_time);
         // Re-enable the wakeup timer. Set WUTE bit in RTC_CR register.
@@ -439,14 +457,13 @@ impl Rtc {
         // Enable the wakeup timer interrupt.
         self.regs.cr.modify(|_, w| w.wutie().set_bit());
 
-        // todo: This wakeup functionality may not work on l5 without clearing the WTUF flag.. Fix it.
-        // Clear the  wakeup flag.
-        // #[cfg(feature = "l5")]
-        // // todo: Do we want to do this on l4 too? `rtc_sr` is not present on f3 or h7(?).
-        // self.regs.scr.modify(|_, w| w.cwutf().set_bit());
-
-        #[cfg(not(feature = "l5"))]
-        self.regs.isr.modify(|_, w| w.wutf().clear_bit());
+        cfg_if! {
+            if #[cfg(any(feature = "l5", feature = "g4"))] {
+                self.regs.scr.write(|w| w.cwutf().set_bit());
+            } else {
+                self.regs.isr.modify(|_, w| w.wutf().clear_bit());
+            }
+        }
 
         self.regs.wpr.write(|w| unsafe { w.bits(0xFF) });
     }
@@ -486,10 +503,14 @@ impl Rtc {
         self.regs.cr.modify(|_, w| w.wute().clear_bit());
 
         #[cfg(feature = "l5")]
-        while self.regs.icsr.read().wutwf().bit_is_clear() {}
 
-        #[cfg(not(feature = "l5"))]
-        while self.regs.isr.read().wutwf().bit_is_clear() {}
+        cfg_if! {
+            if #[cfg(any(feature = "l5", feature = "g4"))] {
+                while self.regs.icsr.read().wutwf().bit_is_clear() {}
+            } else {
+                while self.regs.isr.read().wutwf().bit_is_clear() {}
+            }
+        }
 
         self.set_wakeup_interval_inner(sleep_time);
 
@@ -504,12 +525,14 @@ impl Rtc {
         self.edit_regs(false, |regs| {
             regs.cr.modify(|_, w| w.wute().clear_bit());
 
-            // todo: This wakeup functionality may not work on l5 without clearing the WTUF flag.. Fix it.
-            // #[cfg(feature = "l5")]
-            // regs.icsr.modify(|_, w| w.wutf().clear_bit());
+            cfg_if! {
+                if #[cfg(any(feature = "l5", feature = "g4"))] {
+                    regs.scr.write(|w| w.cwutf().set_bit());
+                } else {
+                    regs.isr.modify(|_, w| w.wutf().clear_bit());
+                }
+            }
 
-            #[cfg(not(feature = "l5"))]
-            regs.isr.modify(|_, w| w.wutf().clear_bit());
             regs.cr.modify(|_, w| w.wute().set_bit());
         });
     }
@@ -528,8 +551,8 @@ impl Rtc {
 
         // todo: L4 has ICSR and ISR regs. Maybe both for backwards compat?
 
-        cfg_if::cfg_if! {
-             if #[cfg(feature = "l5")] {
+        cfg_if! {
+             if #[cfg(any(feature = "l5", feature = "g4"))] {
                  // Enter init mode if required. This is generally used to edit the clock or calendar,
                  // but not for initial enabling steps.
                  if init_mode && self.regs.icsr.read().initf().bit_is_clear() {

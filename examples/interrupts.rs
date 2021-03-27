@@ -50,7 +50,7 @@ fn main() -> ! {
     button.enable_interrupt(Edge::Falling, &mut dp.EXTI, &mut dp.SYSCFG);
 
     // Set up and start a timer; set it to fire interrupts every 5 seconds.
-    let mut timer_1 = Timer::tim3(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
+    let mut timer_1 = Timer::new_tim3(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
     timer.listen(TimeOut); // Enable update event interrupts.
 
     // Set up the realtime clock.
@@ -64,7 +64,7 @@ fn main() -> ! {
     // Set the RTC to trigger an interrupt every 30 seconds.
     rtc.set_wakeup(&mut dp.EXTI, 30.);
 
-    let mut adc = Adc::new_adc1_unchecked(
+    let mut adc = Adc::new_adc1(
         dp.ADC1,
         &mut dp.ADC_COMMON,
         adc::CkMode::default(),

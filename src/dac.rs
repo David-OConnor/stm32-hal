@@ -8,10 +8,7 @@
 // Some MCUs (F3 and G4?) use a second DAC interface - this is currently not
 // implemented.
 
-use core::fmt;
-
 use crate::{
-    gpio::{GpioPin, PinMode},
     pac::{self, RCC},
     traits::SingleChannelDac,
 };
@@ -102,7 +99,7 @@ macro_rules! hal {
             // }
 
             /// Create a new DAC instance, without checking the output pin
-            pub fn new_unchecked(
+            pub fn new(
                 regs: pac::$DAC,
                 // num: DacNum,  // todo implement this, eg for enabling and disabling.
                 channel: Channel,
@@ -119,7 +116,7 @@ macro_rules! hal {
 
             /// Enable the DAC.
             pub fn enable(&mut self, rcc: &mut RCC) {
-                cfg_if::cfg_if! {
+                cfg_if! {
                     if #[cfg(feature = "f3")] {
                         rcc.apb1enr.modify(|_, w| w.dac1en().set_bit());
                     } else if #[cfg(any(feature = "l4", feature = "l5"))] {
@@ -137,7 +134,7 @@ macro_rules! hal {
 
             /// Disable the DAC
             pub fn disable(&mut self, rcc: &mut RCC) {
-                cfg_if::cfg_if! {
+                cfg_if! {
                     if #[cfg(feature = "f3")] {
                         rcc.apb1enr.modify(|_, w| w.dac1en().clear_bit());
                     } else if #[cfg(any(feature = "l4", feature = "l5"))] {
@@ -271,8 +268,11 @@ hal!(
 #[cfg(feature = "l4")]
 hal!(DAC1, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
 
-#[cfg(feature = "f3")]
+#[cfg(all(feature = "f3", not(feature = "f302")))]
 hal!(DAC1, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
+
+#[cfg(feature = "f302")]
+hal!(DAC, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);
 
 #[cfg(feature = "h7")]
 hal!(DAC, cr, dhr8r1, dhr12l1, dhr12r1, dhr8r2, dhr12l2, dhr12r2);

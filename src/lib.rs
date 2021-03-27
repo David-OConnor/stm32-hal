@@ -16,12 +16,8 @@
 // these warnings; ie hidden during build.
 
 // todo issues hidden in modules we need to fix:
-// - RTC wakeup clearing WUTF flag on L5. Not sure how to do it; SR? (Can't modify) ICSR? (don't remember the problme there)
-// - And RTC wakeup on L5 and H7.
-// - Timer can't set PSC on L5: getting alternating `field, not a method`, and the inverse errors.
-// - timer on L5 is effectively broken until this is fixed.
-// - EXTI / interrupts on L5 and H7. What are the steps for H7? We have it compiling on L5,
-// - but I don't think the EXTICRn register writes are set up correctly.
+// - Timer can't set PSC on L5 TIM15: getting alternating `field, not a method`, and the inverse errors.
+// - tim15 on L5 is effectively broken until this is fixed.
 
 #![no_std]
 // Some reg modifications are marked `unsafe` in some PAC crates, but not others.
@@ -41,6 +37,21 @@
     feature = "l4x6",
     feature = "l552",
     feature = "l562",
+    feature = "g030",
+    feature = "g31",
+    feature = "g041",
+    feature = "g070",
+    feature = "g071",
+    feature = "g081",
+    feature = "g431",
+    feature = "g441",
+    feature = "g471",
+    feature = "g473",
+    feature = "g474",
+    feature = "g483",
+    feature = "g484",
+    feature = "g491",
+    feature = "g4a1",
     feature = "h743",
     feature = "h743v",
     feature = "h747cm4",
@@ -89,6 +100,53 @@ pub use stm32l5::stm32l552 as pac;
 
 #[cfg(feature = "l562")]
 pub use stm32l5::stm32l562 as pac;
+
+// G0 PAC
+#[cfg(feature = "g030")]
+pub use stm32g0::stm32g030 as pac;
+
+#[cfg(feature = "g031")]
+pub use stm32g0::stm32g031 as pac;
+
+#[cfg(feature = "g041")]
+pub use stm32g0::stm32g041 as pac;
+
+#[cfg(feature = "g070")]
+pub use stm32g0::stm32g070 as pac;
+
+#[cfg(feature = "g071")]
+pub use stm32g0::stm32g071 as pac;
+
+#[cfg(feature = "g081")]
+pub use stm32g0::stm32g081 as pac;
+
+// G4 PAC
+#[cfg(feature = "g431")]
+pub use stm32g4::stm32g431 as pac;
+
+#[cfg(feature = "g441")]
+pub use stm32g4::stm32g441 as pac;
+
+#[cfg(feature = "g471")]
+pub use stm32g4::stm32g471 as pac;
+
+#[cfg(feature = "g473")]
+pub use stm32g4::stm32g473 as pac;
+
+#[cfg(feature = "g474")]
+pub use stm32g4::stm32g474 as pac;
+
+#[cfg(feature = "g483")]
+pub use stm32g4::stm32g483 as pac;
+
+#[cfg(feature = "g484")]
+pub use stm32g4::stm32g484 as pac;
+
+#[cfg(feature = "g491")]
+pub use stm32g4::stm32g491 as pac;
+
+#[cfg(feature = "g4a1")]
+pub use stm32g4::stm32g4a1 as pac;
 
 // H7 PAC
 #[cfg(feature = "h743")]
@@ -182,7 +240,7 @@ macro_rules! make_globals {
 /// Syntax helper for setting global variables of the form `Mutex<Cell<>>>`.
 /// eg in interrupt handlers. Ideal for copy-type variables.
 ///
-/// Example: `make_globals!(
+/// Example: `make_simple_globals!(
 ///     (VALUE, f32, 2.),
 ///     (SETTING, Setting, Setting::A),
 /// )`

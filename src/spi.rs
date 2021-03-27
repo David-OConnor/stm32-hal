@@ -231,12 +231,12 @@ macro_rules! hal {
     feature = "l4x6"
 ))]
 hal! {
-    SPI1: (spi1, spi1_unchecked, apb2, enr, rstr, spi1en),
+    SPI1: (spi1, new_spi1, apb2, enr, rstr, spi1en),
 }
 
 #[cfg(any(feature = "f302", feature = "f303", feature = "f373", feature = "f3x4",))]
 hal! {
-    SPI1: (spi1, spi1_unchecked, apb2, enr, rstr, spi1en),
+    SPI1: (spi1, new_spi1, apb2, enr, rstr, spi1en),
 }
 
 // #[cfg(any(feature = "l4", feature = "l5"))]
@@ -246,7 +246,7 @@ hal! {
 
 #[cfg(any(feature = "f301", feature = "f302", feature = "f303", feature = "f373",))]
 hal! {
-    SPI2: (spi2, spi2_unchecked, apb1, enr1, rstr1, spi2en),
+    SPI2: (spi2, new_spi2, apb1, enr1, rstr1, spi2en),
 }
 
 #[cfg(any(
@@ -259,24 +259,24 @@ hal! {
     feature = "l562",
 ))]
 hal! {
-    SPI2: (spi2, spi2_unchecked, apb1, enr1, rstr1, spi2en),
+    SPI2: (spi2, new_spi2, apb1, enr1, rstr1, spi2en),
 }
 
 #[cfg(any(feature = "f301", feature = "f302", feature = "f303", feature = "f373",))]
 hal! {
-    SPI3: (spi3, spi3_unchecked, apb1, enr1, rstr1, spi3en),
+    SPI3: (spi3, new_spi3, apb1, enr1, rstr1, spi3en),
 }
 
 #[cfg(any(feature = "l4x1", feature = "l4x4", feature = "l4x5", feature = "l4x6",))]
 hal! {
-    SPI3: (spi3, spi3_unchecked, apb1, enr1, rstr1, spi3en),
+    SPI3: (spi3, new_spi3, apb1, enr1, rstr1, spi3en),
 }
 
 // The final argument of the macro appears to be needed due to a differene
 // in the SPI3 L4 RM and SVDs: It's `sp3en` instead of `spi3en` for some variants.
 #[cfg(any(feature = "l4x3", feature = "l552", feature = "l562"))]
 hal! {
-    SPI3: (spi3, spi3_unchecked, apb1, enr1, rstr1, sp3en),
+    SPI3: (spi3, new_spi3, apb1, enr1, rstr1, sp3en),
 }
 
 // #[cfg(any(

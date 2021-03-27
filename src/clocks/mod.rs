@@ -11,9 +11,9 @@ cfg_if::cfg_if! {
     if #[cfg(any(feature = "f3", feature = "f4"))] {
         mod f3_4;
         pub use f3_4::*;
-    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
-        mod l4_5;
-        pub use l4_5::*;
+    } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
+        mod l4_l5_g4;
+        pub use l4_l5_g4::*;
     } else if #[cfg(feature = "u5")] {
         // todo once SVD is out
     } else if #[cfg(feature = "h7")] {

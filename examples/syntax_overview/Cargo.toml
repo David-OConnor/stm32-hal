@@ -11,7 +11,7 @@ panic-probe = { version = "0.2.0", features = ["print-defmt"] }
 
 cortex-m = "0.7.1"
 cortex-m-rt = "0.6.13"
-stm32-hal = { git = "https://github.com/david-oconnor/stm32-hal", features = ["l4x3", "l4rt"]}
+stm32-hal2 = { version = "^0.2.0", features = ["l4x3", "l4rt"]}
 embedded-hal = { version = "0.2.4", features=["unproven"] }
 
 [features]

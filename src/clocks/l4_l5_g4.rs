@@ -3,7 +3,11 @@ use crate::{
     pac::{FLASH, RCC},
     traits::{ClockCfg, ClocksValid},
 };
-#[derive(Clone, Copy)]
+
+use cfg_if::cfg_if;
+
+#[cfg(not(feature = "g4"))]
+#[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum Clk48Src {
     Hsi48 = 0b00, // Only falivd for STM32L49x/L4Ax
@@ -12,6 +16,7 @@ pub enum Clk48Src {
     Msi = 0b11,
 }
 
+#[cfg(not(feature = "g4"))]
 #[derive(Clone, Copy, PartialEq)]
 pub enum PllSrc {
     None,
@@ -20,19 +25,35 @@ pub enum PllSrc {
     Hse(u8),
 }
 
+#[cfg(feature = "g4")]
+#[derive(Clone, Copy, PartialEq)]
+pub enum PllSrc {
+    None,
+    Hsi,
+    Hse(u8),
+}
+
 impl PllSrc {
     /// Required due to numerical value on non-uniform discrim being experimental.
     /// (ie, can't set on `Pll(Pllsrc)`.
     pub fn bits(&self) -> u8 {
+        #[cfg(not(feature = "g4"))]
         match self {
             Self::None => 0b00,
             Self::Msi(_) => 0b01,
             Self::Hsi => 0b10,
             Self::Hse(_) => 0b11,
         }
+        #[cfg(feature = "g4")]
+        match self {
+            Self::None => 0b00,
+            Self::Hsi => 0b10,
+            Self::Hse(_) => 0b11,
+        }
     }
 }
 
+#[cfg(not(feature = "g4"))]
 #[derive(Clone, Copy, PartialEq)]
 pub enum InputSrc {
     Msi(MsiRange),
@@ -41,6 +62,7 @@ pub enum InputSrc {
     Pll(PllSrc),
 }
 
+#[cfg(not(feature = "g4"))]
 impl InputSrc {
     /// Required due to numerical value on non-uniform discrim being experimental.
     /// (ie, can't set on `Pll(Pllsrc)`.
@@ -54,6 +76,28 @@ impl InputSrc {
     }
 }
 
+#[cfg(feature = "g4")]
+#[derive(Clone, Copy, PartialEq)]
+pub enum InputSrc {
+    Hsi,
+    Hse(u8), // freq in Mhz,
+    Pll(PllSrc),
+}
+
+#[cfg(feature = "g4")]
+impl InputSrc {
+    /// Required due to numerical value on non-uniform discrim being experimental.
+    /// (ie, can't set on `Pll(Pllsrc)`.
+    pub fn bits(&self) -> u8 {
+        match self {
+            Self::Hsi => 0b01,
+            Self::Hse(_) => 0b10,
+            Self::Pll(_) => 0b11,
+        }
+    }
+}
+
+#[cfg(not(feature = "g4"))]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum MsiRange {
@@ -71,6 +115,7 @@ pub enum MsiRange {
     Range11 = 0b1011,
 }
 
+#[cfg(not(feature = "g4"))]
 impl MsiRange {
     // Calculate the approximate frequency, in Hz.
     fn value(&self) -> u32 {
@@ -120,6 +165,7 @@ impl Prediv {
     }
 }
 
+#[cfg(not(feature = "g4"))]
 #[derive(Clone, Copy)]
 #[repr(u8)]
 pub enum Pllm {
@@ -133,8 +179,31 @@ pub enum Pllm {
     Div8 = 0b111,
 }
 
+#[cfg(feature = "g4")]
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum Pllm {
+    Div1 = 0b0000,
+    Div2 = 0b0001,
+    Div3 = 0b0010,
+    Div4 = 0b0011,
+    Div5 = 0b0100,
+    Div6 = 0b0101,
+    Div7 = 0b0110,
+    Div8 = 0b0111,
+    Div9 = 0b1000,
+    Div10 = 0b1001,
+    Div11 = 0b1010,
+    Div12 = 0b1011,
+    Div13 = 0b1100,
+    Div14 = 0b1101,
+    Div15 = 0b1110,
+    Div16 = 0b1111,
+}
+
 impl Pllm {
     pub fn value(&self) -> u8 {
+        #[cfg(not(feature = "g4"))]
         match self {
             Self::Div1 => 1,
             Self::Div2 => 2,
@@ -144,6 +213,26 @@ impl Pllm {
             Self::Div6 => 6,
             Self::Div7 => 7,
             Self::Div8 => 8,
+        }
+
+        #[cfg(feature = "g4")]
+        match self {
+            Self::Div1 => 1,
+            Self::Div2 => 2,
+            Self::Div3 => 3,
+            Self::Div4 => 4,
+            Self::Div5 => 5,
+            Self::Div6 => 6,
+            Self::Div7 => 7,
+            Self::Div8 => 8,
+            Self::Div9 => 9,
+            Self::Div10 => 10,
+            Self::Div11 => 11,
+            Self::Div12 => 12,
+            Self::Div13 => 13,
+            Self::Div14 => 14,
+            Self::Div15 => 15,
+            Self::Div16 => 16,
         }
     }
 }
@@ -227,20 +316,26 @@ impl ApbPrescaler {
 pub struct Clocks {
     pub input_src: InputSrc, //
     pub pllm: Pllm,          // PLL divider
-    pub pll_vco_mul: u8,     // PLL multiplier. Valid range of 7 to 86.
-    pub pll_sai1_mul: u8,    // PLL SAI1 multiplier. Valid range of 7 to 86.
-    pub pll_sai2_mul: u8,    // PLL SAI2 multiplier. Valid range of 7 to 86.
+    pub plln: u8,            // PLL multiplier. Valid range of 7 to 86.
+    #[cfg(not(feature = "g4"))]
+    pub pll_sai1_mul: u8, // PLL SAI1 multiplier. Valid range of 7 to 86.
+    #[cfg(not(feature = "g4"))]
+    pub pll_sai2_mul: u8, // PLL SAI2 multiplier. Valid range of 7 to 86.
     pub pllr: Pllr,
     pub hclk_prescaler: HclkPrescaler, // The AHB clock divider.
     pub apb1_prescaler: ApbPrescaler,  // APB1 divider, for the low speed peripheral bus.
     pub apb2_prescaler: ApbPrescaler,  // APB2 divider, for the high speed peripheral bus.
     // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     // frees up the pin for use as GPIO.
+    #[cfg(not(feature = "g4"))]
     pub clk48_src: Clk48Src,
+    #[cfg(not(feature = "g4"))]
     pub sai1_enabled: bool,
+    #[cfg(not(feature = "g4"))]
     pub sai2_enabled: bool,
     pub hse_bypass: bool,
     pub security_system: bool,
+    pub hsi48_on: bool,
 }
 
 impl Clocks {
@@ -255,7 +350,7 @@ impl Clocks {
 
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
-        let (_, sysclk) = calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
+        let (_, sysclk) = calc_sysclock(self.input_src, self.pllm, self.plln, self.pllr);
 
         let hclk = sysclk / self.hclk_prescaler.value() as u32;
         // Reference manual section 3.3.3
@@ -293,6 +388,7 @@ impl Clocks {
 
         // Enable oscillators, and wait until ready.
         match self.input_src {
+            #[cfg(not(feature = "g4"))]
             InputSrc::Msi(range) => {
                 rcc.cr.modify(|_, w| unsafe {
                     w.msirange()
@@ -318,6 +414,7 @@ impl Clocks {
             InputSrc::Pll(pll_src) => {
                 // todo: PLL setup here is DRY with the HSE, HSI, and MSI setup above.
                 match pll_src {
+                    #[cfg(not(feature = "g4"))]
                     PllSrc::Msi(range) => {
                         rcc.cr.modify(|_, w| unsafe {
                             w.msirange()
@@ -354,34 +451,43 @@ impl Clocks {
 
             rcc.pllcfgr.modify(|_, w| unsafe {
                 w.pllsrc().bits(pll_src.bits());
-                w.plln().bits(self.pll_vco_mul);
+                w.plln().bits(self.plln);
                 w.pllm().bits(self.pllm as u8);
                 w.pllr().bits(self.pllr as u8)
             });
 
-            if self.sai1_enabled {
-                rcc.pllsai1cfgr
-                    .modify(|_, w| unsafe { w.pllsai1n().bits(self.pll_sai1_mul) });
-            }
+            cfg_if! {
+                if #[cfg(not(feature = "g4"))] {
+                     if self.sai1_enabled {
+                        rcc.pllsai1cfgr
+                            .modify(|_, w| unsafe { w.pllsai1n().bits(self.pll_sai1_mul) });
+                    }
 
-            #[cfg(any(feature = "l4x5", feature = "l4x6",))]
-            if self.sai2_enabled {
-                rcc.pllsai2cfgr
-                    .modify(|_, w| unsafe { w.pllsai2n().bits(self.pll_sai2_mul) });
+                    #[cfg(any(feature = "l4x5", feature = "l4x6",))]
+                    if self.sai2_enabled {
+                        rcc.pllsai2cfgr
+                            .modify(|_, w| unsafe { w.pllsai2n().bits(self.pll_sai2_mul) });
+                    }
+                }
             }
 
             // Now turn PLL back on, once we're configured things that can only be set with it off.
             // todo: Enable sai1 and 2 with separate settings, or lump in with mail PLL
             // like this?
             rcc.cr.modify(|_, w| w.pllon().set_bit());
-            if self.sai1_enabled {
-                rcc.cr.modify(|_, w| w.pllsai1on().set_bit());
-                while rcc.cr.read().pllsai1rdy().bit_is_clear() {}
-            }
-            #[cfg(any(feature = "l4x5", feature = "l4x6",))]
-            if self.sai2_enabled {
-                rcc.cr.modify(|_, w| w.pllsai2on().set_bit());
-                while rcc.cr.read().pllsai2rdy().bit_is_clear() {}
+
+            cfg_if! {
+                if #[cfg(not(feature = "g4"))] {
+                    if self.sai1_enabled {
+                        rcc.cr.modify(|_, w| w.pllsai1on().set_bit());
+                        while rcc.cr.read().pllsai1rdy().bit_is_clear() {}
+                    }
+                    #[cfg(any(feature = "l4x5", feature = "l4x6",))]
+                    if self.sai2_enabled {
+                        rcc.cr.modify(|_, w| w.pllsai2on().set_bit());
+                        while rcc.cr.read().pllsai2rdy().bit_is_clear() {}
+                    }
+                }
             }
 
             while rcc.cr.read().pllrdy().bit_is_clear() {}
@@ -393,20 +499,24 @@ impl Clocks {
                 w.pllren().set_bit()
             });
 
-            if self.sai1_enabled {
-                rcc.pllsai1cfgr.modify(|_, w| {
-                    w.pllsai1pen().set_bit();
-                    w.pllsai1qen().set_bit();
-                    w.pllsai1ren().set_bit()
-                });
-            }
+            cfg_if! {
+                if #[cfg(not(feature = "g4"))] {
+                    if self.sai1_enabled {
+                        rcc.pllsai1cfgr.modify(|_, w| {
+                            w.pllsai1pen().set_bit();
+                            w.pllsai1qen().set_bit();
+                            w.pllsai1ren().set_bit()
+                        });
+                    }
 
-            #[cfg(any(feature = "l4x5", feature = "l4x6",))]
-            if self.sai2_enabled {
-                rcc.pllsai2cfgr.modify(|_, w| {
-                    w.pllsai2pen().set_bit();
-                    w.pllsai2ren().set_bit()
-                });
+                    #[cfg(any(feature = "l4x5", feature = "l4x6"))]
+                    if self.sai2_enabled {
+                        rcc.pllsai2cfgr.modify(|_, w| {
+                            w.pllsai2pen().set_bit();
+                            w.pllsai2ren().set_bit()
+                        });
+                    }
+                }
             }
         }
 
@@ -429,7 +539,14 @@ impl Clocks {
 
         // Enable the HSI48 as required, which is used for USB, RNG, etc.
         // Only valid for STM32L49x/L4Ax devices.
-        if let Clk48Src::Hsi48 = self.clk48_src {
+        #[cfg(not(feature = "g4"))]
+        if Clk48Src::Hsi48 == self.clk48_src && self.hsi48_on {
+            rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
+            while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
+        }
+
+        #[cfg(feature = "g4")]
+        if self.hsi48_on {
             rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
             while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
         }
@@ -443,18 +560,27 @@ impl Clocks {
         Self {
             input_src: InputSrc::Pll(PllSrc::Hse(8)),
             pllm: Pllm::Div1,
-            pll_vco_mul: 20,
+            #[cfg(not(feature = "g4"))]
+            plln: 20,
+            #[cfg(feature = "g4")]
+            plln: 42,
+            #[cfg(not(feature = "g4"))]
             pll_sai1_mul: 8,
+            #[cfg(not(feature = "g4"))]
             pll_sai2_mul: 8,
             pllr: Pllr::Div2,
             hclk_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div1,
             apb2_prescaler: ApbPrescaler::Div1,
+            #[cfg(not(feature = "g4"))]
             clk48_src: Clk48Src::PllSai1,
+            #[cfg(not(feature = "g4"))]
             sai1_enabled: false,
+            #[cfg(not(feature = "g4"))]
             sai2_enabled: false,
             hse_bypass: false,
             security_system: false,
+            hsi48_on: false,
         }
     }
 }
@@ -462,7 +588,7 @@ impl Clocks {
 // todo: Some extra calculations here, vice doing it once and caching.
 impl ClockCfg for Clocks {
     fn sysclk(&self) -> u32 {
-        let (_, sysclk) = calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
+        let (_, sysclk) = calc_sysclock(self.input_src, self.pllm, self.plln, self.pllr);
         sysclk * 1_000_000
     }
 
@@ -474,9 +600,15 @@ impl ClockCfg for Clocks {
         self.hclk()
     }
 
+    #[cfg(not(feature = "g4"))]
     fn usb(&self) -> u32 {
-        let (input_freq, _) = calc_sysclock(self.input_src, self.pllm, self.pll_vco_mul, self.pllr);
+        let (input_freq, _) = calc_sysclock(self.input_src, self.pllm, self.plln, self.pllr);
         input_freq * 1_000_000 / self.pllm.value() as u32 * self.pll_sai1_mul as u32 / 2
+    }
+
+    #[cfg(feature = "g4")]
+    fn usb(&self) -> u32 {
+        48_000_000 // Uses hsi48.
     }
 
     fn apb1(&self) -> u32 {
@@ -512,15 +644,24 @@ impl ClockCfg for Clocks {
         #[cfg(feature = "l5")]
         let max_clock = 110_000_000;
 
+        #[cfg(feature = "g4")]
+        let max_clock = 170_000_000;
+
         // todo: L4+ (ie R, S, P, Q) can go up to 120_000.
 
-        if self.pll_vco_mul < 7
-            || self.pll_vco_mul > 86
+        #[cfg(any(feature = "l4", feature = "l5"))]
+        if self.plln < 7
+            || self.plln > 86
             || self.pll_sai1_mul < 7
             || self.pll_sai1_mul > 86
             || self.pll_sai2_mul < 7
             || self.pll_sai2_mul > 86
         {
+            return ClocksValid::NotValid;
+        }
+
+        #[cfg(feature = "g4")]
+        if self.plln < 8 || self.plln > 127 {
             return ClocksValid::NotValid;
         }
 
@@ -548,42 +689,53 @@ impl ClockCfg for Clocks {
 }
 
 impl Default for Clocks {
-    /// This default configures common with a HSI, a 80Mhz sysclck. All peripheral clocks are at
-    /// 80Mhz.
+    /// This default configures common with a HSI, a 80Mhz sysclck (l4/5). All peripheral clocks are at
+    /// 80Mhz (l4/5). 168Mhz for G4.
     fn default() -> Self {
         Self {
             input_src: InputSrc::Pll(PllSrc::Hsi),
             pllm: Pllm::Div2,
-            pll_vco_mul: 20,
+            #[cfg(not(feature = "g4"))]
+            plln: 20,
+            #[cfg(feature = "g4")]
+            plln: 42,
+            #[cfg(not(feature = "g4"))]
             pll_sai1_mul: 8,
+            #[cfg(not(feature = "g4"))]
             pll_sai2_mul: 8,
             pllr: Pllr::Div2,
             hclk_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div1,
             apb2_prescaler: ApbPrescaler::Div1,
+            #[cfg(not(feature = "g4"))]
             clk48_src: Clk48Src::PllSai1,
+            #[cfg(not(feature = "g4"))]
             sai1_enabled: false,
+            #[cfg(not(feature = "g4"))]
             sai2_enabled: false,
             hse_bypass: false,
             security_system: false,
+            hsi48_on: false,
         }
     }
 }
 
 /// Calculate the systick, and input frequency.
-fn calc_sysclock(input_src: InputSrc, pllm: Pllm, pll_vco_mul: u8, pllr: Pllr) -> (u32, u32) {
+fn calc_sysclock(input_src: InputSrc, pllm: Pllm, plln: u8, pllr: Pllr) -> (u32, u32) {
     let input_freq;
     let sysclk = match input_src {
         InputSrc::Pll(pll_src) => {
             input_freq = match pll_src {
+                #[cfg(not(feature = "g4"))]
                 PllSrc::Msi(range) => range.value() as u32 / 1_000_000,
                 PllSrc::Hsi => 16,
                 PllSrc::Hse(freq) => freq as u32,
                 PllSrc::None => 0, // todo?
             };
-            input_freq as u32 / pllm.value() as u32 * pll_vco_mul as u32 / pllr.value() as u32
+            input_freq as u32 / pllm.value() as u32 * plln as u32 / pllr.value() as u32
         }
 
+        #[cfg(not(feature = "g4"))]
         InputSrc::Msi(range) => {
             input_freq = range.value() as u32 / 1_000_000;
             input_freq
@@ -628,6 +780,7 @@ pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
                     rcc.cr.modify(|_, w| w.hsion().bit(true));
                     while rcc.cr.read().hsirdy().bit_is_clear() {}
                 }
+                #[cfg(not(feature = "g4"))]
                 PllSrc::Msi(_) => (), // Already reverted to this.
                 PllSrc::None => (),
             }
@@ -652,6 +805,7 @@ pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
                 while rcc.cr.read().hsirdy().bit_is_clear() {}
             }
         }
+        #[cfg(not(feature = "g4"))]
         InputSrc::Msi(_) => (), // Already reset to this
     }
 }

@@ -6,17 +6,11 @@
 
 use core::convert::Infallible;
 
-// todo: Other GPIO ports on certain variants?
-use crate::pac::{EXTI, GPIOA, GPIOB, GPIOC, GPIOD, RCC, SYSCFG};
-
-#[cfg(not(any(feature = "f3x4")))]
-use crate::pac::GPIOE;
-
-#[cfg(not(any(feature = "f301", feature = "f373", feature = "f3x4")))]
-use crate::pac::GPIOH;
+use crate::pac::{self, EXTI, RCC, SYSCFG};
 
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
 
+use cfg_if::cfg_if;
 use paste::paste;
 
 // todo: Implement traits for type-state-programming checks.
@@ -206,14 +200,14 @@ macro_rules! make_port {
         paste! {
             /// GPIO port
             pub struct [<Gpio $Port>] {
-                pub regs: [<GPIO $Port>],
+                pub regs: pac::[<GPIO $Port>],
             }
 
             impl [<Gpio $Port>] {
-                pub fn new(regs: [<GPIO $Port>], rcc: &mut RCC) -> Self {
+                pub fn new(regs: pac::[<GPIO $Port>], rcc: &mut RCC) -> Self {
                     // Enable the peripheral clock of a GPIO port
 
-                    cfg_if::cfg_if! {
+                    cfg_if! {
                         if #[cfg(feature = "f3")] {
                             rcc.ahbenr.modify(|_, w| w.[<iop $port en>]().set_bit());
                             rcc.ahbrstr.modify(|_, w| w.[<iop $port rst>]().set_bit());
@@ -268,16 +262,35 @@ macro_rules! set_field {
     }
 }
 
-/// Reduce DRY for setting up interrupts. For older MCUs.
+// todo: Consolidate these exti macros
+
+/// Reduce DRY for setting up interrupts.
 macro_rules! set_exti {
     ($pin:expr, $exti:expr, $syscfg:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr)),+]) => {
         paste! {
             match $pin {
                 $(
                     PinNum::[<P $num>] => {
-                        $exti.imr1.modify(|_, w| w.[<mr $num>]().unmasked());
-                        $exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($trigger));
-                        $exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit(!$trigger));
+                        cfg_if! {
+                            if #[cfg(feature = "h7")] {
+                                $exti.cpuimr1.modify(|_, w| w.[<mr $num>]().unmasked());
+                            }
+                            else if #[cfg(feature = "g4")] {
+                                $exti.imr1.modify(|_, w| w.[<im $num>]().unmasked());
+                            } else {
+                                $exti.imr1.modify(|_, w| w.[<mr $num>]().unmasked());
+                            }
+                        }
+
+                        cfg_if! {
+                            if #[cfg(feature = "g4")] {
+                                $exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($trigger));
+                                $exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit(!$trigger));
+                            } else {
+                                $exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($trigger));
+                                $exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit(!$trigger));
+                            }
+                        }
                         $syscfg
                             .[<exticr $crnum>]
                             .modify(|_, w| unsafe { w.[<exti $num>]().bits($val) });
@@ -308,8 +321,8 @@ macro_rules! set_exti_f4 {
     }
 }
 
-/// See `set_exti!`. For newer MCUs like L5 and H7.
-macro_rules! set_exti_new {
+/// See `set_exti!`. Different method naming pattern for exticr.
+macro_rules! set_exti_l5 {
     ($pin:expr, $exti:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
         paste! {
             match $pin {
@@ -365,7 +378,7 @@ macro_rules! make_pin {
             // from the macros.
 
             /// Set pin mode.
-            pub fn mode(&mut self, value: PinMode, regs: &mut [<GPIO $Port>]) {
+            pub fn mode(&mut self, value: PinMode, regs: &mut pac::[<GPIO $Port>]) {
                 set_field!(self.pin, regs, moder, moder, bits, value.val(), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 
                 // self.mode = value;
@@ -376,36 +389,36 @@ macro_rules! make_pin {
             }
 
             /// Set output type
-            pub fn output_type(&mut self, value: OutputType, regs: &mut [<GPIO $Port>]) {
+            pub fn output_type(&mut self, value: OutputType, regs: &mut pac::[<GPIO $Port>]) {
                 set_field!(self.pin, regs, otyper, ot, bit, value as u8 != 0, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 
                 // self.output_type = value;
             }
 
             /// Set output speed.
-            pub fn output_speed(&mut self, value: OutputSpeed, regs: &mut [<GPIO $Port>]) {
+            pub fn output_speed(&mut self, value: OutputSpeed, regs: &mut pac::[<GPIO $Port>]) {
                 set_field!(self.pin, regs, ospeedr, ospeedr, bits, value as u8, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
             }
 
             /// Set internal pull resistor: Pull up, pull down, or floating.
-            pub fn pull(&mut self, value: Pull, regs: &mut [<GPIO $Port>]) {
+            pub fn pull(&mut self, value: Pull, regs: &mut pac::[<GPIO $Port>]) {
                 set_field!(self.pin, regs, pupdr, pupdr, bits, value as u8, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
             }
 
             /// Set the output_data register.
-            pub fn output_data(&mut self, value: PinState, regs: &mut [<GPIO $Port>]) {
+            pub fn output_data(&mut self, value: PinState, regs: &mut pac::[<GPIO $Port>]) {
                 set_field!(self.pin, regs, odr, odr, bit, value as u8 != 0, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
             }
 
             // It appears f373 doesn't have lckr on ports C or E.
             #[cfg(not(feature = "f373"))]
             /// Lock or unlock a port configuration.
-            pub fn cfg_lock(&mut self, value: CfgLock, regs: &mut [<GPIO $Port>]) {
+            pub fn cfg_lock(&mut self, value: CfgLock, regs: &mut pac::[<GPIO $Port>]) {
                 set_field!(self.pin, regs, lckr, lck, bit, value as u8 != 0, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
             }
 
             /// Set internal pull up/down resistor, or leave floating.
-            pub fn input_data(&mut self, regs: &mut [<GPIO $Port>]) -> PinState {
+            pub fn input_data(&mut self, regs: &mut pac::[<GPIO $Port>]) -> PinState {
                 let val = match self.pin {
                     PinNum::P0 => regs.idr.read().idr0().bit(),
                     PinNum::P1 => regs.idr.read().idr1().bit(),
@@ -433,7 +446,7 @@ macro_rules! make_pin {
             }
 
             /// Set a pin state.
-            pub fn set_state(&mut self, value: PinState, regs: &mut [<GPIO $Port>]) {
+            pub fn set_state(&mut self, value: PinState, regs: &mut pac::[<GPIO $Port>]) {
                 let offset = match value {
                     PinState::Low => 16,
                     PinState::High => 0,
@@ -462,8 +475,8 @@ macro_rules! make_pin {
             }
 
             /// Set up a pin's alternate function. We set this up initially using `mode()`.
-            fn alt_fn(&mut self, value: AltFn, regs: &mut [<GPIO $Port>]) {
-                cfg_if::cfg_if! {
+            fn alt_fn(&mut self, value: AltFn, regs: &mut pac::[<GPIO $Port>]) {
+                cfg_if! {
                     if #[cfg(feature = "l5")] {
                         set_alt!(self.pin, regs, afsel, value, [(0, l), (1, l), (2, l),
                             (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
@@ -483,7 +496,7 @@ macro_rules! make_pin {
             // todo Error on these PACS, or are they missing BRR?
             #[cfg(not(any(feature = "l4", feature = "h7", feature = "f4")))]
             /// Reset an Output Data bit.
-            pub fn reset(&mut self, value: ResetState, regs: &mut [<GPIO $Port>]) {
+            pub fn reset(&mut self, value: ResetState, regs: &mut pac::[<GPIO $Port>]) {
                 let offset = match value {
                     ResetState::NoAction => 16,
                     ResetState::Reset => 0,
@@ -511,8 +524,8 @@ macro_rules! make_pin {
             }
 
             // We split into 2 separate functions, so newer MCUs don't need to pass the SYSCFG register.
-            cfg_if::cfg_if! {
-                if #[cfg(any(feature = "l5", feature = "h7"))] {
+            cfg_if! {
+                if #[cfg(any(feature = "l5"))] {
                     /// Configure this pin as an interrupt source.
                     pub fn enable_interrupt(&mut self, edge: Edge, exti: &mut EXTI) {
                         // todo: On newer ones, don't accept SYSCFG for this function.
@@ -527,7 +540,7 @@ macro_rules! make_pin {
                             }
                         };
 
-                        set_exti_new!(self.pin, exti, rise_trigger, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
+                        set_exti_l5!(self.pin, exti, rise_trigger, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
                             (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
                             (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
                             (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)])
@@ -548,7 +561,7 @@ macro_rules! make_pin {
                             }
                         };
 
-                        cfg_if::cfg_if! {
+                        cfg_if! {
                             if #[cfg(feature = "f4")] {
                                 set_exti_f4!(self.pin, exti, syscfg, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
                                     (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
@@ -578,22 +591,22 @@ macro_rules! make_pin {
                 // todo: DRy with `input_data`.
                 unsafe {
                     let val = match self.pin {
-                        PinNum::P0 => (*[<GPIO $Port>]::ptr()).idr.read().idr0().bit(),
-                        PinNum::P1 => (*[<GPIO $Port>]::ptr()).idr.read().idr1().bit(),
-                        PinNum::P2 => (*[<GPIO $Port>]::ptr()).idr.read().idr2().bit(),
-                        PinNum::P3 => (*[<GPIO $Port>]::ptr()).idr.read().idr3().bit(),
-                        PinNum::P4 => (*[<GPIO $Port>]::ptr()).idr.read().idr4().bit(),
-                        PinNum::P5 => (*[<GPIO $Port>]::ptr()).idr.read().idr5().bit(),
-                        PinNum::P6 => (*[<GPIO $Port>]::ptr()).idr.read().idr6().bit(),
-                        PinNum::P7 => (*[<GPIO $Port>]::ptr()).idr.read().idr7().bit(),
-                        PinNum::P8 => (*[<GPIO $Port>]::ptr()).idr.read().idr8().bit(),
-                        PinNum::P9 => (*[<GPIO $Port>]::ptr()).idr.read().idr9().bit(),
-                        PinNum::P10 => (*[<GPIO $Port>]::ptr()).idr.read().idr10().bit(),
-                        PinNum::P11 => (*[<GPIO $Port>]::ptr()).idr.read().idr11().bit(),
-                        PinNum::P12 => (*[<GPIO $Port>]::ptr()).idr.read().idr12().bit(),
-                        PinNum::P13 => (*[<GPIO $Port>]::ptr()).idr.read().idr13().bit(),
-                        PinNum::P14 => (*[<GPIO $Port>]::ptr()).idr.read().idr14().bit(),
-                        PinNum::P15 => (*[<GPIO $Port>]::ptr()).idr.read().idr15().bit(),
+                        PinNum::P0 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr0().bit(),
+                        PinNum::P1 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr1().bit(),
+                        PinNum::P2 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr2().bit(),
+                        PinNum::P3 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr3().bit(),
+                        PinNum::P4 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr4().bit(),
+                        PinNum::P5 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr5().bit(),
+                        PinNum::P6 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr6().bit(),
+                        PinNum::P7 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr7().bit(),
+                        PinNum::P8 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr8().bit(),
+                        PinNum::P9 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr9().bit(),
+                        PinNum::P10 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr10().bit(),
+                        PinNum::P11 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr11().bit(),
+                        PinNum::P12 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr12().bit(),
+                        PinNum::P13 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr13().bit(),
+                        PinNum::P14 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr14().bit(),
+                        PinNum::P15 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr15().bit(),
                     };
 
                     Ok(val)
@@ -614,22 +627,22 @@ macro_rules! make_pin {
 
                 unsafe {
                     match self.pin {
-                        PinNum::P0 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 0))),
-                        PinNum::P1 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 1))),
-                        PinNum::P2 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 2))),
-                        PinNum::P3 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 3))),
-                        PinNum::P4 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 4))),
-                        PinNum::P5 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 5))),
-                        PinNum::P6 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 6))),
-                        PinNum::P7 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 7))),
-                        PinNum::P8 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 8))),
-                        PinNum::P9 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 9))),
-                        PinNum::P10 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 10))),
-                        PinNum::P11 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 11))),
-                        PinNum::P12 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 12))),
-                        PinNum::P13 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 13))),
-                        PinNum::P14 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 14))),
-                        PinNum::P15 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 15))),
+                        PinNum::P0 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 0))),
+                        PinNum::P1 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 1))),
+                        PinNum::P2 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 2))),
+                        PinNum::P3 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 3))),
+                        PinNum::P4 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 4))),
+                        PinNum::P5 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 5))),
+                        PinNum::P6 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 6))),
+                        PinNum::P7 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 7))),
+                        PinNum::P8 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 8))),
+                        PinNum::P9 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 9))),
+                        PinNum::P10 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 10))),
+                        PinNum::P11 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 11))),
+                        PinNum::P12 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 12))),
+                        PinNum::P13 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 13))),
+                        PinNum::P14 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 14))),
+                        PinNum::P15 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 15))),
                     }
                 }
                 Ok(())
@@ -641,22 +654,22 @@ macro_rules! make_pin {
 
                 unsafe {
                     match self.pin {
-                        PinNum::P0 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 0))),
-                        PinNum::P1 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 1))),
-                        PinNum::P2 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 2))),
-                        PinNum::P3 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 3))),
-                        PinNum::P4 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 4))),
-                        PinNum::P5 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 5))),
-                        PinNum::P6 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 6))),
-                        PinNum::P7 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 7))),
-                        PinNum::P8 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 8))),
-                        PinNum::P9 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 9))),
-                        PinNum::P10 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 10))),
-                        PinNum::P11 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 11))),
-                        PinNum::P12 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 12))),
-                        PinNum::P13 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 13))),
-                        PinNum::P14 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 14))),
-                        PinNum::P15 => (*[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 15))),
+                        PinNum::P0 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 0))),
+                        PinNum::P1 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 1))),
+                        PinNum::P2 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 2))),
+                        PinNum::P3 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 3))),
+                        PinNum::P4 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 4))),
+                        PinNum::P5 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 5))),
+                        PinNum::P6 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 6))),
+                        PinNum::P7 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 7))),
+                        PinNum::P8 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 8))),
+                        PinNum::P9 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 9))),
+                        PinNum::P10 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 10))),
+                        PinNum::P11 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 11))),
+                        PinNum::P12 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 12))),
+                        PinNum::P13 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 13))),
+                        PinNum::P14 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 14))),
+                        PinNum::P15 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 15))),
                     }
                 }
                 Ok(())
@@ -721,8 +734,20 @@ make_pin!(E);
 #[cfg(not(any(feature = "f301", feature = "f3x4")))]
 make_port!(E, e);
 
-#[cfg(not(any(feature = "f373", feature = "f301", feature = "f3x4", feature = "l4")))]
+#[cfg(not(any(
+    feature = "f373",
+    feature = "f301",
+    feature = "f3x4",
+    feature = "l4",
+    feature = "g4"
+)))]
 make_pin!(H);
 
-#[cfg(not(any(feature = "f373", feature = "f301", feature = "f3x4", feature = "l4")))]
+#[cfg(not(any(
+    feature = "f373",
+    feature = "f301",
+    feature = "f3x4",
+    feature = "l4",
+    feature = "g4"
+)))]
 make_port!(H, h);

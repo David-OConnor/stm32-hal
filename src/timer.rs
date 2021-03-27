@@ -203,41 +203,36 @@ macro_rules! hal {
             }
 
             impl Timer<pac::$TIMX> {
-                /// Configures a TIM peripheral as a periodic count down timer
-                pub fn $tim<T:, C>(tim: pac::$TIMX, freq: T, clocks: &C, rcc: &mut RCC) -> Self
-                where
-                    T: Into<f32>,
-                    C: ClockCfg,
-                {
-                    // `freq` is in Hz.
+                paste! {
+                    /// Configures a TIM peripheral as a periodic count down timer
+                    pub fn [<new_ $tim>]<T:, C>(tim: pac::$TIMX, freq: T, clocks: &C, rcc: &mut RCC) -> Self
+                    where
+                        T: Into<f32>,
+                        C: ClockCfg,
+                    {
+                        // `freq` is in Hz.
 
-                    // enable and reset peripheral to a clean slate state
-                    // todo: H7!!
-                    cfg_if! {
-                        if #[cfg(feature = "f3")] {
-                            paste! {
-                                rcc.[<$apb enr>].modify(|_, w| w.[<$tim en>]().set_bit());
-                                rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().set_bit());
-                                rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().clear_bit());
-                            }
-                        } else if #[cfg(any(feature = "l4", feature = "l5"))] {
-                            paste! {
-                                // We use `$enr` and $rst, since we only add `1` after for apb1.
-                                // This isn't required on f3.
-                                rcc.[<$apb $enr>].modify(|_, w| w.[<$tim en>]().set_bit());
-                                rcc.[<$apb $rst>].modify(|_, w| w.[<$tim rst>]().set_bit());
-                                rcc.[<$apb $rst>].modify(|_, w| w.[<$tim rst>]().clear_bit());
+                        // enable and reset peripheral to a clean slate state
+                        // todo: H7!!
+                        cfg_if! {
+                            if #[cfg(feature = "f3")] {
+                                    rcc.[<$apb enr>].modify(|_, w| w.[<$tim en>]().set_bit());
+                                    rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().set_bit());
+                                    rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().clear_bit());
+                            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                                    // We use `$enr` and $rst, since we only add `1` after for apb1.
+                                    // This isn't required on f3.
+                                    rcc.[<$apb $enr>].modify(|_, w| w.[<$tim en>]().set_bit());
+                                    rcc.[<$apb $rst>].modify(|_, w| w.[<$tim rst>]().set_bit());
+                                    rcc.[<$apb $rst>].modify(|_, w| w.[<$tim rst>]().clear_bit());
                             }
                         }
-                    }
 
-                    paste! {
-                        let mut timer = Timer { clock_speed: clocks.[<$apb _timer>](), tim };
-                        timer.start(freq);
-                        timer
+                            let mut timer = Timer { clock_speed: clocks.[<$apb _timer>](), tim };
+                            timer.start(freq);
+                            timer
                     }
                 }
-
                 /// Starts listening for an `event`. Used to enable interrupts.
                 pub fn listen(&mut self, event: Event) {
                     match event {
@@ -266,16 +261,11 @@ macro_rules! hal {
                 /// If the interrupt is not cleared, it will immediately retrigger after
                 /// the ISR has finished. For examlpe, place this at the top of your timer's
                 /// interrupt handler.
-                pub fn clear_interrupt(&mut self, event: Event) {
-                    match event {
-                        Event::TimeOut => {
-                            // Clear interrupt flag
-                            self.tim.sr.write(|w| w.uif().clear_bit());
-                        }
-                    }
+                pub fn clear_interrupt(&mut self) {
+                    self.tim.sr.write(|w| w.uif().clear_bit());
                 }
 
-                /// Stops listening for an `event`. Used to disable interrupts.
+                /// Stops listening for an `xcevent`. Used to disable interrupts.
                 pub fn unlisten(&mut self, event: Event) {
                     match event {
                         // Disable update event interrupt
@@ -402,21 +392,45 @@ macro_rules! pwm_features {
                 /// Return the set duty period for a given channel. Divide by `get_max_duty()`
                 /// to find the portion of the duty cycle used.
                 pub fn get_duty(&self, channel: Channel) -> $res {
-                    match channel {
-                        Channel::One => self.tim.ccr1.read().ccr().bits(),
-                        Channel::Two => self.tim.ccr2.read().ccr().bits(),
-                        Channel::Three => self.tim.ccr3.read().ccr().bits(),
-                        Channel::Four => self.tim.ccr4.read().ccr().bits(),
+                    cfg_if! {
+                        if #[cfg(feature = "g4")] {
+                            match channel {
+                                Channel::One => self.tim.ccr1.read().ccr1().bits(),
+                                Channel::Two => self.tim.ccr2.read().ccr2().bits(),
+                                Channel::Three => self.tim.ccr3.read().ccr3().bits(),
+                                Channel::Four => self.tim.ccr4.read().ccr4().bits(),
+                            }
+                        } else {
+                            match channel {
+                                Channel::One => self.tim.ccr1.read().ccr().bits(),
+                                Channel::Two => self.tim.ccr2.read().ccr().bits(),
+                                Channel::Three => self.tim.ccr3.read().ccr().bits(),
+                                Channel::Four => self.tim.ccr4.read().ccr().bits(),
+                            }
+                        }
                     }
                 }
 
                 /// Set the duty cycle, as a portion of `get_max_duty()`.
                 pub fn set_duty(&mut self, channel: Channel, duty: $res) {
-                    match channel {
-                        Channel::One => self.tim.ccr1.write(|w| w.ccr().bits(duty)),
-                        Channel::Two => self.tim.ccr2.write(|w| w.ccr().bits(duty)),
-                        Channel::Three => self.tim.ccr3.write(|w| w.ccr().bits(duty)),
-                        Channel::Four => self.tim.ccr4.write(|w| w.ccr().bits(duty)),
+                    cfg_if! {
+                        if #[cfg(feature = "g4")] {
+                            unsafe {
+                                match channel {
+                                    Channel::One => self.tim.ccr1.write(|w| w.ccr1().bits(duty)),
+                                    Channel::Two => self.tim.ccr2.write(|w| w.ccr2().bits(duty)),
+                                    Channel::Three => self.tim.ccr3.write(|w| w.ccr3().bits(duty)),
+                                    Channel::Four => self.tim.ccr4.write(|w| w.ccr4().bits(duty)),
+                                }
+                            }
+                        } else {
+                            match channel {
+                                Channel::One => self.tim.ccr1.write(|w| w.ccr().bits(duty)),
+                                Channel::Two => self.tim.ccr2.write(|w| w.ccr().bits(duty)),
+                                Channel::Three => self.tim.ccr3.write(|w| w.ccr().bits(duty)),
+                                Channel::Four => self.tim.ccr4.write(|w| w.ccr().bits(duty)),
+                            }
+                        }
                     }
                 }
 
@@ -447,7 +461,7 @@ macro_rules! pwm_features {
                         Alignment::Center2 => 0b10,
                         Alignment::Center3 => 0b11,
                     };
-                    self.tim.cr1.modify(|_, w| w.cms().bits(word));
+                    self.tim.cr1.modify(|_, w| unsafe { w.cms().bits(word) });
                 }
 
                 /// Set output polarity. See docs on the `Polarity` enum.
@@ -529,7 +543,7 @@ macro_rules! pwm_features {
                     // "As the preload registers are transferred to the shadow registers only when an update event
                     // occurs, before starting the counter, you have to initialize all the registers by setting the UG
                     // bit in the TIMx_EGR register."
-                    self.tim.egr.write(|w| w.ug().update());
+                    self.tim.egr.write(|w| w.ug().set_bit()); // Update
                 }
             }
         )+
@@ -647,7 +661,8 @@ hal! {
     },
 }
 
-#[cfg(not(any(feature = "l4x1", feature = "l5")))]
+// todo: G4 has tim2, and it's 32-bit, but there may be a PAC error here; pac expects arr to be 16 bit.
+#[cfg(not(any(feature = "l4x1", feature = "l5", feature = "g4")))]
 pwm_features! {
     {
         TIM2: u32
@@ -687,3 +702,5 @@ hal! {
         TIM19: (tim19, apb2, enr, rstr)
     },
 }
+
+// todo: Figure out which timers G4 has, and add A/R.

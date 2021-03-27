@@ -50,7 +50,7 @@ fn main() -> ! {
     let mut pb15 = gpioa.new_pin(PinNum::P15, PinMode::Output);
     pb15.set_high().ok();
 
-    let mut timer = Timer::tim3_unchecked(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
+    let mut timer = Timer::tim3(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
     timer.listen(TimeOut);
 
     let mut scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
@@ -59,7 +59,7 @@ fn main() -> ! {
     let mut sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::AF4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let i2c = I2c::new_unchecked(dp.I2C1, I2cDevice::One, 100_000, &clocks, &mut dp.RCC);
+    let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clocks, &mut dp.RCC);
 
     loop {
         low_power::sleep_now(&mut cp.SCB);
@@ -77,6 +77,6 @@ Most peripheral modules are independent: The only dependency they have within th
 is the `ClockCfg` trait, which we may move to a standalone crate later. This makes
 it easy to interchange them with other projects.
 
-Pre-release. Currently supports F3, L4, and L5, and H7.
+Pre-release. Currently supports F3, L4, and L5, G4, and H7.
 
 PRs encouraged. Documenting each step using reference manuals is encouraged, but not required.

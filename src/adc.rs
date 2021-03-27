@@ -216,7 +216,7 @@ macro_rules! hal {
                 /// * the clocksetting is not well defined.
                 /// * the clock was already enabled with a different setting
                 ///
-                pub fn [<new_ $adc _unchecked>]<C: ClockCfg>(
+                pub fn [<new_ $adc>]<C: ClockCfg>(
                     regs: pac::$ADC,
                     adc_common : &mut pac::$ADC_COMMON,
                     ckmode: ClockMode,

@@ -14,7 +14,7 @@ use core::sync::atomic::{self, Ordering};
 use generic_array::ArrayLength;
 use stable_deref_trait::StableDeref;
 
-use embedded_hal::serial::{self, Read, Write};
+use embedded_hal::serial::{Read, Write};
 
 use crate::{
     dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender},
@@ -225,7 +225,7 @@ macro_rules! hal {
                     /// `MAPR` and `APBX` are register handles which are passed for
                     /// configuration. (`MAPR` is used to map the USART to the
                     /// corresponding pins. `APBX` is used to reset the USART.)
-                    pub fn [<new_ $usart _unchecked>]<C: ClockCfg>(
+                    pub fn [<new_ $usart>]<C: ClockCfg>(
                         usart: pac::$USARTX,
                         config: Config,
                         clocks: &C,

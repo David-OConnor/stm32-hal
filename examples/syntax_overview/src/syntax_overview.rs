@@ -7,7 +7,7 @@ use cortex_m_rt::entry;
 use defmt_rtt as _;
 use panic_probe as _;
 
-use stm32_hal::{
+use stm32_hal2::{
     adc::{Adc, AdcChannel},
     clocks::Clocks,
     dac::{Dac, Channel as DacChannel, Bits as DacBits},
@@ -73,14 +73,14 @@ fn main() -> ! {
     let mut sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::AF4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let i2c = I2c::new_unchecked(dp.I2C1, I2cDevice::One, 100_000, &clocks, &mut dp.RCC);
+    let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clocks, &mut dp.RCC);
 
     // Set up an SPI peripheral
     let sck = gpioa.new_pin(PinNum::P5, PinMode::Alt(AltFn::Af5));
     let miso = gpioa.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af5));
     let mosi = gpioa.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af5));
 
-    let spi = Spi::spi1_unchecked(
+    let spi = Spi::new_spi1(
         dp.SPI1,
         spi_mode,
         4_000_000,
@@ -92,7 +92,7 @@ fn main() -> ! {
     let _uart_tx = gpioa.new_pin(PinNum::P9, PinMode::Alt(AltFn::Af7));
     let _uart_rx = gpioa.new_pin(PinNum::P10, PinMode::Alt(AltFn::Af7));
 
-    let mut serial = Serial::new_usart1_unchecked(
+    let mut serial = Serial::new_usart1(
         dp.USART1,
         serial::Config::default().baudrate(9_600),
         &clocks,
@@ -103,7 +103,7 @@ fn main() -> ! {
     // Set up the Analog-to-digital converter
     let _adc_pin = gpiob.new_pin(PinNum::P5, PinMode::Analog);
 
-    let mut adc = Adc::new_adc1_unchecked(
+    let mut adc = Adc::new_adc1(
         dp.ADC1,
         &mut dp.ADC1,
         adc::CkMode::default(),
@@ -119,7 +119,7 @@ fn main() -> ! {
     dac.enable(&mut dp.RCC);
 
     // Set up and start a timer; set it to fire interrupts.
-    let mut timer = Timer::tim3_unchecked(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
+    let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
     timer.listen(TimeOut); // Enable update event interrupts.
 
     loop {

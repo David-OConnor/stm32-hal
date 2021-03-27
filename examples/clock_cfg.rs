@@ -1,0 +1,49 @@
+//! For project structure and debugging boilerplate, see the `synax_overview` example.
+//! Clock config varies significantly by family
+//! Reference the Cube Mx interactive clock tree tool, or the clock tree in the reference
+//! manual for a visual overview.
+
+#![no_main]
+#![no_std]
+
+use cortex_m_rt::entry;
+
+use stm32_hal::{
+    clocks::{ApbPrescaler, Clocks, Pllm},
+    low_power,
+};
+
+#[entry]
+fn main() -> ! {
+    // Set up CPU peripherals
+    let mut cp = cortex_m::Peripherals::take().unwrap();
+    // Set up microcontroller peripherals
+    let mut dp = pac::Peripherals::take().unwrap();
+
+    let mut clocks = Clocks::default();
+
+    // Bypass HSE output
+    clocks.hse_bypass = true;
+
+    // Enable HSI48 (eg L4, L5, G4 etc)
+    clocks.hse48_on = true;
+
+    // Change  PLL prescalers:
+    clocks.pllm = Pllm::Div2;
+    clocks.plln = 22;
+
+    // Change some of the peripheral prescalers
+    clocks.apb1prescaler = ApbPrescaler::Div2;
+
+    // Configure clock registers.
+    if clocks.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
+        defmt::error!("Unable to configure clocks due to a speed error.")
+    };
+
+    // Show speeds.
+    defmt::info!("Speeds: {:?}", clocks.calc_speeds());
+
+    loop {
+        low_power::sleep_now(&mut SCB);
+    }
+}
