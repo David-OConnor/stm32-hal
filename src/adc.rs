@@ -268,7 +268,7 @@ macro_rules! hal {
                                 rcc.ahbrstr.modify(|_, w| w.adc34rst().clear_bit());
                             }
                         }
-                    } else if #[cfg(feature = "h7")] {
+                    } else if #[cfg(any(feature = "h7", feature = "g4"))] {
                         match $adc_num {
                             AdcNum::One | AdcNum::Two => {
                                 rcc.ahb1enr.modify(|_, w| w.adc12en().set_bit());
@@ -289,9 +289,15 @@ macro_rules! hal {
                     }
                 }
 
-                // todo: This should be the same with H7, per RM. Likely a PAC bug.
-                #[cfg(not(feature = "h7"))]
-                common_regs.ccr.modify(|_, w| unsafe { w.ckmode().bits(self.ckmode as u8) });
+
+                cfg_if! {
+                    if #[cfg(any(feature = "g4", feature = "h7"))] {  // todo why can't we find ccr?
+                        common_regs.ccr.modify(|_, w| unsafe { w.ckmode().bits(self.ckmode as u8) });
+                    } else {
+                        common_regs.ccr.modify(|_, w| unsafe { w.ckmode().bits(self.ckmode as u8) });
+                    }
+                }
+
             }
 
             /// sets up adc in one shot mode for a single channel
@@ -765,7 +771,7 @@ hal!(ADC2, ADC_COMMON, adc2, AdcNum::Two);
 #[cfg(any(feature = "l4x5", feature = "l4x6",))]
 hal!(ADC3, ADC_COMMON, adc3, AdcNum::Three);
 
-// todo: Beyond ADC1 for H7.
+// todo: Beyond ADC1 for H7 and G4
 #[cfg(any(
     feature = "h743",
     feature = "h743v",
@@ -777,4 +783,5 @@ hal!(ADC3, ADC_COMMON, adc3, AdcNum::Three);
 ))]
 hal!(ADC1, ADC1, adc1, AdcNum::One);
 
-// todo: g4
+#[cfg(feature = "g4")]
+hal!(ADC1, ADC12, adc1, AdcNum::One);

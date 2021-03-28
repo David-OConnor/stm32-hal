@@ -23,9 +23,9 @@ fn main() -> ! {
     // Set up microcontroller peripherals
     let mut dp = pac::Peripherals::take().unwrap();
 
-    let clocks = Clocks::default();
+    let clock_cfg = Clocks::default();
 
-    if clocks.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
+    if clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
         defmt::error!("Unable to configure clocks due to a speed error.")
     };
 

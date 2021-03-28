@@ -44,12 +44,6 @@ pub trait ClockCfg {
     fn validate_speeds(&self) -> ClocksValid;
 }
 
-pub trait OpenDrain {}
-
-pub trait SdaPin {}
-
-pub trait SclPin {}
-
 /// Trait representing a single-channel digital-to-analog converter (DAC).
 pub trait SingleChannelDac<Word> {
     /// Error type returned by DAC methods

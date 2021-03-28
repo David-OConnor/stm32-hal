@@ -10,7 +10,7 @@ use cortex_m_rt::entry;
 
 use stm32_hal::{
     clocks::{ApbPrescaler, Clocks, Pllm},
-    low_power,
+    low_power, pac,
 };
 
 #[entry]
@@ -20,28 +20,28 @@ fn main() -> ! {
     // Set up microcontroller peripherals
     let mut dp = pac::Peripherals::take().unwrap();
 
-    let mut clocks = Clocks::default();
+    let mut clock_cfg = Clocks::default();
 
     // Bypass HSE output
-    clocks.hse_bypass = true;
+    clock_cfg.hse_bypass = true;
 
     // Enable HSI48 (eg L4, L5, G4 etc)
-    clocks.hse48_on = true;
+    clock_cfg.hse48_on = true;
 
     // Change  PLL prescalers:
-    clocks.pllm = Pllm::Div2;
-    clocks.plln = 22;
+    clock_cfg.pllm = Pllm::Div2;
+    clock_cfg.plln = 22;
 
     // Change some of the peripheral prescalers
-    clocks.apb1prescaler = ApbPrescaler::Div2;
+    clock_cfg.apb1prescaler = ApbPrescaler::Div2;
 
     // Configure clock registers.
-    if clocks.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
+    if clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
         defmt::error!("Unable to configure clocks due to a speed error.")
     };
 
     // Show speeds.
-    defmt::info!("Speeds: {:?}", clocks.calc_speeds());
+    defmt::info!("Speeds: {:?}", clock_cfg.calc_speeds());
 
     loop {
         low_power::sleep_now(&mut SCB);

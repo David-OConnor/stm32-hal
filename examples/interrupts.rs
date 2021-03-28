@@ -36,9 +36,9 @@ fn main() -> ! {
     // Set up microcontroller peripherals
     let mut dp = pac::Peripherals::take().unwrap();
 
-    let clocks = Clocks::default();
+    let clock_cfg = Clocks::default();
 
-    if clocks.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
+    if clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
         defmt::error!("Unable to configure clocks due to a speed error.")
     };
 
@@ -50,7 +50,7 @@ fn main() -> ! {
     button.enable_interrupt(Edge::Falling, &mut dp.EXTI, &mut dp.SYSCFG);
 
     // Set up and start a timer; set it to fire interrupts every 5 seconds.
-    let mut timer_1 = Timer::new_tim3(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
+    let mut timer_1 = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
     timer.listen(TimeOut); // Enable update event interrupts.
 
     // Set up the realtime clock.
@@ -68,7 +68,7 @@ fn main() -> ! {
         dp.ADC1,
         &mut dp.ADC_COMMON,
         adc::CkMode::default(),
-        &clocks,
+        &clock_cfg,
         &mut dp.RCC,
     );
 
@@ -94,7 +94,7 @@ fn main() -> ! {
             &mut cp.SCB,
             &mut dp.PWR,
             low_power::StopMode::Two,
-            clocks.input_src,
+            clock_cfg.input_src,
             &mut dp.RCC,
         );
     }
