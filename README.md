@@ -10,12 +10,12 @@ This library provides high-level access to STM32 peripherals. It's based on the
 multiple STM32 families, with minimal code repetition. This makes it easy to switch MCUs 
 within, or across families, for a given project.
 
-*Family support*: F3, L4, L5, G4, and H7. G0 and U5 soon.
+**Family support**: F3, L4, L5, G4, and H7. G0 and U5 soon.
 
-*Motivation*: Use STM32s in real-world hardware projects. Be able to switch MCUs with
+**Motivation**: Use STM32s in real-world hardware projects. Be able to switch MCUs with
 minimal code change. 
 
-*Design priority*: Get hardware working with a robust feature set.
+**Design priority**: Get hardware working with a robust feature set.
 As of this library's creation, this is not feasible with existing HAL crates due
 to lack of maintainer time, and differing priorities. When the `stm32fyxx` ecosystem
 is viewed as a whole, there's a lot of DRY.
@@ -81,6 +81,7 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 
 ## Errata
 
+- Flash wait states for some clock configs may not be set up correctly
 - H7 clocks haven't been tested, are missing features, and likely contain errors
 - H7-specific features are missing 
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
@@ -90,3 +91,4 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 - Low power modes beyond sleep aren't implemented for G4 and H7
 - G0 isn't yet supported
 - Waiting on U5 PAC before implementing
+- Disabling GPIO pin interrupts unimplemented

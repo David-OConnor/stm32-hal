@@ -1,3 +1,8 @@
+//! This example shows a complete project, including file structure, and config
+//! needed to flash using an ST-Link. The project structure is based on
+//! [Knurling's app-template](https://github.com/knurling-rs/app-template).
+//! This file demonstrates an overview of this library's features.
+
 #![no_main]
 #![no_std]
 

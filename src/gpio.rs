@@ -177,26 +177,28 @@ pub enum Edge {
 
 // pub struct GpioError {}
 
-// todo: Should this trait be in `traits.rs` (or eventually crate) ?
-/// Gpio pin traits. Used to check pin config when passing to peripheral constructors.
-pub trait GpioPin {
-    /// Port letter (eg A)
-    fn get_port(&self) -> PortLetter;
-
-    /// Pin num (eg P4)
-    fn get_pin(&self) -> PinNum;
-
-    /// Pin mode (input, output, alt, analog), and the alt function if applicable.
-    fn get_mode(&self) -> PinMode;
-
-    /// Output type. Ie open drain or push pull.
-    fn get_output_type(&self) -> OutputType;
-}
+// // todo: Should this trait be in `traits.rs` (or eventually crate) ?
+// /// Gpio pin traits. Used to check pin config when passing to peripheral constructors.
+// pub trait GpioPin {
+//     /// Port letter (eg A)
+//     fn get_port(&self) -> PortLetter;
+//
+//     /// Pin num (eg P4)
+//     fn get_pin(&self) -> PinNum;
+//
+//     /// Pin mode (input, output, alt, analog), and the alt function if applicable.
+//     fn get_mode(&self) -> PinMode;
+//
+//     /// Output type. Ie open drain or push pull.
+//     fn get_output_type(&self) -> OutputType;
+// }
 
 macro_rules! make_port {
     ($Port:ident, $port:ident) => {
         paste! {
-            /// GPIO port
+            /// Represents a single GPIO port, and owns its register block. Provides
+            /// methods to enable the port. To change pin properties, pass its `regs`
+            /// field as a mutable reference to `GpioXPin` methods.
             pub struct [<Gpio $Port>] {
                 pub regs: pac::[<GPIO $Port>],
             }
@@ -366,7 +368,8 @@ macro_rules! make_pin {
     ($Port:ident) => {
         paste! {
 
-        /// Represents a single GPIO pin.
+        /// Represents a single GPIO pin. Provides methods that, when passed a mutable reference
+        /// to its port's register block, can change and read various properties of the pin.
         pub struct [<Gpio $Port Pin>] {
             pub port: PortLetter,
             pub pin: PinNum,
@@ -387,7 +390,7 @@ macro_rules! make_pin {
                 }
             }
 
-            /// Set output type
+            /// Set output type.
             pub fn output_type(&mut self, value: OutputType, regs: &mut pac::[<GPIO $Port>]) {
                 set_field!(self.pin, regs, otyper, ot, bit, value as u8 != 0, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 
@@ -416,7 +419,7 @@ macro_rules! make_pin {
                 set_field!(self.pin, regs, lckr, lck, bit, value as u8 != 0, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
             }
 
-            /// Set internal pull up/down resistor, or leave floating.
+            /// Read the input data register.
             pub fn input_data(&mut self, regs: &mut pac::[<GPIO $Port>]) -> PinState {
                 let val = match self.pin {
                     PinNum::P0 => regs.idr.read().idr0().bit(),
@@ -444,7 +447,7 @@ macro_rules! make_pin {
                 }
             }
 
-            /// Set a pin state.
+            /// Set a pin state (ie set high or low output voltage level).
             pub fn set_state(&mut self, value: PinState, regs: &mut pac::[<GPIO $Port>]) {
                 let offset = match value {
                     PinState::Low => 16,
@@ -689,27 +692,27 @@ macro_rules! make_pin {
             }
         }
 
-        impl GpioPin for [<Gpio $Port Pin>] {
-            fn get_port(&self) -> PortLetter {
-                self.port
-            }
-
-            fn get_pin(&self) -> PinNum {
-                self.pin
-            }
-
-            fn get_mode(&self) -> PinMode {
-                // self.mode
-                // todo: Reg read.
-                unimplemented!()
-            }
-
-            fn get_output_type(&self) -> OutputType {
-                // self.output_type
-                // todo: Reg read.
-                unimplemented!()
-            }
-        }
+        // impl GpioPin for [<Gpio $Port Pin>] {
+        //     fn get_port(&self) -> PortLetter {
+        //         self.port
+        //     }
+        //
+        //     fn get_pin(&self) -> PinNum {
+        //         self.pin
+        //     }
+        //
+        //     fn get_mode(&self) -> PinMode {
+        //         // self.mode
+        //         // todo: Reg read.
+        //         unimplemented!()
+        //     }
+        //
+        //     fn get_output_type(&self) -> OutputType {
+        //         // self.output_type
+        //         // todo: Reg read.
+        //         unimplemented!()
+        //     }
+        // }
 
         }
     };

@@ -7,7 +7,7 @@
 use core::cell::{Cell, RefCell};
 
 use cortex_m::{
-    interrupt::{free, Mutex},
+    interrupt::{self, free},
     peripheral::NVIC,
 };
 use cortex_m_rt::entry;
@@ -15,11 +15,16 @@ use cortex_m_rt::entry;
 use stm32_hal::{
     adc::{Adc, AdcChannel, Align, CkMode, InputType, OperationMode},
     clocks::Clocks,
-    gpio::{AltFn, Edge, GpioA, GpioAPin, GpioB, GpioBPin, PinMode, PinNum},
+    gpio::{AltFn, Edge, GpioA, GpioAPin, GpioB, GpioBPin, PinMode, PinNum, PinState},
     low_power,
     pac,
     prelude::*, // The prelude includes traits we use here like `InputPin` and `OutputPin`.
 };
+
+// Set up an output pin in a globally-accessible mutex. This is useful for accessing
+// peripherals in interrupt contexts. We use a macro imported in the
+// `prelude` module to simplify this syntax, and accessing it later.
+setup_globals!((EXAMPLE_OUTPUT, example_output));
 
 /// This function includes type signature examples using `GpioPin`s from this library,
 /// and generic ones that implemented `embedded-hal` traits.
@@ -38,6 +43,7 @@ pub fn setup_pins(
     exti: &mut pac::EXTI,
     syscfg: &mut pac::SYSCFG,
 ) {
+    // Set up I2C pins
     let mut scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
@@ -49,7 +55,7 @@ pub fn setup_pins(
     let _miso = gpioa.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af5));
     let _mosi = gpioa.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af5));
 
-    // Setup UART pins
+    // Set up UART pins
     let _uart_tx = gpioa.new_pin(PinNum::P9, PinMode::Alt(AltFn::Af7));
     let _uart_rx = gpioa.new_pin(PinNum::P10, PinMode::Alt(AltFn::Af7));
 
@@ -57,10 +63,10 @@ pub fn setup_pins(
     let _usb_dm = gpioa.new_pin(PinNum::P11, PinMode::Alt(AltFn::Af14));
     let _usb_dp = gpioa.new_pin(PinNum::P12, PinMode::Alt(AltFn::Af14));
 
-    // `batt_v` is an ADC pin used to monitor battery life, by measuring voltage.
+    // Set the ADC pin to analog mode, to prevent parasitic power use.
     let _adc_pin = gpiob.new_pin(PinNum::P0, PinMode::Analog);
 
-    // Set `dac_pin` to analog mode, to prevent parasitic power use.
+    // Set DAC pin to analog mode, to prevent parasitic power use.
     let _dac_pin = gpioa.new_pin(PinNum::P4, PinMode::Analog);
 
     // Set up PWM.  // Timer 2, channel 1.
@@ -93,14 +99,24 @@ fn main() -> ! {
     let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
 
+    // Call a function we've made to help organize our pin setup code.
     setup_pins(&mut gpia, &mut gpiob, &mut dp.exti, &mut dp.syscfg);
 
+    // Example pins PB5 and PB6.
     let mut example_output = gpiob.new_pin(PinNum::P5, PinMode::Output);
     let mut example_input = gpiob.new_pin(PinNum::P6, PinMode::Input);
 
     example_type_sigs(&mut example_output, &mut example_input);
 
-    pin1.set_high();
+    // Set high using the `OutputPin` trait.
+    example_output.set_high();
+
+    // Unmask interrupt lines associated with the input pins we've configured interrupts
+    // for in `setup_pins`.
+    unsafe {
+        NVIC::unmask(interrupt::EXTI3);
+        NVIC::unmask(interrupt::EXTI4);
+    }
 
     loop {
         low_power::sleep_now(&mut SCB);
@@ -108,23 +124,32 @@ fn main() -> ! {
 }
 
 #[interrupt]
-// Interrupt handler for PB3
+/// Interrupt handler for PB3. This ISR is called when this push button goes low.
 fn EXTI3() {
     free(|cs| {
         // Clear the interrupt flag, to prevent continous firing.
         unsafe { (*EXTI::ptr()).pr1.modify(|_, w| w.pr3().bit(true)) }
 
-        // Do something here
+        // A helper macro to access the pin we stored in a mutex.
+        access_global!(EXAMPLE_OUTPUT, example_output, cs);
+
+        // Set a pin high;
+        example_output.set_high();
     });
 }
 
 #[interrupt]
-// Interrupt handler for PA4
+/// Interrupt handler for PA4. This ISR is called when this push button goes low.
 fn EXTI4() {
     free(|cs| {
         // Clear the interrupt flag, to prevent continous firing.
-        unsafe { (*EXTI::ptr()).pr1.modify(|_, w| w.pr3().bit(true)) }
+        unsafe { (*EXTI::ptr()).pr1.modify(|_, w| w.pr4().bit(true)) }
 
-        // Do something here
+        // This accomplishes the same as `access_global!`, and demonstrates
+        // what that macro does.
+        let mut p = EXAMPLE_OUTPUT.borrow(cs).borrow_mut();
+        let mut example_output = p.as_mut().unwrap();
+
+        example_output.set_low();
     });
 }
