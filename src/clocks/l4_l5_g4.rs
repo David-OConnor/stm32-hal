@@ -33,6 +33,20 @@ pub enum PllSrc {
     Hse(u8),
 }
 
+// L4 uses 0 - 4 only. Others use 1 - 15, but it's not clear when you'd
+// set more than WS5 or so.
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// Represents Flash wait states in the FLASH_ACR register.
+enum WaitState {
+    W0 = 0,
+    W1 = 1,
+    W2 = 2,
+    W3 = 3,
+    W4 = 4,
+    W5 = 5,
+}
+
 impl PllSrc {
     /// Required due to numerical value on non-uniform discrim being experimental.
     /// (ie, can't set on `Pll(Pllsrc)`.
@@ -353,20 +367,58 @@ impl Clocks {
         let (_, sysclk) = calc_sysclock(self.input_src, self.pllm, self.plln, self.pllr);
 
         let hclk = sysclk / self.hclk_prescaler.value() as u32;
-        // Reference manual section 3.3.3
-        flash.acr.modify(|_, w| unsafe {
-            if hclk <= 16 {
-                w.latency().bits(0b000)
-            } else if hclk <= 32 {
-                w.latency().bits(0b001)
-            } else if hclk <= 48 {
-                w.latency().bits(0b010)
-            } else if hclk <= 64 {
-                w.latency().bits(0b011)
-            } else {
-                w.latency().bits(0b100)
+
+        // TODO: these are only implemented for Vcore Rnage 1 (Normal mode as applicable)
+        // todo: Other modes.
+
+        cfg_if! {
+            if #[cfg(feature = "l4")] {  // RM section 3.3.3
+                flash.acr.modify(|_, w| unsafe {
+                    if hclk <= 16 {
+                        w.latency().bits(WaitState::W0 as u8)
+                    } else if hclk <= 32 {
+                        w.latency().bits(WaitState::W1 as u8)
+                    } else if hclk <= 48 {
+                        w.latency().bits(WaitState::W2 as u8)
+                    } else if hclk <= 64 {
+                        w.latency().bits(WaitState::W3 as u8)
+                    } else {
+                        w.latency().bits(WaitState::W4 as u8)
+                    }
+                });
+            } else if #[cfg(feature = "l5")] {  // RM section 6.3.3
+                flash.acr.modify(|_, w| unsafe {
+                    if hclk <= 20 {
+                        w.latency().bits(WaitState::W0 as u8)
+                    } else if hclk <= 40 {
+                        w.latency().bits(WaitState::W1 as u8)
+                    } else if hclk <= 60 {
+                        w.latency().bits(WaitState::W2 as u8)
+                    } else if hclk <= 80 {
+                        w.latency().bits(WaitState::W3 as u8)
+                    } else if hclk <= 100 {
+                        w.latency().bits(WaitState::W4 as u8)
+                    } else {
+                        w.latency().bits(WaitState::W5 as u8)
+                    }
+                });
+            } else {  // G4. RM section 3.3.3
+                flash.acr.modify(|_, w| unsafe {
+                    if hclk <= 34 {
+                        w.latency().bits(WaitState::W0 as u8)
+                    } else if hclk <= 68 {
+                        w.latency().bits(WaitState::W1 as u8)
+                    } else if hclk <= 102 {
+                        w.latency().bits(WaitState::W2 as u8)
+                    } else if hclk <= 136 {
+                        w.latency().bits(WaitState::W3 as u8)
+                    } else {
+                        w.latency().bits(WaitState::W4 as u8)
+                    }
+                });
             }
-        });
+
+        }
 
         // Reference Manual, 6.2.5:
         // The device embeds 3 PLLs: PLL, PLLSAI1, PLLSAI2. Each PLL provides up to three

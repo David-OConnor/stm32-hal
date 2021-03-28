@@ -26,6 +26,17 @@
     feature = "f303",
     feature = "f373",
     feature = "f3x4",
+    feature = "f401",
+    feature = "f405",
+    feature = "f407",
+    feature = "f410",
+    feature = "f411",
+    feature = "f412",
+    feature = "f413",
+    feature = "f427",
+    feature = "f429",
+    feature = "f446",
+    feature = "f469",
     feature = "l4x1",
     feature = "l4x2",
     feature = "l4x3",
@@ -55,7 +66,6 @@
     feature = "h753",
     feature = "h753v",
     feature = "h7b3",
-    feature = "f446"
 )))]
 compile_error!("This crate requires an MCU-specifying feature to be enabled. eg `l552`.");
 
@@ -73,6 +83,40 @@ pub use stm32f3::stm32f373 as pac;
 
 #[cfg(feature = "f3x4")]
 pub use stm32f3::stm32f3x4 as pac;
+
+// F4 PAC
+#[cfg(feature = "f401")]
+pub use stm32f4::stm32f401 as pac;
+
+#[cfg(feature = "f405")]
+pub use stm32f4::stm32f405 as pac;
+
+#[cfg(feature = "f407")]
+pub use stm32f4::stm32f446 as pac;
+
+#[cfg(feature = "f410")]
+pub use stm32f4::stm32f410 as pac;
+
+#[cfg(feature = "f411")]
+pub use stm32f4::stm32f411 as pac;
+
+#[cfg(feature = "f412")]
+pub use stm32f4::stm32f412 as pac;
+
+#[cfg(feature = "f413")]
+pub use stm32f4::stm32f413 as pac;
+
+#[cfg(feature = "f427")]
+pub use stm32f4::stm32f412 as pac;
+
+#[cfg(feature = "f429")]
+pub use stm32f4::stm32f412 as pac;
+
+#[cfg(feature = "f446")]
+pub use stm32f4::stm32f446 as pac;
+
+#[cfg(feature = "f469")]
+pub use stm32f4::stm32f469 as pac;
 
 // L4 PAC
 #[cfg(feature = "l4x1")]
@@ -163,8 +207,6 @@ pub use stm32h7::stm32h753 as pac;
 #[cfg(feature = "h753v")]
 pub use stm32h7::stm32h753v as pac;
 
-#[cfg(feature = "f446")]
-pub use stm32f4::stm32f446 as pac;
 #[cfg(feature = "h7b3")]
 pub use stm32h7::stm32h7b3 as pac;
 
@@ -172,7 +214,8 @@ pub use stm32h7::stm32h7b3 as pac;
 
 pub mod traits;
 
-#[cfg(not(any(feature = "f301", feature = "f302")))]
+// todo: Impl adc for g4!
+#[cfg(not(any(feature = "f301", feature = "f302", feature = "g4")))]
 pub mod adc;
 pub mod clocks;
 pub mod dac;
@@ -182,6 +225,7 @@ pub mod dma;
 #[cfg(not(any(feature = "l5", feature = "h7")))] // todo
 pub mod flash;
 pub mod gpio;
+#[cfg(not(feature = "f4"))] // todo
 pub mod i2c;
 pub mod low_power;
 pub mod rtc;

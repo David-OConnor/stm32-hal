@@ -24,7 +24,8 @@ use stm32_hal::{
 // Set up an output pin in a globally-accessible mutex. This is useful for accessing
 // peripherals in interrupt contexts. We use a macro imported in the
 // `prelude` module to simplify this syntax, and accessing it later.
-setup_globals!((EXAMPLE_OUTPUT, example_output));
+// Arguments are a list of (global name to store as, type) tuples.
+setup_globals!((EXAMPLE_OUTPUT, GpioBPin));
 
 /// This function includes type signature examples using `GpioPin`s from this library,
 /// and generic ones that implemented `embedded-hal` traits.

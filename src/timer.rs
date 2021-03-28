@@ -557,7 +557,7 @@ macro_rules! pwm_features {
 // We only implement `pwm_features` for general purpose timers. Perhaps we should implement
 // for advanced-control timers too.
 
-#[cfg(not(any(feature = "f373", feature = "f446")))]
+#[cfg(not(any(feature = "f373", feature = "f4")))]
 hal! {
     {
         TIM1: (tim1, apb2, enr, rstr)
@@ -591,7 +591,7 @@ pwm_features! {
     feature = "l4x2",
     feature = "l4x3",
     feature = "l552",
-    feature = "f446",
+    feature = "f4",
 )))]
 hal! {
     {
@@ -621,7 +621,7 @@ pwm_features! {
     feature = "l4x6",
     feature = "l562",
     feature = "h7",
-    feature = "f446",
+    feature = "f4",
 ))]
 hal! {
     {
@@ -645,7 +645,7 @@ hal! {
     },
 }
 
-#[cfg(not(feature = "f446"))]
+#[cfg(not(feature = "f4"))]
 hal! {
     {
         TIM16: (tim16, apb2, enr, rstr)
@@ -653,8 +653,7 @@ hal! {
 }
 
 // Todo: the L5 PAC has an address error on TIM15 - remove it until solved.
-// Note: the F446 does not have this TIMer.
-#[cfg(not(any(feature = "l5", feature = "f446")))]
+#[cfg(not(any(feature = "l5", feature = "f4")))]
 hal! {
     {
         TIM15: (tim15, apb2, enr, rstr)

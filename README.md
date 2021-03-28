@@ -71,8 +71,6 @@ The library is influenced by the `stm32fyxx` HALs, and a number of the modules h
 versions of those. There are some areas where design philosophy is different. For example: GPIO type-checking,
 level-of-abstraction from registers/PAC, and clock config.
     
-The intent isn't to support every STM32 family: Main support will be for newer ones.
-
 Most peripheral modules are independent: The only dependency they have within this library
 is the `ClockCfg` trait, which we may move to a standalone crate later. This makes
 it easy to interchange them with other projects.
@@ -81,14 +79,15 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 
 ## Errata
 
-- Flash wait states for some clock configs may not be set up correctly
 - H7 clocks haven't been tested, are missing features, and likely contain errors
 - H7-specific features are missing 
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
 - ADC is unimplemented on G4
 - ADC 3 and 4 are unimplemented on H7
-- Some timer implementations are missing, especially on G4
-- Low power modes beyond sleep aren't implemented for G4 and H7
+- Some timer implementations are missing, especially on G4, and F4.
+- Low power modes beyond sleep aren't implemented for G4, H7, and F4.
 - G0 isn't yet supported
 - Waiting on U5 PAC before implementing
 - Disabling GPIO pin interrupts unimplemented
+- USB clock (PLLQ) isn't set up for F4 - USB may not work.
+- I2C unimplemented for f4

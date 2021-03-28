@@ -76,8 +76,17 @@ f373 = ["stm32f3/stm32f373", "f3"]
 f3x4 = ["stm32f3/stm32f3x4", "f3"]
 
 # [F4](https://docs.rs/crate/stm32f4/0.13.0/source/Cargo.toml)
+f401 = ["stm32f4/stm32f401", "f4"]
+f405 = ["stm32f4/stm32f405", "f4"]
+f407 = ["stm32f4/stm32f407", "f4"]
+f410 = ["stm32f4/stm32f410", "f4"]
+f411 = ["stm32f4/stm32f411", "f4"]
+f412 = ["stm32f4/stm32f412", "f4"]
+f413 = ["stm32f4/stm32f413", "f4"]
+f427 = ["stm32f4/stm32f427", "f4"]
+f429 = ["stm32f4/stm32f429", "f4"]
 f446 = ["stm32f4/stm32f446", "f4"]
-# todo: Add other f4 variants
+f469 = ["stm32f4/stm32f469", "f4"]
 
 # [L4](https://docs.rs/crate/stm32l4/0.13.0/source/Cargo.toml)
 l4x1 = ["stm32l4/stm32l4x1", "l4"]
