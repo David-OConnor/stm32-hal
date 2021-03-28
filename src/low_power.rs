@@ -10,14 +10,15 @@ use cortex_m::{asm::wfi, peripheral::SCB};
 // clocks::re_select_input` is separate (in `clocks` instead of here) due to varying significantly
 // among families.
 
-// See L4 Reference Manual section 5.3.6. The values correspond
+// See L4 Reference Manual section 5.3.6. The values correspond to the PWR_CR1 LPMS bits.
 // todo PWR_CR1, LPMS field.
 #[derive(Clone, Copy)]
 #[repr(u8)]
 pub enum StopMode {
-    Zero = 0b000,
-    One = 0b001,
-    Two = 0b010,
+    Zero = 0,
+    One = 1,
+    #[cfg(not(feature = "g4"))]
+    Two = 2,
 }
 
 /// Ref man, table 24
@@ -83,9 +84,11 @@ cfg_if::cfg_if! {
         /// STM32f3.
         /// To exit:  Any EXTI Line configured in Interrupt mode (the corresponding EXTI
         /// Interrupt vector must be enabled in the NVIC). Refer to Table 82.
-        /// Ref man, table 20.
-        #[cfg(feature = "f3")]
+        /// F3 RM, table 20. F4 RM, Table 27.
+        #[cfg(any(feature = "f3", feature = "f4"))]
         pub fn stop(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc, rcc: &mut RCC) {
+            // todo: On some F4 variants, you may need to `select voltage regulator
+            // todo mode by configuring LPDS, MRUDS, LPUDS and UDEN bits in PWR_CR.`
             //WFI (Wait for Interrupt) or WFE (Wait for Event) while:
 
             // Set SLEEPDEEP bit in ARM® Cortex®-M4 System Control register
@@ -137,9 +140,9 @@ cfg_if::cfg_if! {
             clocks::re_select_input(input_src, rcc);
         }
 
-    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
-        /// Enter Stop 0, Stop 1, or Stop 2 modes. Reference manual, section 5.3.6. Tables 27, 28, and 29.
-        #[cfg(any(feature = "l4", feature = "l5"))]
+    } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
+        /// Enter Stop 0, Stop 1, or Stop 2 modes. L4 Reference manual, section 5.3.6. Tables 27, 28, and 29.
+        /// G4 Table 45, 47, 47.
         pub fn stop(scb: &mut SCB, pwr: &mut PWR, mode: StopMode, input_src: InputSrc, rcc: &mut RCC) {
             // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
             // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
@@ -161,8 +164,7 @@ cfg_if::cfg_if! {
         }
 
 
-        /// Enter `Standby` mode. See
-        /// Table 30.
+        /// Enter `Standby` mode. See L4 table 30. G4 table 47.
         pub fn standby(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc, rcc: &mut RCC) {
             // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
             scb.set_sleepdeep();
@@ -171,15 +173,16 @@ cfg_if::cfg_if! {
             pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(0b011) });
             // – WUFx bits are cleared in power status register 1 (PWR_SR1)
             // (Clear by setting cwfuf bits in `pwr_scr`.)
-            pwr.scr.write(|w| unsafe { w.bits(0) });
-            // todo: Unsure why setting the individual bits isn't working; PWR.scr doesn't have modify method?
-            // pwr.scr.modify(|_, w| {
-            //     w.cwuf1().set_bit();
-            //     w.cwuf2().set_bit();
-            //     w.cwuf3().set_bit();
-            //     w.cwuf4().set_bit();
-            //     w.cwuf5().set_bit();
-            // })
+            pwr.scr.write(|w| {
+                w.cwuf1().set_bit();
+                w.cwuf2().set_bit();
+                w.cwuf3().set_bit();
+                w.cwuf4().set_bit();
+                w.cwuf5().set_bit()
+            });
+
+            // todo: `The RTC flag corresponding to the chosen wakeup source (RTC Alarm
+            // todo: A, RTC Alarm B, RTC wakeup, tamper or timestamp flags) is cleared`.
 
             // Or, unimplemented:
             // On return from ISR while:
@@ -196,7 +199,7 @@ cfg_if::cfg_if! {
         }
 
         /// Enter `Shutdown mode` mode: the lowest-power of the 3 low-power states avail. See
-        /// Table 31.
+        /// L4 Table 31. G4 table 48.
         pub fn shutdown(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc, rcc: &mut RCC) {
             // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
             scb.set_sleepdeep();

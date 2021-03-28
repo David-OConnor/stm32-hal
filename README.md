@@ -79,13 +79,15 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 
 ## Errata
 
+- U[s]ART (serial) isn't implemented outside L4.
+- DMA, CAN, and quadSPI aren't implemented.
 - H7 clocks haven't been tested, are missing features, and likely contain errors
 - H7-specific features are missing 
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
-- ADC is unimplemented on G4
+- ADC is unimplemented on G4 and F4.
 - ADC 3 and 4 are unimplemented on H7
 - Some timer implementations are missing, especially on G4, and F4.
-- Low power modes beyond sleep aren't implemented for G4, H7, and F4.
+- Low power modes beyond sleep aren't implemented for H7.
 - G0 isn't yet supported
 - Waiting on U5 PAC before implementing
 - Disabling GPIO pin interrupts unimplemented
