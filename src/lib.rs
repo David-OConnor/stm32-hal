@@ -225,7 +225,7 @@ pub mod dma;
 #[cfg(not(any(feature = "l5", feature = "h7")))] // todo
 pub mod flash;
 pub mod gpio;
-#[cfg(not(feature = "f4"))] // todo
+// #[cfg(not(feature = "f4"))] // todo
 pub mod i2c;
 pub mod low_power;
 pub mod rtc;

@@ -10,7 +10,7 @@ This library provides high-level access to STM32 peripherals. It's based on the
 multiple STM32 families, with minimal code repetition. This makes it easy to switch MCUs 
 within, or across families, for a given project.
 
-**Family support**: F3, L4, L5, G4, and H7. G0 and U5 soon.
+**Family support**: F3, F4, L4, L5, G4, and H7. G0 and U5 soon.
 
 **Motivation**: Use STM32s in real-world hardware projects. Be able to switch MCUs with
 minimal code change. 
