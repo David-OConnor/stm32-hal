@@ -721,25 +721,30 @@ macro_rules! make_pin {
 make_pin!(A);
 make_pin!(B);
 make_pin!(C);
+
+#[cfg(not(any(feature = "f410")))]
 make_pin!(D);
 
 make_port!(A, a);
 make_port!(B, b);
 make_port!(C, c);
+
+#[cfg(not(any(feature = "f410")))]
 make_port!(D, d);
 
 // todo: Missing EFGH impls on some variants that have them.
 
-#[cfg(not(any(feature = "f301", feature = "f3x4")))]
+#[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410",)))]
 make_pin!(E);
 
-#[cfg(not(any(feature = "f301", feature = "f3x4")))]
+#[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410")))]
 make_port!(E, e);
 
 #[cfg(not(any(
     feature = "f373",
     feature = "f301",
     feature = "f3x4",
+    feature = "f410",
     feature = "l4",
     feature = "g4"
 )))]
@@ -749,6 +754,7 @@ make_pin!(H);
     feature = "f373",
     feature = "f301",
     feature = "f3x4",
+    feature = "f410",
     feature = "l4",
     feature = "g4"
 )))]

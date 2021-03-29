@@ -9,7 +9,7 @@ use embedded_hal::spi::{FullDuplex, Mode, Phase, Polarity};
 use paste::paste;
 
 use crate::{
-    pac::{RCC, SPI1, SPI2, SPI3},
+    pac::{self, RCC},
     traits::ClockCfg,
 };
 
@@ -69,10 +69,10 @@ pub struct Spi<SPI> {
 macro_rules! hal {
     ($($SPIX:ident: ($spi:ident, $constructorname:ident, $apb:ident, $enr:ident, $rst:ident, $en:ident),)+) => {
         $(
-            impl Spi<$SPIX> {
+            impl Spi<pac::$SPIX> {
                 /// Configures the SPI peripheral to operate in full duplex master mode
                 pub fn $constructorname<C: ClockCfg>(
-                    spi: $SPIX,
+                    spi: pac::$SPIX,
                     mode: Mode,
                     freq: u32,
                     clocks: &C,
@@ -81,7 +81,7 @@ macro_rules! hal {
                     // enable or reset $SPIX
 
                     // todo: this is similar to code we use in `timer.rs`.
-                                        cfg_if::cfg_if! {
+                    cfg_if::cfg_if! {
                         if #[cfg(feature = "f3")] {
                             paste! {
                                 rcc.[<$apb enr>].modify(|_, w| w.$en().set_bit());
@@ -103,6 +103,7 @@ macro_rules! hal {
                     //        8-bit
                     // DS: 8-bit data size
                     // SSOE: Slave Select output disabled
+                    #[cfg(not(feature = "f4"))]
                     spi.cr2
                         .write(|w| unsafe {
                             w.frxth().set_bit().ds().bits(0b111).ssoe().clear_bit()
@@ -174,7 +175,7 @@ macro_rules! hal {
                 }
             }
 
-            impl FullDuplex<u8> for Spi<$SPIX> {
+            impl FullDuplex<u8> for Spi<pac::$SPIX> {
                 type Error = Error;
 
                 fn read(&mut self) -> nb::Result<u8, Error> {
@@ -216,48 +217,41 @@ macro_rules! hal {
                 }
             }
 
-            impl embedded_hal::blocking::spi::transfer::Default<u8> for Spi<$SPIX> {}
+            impl embedded_hal::blocking::spi::transfer::Default<u8> for Spi<pac::$SPIX> {}
 
-            impl embedded_hal::blocking::spi::write::Default<u8> for Spi<$SPIX> {}
+            impl embedded_hal::blocking::spi::write::Default<u8> for Spi<pac::$SPIX> {}
         )+
     }
 }
 
+#[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "h7"))]
+hal! {
+    SPI1: (spi1, new_spi1, apb2, enr, rstr, spi1en),
+}
+
 #[cfg(any(
-    feature = "l4x1",
-    feature = "l4x2",
-    feature = "l4x3",
-    feature = "l4x5",
-    feature = "l4x6"
+    feature = "f302",
+    feature = "f303",
+    feature = "f373",
+    feature = "f3x4",
+    feature = "f4"
 ))]
 hal! {
     SPI1: (spi1, new_spi1, apb2, enr, rstr, spi1en),
 }
 
-#[cfg(any(feature = "f302", feature = "f303", feature = "f373", feature = "f3x4",))]
-hal! {
-    SPI1: (spi1, new_spi1, apb2, enr, rstr, spi1en),
-}
-
-// #[cfg(any(feature = "l4", feature = "l5"))]
-// hal! {
-//     SPI1: (spi1, APB2, enr, rstr),
-// }
-
-#[cfg(any(feature = "f301", feature = "f302", feature = "f303", feature = "f373",))]
+#[cfg(any(
+    feature = "f301",
+    feature = "f302",
+    feature = "f303",
+    feature = "f373",
+    feature = "f4"
+))]
 hal! {
     SPI2: (spi2, new_spi2, apb1, enr1, rstr1, spi2en),
 }
 
-#[cfg(any(
-    feature = "l4x1",
-    feature = "l4x3",
-    feature = "l4x4",
-    feature = "l4x5",
-    feature = "l4x6",
-    feature = "l552",
-    feature = "l562",
-))]
+#[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "h7",))]
 hal! {
     SPI2: (spi2, new_spi2, apb1, enr1, rstr1, spi2en),
 }
@@ -267,7 +261,13 @@ hal! {
     SPI3: (spi3, new_spi3, apb1, enr1, rstr1, spi3en),
 }
 
-#[cfg(any(feature = "l4x1", feature = "l4x4", feature = "l4x5", feature = "l4x6",))]
+#[cfg(any(
+    feature = "l4x1",
+    feature = "l4x4",
+    feature = "l4x5",
+    feature = "l4x6",
+    feature = "g4"
+))]
 hal! {
     SPI3: (spi3, new_spi3, apb1, enr1, rstr1, spi3en),
 }
@@ -278,36 +278,3 @@ hal! {
 hal! {
     SPI3: (spi3, new_spi3, apb1, enr1, rstr1, sp3en),
 }
-
-// #[cfg(any(
-//     feature = "stm32l4x1",
-//     feature = "stm32l4x2",
-//     feature = "stm32l4x5",
-//     feature = "stm32l4x6",
-// ))]
-// pins!(SPI3, AF6,
-//     SCK: [PB3, PC10],
-//     MISO: [PB4, PC11],
-//     MOSI: [PB5, PC12]);
-//
-// #[cfg(any(feature = "stm32l4x5", feature = "stm32l4x6",))]
-// pins!(SPI3, AF6, SCK: [PG9], MISO: [PG10], MOSI: [PG11]);
-
-// #[cfg(any(
-//     feature = "stm32l4x1",
-//     feature = "stm32l4x3",
-//     feature = "stm32l4x5",
-//     feature = "stm32l4x6",
-// ))]
-// use crate::stm32::SPI2;
-
-// #[cfg(any(
-//     feature = "stm32l4x1",
-//     feature = "stm32l4x3",
-//     feature = "stm32l4x5",
-//     feature = "stm32l4x6",
-// ))]
-// pins!(SPI2, AF5,
-//     SCK: [PB13, PB10, PD1],
-//     MISO: [PB14, PC2, PD3],
-//     MOSI: [PB15, PC3, PD4]);

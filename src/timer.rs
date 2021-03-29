@@ -569,7 +569,8 @@ hal! {
     feature = "f552",
     feature = "l4x3",
     feature = "l4x1",
-    feature = "l552"
+    feature = "l552",
+    feature = "f410",
 )))]
 hal! {
     {
@@ -577,7 +578,7 @@ hal! {
     },
 }
 
-#[cfg(not(any(feature = "l4x1", feature = "l4x3", feature = "l5")))]
+#[cfg(not(any(feature = "l4x1", feature = "l4x3", feature = "l5", feature = "f410")))]
 pwm_features! {
     {
        TIM3: u16
@@ -607,7 +608,8 @@ hal! {
     feature = "l4x1",
     feature = "l4x2",
     feature = "l4x3",
-    feature = "l5"
+    feature = "l5",
+    feature = "f410",
 )))]
 pwm_features! {
     {
@@ -629,13 +631,14 @@ hal! {
     },
 }
 
-#[cfg(not(any(feature = "f301", feature = "f302")))]
+#[cfg(not(any(feature = "f301", feature = "f302", feature = "f410")))]
 hal! {
     {
         TIM7: (tim7, apb1, enr1, rstr1)
     },
 }
 
+#[cfg(not(any(feature = "f410")))]
 hal! {
     {
         TIM2: (tim2, apb1, enr1, rstr1)
@@ -661,7 +664,7 @@ hal! {
 }
 
 // todo: G4 has tim2, and it's 32-bit, but there may be a PAC error here; pac expects arr to be 16 bit.
-#[cfg(not(any(feature = "l4x1", feature = "l5", feature = "g4")))]
+#[cfg(not(any(feature = "l4x1", feature = "l5", feature = "g4", feature = "f410")))]
 pwm_features! {
     {
         TIM2: u32

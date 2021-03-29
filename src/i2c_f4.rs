@@ -7,7 +7,7 @@ use core::ops::Deref;
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 use crate::{
-    pac::{self, i2c1, I2C1, I2C2, I2C3, RCC},
+    pac::{self, i2c1, RCC},
     traits::ClockCfg,
 };
 
@@ -45,8 +45,8 @@ macro_rules! hal {
         $I2C:ident: ($i2c:ident),
     )+) => {
         $(
-            impl private::Sealed for $I2C {}
-            impl Instance for $I2C {
+            impl private::Sealed for pac::$I2C {}
+            impl Instance for pac::$I2C {
                 paste! {
                     fn enable_clock(rcc: &mut RCC) {
                         rcc.apb1enr.modify(|_, w| w.[<$i2c en>]().set_bit());
@@ -65,6 +65,8 @@ hal! {
 hal! {
     I2C2: (i2c2),
 }
+
+#[cfg(not(any(feature = "f410")))]
 hal! {
     I2C3: (i2c3),
 }
