@@ -92,4 +92,3 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 - Waiting on U5 PAC before implementing
 - Disabling GPIO pin interrupts unimplemented
 - USB clock (PLLQ) isn't set up for F4 - USB may not work.
-- I2C unimplemented for f4

@@ -254,8 +254,9 @@ macro_rules! hal {
             fn enable_clock(&self, common_regs: &mut pac::$ADC_COMMON, rcc: &mut RCC) {
                  // `common_regs` is the same as `self.regs` for non-f3. On f3, it's a diff block,
                  // eg `adc12`.
+                 // todo: Macros instead of AdcNum? More consistent with other modules. Not sure which is more apt.
                 cfg_if! {
-                    if #[cfg(any(feature = "f3", feature = "f4"))] {
+                    if #[cfg(feature = "f3")] {
                         match $adc_num {
                             AdcNum::One | AdcNum::Two => {
                                 rcc.ahbenr.modify(|_, w| w.adc12en().set_bit());
@@ -268,6 +269,20 @@ macro_rules! hal {
                                 rcc.ahbrstr.modify(|_, w| w.adc34rst().clear_bit());
                             }
                         }
+                    } else if #[cfg(feature = "f4")] {
+                         match $adc_num {
+                            AdcNum::One => {
+                                rcc.apb2enr.modify(|_, w| w.adc1en().set_bit());
+                            }
+                            AdcNum::Two => {
+                                rcc.apb2enr.modify(|_, w| w.adc2en().set_bit());
+                            }
+                            AdcNum::Three => {
+                                rcc.apb2enr.modify(|_, w| w.adc3en().set_bit());
+                            }
+                        }
+                        rcc.apb2rstr.modify(|_, w| w.adcrst().set_bit());
+                        rcc.apb2rstr.modify(|_, w| w.adcrst().clear_bit());
                     } else if #[cfg(any(feature = "h7", feature = "g4"))] {
                         match $adc_num {
                             AdcNum::One | AdcNum::Two => {
@@ -282,7 +297,7 @@ macro_rules! hal {
                             }
                         }
 
-                    } else {
+                    } else {  // ie L4, L5 etc.
                         rcc.ahb2enr.modify(|_, w| w.adcen().set_bit());
                         rcc.ahb2rstr.modify(|_, w| w.adcrst().set_bit());
                         rcc.ahb2rstr.modify(|_, w| w.adcrst().clear_bit());
@@ -785,3 +800,8 @@ hal!(ADC1, ADC1, adc1, AdcNum::One);
 
 #[cfg(feature = "g4")]
 hal!(ADC1, ADC12, adc1, AdcNum::One);
+
+#[cfg(feature = "f4")]
+hal!(ADC1, ADC1, adc1, AdcNum::One);
+
+// todo F4 as (depending on variant?) ADC 1, 2, 3
