@@ -39,14 +39,16 @@ pub mod AdcChannel {
     pub struct C19;
     pub struct C20;
 }
-
-#[derive(Clone, Copy)]
-enum AdcNum {
-    One,
-    Two,
-    Three,
-    Four,
-}
+//
+// #[derive(Clone, Copy)]
+// enum AdcNum {
+//     One,
+//     Two,
+//     Three,
+//     Four,
+//     #[cfg(feature = "g4")]
+//     Five,
+// }
 
 /// Analog to Digital converter peripheral
 pub struct Adc<ADC> {
@@ -204,7 +206,7 @@ impl Default for Align {
 
 // Abstract implementation of ADC functionality
 macro_rules! hal {
-    ($ADC:ident, $ADC_COMMON:ident, $adc:ident, $adc_num:expr) => {
+    ($ADC:ident, $ADC_COMMON:ident, $adc:ident, $rcc_num:tt) => {
         impl Adc<pac::$ADC> {
             paste! {
                 /// Init a new ADC
@@ -255,55 +257,32 @@ macro_rules! hal {
                  // `common_regs` is the same as `self.regs` for non-f3. On f3, it's a diff block,
                  // eg `adc12`.
                  // todo: Macros instead of AdcNum? More consistent with other modules. Not sure which is more apt.
-                cfg_if! {
-                    if #[cfg(feature = "f3")] {
-                        match $adc_num {
-                            AdcNum::One | AdcNum::Two => {
-                                rcc.ahbenr.modify(|_, w| w.adc12en().set_bit());
-                                rcc.ahbrstr.modify(|_, w| w.adc12rst().set_bit());
-                                rcc.ahbrstr.modify(|_, w| w.adc12rst().clear_bit());
-                            }
-                            AdcNum::Three | AdcNum::Four => {
-                                rcc.ahbenr.modify(|_, w| w.adc34en().set_bit());
-                                rcc.ahbrstr.modify(|_, w| w.adc34rst().set_bit());
-                                rcc.ahbrstr.modify(|_, w| w.adc34rst().clear_bit());
-                            }
+                paste! {
+                    cfg_if! {
+                        if #[cfg(feature = "f3")] {
+                            rcc.ahbenr.modify(|_, w| w.[<adc $rcc_num en>]().set_bit());
+                            rcc.ahbrstr.modify(|_, w| w.[<adc $rcc_num rst>]().set_bit());
+                            rcc.ahbrstr.modify(|_, w| w.[<adc $rcc_num rst>]().clear_bit());
+                        } else if #[cfg(feature = "f4")] {
+                            rcc.apb2enr.modify(|_, w| w.[<adc $rcc_num en>]().set_bit());
+                            rcc.apb2rstr.modify(|_, w| w.[<adc $rcc_num rst>]().set_bit());
+                            rcc.apb2rstr.modify(|_, w| w.[<adc $rcc_num rst>].clear_bit());
+                        } else if #[cfg(any(feature = "h7"))] {
+                        // todo: 1 and 2 are on ahb1enr etc. 3 is on ahb4. 3 won't work here.
+                            rcc.ahb1enr.modify(|_, w| w.[<adc $rcc_num en>]().set_bit());
+                            rcc.ahb1rstr.modify(|_, w| w.[<adc $rcc_num rst>]().set_bit());
+                            rcc.ahb1rstr.modify(|_, w| w.[<adc $rcc_num rst>]().clear_bit());
+                        } else if #[cfg(any(feature = "g4"))] {
+                            rcc.ahb2enr.modify(|_, w| w.[<adc $rcc_num en>]().set_bit());
+                            rcc.ahb2rstr.modify(|_, w| w.[<adc $rcc_num rst>]().set_bit());
+                            rcc.ahb2rstr.modify(|_, w| w.[<adc $rcc_num rst>]().clear_bit());
+                        } else {  // ie L4, L5 etc.
+                            rcc.ahb2enr.modify(|_, w| w.adcen().set_bit());
+                            rcc.ahb2rstr.modify(|_, w| w.adcrst().set_bit());
+                            rcc.ahb2rstr.modify(|_, w| w.adcrst().clear_bit());
                         }
-                    } else if #[cfg(feature = "f4")] {
-                         match $adc_num {
-                            AdcNum::One => {
-                                rcc.apb2enr.modify(|_, w| w.adc1en().set_bit());
-                            }
-                            AdcNum::Two => {
-                                rcc.apb2enr.modify(|_, w| w.adc2en().set_bit());
-                            }
-                            AdcNum::Three => {
-                                rcc.apb2enr.modify(|_, w| w.adc3en().set_bit());
-                            }
-                        }
-                        rcc.apb2rstr.modify(|_, w| w.adcrst().set_bit());
-                        rcc.apb2rstr.modify(|_, w| w.adcrst().clear_bit());
-                    } else if #[cfg(any(feature = "h7", feature = "g4"))] {
-                        match $adc_num {
-                            AdcNum::One | AdcNum::Two => {
-                                rcc.ahb1enr.modify(|_, w| w.adc12en().set_bit());
-                                rcc.ahb1rstr.modify(|_, w| w.adc12rst().set_bit());
-                                rcc.ahb1rstr.modify(|_, w| w.adc12rst().clear_bit());
-                            }
-                            AdcNum::Three | AdcNum::Four => {
-                                rcc.ahb4enr.modify(|_, w| w.adc3en().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.adc3rst().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.adc3rst().clear_bit());
-                            }
-                        }
-
-                    } else {  // ie L4, L5 etc.
-                        rcc.ahb2enr.modify(|_, w| w.adcen().set_bit());
-                        rcc.ahb2rstr.modify(|_, w| w.adcrst().set_bit());
-                        rcc.ahb2rstr.modify(|_, w| w.adcrst().clear_bit());
                     }
                 }
-
 
                 cfg_if! {
                     if #[cfg(any(feature = "g4", feature = "h7"))] {  // todo why can't we find ccr?
@@ -762,46 +741,55 @@ macro_rules! hal {
 }
 
 #[cfg(any(feature = "f301", feature = "f302", feature = "f303",))]
-hal!(ADC1, ADC1_2, adc1, AdcNum::One);
+hal!(ADC1, ADC1_2, adc1, 12);
 
 #[cfg(any(feature = "f302", feature = "f303",))]
-hal!(ADC2, ADC1_2, adc2, AdcNum::Two);
+hal!(ADC2, ADC1_2, adc2, 12);
 
 #[cfg(any(feature = "f303"))]
-hal!(ADC3, ADC3_4, adc3, AdcNum::Three);
+hal!(ADC3, ADC3_4, adc3, 34);
 
 #[cfg(any(feature = "f303"))]
-hal!(ADC4, ADC3_4, adc4, AdcNum::Four);
+hal!(ADC4, ADC3_4, adc4, 34);
 
 #[cfg(any(feature = "l4"))]
-hal!(ADC1, ADC_COMMON, adc1, AdcNum::One);
+hal!(ADC1, ADC_COMMON, adc1, _);
 
 // todo: ADC 1 vs 2 on L5? L5 supports up to 2 ADCs, so I'm not sure what's going on here.
 #[cfg(any(feature = "l5"))]
-hal!(ADC, ADC_COMMON, adc1, AdcNum::One);
+hal!(ADC, ADC_COMMON, adc1, _);
 
 #[cfg(any(feature = "l4x1", feature = "l4x2", feature = "l4x5", feature = "l4x6",))]
-hal!(ADC2, ADC_COMMON, adc2, AdcNum::Two);
+hal!(ADC2, ADC_COMMON, adc2, _);
 
 #[cfg(any(feature = "l4x5", feature = "l4x6",))]
-hal!(ADC3, ADC_COMMON, adc3, AdcNum::Three);
+hal!(ADC3, ADC_COMMON, adc3, _);
 
-// todo: Beyond ADC1 for H7 and G4
-#[cfg(any(
-    feature = "h743",
-    feature = "h743v",
-    feature = "h747cm4",
-    feature = "h747cm7",
-    feature = "h753",
-    feature = "h753v",
-    feature = "h7b3",
-))]
-hal!(ADC1, ADC1, adc1, AdcNum::One);
+// todo Implement ADC3 on H7.
+cfg_if! {
+    if #[cfg(feature = "h7")] {
+        hal!(ADC1, ADC12_COMMON, adc1, 12);
+        hal!(ADC2, ADC12_COMMON, adc2, 12);
+    }
+}
 
-#[cfg(feature = "g4")]
-hal!(ADC1, ADC12, adc1, AdcNum::One);
+cfg_if! {
+    if #[cfg(feature = "g4")] {
+        hal!(ADC1, ADC12_COMMON, adc1, 12);
+        hal!(ADC2, ADC12_COMMON, adc2, 12);
+    }
+}
+
+// todo: Implement ADCs 3, 4, 5 on G4 variants that support it.
+// cfg_if! {
+//     if #[cfg(any(feature = "g4..."))] {
+//         hal!(ADC3, ADC345_COMMON, adc3, 345);
+//         hal!(ADC4, ADC345_COMMON, adc4, 345);
+//         hal!(ADC5, ADC345_COMMON, adc5, 345);
+//     }
+// }
 
 #[cfg(feature = "f4")]
-hal!(ADC1, ADC1, adc1, AdcNum::One);
+hal!(ADC1, ADC1, adc1, 1);
 
 // todo F4 as (depending on variant?) ADC 1, 2, 3

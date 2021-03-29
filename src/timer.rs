@@ -215,16 +215,20 @@ macro_rules! hal {
                         // enable and reset peripheral to a clean slate state
                         // todo: H7!!
                         cfg_if! {
-                            if #[cfg(feature = "f3")] {
+                            if #[cfg(any(feature = "f3", feature = "f4"))] {
                                     rcc.[<$apb enr>].modify(|_, w| w.[<$tim en>]().set_bit());
                                     rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().set_bit());
                                     rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().clear_bit());
-                            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                            } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
                                     // We use `$enr` and $rst, since we only add `1` after for apb1.
                                     // This isn't required on f3.
                                     rcc.[<$apb $enr>].modify(|_, w| w.[<$tim en>]().set_bit());
                                     rcc.[<$apb $rst>].modify(|_, w| w.[<$tim rst>]().set_bit());
                                     rcc.[<$apb $rst>].modify(|_, w| w.[<$tim rst>]().clear_bit());
+                            } else {  // H7 // todo broodifken. You need to rearrange macros to use apb1l1enr, apb2enr etc for H7
+                                    // rcc.apb1lenr.my(|_, w| w.[<$tim en>]().set_bit());
+                                    // rcc.apb1lrstr.modify(|_, w| w.[<$tim rst>]().set_bit());
+                                    // rcc.apb1lrstr.modify(|_, w| w.[<$tim rst>]().clear_bit());
                             }
                         }
 
@@ -550,10 +554,6 @@ macro_rules! pwm_features {
     }
 }
 
-// todo: Which use apb1, and which use apb2? We have a good start, but needs QC
-
-// todo: Fix pwm features for l4 and put back!
-
 // We only implement `pwm_features` for general purpose timers. Perhaps we should implement
 // for advanced-control timers too.
 
@@ -671,7 +671,13 @@ pwm_features! {
     },
 }
 
-#[cfg(any(feature = "f303", feature = "l4x5", feature = "l4x6", feature = "l562"))]
+#[cfg(any(
+    feature = "f303",
+    feature = "l4x5",
+    feature = "l4x6",
+    feature = "l562",
+    feature = "g4"
+))]
 hal! {
     {
         TIM8: (tim8, apb2, enr, rstr)

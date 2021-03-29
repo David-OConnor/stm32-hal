@@ -398,11 +398,13 @@ impl Clocks {
                 if #[cfg(feature = "f3")] {
                    rcc.cfgr.modify(|_, w| {
                     // Some f3 varients uses a 'bit' field instead. Haven't looked up how to handle.
-                    if #[cfg(any(feature = "f301", feature = "f373", feature = "f3x4"))] {
-                        w.pllmul().bits(self.pll_mul as u8) // eg: 8Mhz HSE x 9 = 72Mhz
-                    } else {
-                        w.pllmul().bits(self.pll_mul as u8); // eg: 8Mhz HSE x 9 = 72Mhz
-                        unsafe { w.pllsrc().bits(pll_src.bits() != 0) } // eg: Set HSE as PREDIV1 entry.
+                    cfg_if! {
+                        if #[cfg(any(feature = "f301", feature = "f373", feature = "f3x4"))] {
+                            w.pllmul().bits(self.pll_mul as u8) // eg: 8Mhz HSE x 9 = 72Mhz
+                        } else {
+                            w.pllmul().bits(self.pll_mul as u8); // eg: 8Mhz HSE x 9 = 72Mhz
+                            unsafe { w.pllsrc().bits(pll_src.bits()) } // eg: Set HSE as PREDIV1 entry.
+                        }
                     }
                 });
                 } else if #[cfg(feature = "f4")] {
@@ -528,7 +530,7 @@ impl ClockCfg for Clocks {
     fn validate_speeds(&self) -> ClocksValid {
         let mut result = ClocksValid::Valid;
 
-        #[cfg(feature = "32")]
+        #[cfg(feature = "f3")]
         let max_clock = 72_000_000;
 
         #[cfg(feature = "f4")]

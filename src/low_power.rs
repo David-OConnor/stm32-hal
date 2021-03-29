@@ -7,6 +7,8 @@ use crate::{
 };
 use cortex_m::{asm::wfi, peripheral::SCB};
 
+use cfg_if::cfg_if;
+
 // clocks::re_select_input` is separate (in `clocks` instead of here) due to varying significantly
 // among families.
 
@@ -173,13 +175,26 @@ cfg_if::cfg_if! {
             pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(0b011) });
             // – WUFx bits are cleared in power status register 1 (PWR_SR1)
             // (Clear by setting cwfuf bits in `pwr_scr`.)
-            pwr.scr.write(|w| {
-                w.cwuf1().set_bit();
-                w.cwuf2().set_bit();
-                w.cwuf3().set_bit();
-                w.cwuf4().set_bit();
-                w.cwuf5().set_bit()
-            });
+            cfg_if! {
+                if #[cfg(feature = "l4")] {
+                    pwr.scr.write(|w| {
+                        w.wuf1().set_bit();
+                        w.wuf2().set_bit();
+                        w.wuf3().set_bit();
+                        w.wuf4().set_bit();
+                        w.wuf5().set_bit()
+                    });
+                } else {
+                    pwr.scr.write(|w| {
+                        w.cwuf1().set_bit();
+                        w.cwuf2().set_bit();
+                        w.cwuf3().set_bit();
+                        w.cwuf4().set_bit();
+                        w.cwuf5().set_bit()
+                    });
+                }
+            }
+
 
             // todo: `The RTC flag corresponding to the chosen wakeup source (RTC Alarm
             // todo: A, RTC Alarm B, RTC wakeup, tamper or timestamp flags) is cleared`.

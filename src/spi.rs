@@ -224,12 +224,11 @@ macro_rules! hal {
     }
 }
 
-#[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "h7"))]
-hal! {
-    SPI1: (spi1, new_spi1, apb2, enr, rstr, spi1en),
-}
-
 #[cfg(any(
+    feature = "l4",
+    feature = "l5",
+    feature = "g4",
+    feature = "h7",
     feature = "f302",
     feature = "f303",
     feature = "f373",
@@ -245,13 +244,12 @@ hal! {
     feature = "f302",
     feature = "f303",
     feature = "f373",
-    feature = "f4"
+    feature = "f4",
+    feature = "l4",
+    feature = "l5",
+    feature = "g4",
+    feature = "h7",
 ))]
-hal! {
-    SPI2: (spi2, new_spi2, apb1, enr1, rstr1, spi2en),
-}
-
-#[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "h7",))]
 hal! {
     SPI2: (spi2, new_spi2, apb1, enr1, rstr1, spi2en),
 }
