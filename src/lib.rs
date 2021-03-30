@@ -214,11 +214,11 @@ pub use stm32h7::stm32h7b3 as pac;
 
 pub mod traits;
 
-// todo: Impl adc for f4 and g4!
-// #[cfg(not(any(feature = "f301", feature = "f302", feature = "f4")))]
 #[cfg(not(any(feature = "f301", feature = "f302")))]
 pub mod adc;
 pub mod clocks;
+#[cfg(not(any(feature = "f4", feature = "g4", feature = "l5")))] // todo
+pub mod crc;
 pub mod dac;
 pub mod delay;
 #[cfg(any(feature = "l4"))] // todo

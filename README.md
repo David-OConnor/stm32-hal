@@ -43,8 +43,8 @@ fn main() -> ! {
     let mut cp = cortex_m::Peripherals::take().unwrap();
     let mut dp = pac::Peripherals::take().unwrap();
 
-    let clocks = Clocks::default();
-    clocks.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
+    let clock_cfg = Clocks::default();
+    clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
     let mut pb15 = gpioa.new_pin(PinNum::P15, PinMode::Output);
@@ -80,10 +80,11 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 ## Errata
 
 - U[s]ART (serial) isn't implemented outside L4.
-- DMA, CAN, and quadSPI aren't implemented.
+- DMA and CAN aren't implemented.
 - H7 clocks haven't been tested, are missing features, and likely contain errors
 - SPI unimplemented for H7
-- Timer RCC enabling broken for H7. To work around, manually enable/rst in RCC before configuring the timer.
+- CRC unimplemented for L5, F4 and G4.
+- Timer RCC enabling broken for H7. To work around, manually enable/rst in RCC before configuring.
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
 - ADC is unimplemented on F4.
 - ADC 3 and 4 are unimplemented on G4. ADC3 is unimplemented on H7.
@@ -93,5 +94,6 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 - Waiting on U5 PAC before implementing
 - Disabling GPIO pin interrupts unimplemented
 - USB clock (PLLQ) isn't set up for F4 - USB may not work.
-- Quad SPI RCC enabling and rest unimplemented. To work around, manually enable/rst in RCC before 
+- Quad SPI RCC enabling and reset unimplemented. To work around, manually enable/rst in RCC before 
 configuring.
+- CRC RCC enabling and reset unimplemented (See above workaround notes)
