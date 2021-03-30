@@ -31,7 +31,7 @@ pub enum Channel {
 
 #[derive(Clone, Copy)]
 /// Three options are available to set DAC precision.
-pub enum Bits {
+pub enum DacBits {
     /// Eight bit precision, right-aligned.
     EightR,
     /// 12-bit precision, left-aligned.
@@ -83,7 +83,7 @@ macro_rules! hal {
         pub struct Dac {
             regs: pac::$DAC,
             channel: Channel,
-            bits: Bits,
+            bits: DacBits,
             vref: f32,
         }
         impl Dac {
@@ -103,7 +103,7 @@ macro_rules! hal {
                 regs: pac::$DAC,
                 // num: DacNum,  // todo implement this, eg for enabling and disabling.
                 channel: Channel,
-                bits: Bits,
+                bits: DacBits,
                 vref: f32,
             ) -> Self {
                 Self {
@@ -162,14 +162,14 @@ macro_rules! hal {
             pub fn set_value(&mut self, val: u32) {
                 match self.channel {
                     Channel::One => match self.bits {
-                        Bits::EightR => self.regs.$d81.modify(|_, w| unsafe { w.bits(val) }),
-                        Bits::TwelveL => self.regs.$d12l1.modify(|_, w| unsafe { w.bits(val) }),
-                        Bits::TwelveR => self.regs.$d12r1.modify(|_, w| unsafe { w.bits(val) }),
+                        DacBits::EightR => self.regs.$d81.modify(|_, w| unsafe { w.bits(val) }),
+                        DacBits::TwelveL => self.regs.$d12l1.modify(|_, w| unsafe { w.bits(val) }),
+                        DacBits::TwelveR => self.regs.$d12r1.modify(|_, w| unsafe { w.bits(val) }),
                     },
                     Channel::Two => match self.bits {
-                        Bits::EightR => self.regs.$d82.modify(|_, w| unsafe { w.bits(val) }),
-                        Bits::TwelveL => self.regs.$d12l2.modify(|_, w| unsafe { w.bits(val) }),
-                        Bits::TwelveR => self.regs.$d12r2.modify(|_, w| unsafe { w.bits(val) }),
+                        DacBits::EightR => self.regs.$d82.modify(|_, w| unsafe { w.bits(val) }),
+                        DacBits::TwelveL => self.regs.$d12l2.modify(|_, w| unsafe { w.bits(val) }),
+                        DacBits::TwelveR => self.regs.$d12r2.modify(|_, w| unsafe { w.bits(val) }),
                     },
                 }
             }
@@ -177,9 +177,9 @@ macro_rules! hal {
             /// Set the DAC voltage. `v` is in Volts.
             pub fn set_voltage(&mut self, volts: f32) {
                 let val = match self.bits {
-                    Bits::EightR => ((volts / self.vref) * 255.) as u32,
-                    Bits::TwelveL => ((volts / self.vref) * 4_095.) as u32,
-                    Bits::TwelveR => ((volts / self.vref) * 4_095.) as u32,
+                    DacBits::EightR => ((volts / self.vref) * 255.) as u32,
+                    DacBits::TwelveL => ((volts / self.vref) * 4_095.) as u32,
+                    DacBits::TwelveR => ((volts / self.vref) * 4_095.) as u32,
                 };
 
                 self.set_value(val);

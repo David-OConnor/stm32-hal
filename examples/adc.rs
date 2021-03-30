@@ -13,7 +13,7 @@ use cortex_m::{
 use cortex_m_rt::entry;
 
 use stm32_hal::{
-    adc::{Adc, AdcChannel, Align, CkMode, InputType, OperationMode},
+    adc::{Adc, AdcChannel, Align, ClockMode, InputType, OperationMode},
     clocks::Clocks,
     delay::Delay,
     gpio::{Edge, GpioA, PinMode, PinNum},
@@ -44,7 +44,7 @@ fn main() -> ! {
     let mut adc = Adc::new_adc1_unchecked(
         dp.ADC1,
         &mut dp.ADC_COMMON,
-        CkMode::default(),
+        ClockMode::default(),
         &clock_cfg,
         &mut dp.RCC,
     );

@@ -215,7 +215,8 @@ pub use stm32h7::stm32h7b3 as pac;
 pub mod traits;
 
 // todo: Impl adc for f4 and g4!
-#[cfg(not(any(feature = "f301", feature = "f302", feature = "f4")))]
+// #[cfg(not(any(feature = "f301", feature = "f302", feature = "f4")))]
+#[cfg(not(any(feature = "f301", feature = "f302")))]
 pub mod adc;
 pub mod clocks;
 pub mod dac;
@@ -234,6 +235,18 @@ pub mod i2c_f4;
 pub use i2c_f4 as i2c;
 
 pub mod low_power;
+
+#[cfg(not(any(
+    feature = "f3",
+    feature = "f4",
+    feature = "l4x3",
+    feature = "l5",
+    feature = "g431",
+    feature = "g441",
+    feature = "g471",
+    feature = "h7b3",
+)))]
+pub mod qspi;
 pub mod rtc;
 #[cfg(any(feature = "l4"))] // todo
 pub mod serial;

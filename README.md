@@ -21,7 +21,7 @@ to lack of maintainer time, and differing priorities. When the `stm32fyxx` ecosy
 is viewed as a whole, there's a lot of DRY.
 
 ## Getting started
-Review the [syntax overview example](https://github.com/David-OConnor/stm32-hal/blob/main/examples/syntax_overview/src/syntax_overview.rs)
+Review the [syntax overview example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/syntax_overview)
 for example uses of many of this library's features. Copy and paste the whole example folder (It's set up
 using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml` 
 and `main.rs` as required.
@@ -82,9 +82,8 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 - U[s]ART (serial) isn't implemented outside L4.
 - DMA, CAN, and quadSPI aren't implemented.
 - H7 clocks haven't been tested, are missing features, and likely contain errors
-- H7-specific features are missing
 - SPI unimplemented for H7
-- Timer RCC enabling broken for H7. To work around, manually enable in RCC before configuring the timer.
+- Timer RCC enabling broken for H7. To work around, manually enable/rst in RCC before configuring the timer.
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
 - ADC is unimplemented on F4.
 - ADC 3 and 4 are unimplemented on G4. ADC3 is unimplemented on H7.
@@ -94,3 +93,5 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 - Waiting on U5 PAC before implementing
 - Disabling GPIO pin interrupts unimplemented
 - USB clock (PLLQ) isn't set up for F4 - USB may not work.
+- Quad SPI RCC enabling and rest unimplemented. To work around, manually enable/rst in RCC before 
+configuring.

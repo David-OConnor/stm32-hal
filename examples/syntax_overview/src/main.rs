@@ -13,12 +13,14 @@ use cortex_m_rt::entry;
 use defmt_rtt as _;
 use panic_probe as _;
 
+use embedded_hal::spi::{Phase, Polarity, Mode};
+
 // Import parts of this library we use. You could use this style, or perhaps import
 // less here.
 use stm32_hal2::{
-    adc::{Adc, AdcChannel},
+    adc::{self, Adc, AdcChannel},
     clocks::Clocks,
-    dac::{Dac, Channel as DacChannel, Bits as DacBits},
+    dac::{Dac, Channel as DacChannel, DacBits},
     delay::Delay,
     flash::Flash,
     gpio::{GpioA, GpioB, Edge, PinNum, PinMode, OutputType, AltFn, Pull},
@@ -67,7 +69,8 @@ fn main() -> ! {
     let mut flash = Flash::new(dp.FLASH);
 
     // Make sure to select a page farther than the farthest page this program uses!
-    flash.erase_page(FLASH_PAGE).ok();
+    let flash_page = 20;
+    flash.erase_page(flash_page).ok();
     // Write a byte array to the flash.
     flash.write_page(10, &[1, 2, 3]).ok();
 
@@ -87,7 +90,7 @@ fn main() -> ! {
     let mut scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let mut sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::AF4));
+    let mut sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
     // Set up an I2C peripheral, running at 100Khz.
@@ -99,8 +102,8 @@ fn main() -> ! {
     let _mosi = gpioa.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af5));
 
     let spi_mode = Mode {
-        polarity: spi::Polarity::IdleLow,
-        phase: spi::Phase::CaptureOnFirstTransition,
+        polarity: Polarity::IdleLow,
+        phase: Phase::CaptureOnFirstTransition,
     };
 
     // Set up an SPI peripheral, running at 4Mhz, in SPI mode 0.
@@ -130,21 +133,21 @@ fn main() -> ! {
 
     let mut adc = Adc::new_adc1(
         dp.ADC1,
-        &mut dp.ADC1,
-        adc::CkMode::default(),
+        &mut dp.ADC_COMMON,
+        adc::ClockMode::default(),
         &clock_cfg,
         &mut dp.RCC,
     );
 
-    let reading = adc.read(&mut AdcChannel::C1);
+    let reading: u16 = adc.read(&mut AdcChannel::C1).unwrap();
 
     // Set up the Digital-to-analog converter
     let mut dac_pin = gpioa.new_pin(PinNum::P12, PinMode::Analog);
-    let mut dac = Dac::new(dp.DAC, dac_pin, DacChannel::One, Bits::TwelveR, 3.3);
+    let mut dac = Dac::new(dp.DAC1, DacChannel::One, Bits::TwelveR, 3.3);
     dac.enable(&mut dp.RCC);
 
     // Set up and start a timer; set it to fire interrupts at 5Hz.
-    let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
+    let mut timer = Timer::new_tim1(dp.TIM1, 0.2, &clock_cfg, &mut dp.RCC);
     timer.listen(TimeOut); // Enable update event interrupts.
 
     // For pins that aren't called directly (Like the ones we set up for I2C, SPI, UART, ADC, and DAC),
