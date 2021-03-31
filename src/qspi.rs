@@ -22,8 +22,6 @@
 //! driver support either bank 1 or bank 2 as well as a dual flash bank (in
 //! which all 8 IOs are used for the interface).
 
-// todo: Enable and RCC clock for Quadspi in constructor
-
 use crate::{
     pac::{self, QUADSPI, RCC},
     traits::ClockCfg,
@@ -31,7 +29,7 @@ use crate::{
 
 use core::{marker::PhantomData, ptr};
 
-//
+use cfg_if::cfg_if;
 
 /// Represents operation modes of the QSPI interface.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -189,20 +187,25 @@ impl Config {
     }
 }
 
+// todo: Do we need this trait? What is it?
 pub trait QspiExt {
-    fn bank1<CONFIG, C>(self, config: CONFIG, clocks: &C) -> Qspi
-    // todo prec?
+    fn bank1<CONFIG, C>(self, config: CONFIG, clocks: &C, rcc: &mut RCC) -> Qspi
     where
         CONFIG: Into<Config>,
         C: ClockCfg;
 
-    fn bank2<CONFIG, C>(self, config: CONFIG, clocks: &C) -> Qspi
-    // todo prec?
+    fn bank2<CONFIG, C>(self, config: CONFIG, clocks: &C, rcc: &mut RCC) -> Qspi
     where
         CONFIG: Into<Config>,
         C: ClockCfg;
 
-    fn qspi_unchecked<CONFIG, C>(self, config: CONFIG, bank: Bank, clocks: &C) -> Qspi
+    fn qspi_unchecked<CONFIG, C>(
+        self,
+        config: CONFIG,
+        bank: Bank,
+        clocks: &C,
+        rcc: &mut RCC,
+    ) -> Qspi
     where
         CONFIG: Into<Config>,
         C: ClockCfg;
@@ -224,28 +227,44 @@ pub struct Qspi {
 }
 
 impl Qspi {
-    pub fn bank1<CONFIG, C>(regs: QUADSPI, config: CONFIG, clocks: &C) -> Self
+    pub fn bank1<CONFIG, C>(regs: QUADSPI, config: CONFIG, clocks: &C, rcc: &mut RCC) -> Self
     where
         CONFIG: Into<Config>,
         C: ClockCfg,
     {
-        Self::qspi_unchecked(regs, config, Bank::One, clocks)
+        Self::qspi_unchecked(regs, config, Bank::One, clocks, rcc)
     }
 
-    pub fn bank2<CONFIG, C>(regs: QUADSPI, config: CONFIG, clocks: &C) -> Self
+    pub fn bank2<CONFIG, C>(regs: QUADSPI, config: CONFIG, clocks: &C, rcc: &mut RCC) -> Self
     where
         CONFIG: Into<Config>,
         C: ClockCfg,
     {
-        Self::qspi_unchecked(regs, config, Bank::Two, clocks)
+        Self::qspi_unchecked(regs, config, Bank::Two, clocks, rcc)
     }
 
-    pub fn qspi_unchecked<CONFIG, C>(regs: QUADSPI, config: CONFIG, bank: Bank, clocks: &C) -> Self
+    pub fn qspi_unchecked<CONFIG, C>(
+        regs: QUADSPI,
+        config: CONFIG,
+        bank: Bank,
+        clocks: &C,
+        rcc: &mut RCC,
+    ) -> Self
     where
         CONFIG: Into<Config>,
         C: ClockCfg,
     {
-        // todo: RCC enable and reset here.
+        cfg_if! {
+            if #[cfg(feature = "l4")] {
+                rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
+                rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+                rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
+            } else { // G4 and H7
+                rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
+                rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+                rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
+            }
+        }
 
         // Disable QUADSPI before configuring it.
         regs.cr.write(|w| w.en().clear_bit());
@@ -541,20 +560,20 @@ impl Qspi {
 }
 
 impl QspiExt for QUADSPI {
-    fn bank1<CONFIG, C>(self, config: CONFIG, clocks: &C) -> Qspi
+    fn bank1<CONFIG, C>(self, config: CONFIG, clocks: &C, rcc: &mut RCC) -> Qspi
     where
         CONFIG: Into<Config>,
         C: ClockCfg,
     {
-        Qspi::qspi_unchecked(self, config, Bank::One, clocks)
+        Qspi::qspi_unchecked(self, config, Bank::One, clocks, rcc)
     }
 
-    fn bank2<CONFIG, C>(self, config: CONFIG, clocks: &C) -> Qspi
+    fn bank2<CONFIG, C>(self, config: CONFIG, clocks: &C, rcc: &mut RCC) -> Qspi
     where
         CONFIG: Into<Config>,
         C: ClockCfg,
     {
-        Qspi::qspi_unchecked(self, config, Bank::Two, clocks)
+        Qspi::qspi_unchecked(self, config, Bank::Two, clocks, rcc)
     }
 
     fn qspi_unchecked<CONFIG, C>(
@@ -562,12 +581,12 @@ impl QspiExt for QUADSPI {
         config: CONFIG,
         bank: Bank,
         clocks: &C,
-        // prec: rec::Qspi,
+        rcc: &mut RCC,
     ) -> Qspi
     where
         CONFIG: Into<Config>,
         C: ClockCfg,
     {
-        Qspi::qspi_unchecked(self, config, bank, clocks)
+        Qspi::qspi_unchecked(self, config, bank, clocks, rcc)
     }
 }

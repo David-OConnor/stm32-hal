@@ -16,7 +16,21 @@ pub trait CrcExt {
 
 impl CrcExt for CRC {
     fn crc(self, rcc: &mut RCC) -> Crc {
-        // tood: Enable and reset here.
+        cfg_if! {
+            if #[cfg(feature = "f3")] {
+                rcc.ahbenr.modify(|_, w| w.crcen().set_bit());
+                // F3 doesn't appear to have a crcrst field in `ahbrstr`, per RM.
+            } else if #[cfg(feature = "l4")] {
+                rcc.ahb1enr.modify(|_, w| w.crcen().set_bit());
+                rcc.ahb1rstr.modify(|_, w| w.crcrst().set_bit());
+                rcc.ahb1rstr.modify(|_, w| w.crcrst().clear_bit());
+            } else { // H7
+                rcc.ahb4enr.modify(|_, w| w.crcen().set_bit());
+                rcc.ahb4rstr.modify(|_, w| w.crcrst().set_bit());
+                rcc.ahb4rstr.modify(|_, w| w.crcrst().clear_bit());
+            }
+        }
+
         Crc {
             reg: self,
             output_xor: 0,
