@@ -593,6 +593,7 @@ pwm_features! {
     feature = "l4x3",
     feature = "l552",
     feature = "f4",
+    feature = "g0",
 )))]
 hal! {
     {
@@ -610,6 +611,7 @@ hal! {
     feature = "l4x3",
     feature = "l5",
     feature = "f410",
+    feature = "g0",
 )))]
 pwm_features! {
     {

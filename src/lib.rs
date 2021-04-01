@@ -217,7 +217,7 @@ pub mod traits;
 #[cfg(not(any(feature = "f301", feature = "f302")))]
 pub mod adc;
 pub mod clocks;
-#[cfg(not(any(feature = "f4", feature = "g4", feature = "l5")))] // todo
+#[cfg(not(any(feature = "f4", feature = "g0", feature = "g4", feature = "l5")))] // todo
 pub mod crc;
 pub mod dac;
 pub mod delay;
@@ -241,6 +241,7 @@ pub mod low_power;
     feature = "f4",
     feature = "l4x3",
     feature = "l5",
+    feature = "g0",
     feature = "g431",
     feature = "g441",
     feature = "g471",

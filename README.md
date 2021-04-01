@@ -10,7 +10,7 @@ This library provides high-level access to STM32 peripherals. It's based on the
 multiple STM32 families, with minimal code repetition. This makes it easy to switch MCUs 
 within, or across families, for a given project.
 
-**Family support**: F3, F4, L4, L5, G4, and H7. G0 and U5 soon.
+**Family support**: F3, F4, L4, L5, G0, G4, and H7. G0 and U5 soon.
 
 **Motivation**: Use STM32s in real-world hardware projects. Be able to switch MCUs with
 minimal code change. 
@@ -83,14 +83,15 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 - DMA and CAN aren't implemented.
 - H7 clocks haven't been tested, are missing features, and likely contain errors
 - SPI unimplemented for H7
-- CRC unimplemented for L5, F4 and G4.
+- CRC unimplemented for L5, F4, G0, and G4.
 - Timer RCC enabling broken for H7. To work around, manually enable/rst in RCC before configuring.
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
 - ADC is unimplemented on F4.
 - ADC 3 and 4 are unimplemented on G4. ADC3 is unimplemented on H7.
 - Some timer implementations are missing.
 - Low power modes beyond sleep aren't implemented for H7.
-- G0 isn't yet supported
+- G0 support is a WIP, and doesn't compile.
 - Waiting on U5 PAC before implementing
 - Disabling GPIO pin interrupts unimplemented
 - USB clock (PLLQ) isn't set up for F4 - USB may not work.
+- GPIO port F unimplemented.

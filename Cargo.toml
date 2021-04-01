@@ -108,7 +108,6 @@ g070 = ["stm32g0/stm32g070", "g0"]
 g071 = ["stm32g0/stm32g071", "g0"]
 g081 = ["stm32g0/stm32g081", "g0"]
 
-
 # [G4](https://docs.rs/crate/stm32g4/0.13.0/source/Cargo.toml)
 g431 = ["stm32g4/stm32g431", "g4"]
 g441 = ["stm32g4/stm32g441", "g4"]

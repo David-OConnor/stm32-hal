@@ -4,7 +4,10 @@
 
 use core::convert::Infallible;
 
-use crate::pac::{self, EXTI, RCC, SYSCFG};
+use crate::pac::{self, EXTI, RCC};
+
+#[cfg(not(any(feature = "l5", feature = "g0")))]
+use crate::pac::SYSCFG;
 
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
 
@@ -220,7 +223,11 @@ macro_rules! make_port {
                             rcc.ahb1enr.modify(|_, w| w.[<gpio $port en>]().set_bit());
                             rcc.ahb1rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
                             rcc.ahb1rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
-                        } else {
+                        } else if #[cfg(feature = "g0")] {
+                            rcc.iopenr.modify(|_, w| w.[<iop $port en>]().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().clear_bit());
+                        } else { // L4, L5, G4
                             rcc.ahb2enr.modify(|_, w| w.[<gpio $port en>]().set_bit());
                             rcc.ahb2rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
                             rcc.ahb2rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
@@ -322,7 +329,10 @@ macro_rules! set_exti_f4 {
     }
 }
 
-/// See `set_exti!`. Different method naming pattern for exticr.
+// todo: G0 is same as L5, but tr for both. Pac typo perhaps, since seems same in G0 RM.
+// todo: impl
+
+/// For L5 and G0. See `set_exti!`. Different method naming pattern for exticr.
 macro_rules! set_exti_l5 {
     ($pin:expr, $exti:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
         paste! {
@@ -527,7 +537,7 @@ macro_rules! make_pin {
 
             // We split into 2 separate functions, so newer MCUs don't need to pass the SYSCFG register.
             cfg_if! {
-                if #[cfg(any(feature = "l5"))] {
+                if #[cfg(any(feature = "g0", feature = "l5"))] {
                     /// Configure this pin as an interrupt source.
                     pub fn enable_interrupt(&mut self, edge: Edge, exti: &mut EXTI) {
                         // todo: On newer ones, don't accept SYSCFG for this function.
@@ -734,11 +744,13 @@ make_port!(D, d);
 
 // todo: Missing EFGH impls on some variants that have them.
 
-#[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410",)))]
+#[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0")))]
 make_pin!(E);
 
-#[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410")))]
+#[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0")))]
 make_port!(E, e);
+
+// todo: Port F as applicable.
 
 #[cfg(not(any(
     feature = "f373",
@@ -746,6 +758,7 @@ make_port!(E, e);
     feature = "f3x4",
     feature = "f410",
     feature = "l4",
+    feature = "g0",
     feature = "g4"
 )))]
 make_pin!(H);
@@ -756,6 +769,7 @@ make_pin!(H);
     feature = "f3x4",
     feature = "f410",
     feature = "l4",
+    feature = "g0",
     feature = "g4"
 )))]
 make_port!(H, h);
