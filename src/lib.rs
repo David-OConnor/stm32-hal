@@ -45,7 +45,7 @@
     feature = "l552",
     feature = "l562",
     feature = "g030",
-    feature = "g31",
+    feature = "g031",
     feature = "g041",
     feature = "g070",
     feature = "g071",

@@ -663,14 +663,27 @@ hal! {
     },
 }
 
-#[cfg(not(any(feature = "f301", feature = "f302", feature = "f410")))]
+#[cfg(not(any(
+    feature = "f301",
+    feature = "f302",
+    feature = "f410",
+    feature = "g031",
+    feature = "g041",
+    feature = "g030"
+)))]
 hal! {
     {
         TIM7: (tim7, apb1, enr1, rstr1)
     },
 }
 
-#[cfg(not(any(feature = "f410")))]
+#[cfg(not(any(
+    feature = "f410",
+    feature = "g031",
+    feature = "g041",
+    feature = "g070",
+    feature = "g030"
+)))]
 hal! {
     {
         TIM2: (tim2, apb1, enr1, rstr1)
@@ -688,7 +701,14 @@ hal! {
 }
 
 // Todo: the L5 PAC has an address error on TIM15 - remove it until solved.
-#[cfg(not(any(feature = "l5", feature = "f4")))]
+#[cfg(not(any(
+    feature = "l5",
+    feature = "f4",
+    feature = "g031",
+    feature = "g031",
+    feature = "g041",
+    feature = "g030"
+)))]
 hal! {
     {
         TIM15: (tim15, apb2, enr, rstr)
@@ -696,7 +716,13 @@ hal! {
 }
 
 // todo: G4 has tim2, and it's 32-bit, but there may be a PAC error here; pac expects arr to be 16 bit.
-#[cfg(not(any(feature = "l4x1", feature = "l5", feature = "g4", feature = "f410")))]
+#[cfg(not(any(
+    feature = "l4x1",
+    feature = "l5",
+    feature = "g4",
+    feature = "f410",
+    feature = "g070"
+)))]
 pwm_features! {
     {
         TIM2: u32
