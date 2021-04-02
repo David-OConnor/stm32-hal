@@ -22,7 +22,7 @@ pub enum PllSrc {
     None,
     Msi(MsiRange),
     Hsi,
-    Hse(u8),
+    Hse(u32),
 }
 
 #[cfg(any(feature = "g0", feature = "g4"))]
@@ -30,7 +30,7 @@ pub enum PllSrc {
 pub enum PllSrc {
     None,
     Hsi,
-    Hse(u8),
+    Hse(u32),
 }
 
 // L4 uses 0 - 4 only. Others use 1 - 15, but it's not clear when you'd
@@ -51,7 +51,7 @@ impl PllSrc {
     /// Required due to numerical value on non-uniform discrim being experimental.
     /// (ie, can't set on `Pll(Pllsrc)`.
     pub fn bits(&self) -> u8 {
-        #[cfg(not(any(feauture = "g0", feature = "g4")))]
+        #[cfg(not(any(feature = "g0", feature = "g4")))]
         match self {
             Self::None => 0b00,
             Self::Msi(_) => 0b01,
@@ -71,7 +71,7 @@ impl PllSrc {
 #[derive(Clone, Copy, PartialEq)]
 pub enum InputSrc {
     Hsi,
-    Hse(u8), // freq in Mhz,
+    Hse(u32), // freq in Mhz,
     Pll(PllSrc),
     Lsi,
     Lse,
@@ -96,7 +96,7 @@ impl InputSrc {
 #[derive(Clone, Copy, PartialEq)]
 pub enum InputSrc {
     Hsi,
-    Hse(u8), // freq in Mhz,
+    Hse(u32), // freq in Hz,
     Pll(PllSrc),
 }
 
@@ -118,7 +118,7 @@ impl InputSrc {
 pub enum InputSrc {
     Msi(MsiRange),
     Hsi,
-    Hse(u8), // freq in Mhz,
+    Hse(u32), // freq in Hz,
     Pll(PllSrc),
 }
 
@@ -432,13 +432,13 @@ impl Clocks {
         cfg_if! {
             if #[cfg(feature = "l4")] {  // RM section 3.3.3
                 flash.acr.modify(|_, w| unsafe {
-                    if hclk <= 16 {
+                    if hclk <= 16_000_000 {
                         w.latency().bits(WaitState::W0 as u8)
-                    } else if hclk <= 32 {
+                    } else if hclk <= 32_000_000 {
                         w.latency().bits(WaitState::W1 as u8)
-                    } else if hclk <= 48 {
+                    } else if hclk <= 48_000_000 {
                         w.latency().bits(WaitState::W2 as u8)
-                    } else if hclk <= 64 {
+                    } else if hclk <= 64_000_000 {
                         w.latency().bits(WaitState::W3 as u8)
                     } else {
                         w.latency().bits(WaitState::W4 as u8)
@@ -446,15 +446,15 @@ impl Clocks {
                 });
             } else if #[cfg(feature = "l5")] {  // RM section 6.3.3
                 flash.acr.modify(|_, w| unsafe {
-                    if hclk <= 20 {
+                    if hclk <= 20_000_000 {
                         w.latency().bits(WaitState::W0 as u8)
-                    } else if hclk <= 40 {
+                    } else if hclk <= 40_000_000 {
                         w.latency().bits(WaitState::W1 as u8)
-                    } else if hclk <= 60 {
+                    } else if hclk <= 60_000_000 {
                         w.latency().bits(WaitState::W2 as u8)
-                    } else if hclk <= 80 {
+                    } else if hclk <= 80_000_000 {
                         w.latency().bits(WaitState::W3 as u8)
-                    } else if hclk <= 100 {
+                    } else if hclk <= 100_000_000 {
                         w.latency().bits(WaitState::W4 as u8)
                     } else {
                         w.latency().bits(WaitState::W5 as u8)
@@ -462,9 +462,9 @@ impl Clocks {
                 });
             } else if #[cfg(feature = "g0")] {  // G0. RM section 3.3.4
                 flash.acr.modify(|_, w| unsafe {
-                    if hclk <= 24 {
+                    if hclk <= 24_000_000 {
                         w.latency().bits(WaitState::W0 as u8)
-                    } else if hclk <= 48 {
+                    } else if hclk <= 48_000_000 {
                         w.latency().bits(WaitState::W1 as u8)
                     } else {
                         w.latency().bits(WaitState::W2 as u8)
@@ -472,13 +472,13 @@ impl Clocks {
                 })
             } else {  // G4. RM section 3.3.3
                 flash.acr.modify(|_, w| unsafe {
-                    if hclk <= 34 {
+                    if hclk <= 34_000_000 {
                         w.latency().bits(WaitState::W0 as u8)
-                    } else if hclk <= 68 {
+                    } else if hclk <= 68_000_000 {
                         w.latency().bits(WaitState::W1 as u8)
-                    } else if hclk <= 102 {
+                    } else if hclk <= 102_000_000 {
                         w.latency().bits(WaitState::W2 as u8)
-                    } else if hclk <= 136 {
+                    } else if hclk <= 136_000_000 {
                         w.latency().bits(WaitState::W3 as u8)
                     } else {
                         w.latency().bits(WaitState::W4 as u8)
@@ -556,6 +556,10 @@ impl Clocks {
                     PllSrc::None => {}
                 }
             }
+            #[cfg(feature = "g0")]
+            InputSrc::Lsi => {} // todo enable LSI
+            #[cfg(feature = "g0")]
+            InputSrc::Lse => {} // todo enable LSE
         }
 
         rcc.cr.modify(|_, w| {
@@ -569,12 +573,23 @@ impl Clocks {
             // Wait for the PLL to no longer be ready before executing certain writes.
             while rcc.cr.read().pllrdy().bit_is_set() {}
 
-            rcc.pllcfgr.modify(|_, w| unsafe {
-                w.pllsrc().bits(pll_src.bits());
-                w.plln().bits(self.plln);
-                w.pllm().bits(self.pllm as u8);
-                w.pllr().bits(self.pllr as u8)
-            });
+            cfg_if! {
+                if #[cfg(feature = "g0")] {
+                    rcc.pllsyscfgr.modify(|_, w| unsafe {
+                        w.pllsrc().bits(pll_src.bits());
+                        w.plln().bits(self.plln);
+                        w.pllm().bits(self.pllm as u8);
+                        w.pllr().bits(self.pllr as u8)
+                    });
+                } else {
+                    rcc.pllcfgr.modify(|_, w| unsafe {
+                        w.pllsrc().bits(pll_src.bits());
+                        w.plln().bits(self.plln);
+                        w.pllm().bits(self.pllm as u8);
+                        w.pllr().bits(self.pllr as u8)
+                    });
+                }
+            }
 
             cfg_if! {
                 if #[cfg(not(any(feature = "g0", feature = "g4")))] {
@@ -612,12 +627,23 @@ impl Clocks {
 
             while rcc.cr.read().pllrdy().bit_is_clear() {}
 
-            // Set Pen, Qen, and Ren after we enable the PLL.
-            rcc.pllcfgr.modify(|_, w| {
-                w.pllpen().set_bit();
-                w.pllqen().set_bit();
-                w.pllren().set_bit()
-            });
+            cfg_if! {
+                if #[cfg(feature = "g0")] {
+                    // Set Pen, Qen, and Ren after we enable the PLL.
+                    rcc.pllsyscfgr.modify(|_, w| {
+                        w.pllpen().set_bit();
+                        w.pllqen().set_bit();
+                        w.pllren().set_bit()
+                    });
+                } else {
+
+                    rcc.pllcfgr.modify(|_, w| {
+                        w.pllpen().set_bit();
+                        w.pllqen().set_bit();
+                        w.pllren().set_bit()
+                    });
+                }
+            }
 
             cfg_if! {
                 if #[cfg(not(any(feature = "g0", feature = "g4")))] {
@@ -643,8 +669,12 @@ impl Clocks {
         rcc.cfgr.modify(|_, w| unsafe {
             w.sw().bits(self.input_src.bits());
             w.hpre().bits(self.hclk_prescaler as u8); // eg: Divide SYSCLK by 2 to get HCLK of 36Mhz.
+            #[cfg(not(feature = "g0"))]
             w.ppre2().bits(self.apb2_prescaler as u8); // HCLK division for APB2.
-            w.ppre1().bits(self.apb1_prescaler as u8) // HCLK division for APB1
+            #[cfg(not(feature = "g0"))]
+            return w.ppre1().bits(self.apb1_prescaler as u8); // HCLK division for APB1
+            #[cfg(feature = "g0")]
+            return w.ppre().bits(self.apb1_prescaler as u8);
         });
 
         rcc.cr.modify(|_, w| w.csson().bit(self.security_system));
@@ -678,7 +708,7 @@ impl Clocks {
     /// 80Mhz (L4). L5 speeds: 108Mhz. G4 speeds: 168Mhz. HSE output is not bypassed.
     pub fn hse_preset() -> Self {
         Self {
-            input_src: InputSrc::Pll(PllSrc::Hse(8)),
+            input_src: InputSrc::Pll(PllSrc::Hse(8_000_000)),
             pllm: Pllm::Div1,
             #[cfg(feature = "l4")]
             plln: 20,
@@ -715,7 +745,7 @@ impl Clocks {
 impl ClockCfg for Clocks {
     fn sysclk(&self) -> u32 {
         let (_, sysclk) = calc_sysclock(self.input_src, self.pllm, self.plln, self.pllr);
-        sysclk * 1_000_000
+        sysclk
     }
 
     fn hclk(&self) -> u32 {
@@ -738,7 +768,7 @@ impl ClockCfg for Clocks {
         } else { // L4 and L5
             fn usb(&self) -> u32 {
                 let (input_freq, _) = calc_sysclock(self.input_src, self.pllm, self.plln, self.pllr);
-                input_freq * 1_000_000 / self.pllm.value() as u32 * self.pll_sai1_mul as u32 / 2
+                input_freq / self.pllm.value() as u32 * self.pll_sai1_mul as u32 / 2
             }
         }
     }
@@ -755,15 +785,27 @@ impl ClockCfg for Clocks {
         }
     }
 
-    fn apb2(&self) -> u32 {
-        self.hclk() / self.apb2_prescaler.value() as u32
-    }
+    cfg_if! {
+        if #[cfg(feature = "g0")] {
+            fn apb2(&self) -> u32 {
+                unimplemented!("No apb2 on G0");
+            }
 
-    fn apb2_timer(&self) -> u32 {
-        if let ApbPrescaler::Div1 = self.apb2_prescaler {
-            self.apb2()
+            fn apb2_timer(&self) -> u32 {
+                unimplemented!("No apb2 on G0");
+            }
         } else {
-            self.apb2() * 2
+            fn apb2(&self) -> u32 {
+                self.hclk() / self.apb2_prescaler.value() as u32
+            }
+
+            fn apb2_timer(&self) -> u32 {
+                if let ApbPrescaler::Div1 = self.apb2_prescaler {
+                    self.apb2()
+                } else {
+                    self.apb2() * 2
+                }
+            }
         }
     }
 
@@ -867,16 +909,16 @@ impl Default for Clocks {
     }
 }
 
-/// Calculate the systick, and input frequency.
+/// Calculate the systick, and input frequency, in Hz.
 fn calc_sysclock(input_src: InputSrc, pllm: Pllm, plln: u8, pllr: Pllr) -> (u32, u32) {
     let input_freq;
     let sysclk = match input_src {
         InputSrc::Pll(pll_src) => {
             input_freq = match pll_src {
                 #[cfg(not(any(feature = "g0", feature = "g4")))]
-                PllSrc::Msi(range) => range.value() as u32 / 1_000_000,
-                PllSrc::Hsi => 16,
-                PllSrc::Hse(freq) => freq as u32,
+                PllSrc::Msi(range) => range.value() as u32,
+                PllSrc::Hsi => 16_000_000,
+                PllSrc::Hse(freq) => freq,
                 PllSrc::None => 0, // todo?
             };
             input_freq as u32 / pllm.value() as u32 * plln as u32 / pllr.value() as u32
@@ -884,15 +926,25 @@ fn calc_sysclock(input_src: InputSrc, pllm: Pllm, plln: u8, pllr: Pllr) -> (u32,
 
         #[cfg(not(any(feature = "g0", feature = "g4")))]
         InputSrc::Msi(range) => {
-            input_freq = range.value() as u32 / 1_000_000;
+            input_freq = range.value() as u32;
             input_freq
         }
         InputSrc::Hsi => {
-            input_freq = 16;
+            input_freq = 16_000_000;
             input_freq
         }
         InputSrc::Hse(freq) => {
-            input_freq = freq as u32;
+            input_freq = freq;
+            input_freq
+        }
+        #[cfg(feature = "g0")]
+        InputSrc::Lsi => {
+            input_freq = 32_000; // todo confirm this is right.
+            input_freq
+        }
+        #[cfg(feature = "g0")]
+        InputSrc::Lse => {
+            input_freq = 32_768; // todo confirm this is right.
             input_freq
         }
     };

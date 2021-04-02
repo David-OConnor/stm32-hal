@@ -20,7 +20,7 @@ pub enum PllSrc {
     None,
     Csi(CsiRange),
     Hsi,
-    Hse(u8),
+    Hse(u32),
 }
 
 impl PllSrc {
@@ -40,7 +40,7 @@ impl PllSrc {
 pub enum InputSrc {
     Hsi,
     Csi(CsiRange),
-    Hse(u8), // freq in Mhz,
+    Hse(u32), // freq in Mhz,
     Pll1(PllSrc),
 }
 
@@ -216,13 +216,13 @@ impl Clocks {
         // Reference manual section 3.3.3
         // todo: What should this be?
         flash.acr.modify(|_, w| unsafe {
-            if hclk <= 16 {
+            if hclk <= 16_000_000 {
                 w.latency().bits(0b000)
-            } else if hclk <= 32 {
+            } else if hclk <= 32_000_000 {
                 w.latency().bits(0b001)
-            } else if hclk <= 48 {
+            } else if hclk <= 48_000_000 {
                 w.latency().bits(0b010)
-            } else if hclk <= 64 {
+            } else if hclk <= 64_000_000 {
                 w.latency().bits(0b011)
             } else {
                 w.latency().bits(0b100)
@@ -379,7 +379,7 @@ impl Clocks {
 impl ClockCfg for Clocks {
     fn sysclk(&self) -> u32 {
         let (_, sysclk) = calc_sysclock(self.input_src, self.divm1, self.divn1, self.divp1);
-        sysclk * 1_000_000
+        sysclk
     }
 
     fn hclk(&self) -> u32 {
@@ -486,24 +486,24 @@ fn calc_sysclock(input_src: InputSrc, divm1: u8, divn1: u16, divp1: u8) -> (u32,
     let sysclk = match input_src {
         InputSrc::Pll1(pll_src) => {
             input_freq = match pll_src {
-                PllSrc::Csi(range) => range.value() as u32 / 1_000_000,
-                PllSrc::Hsi => 64,
-                PllSrc::Hse(freq) => freq as u32,
+                PllSrc::Csi(range) => range.value() as u32,
+                PllSrc::Hsi => 64_000_000,
+                PllSrc::Hse(freq) => freq,
                 PllSrc::None => 0, // todo?
             };
             input_freq as u32 / divm1 as u32 * divn1 as u32 / divp1 as u32
         }
 
         InputSrc::Csi(range) => {
-            input_freq = range.value() as u32 / 1_000_000;
+            input_freq = range.value() as u32;
             input_freq
         }
         InputSrc::Hsi => {
-            input_freq = 64;
+            input_freq = 64_000_000;
             input_freq
         }
         InputSrc::Hse(freq) => {
-            input_freq = freq as u32;
+            input_freq = freq;
             input_freq
         }
     };

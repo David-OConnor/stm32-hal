@@ -407,6 +407,8 @@ impl Rtc {
         // todo: The exti line in question varies. What is it for L4? Is this section right?
         // todo: Do we need it?
 
+        // todo: Issue with l5 and g4.
+
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "l4"))] {
                 exti.imr1.modify(|_, w| w.mr20().unmasked());
@@ -420,7 +422,7 @@ impl Rtc {
                 exti.imr1.modify(|_, w| w.im20().unmasked());
                 exti.rtsr1.modify(|_, w| w.rt20().bit(true));
                 exti.ftsr1.modify(|_, w| w.ft20().bit(false));
-            } else if #[cfg(feature = "l5")] { // todo see note aboev
+            } else if #[cfg(any(feature = "l5", feature = "g0"))] { // todo see note aboev
                 // exti.imr1.modify(|_, w| w.mr17().unmasked());
                 // exti.rtsr1.modify(|_, w| w.rt17().bit(true));
                 // exti.ftsr1.modify(|_, w| w.ft17().bit(false));
@@ -447,7 +449,7 @@ impl Rtc {
         // Ensure access to Wakeup auto-reload counter and bits WUCKSEL[2:0] is allowed.
         // Poll WUTWF until it is set in RTC_ISR (RTC2)/RTC_ICSR (RTC3) (May not be avail on F3)
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g4"))] {
+            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))] {
                 while self.regs.icsr.read().wutwf().bit_is_clear() {}
             } else {
                 while self.regs.isr.read().wutwf().bit_is_clear() {}
@@ -463,7 +465,7 @@ impl Rtc {
         self.regs.cr.modify(|_, w| w.wutie().set_bit());
 
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g4"))] {
+            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))] {
                 self.regs.scr.write(|w| w.cwutf().set_bit());
             } else {
                 self.regs.isr.modify(|_, w| w.wutf().clear_bit());
@@ -510,7 +512,7 @@ impl Rtc {
         #[cfg(feature = "l5")]
 
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g4"))] {
+            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))] {
                 while self.regs.icsr.read().wutwf().bit_is_clear() {}
             } else {
                 while self.regs.isr.read().wutwf().bit_is_clear() {}
@@ -531,7 +533,7 @@ impl Rtc {
             regs.cr.modify(|_, w| w.wute().clear_bit());
 
             cfg_if! {
-                if #[cfg(any(feature = "l5", feature = "g4"))] {
+                if #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))] {
                     regs.scr.write(|w| w.cwutf().set_bit());
                 } else {
                     regs.isr.modify(|_, w| w.wutf().clear_bit());
@@ -557,7 +559,7 @@ impl Rtc {
         // todo: L4 has ICSR and ISR regs. Maybe both for backwards compat?
 
         cfg_if! {
-             if #[cfg(any(feature = "l5", feature = "g4"))] {
+             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))] {
                  // Enter init mode if required. This is generally used to edit the clock or calendar,
                  // but not for initial enabling steps.
                  if init_mode && self.regs.icsr.read().initf().bit_is_clear() {

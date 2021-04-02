@@ -329,10 +329,7 @@ macro_rules! set_exti_f4 {
     }
 }
 
-// todo: G0 is same as L5, but tr for both. Pac typo perhaps, since seems same in G0 RM.
-// todo: impl
-
-/// For L5 and G0. See `set_exti!`. Different method naming pattern for exticr.
+/// For L5 See `set_exti!`. Different method naming pattern for exticr.
 macro_rules! set_exti_l5 {
     ($pin:expr, $exti:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
         paste! {
@@ -342,6 +339,26 @@ macro_rules! set_exti_l5 {
                         $exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());  // unmask
                         $exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($trigger));  // Rising trigger
                         $exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit(!$trigger));   // Falling trigger
+                        $exti
+                            .[<exticr $crnum>]
+                            .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
+                    }
+                )+
+            }
+        }
+    }
+}
+
+/// For L5 and G0. See `set_exti!`. Todo? Reduce DRY.
+macro_rules! set_exti_g0 {
+    ($pin:expr, $exti:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
+        paste! {
+            match $pin {
+                $(
+                    PinNum::[<P $num>] => {
+                        $exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());  // unmask
+                        $exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($trigger));  // Rising trigger
+                        $exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit(!$trigger));   // Falling trigger
                         $exti
                             .[<exticr $crnum>]
                             .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
@@ -362,9 +379,9 @@ macro_rules! set_alt {
                     $(
                         PinNum::[<P $num>] => {
                             $regs.moder.modify(|_, w| w.moder0().bits(PinMode::Alt($val).val()));
-                            #[cfg(any(feature = "l5", feature = "h7"))]
+                            #[cfg(any(feature = "l5", feature = "g0", feature = "h7"))]
                             $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val as u8));
-                            #[cfg(not(any(feature = "l5", feature = "h7")))]
+                            #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7")))]
                             $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val as u8));
                         }
                     )+
@@ -489,7 +506,7 @@ macro_rules! make_pin {
             /// Set up a pin's alternate function. We set this up initially using `mode()`.
             fn alt_fn(&mut self, value: AltFn, regs: &mut pac::[<GPIO $Port>]) {
                 cfg_if! {
-                    if #[cfg(feature = "l5")] {
+                    if #[cfg(any(feature = "l5", feature = "g0"))] {
                         set_alt!(self.pin, regs, afsel, value, [(0, l), (1, l), (2, l),
                             (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                             (13, h), (14, h), (15, h)])
@@ -497,7 +514,7 @@ macro_rules! make_pin {
                         set_alt!(self.pin, regs, afr, value, [(0, l), (1, l), (2, l),
                             (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                             (13, h), (14, h), (15, h)])
-                    } else {
+                    } else {  // f3, f4, l4, g4
                         set_alt!(self.pin, regs, afr, value, [(0, l), (1, l), (2, l),
                             (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                             (13, h), (14, h), (15, h)])
@@ -552,10 +569,17 @@ macro_rules! make_pin {
                             }
                         };
 
+                        #[cfg(feature = "g0")]
+                        set_exti_g0!(self.pin, exti, rise_trigger, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
+                            (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
+                            (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
+                            (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]);
+
+                        #[cfg(feature = "l5")]
                         set_exti_l5!(self.pin, exti, rise_trigger, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
                             (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
                             (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
-                            (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)])
+                            (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]);
 
                     }
                 } else if #[cfg(not(feature = "f373"))] {

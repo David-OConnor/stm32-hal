@@ -107,10 +107,10 @@ pub use stm32f4::stm32f412 as pac;
 pub use stm32f4::stm32f413 as pac;
 
 #[cfg(feature = "f427")]
-pub use stm32f4::stm32f412 as pac;
+pub use stm32f4::stm32f427 as pac;
 
 #[cfg(feature = "f429")]
-pub use stm32f4::stm32f412 as pac;
+pub use stm32f4::stm32f429 as pac;
 
 #[cfg(feature = "f446")]
 pub use stm32f4::stm32f446 as pac;

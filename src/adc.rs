@@ -789,7 +789,7 @@ cfg_if! {
 //     }
 // }
 
-#[cfg(feature = "f4")]
-hal!(ADC1, ADC1, adc1, 1);
+// #[cfg(all(feature = "f4")]
+// hal!(ADC1, ADC1, adc1, 1);
 
 // todo F4 as (depending on variant?) ADC 1, 2, 3

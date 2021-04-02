@@ -397,7 +397,14 @@ macro_rules! pwm_features {
                 /// to find the portion of the duty cycle used.
                 pub fn get_duty(&self, channel: Channel) -> $res {
                     cfg_if! {
-                        if #[cfg(feature = "g4")] {
+                        if #[cfg(feature = "g0")] {
+                            match channel {
+                                Channel::One => self.tim.ccr1.read().bits(),
+                                Channel::Two => self.tim.ccr2.read().bits(),
+                                Channel::Three => self.tim.ccr3.read().bits(),
+                                Channel::Four => self.tim.ccr4.read().bits(),
+                            }
+                        } else if #[cfg(feature = "g4")] {
                             match channel {
                                 Channel::One => self.tim.ccr1.read().ccr1().bits(),
                                 Channel::Two => self.tim.ccr2.read().ccr2().bits(),
@@ -418,7 +425,14 @@ macro_rules! pwm_features {
                 /// Set the duty cycle, as a portion of `get_max_duty()`.
                 pub fn set_duty(&mut self, channel: Channel, duty: $res) {
                     cfg_if! {
-                        if #[cfg(feature = "g4")] {
+                        if #[cfg(feature = "g0")] {
+                            match channel {
+                                Channel::One => self.tim.ccr1.read().bits(),
+                                Channel::Two => self.tim.ccr2.read().bits(),
+                                Channel::Three => self.tim.ccr3.read().bits(),
+                                Channel::Four => self.tim.ccr4.read().bits(),
+                            };
+                        } else if #[cfg(feature = "g4")] {
                             unsafe {
                                 match channel {
                                     Channel::One => self.tim.ccr1.write(|w| w.ccr1().bits(duty)),
@@ -441,7 +455,10 @@ macro_rules! pwm_features {
                 /// Return the integer associated with the maximum duty period.
                 /// todo: Duty could be u16 for low-precision timers.
                 pub fn get_max_duty(&self) -> $res {
-                    self.tim.arr.read().arr().bits()
+                    #[cfg(feature = "g0")]
+                    return self.tim.arr.read().bits();
+                    #[cfg(not(feature = "g0"))]
+                    return self.tim.arr.read().arr().bits();
                 }
 
                 /// Set timer alignment to Edge, or one of 3 center modes.
@@ -578,10 +595,23 @@ hal! {
     },
 }
 
-#[cfg(not(any(feature = "l4x1", feature = "l4x3", feature = "l5", feature = "f410")))]
+#[cfg(not(any(
+    feature = "l4x1",
+    feature = "l4x3",
+    feature = "l5",
+    feature = "f410",
+    feature = "g0"
+)))]
 pwm_features! {
     {
        TIM3: u16
+    },
+}
+
+#[cfg(feature = "g0")]
+pwm_features! {
+    {
+       TIM3: u32
     },
 }
 

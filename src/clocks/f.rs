@@ -17,7 +17,7 @@ cfg_if! {
         pub enum PllSrc {
             HsiDiv2,
             Hsi,
-            Hse(u8),
+            Hse(u32),  // Freq in Hz
         }
 
         impl PllSrc {
@@ -36,7 +36,7 @@ cfg_if! {
             /// The clocks source input used by the PLL.
             pub enum PllSrc {
                 Hsi,
-                Hse(u8),
+                Hse(u32),
             }
 
             impl PllSrc {
@@ -55,7 +55,7 @@ cfg_if! {
 #[derive(Clone, Copy)]
 pub enum InputSrc {
     Hsi,
-    Hse(u8), // freq in Mhz
+    Hse(u32), // freq in Mhz
     Pll(PllSrc),
 }
 
@@ -315,9 +315,9 @@ impl Clocks {
         cfg_if! {
             if #[cfg(feature = "f3")] {  // RM section 4.5.1
                 flash.acr.modify(|_, w| unsafe {
-                    if hclk <= 24 {
+                    if hclk <= 24_000_000 {
                         w.latency().bits(WaitState::W0 as u8)
-                    } else if hclk <= 48 {
+                    } else if hclk <= 48_000_000 {
                         w.latency().bits(WaitState::W1 as u8)
                     } else {
                         w.latency().bits(WaitState::W2 as u8)
@@ -325,15 +325,15 @@ impl Clocks {
                 });
             } else {  // F4
                 flash.acr.modify(|_, w| unsafe {
-                    if hclk <= 30 {
+                    if hclk <= 30_000_000 {
                         w.latency().bits(WaitState::W0 as u8)
-                    } else if hclk <= 60 {
+                    } else if hclk <= 60_000_000 {
                         w.latency().bits(WaitState::W1 as u8)
-                    } else if hclk <= 90 {
+                    } else if hclk <= 90_000_000 {
                         w.latency().bits(WaitState::W2 as u8)
-                    } else if hclk <= 120 {
+                    } else if hclk <= 120_000_000 {
                         w.latency().bits(WaitState::W3 as u8)
-                    } else if hclk <= 150 {
+                    } else if hclk <= 150_000_000 {
                         w.latency().bits(WaitState::W4 as u8)
                     } else {
                         w.latency().bits(WaitState::W5 as u8)
@@ -400,9 +400,9 @@ impl Clocks {
                     // Some f3 varients uses a 'bit' field instead. Haven't looked up how to handle.
                     cfg_if! {
                         if #[cfg(any(feature = "f301", feature = "f373", feature = "f3x4"))] {
-                            w.pllmul().bits(self.pll_mul as u8) // eg: 8Mhz HSE x 9 = 72Mhz
+                            w.pllmul().bits(self.pll_mul as u8)
                         } else {
-                            w.pllmul().bits(self.pll_mul as u8); // eg: 8Mhz HSE x 9 = 72Mhz
+                            w.pllmul().bits(self.pll_mul as u8);
                             unsafe { w.pllsrc().bits(pll_src.bits()) } // eg: Set HSE as PREDIV1 entry.
                         }
                     }
@@ -449,7 +449,7 @@ impl Clocks {
     /// HSE output is not bypassed.
     pub fn hse_preset() -> Self {
         Self {
-            input_src: InputSrc::Pll(PllSrc::Hse(8)),
+            input_src: InputSrc::Pll(PllSrc::Hse(8_000_000)),
             prediv: Prediv::Div1,
             pll_mul: PllMul::Mul9,
             usb_pre: UsbPrescaler::Div1_5,
@@ -467,7 +467,7 @@ impl Clocks {
     /// HSE output is not bypassed
     pub fn hse_preset() -> Self {
         Self {
-            input_src: InputSrc::Pll(PllSrc::Hsi),
+            input_src: InputSrc::Pll(PllSrc::Hse(8_000_000)),
             pllm: 8,
             plln: 168,
             pllp: Pllp::Div2,
@@ -483,9 +483,9 @@ impl Clocks {
 impl ClockCfg for Clocks {
     fn sysclk(&self) -> u32 {
         #[cfg(feature = "f3")]
-        return calc_sysclock(self.input_src, self.prediv, self.pll_mul) * 1_000_000;
+        return calc_sysclock(self.input_src, self.prediv, self.pll_mul);
         #[cfg(feature = "f4")]
-        return calc_sysclock(self.input_src, self.pllm, self.plln, self.pllp) * 1_000_000;
+        return calc_sysclock(self.input_src, self.pllm, self.plln, self.pllp);
     }
 
     fn hclk(&self) -> u32 {
@@ -599,18 +599,18 @@ impl Default for Clocks {
 }
 
 #[cfg(feature = "f3")]
-/// Calculate the systick, and input frequency.
+/// Calculate the systick, and input frequency, in  Hz.
 fn calc_sysclock(input_src: InputSrc, prediv: Prediv, pll_mul: PllMul) -> u32 {
     let sysclk = match input_src {
         InputSrc::Pll(pll_src) => {
             let input_freq = match pll_src {
-                PllSrc::Hsi => 8,
-                PllSrc::HsiDiv2 => 4,
+                PllSrc::Hsi => 8_000_000,
+                PllSrc::HsiDiv2 => 4_000_000,
                 PllSrc::Hse(freq) => freq,
             };
             input_freq as u32 / prediv.value() as u32 * pll_mul.value() as u32
         }
-        InputSrc::Hsi => 8,
+        InputSrc::Hsi => 8_000_000,
         InputSrc::Hse(freq) => freq as u32,
     };
 
@@ -623,12 +623,12 @@ fn calc_sysclock(input_src: InputSrc, pllm: u8, plln: u16, pllp: Pllp) -> u32 {
     let sysclk = match input_src {
         InputSrc::Pll(pll_src) => {
             let input_freq = match pll_src {
-                PllSrc::Hsi => 16,
+                PllSrc::Hsi => 16_000_000,
                 PllSrc::Hse(freq) => freq,
             };
             input_freq as u32 / pllm as u32 * plln as u32 / pllp as u8 as u32
         }
-        InputSrc::Hsi => 16,
+        InputSrc::Hsi => 16_000_000,
         InputSrc::Hse(freq) => freq as u32,
     };
 
