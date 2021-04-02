@@ -124,7 +124,7 @@ fn RTC_WKUP() {
     free(|cs| {
         unsafe {
             // Reset pending bit for interrupt line
-            (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr20().bit(true));
+            (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr20().set_bit());
 
             // Clear the wakeup timer flag, after disabling write protections.
             (*pac::RTC::ptr()).wpr.write(|w| w.bits(0xCA));
@@ -136,6 +136,13 @@ fn RTC_WKUP() {
             (*pac::RTC::ptr()).cr.modify(|_, w| w.wute().set_bit());
             (*pac::RTC::ptr()).wpr.write(|w| w.bits(0xFF));
         }
+
+        // A cleaner alternative to the above, if you have the RTC set up in a global Mutex:
+        //  unsafe {
+        //      (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr20().set_bit());
+        //  }
+        //  access_global!(RTC, rtc, cs);
+        //  rtc.clear_wakeup_flag();
 
         // Do something.
     });

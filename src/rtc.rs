@@ -10,41 +10,6 @@ use rtcc::{Datelike, Hours, NaiveDate, NaiveDateTime, NaiveTime, Rtcc, Timelike}
 
 use cfg_if::cfg_if;
 
-// todo: QC against other RTC modules.
-
-/// This provides a default handler for RTC inputs that clears the EXTI line and
-/// wakeup flag. If you don't need additional functionality, run this in the main body of your program, eg:
-/// `make_rtc_interrupt_handler!(RTC_WKUP);`
-#[macro_export]
-macro_rules! make_wakeup_interrupt_handler {
-    ($line:ident) => {
-        #[interrupt]
-        fn $line() {
-            free(|cs| {
-                unsafe {
-                    // Reset pending bit for interrupt line
-                    (*EXTI::ptr()).pr1.modify(|_, w| w.pr20().bit(true));
-
-                    // Clear the wakeup timer flag, after disabling write protections.
-                    (*pac::RTC::ptr()).wpr.write(|w| w.bits(0xCA));
-                    (*pac::RTC::ptr()).wpr.write(|w| w.bits(0x53));
-                    (*pac::RTC::ptr()).cr.modify(|_, w| w.wute().clear_bit());
-
-                    cfg_if! {
-                        if #[cfg(any(feature = "l5", feature = "g4"))] {
-                            (*pac::RTC::ptr()).scr.write(|w| w.cwutf().set_bit());
-                        } else {
-                            (*pac::RTC::ptr()).isr.modify(|_, w| w.wutf().clear_bit());
-                        }
-                    }
-
-                    (*pac::RTC::ptr()).cr.modify(|_, w| w.wute().set_bit());
-                    (*pac::RTC::ptr()).wpr.write(|w| w.bits(0xFF));
-                }
-            });
-        }
-    };
-}
 
 /// RTC Clock source.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -402,12 +367,9 @@ impl Rtc {
     pub fn set_wakeup(&mut self, exti: &mut EXTI, sleep_time: f32) {
         // Configure and enable the EXTI line corresponding to the Wakeup timer even in
         // interrupt mode and select the rising edge sensitivity.
-        // Sleep time is in seconds
+        // Sleep time is in seconds.  See L4 RM, Table 47 to see that exti line 20 is the RTC wakeup
+        // timer. This appears to be the case for all families.
 
-        // todo: The exti line in question varies. What is it for L4? Is this section right?
-        // todo: Do we need it?
-
-        // todo: Issue with l5 and g4.
 
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "l4"))] {
@@ -422,16 +384,16 @@ impl Rtc {
                 exti.imr1.modify(|_, w| w.im20().unmasked());
                 exti.rtsr1.modify(|_, w| w.rt20().bit(true));
                 exti.ftsr1.modify(|_, w| w.ft20().bit(false));
-            } else if #[cfg(any(feature = "l5", feature = "g0"))] { // todo see note aboev
-                // exti.imr1.modify(|_, w| w.mr17().unmasked());
-                // exti.rtsr1.modify(|_, w| w.rt17().bit(true));
-                // exti.ftsr1.modify(|_, w| w.ft17().bit(false));
+            } else if #[cfg(any(feature = "l5", feature = "g0"))] {
+                // exti.imr1.modify(|_, w| w.mr20().unmasked());
+                // exti.rtsr1.modify(|_, w| w.rt20().bit(true));
+                // exti.ftsr1.modify(|_, w| w.ft20().bit(false));
 
            } else if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
-                exti.c1imr1.modify(|_, w| w.mr20().unmasked());  // todo?
+                exti.c1imr1.modify(|_, w| w.mr20().unmasked());
                 exti.rtsr1.modify(|_, w| w.tr20().bit(true));
                 exti.ftsr1.modify(|_, w| w.tr20().bit(false));
-           } else {
+           } else { // H7
                 exti.cpuimr1.modify(|_, w| w.mr20().unmasked());
                 exti.rtsr1.modify(|_, w| w.tr20().bit(true));
                 exti.ftsr1.modify(|_, w| w.tr20().bit(false));

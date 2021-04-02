@@ -12,6 +12,8 @@ use cfg_if::cfg_if;
 // clocks::re_select_input` is separate (in `clocks` instead of here) due to varying significantly
 // among families.
 
+// todo: G0.
+
 // See L4 Reference Manual section 5.3.6. The values correspond to the PWR_CR1 LPMS bits.
 // todo PWR_CR1, LPMS field.
 #[derive(Clone, Copy)]
