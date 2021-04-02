@@ -245,6 +245,7 @@ pub mod low_power;
     feature = "g431",
     feature = "g441",
     feature = "g471",
+    feature = "g491",
     feature = "h7b3",
 )))]
 pub mod qspi;
