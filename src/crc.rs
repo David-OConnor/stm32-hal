@@ -144,7 +144,7 @@ impl Crc {
     ///
     /// The IDR is not involved with CRC calculation.
     cfg_if! {
-        if #[cfg(any(feature = "g4", feature = "h7"))] {
+        if #[cfg(any(feature = "f3x4", feature = "g4", feature = "h7"))] {
             pub fn set_idr(&mut self, value: u32) {
                 self.reg.idr.write(|w| w.idr().bits(value));
             }
@@ -159,7 +159,7 @@ impl Crc {
     ///
     /// The IDR is not involved with CRC calculation.
     cfg_if! {
-        if #[cfg(any(feature = "g4", feature = "h7"))] {
+        if #[cfg(any(feature = "f3x4", feature = "g4", feature = "h7"))] {
             pub fn get_idr(&self) -> u32 {
                 self.reg.idr.read().idr().bits()
             }
