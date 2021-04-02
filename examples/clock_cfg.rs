@@ -9,7 +9,7 @@
 use cortex_m_rt::entry;
 
 use stm32_hal::{
-    clocks::{ApbPrescaler, Clocks, Pllm},
+    clocks::{ApbPrescaler, Clocks, InputSrc, Pllm},
     low_power, pac,
 };
 
@@ -27,6 +27,9 @@ fn main() -> ! {
 
     // Enable HSI48 (eg L4, L5, G4 etc)
     clock_cfg.hse48_on = true;
+
+    // Set HSE as the input source, with frequency in Hz
+    clock_cfg.input_src = InputSrc::Hse(8_000_000);
 
     // Change  PLL prescalers:
     clock_cfg.pllm = Pllm::Div2;
