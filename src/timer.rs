@@ -667,6 +667,7 @@ hal! {
     feature = "f301",
     feature = "f302",
     feature = "f410",
+    feature = "f411",
     feature = "g031",
     feature = "g041",
     feature = "g030"
@@ -679,6 +680,7 @@ hal! {
 
 #[cfg(not(any(
     feature = "f410",
+    feature = "f411",
     feature = "g031",
     feature = "g041",
     feature = "g070",
