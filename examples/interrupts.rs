@@ -154,6 +154,10 @@ fn TIM3() {
     free(|cs| {
         // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
         unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().clear()) }
+
+        // Alternatively, if you have the timer set up in a global mutex:
+        // access_global!(TIMER, timer, cs);
+        // timer.clear_interrupt();
     });
 
     // Do something.

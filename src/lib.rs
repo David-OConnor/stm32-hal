@@ -316,6 +316,27 @@ macro_rules! make_simple_globals {
     };
 }
 
+// todo: Remove this function on MCUs that don't require it. Ie, is this required on G4? G0?
+
+#[cfg(not(any(feature = "g0", feature = "h7")))]
+/// Workaround due to debugger disconnecting in WFI (and low-power) modes.
+/// This affects most (all?) STM32 devices. In production on battery-powered
+/// devices that don't use DMA, consider removing this, to prevent power
+/// use by the DMA clock.
+/// For example, see STM32F446 errata, section 2.1.1.
+pub fn debug_workaround(dbgmcu: &mut pac::DBGMCU, rcc: &mut pac::RCC) {
+    #[cfg(not(feature = "l5"))]
+    dbgmcu.cr.modify(|_, w| w.dbg_sleep().set_bit());
+    dbgmcu.cr.modify(|_, w| w.dbg_stop().set_bit());
+    dbgmcu.cr.modify(|_, w| w.dbg_standby().set_bit());
+
+    #[cfg(feature = "f3")]
+    rcc.ahbenr.modify(|_, w| w.dma1en().set_bit());
+
+    #[cfg(not(feature = "f3"))]
+    rcc.ahb1enr.modify(|_, w| w.dma1en().set_bit());
+}
+
 /// In the prelude, we export the `embedded-hal` traits we implement, and
 /// some custom ones.
 pub mod prelude {

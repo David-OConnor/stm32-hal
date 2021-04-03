@@ -355,7 +355,6 @@ impl Clocks {
         rcc.apb4rstr.modify(|_, w| w.syscfgrst().set_bit());
         rcc.apb4rstr.modify(|_, w| w.syscfgrst().clear_bit());
 
-
         Ok(())
     }
 
