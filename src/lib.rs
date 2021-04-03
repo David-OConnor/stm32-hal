@@ -330,6 +330,9 @@ pub fn debug_workaround(dbgmcu: &mut pac::DBGMCU, rcc: &mut pac::RCC) {
     dbgmcu.cr.modify(|_, w| w.dbg_stop().set_bit());
     dbgmcu.cr.modify(|_, w| w.dbg_standby().set_bit());
 
+    // todo Some MCUs may need the dbgmcu lines, but not DMA enabled.
+    // todo: Remove this part on MCUs not affected. F4 and L4 are confirmed affected.
+
     #[cfg(feature = "f3")]
     rcc.ahbenr.modify(|_, w| w.dma1en().set_bit());
 

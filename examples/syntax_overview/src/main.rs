@@ -18,6 +18,7 @@ use embedded_hal::spi::{Phase, Polarity, Mode};
 // Import parts of this library we use. You could use this style, or perhaps import
 // less here.
 use stm32_hal2::{
+    self,
     adc::{self, Adc, AdcChannel},
     clocks::Clocks,
     dac::{Dac, Channel as DacChannel, DacBits},
@@ -40,6 +41,10 @@ fn main() -> ! {
     let mut cp = cortex_m::Peripherals::take().unwrap();
     // Set up peripherals specific to the microcontroller you're using.
     let mut dp = pac::Peripherals::take().unwrap();
+
+    // This line is required to prevent the debugger from disconnecting on entering WFI.
+    // This appears to be a limitation of many STM32 families. Not required in production code.
+    stm32_hal2::debug_workaround(&mut dp.DBGMCU, &mut dp.RCC);
 
     // Create an initial clock configuration that uses the MCU's internal oscillator (HSI),
     // sets the MCU to its maximum system clock speed.
