@@ -241,8 +241,6 @@ macro_rules! make_port {
                     let mut result = [<Gpio $Port Pin>] {
                         port: PortLetter::[<$Port>],
                         pin,
-                        // mode,
-                        // output_type: OutputType::PushPull, // Registers initialize to this.
                     };
                     result.mode(mode, &mut self.regs);
 
@@ -410,8 +408,6 @@ macro_rules! make_pin {
             pub fn mode(&mut self, value: PinMode, regs: &mut pac::[<GPIO $Port>]) {
                 set_field!(self.pin, regs, moder, moder, bits, value.val(), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 
-                // self.mode = value;
-
                 if let PinMode::Alt(alt) = value {
                     self.alt_fn(alt, regs);
                 }
@@ -420,8 +416,6 @@ macro_rules! make_pin {
             /// Set output type.
             pub fn output_type(&mut self, value: OutputType, regs: &mut pac::[<GPIO $Port>]) {
                 set_field!(self.pin, regs, otyper, ot, bit, value as u8 != 0, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
-
-                // self.output_type = value;
             }
 
             /// Set output speed.

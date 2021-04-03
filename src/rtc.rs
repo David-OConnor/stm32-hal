@@ -150,7 +150,6 @@ impl Rtc {
         // Enable the peripheral clock for communication
         // You must enable the `pwren()` bit before making RTC register writes, or they won't stay
         // set. Enable the backup interface by setting PWREN
-        // Unlock the backup domain
 
         // Note that unlock other RCC enableing processes, there's no corresponding reset
         // field here.
@@ -166,14 +165,14 @@ impl Rtc {
                 rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
                 rcc.apb1enr1.modify(|_, w| w.rtcapben().set_bit());
                 rcc.apb1smenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
-                pwr.cr1.read(); // read to allow the pwr clock to enable
-                pwr.cr1.modify( | _, w| w.dbp().set_bit());
+                pwr.cr1.read(); // Read to allow the pwr clock to enable
+                pwr.cr1.modify( | _, w| w.dbp().set_bit()); // Unlock the backup domain
                 while pwr.cr1.read().dbp().bit_is_clear() {}
             } else if #[cfg(any(feature = "g0"))] {
                 rcc.apbenr1.modify(|_, w| w.pwren().set_bit());
                 rcc.apbenr1.modify(|_, w| w.rtcapben().set_bit());
                 rcc.apbsmenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
-                pwr.cr1.read(); // read to allow the pwr clock to enable
+                pwr.cr1.read();
                 pwr.cr1.modify( | _, w| w.dbp().set_bit());
                 while pwr.cr1.read().dbp().bit_is_clear() {}
             } else { // eg h7
@@ -183,7 +182,6 @@ impl Rtc {
                 pwr.cr1.modify( | _, w| w.dbp().set_bit());
                 while pwr.cr1.read().dbp().bit_is_clear() {}
             }
-
         }
 
         // Reset the backup domain.

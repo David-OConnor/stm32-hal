@@ -438,6 +438,12 @@ impl Clocks {
 
         rcc.cr.modify(|_, w| w.csson().bit(self.security_system));
 
+        // Enable and reset System Configuration Controller, ie for interrupts.
+        // todo: Is this the right module to do this in?
+        rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
+        rcc.apb2rstr.modify(|_, w| w.syscfgrst().set_bit());
+        rcc.apb2rstr.modify(|_, w| w.syscfgrst().clear_bit());
+
         Ok(())
     }
 

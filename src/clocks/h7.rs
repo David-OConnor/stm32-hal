@@ -349,6 +349,13 @@ impl Clocks {
         //     while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
         // }
 
+        // Enable and reset System Configuration Controller, ie for interrupts.
+        // todo: Is this the right module to do this in?
+        rcc.apb4enr.modify(|_, w| w.syscfgen().set_bit());
+        rcc.apb4rstr.modify(|_, w| w.syscfgrst().set_bit());
+        rcc.apb4rstr.modify(|_, w| w.syscfgrst().clear_bit());
+
+
         Ok(())
     }
 
