@@ -608,10 +608,10 @@ fn calc_sysclock(input_src: InputSrc, prediv: Prediv, pll_mul: PllMul) -> u32 {
                 PllSrc::HsiDiv2 => 4_000_000,
                 PllSrc::Hse(freq) => freq,
             };
-            input_freq as u32 / prediv.value() as u32 * pll_mul.value() as u32
+            input_freq / prediv.value() as u32 * pll_mul.value() as u32
         }
         InputSrc::Hsi => 8_000_000,
-        InputSrc::Hse(freq) => freq as u32,
+        InputSrc::Hse(freq) => freq,
     };
 
     sysclk
@@ -626,10 +626,10 @@ fn calc_sysclock(input_src: InputSrc, pllm: u8, plln: u16, pllp: Pllp) -> u32 {
                 PllSrc::Hsi => 16_000_000,
                 PllSrc::Hse(freq) => freq,
             };
-            input_freq as u32 / pllm as u32 * plln as u32 / pllp as u8 as u32
+            input_freq / pllm as u32 * plln as u32 / pllp as u8 as u32
         }
         InputSrc::Hsi => 16_000_000,
-        InputSrc::Hse(freq) => freq as u32,
+        InputSrc::Hse(freq) => freq,
     };
 
     sysclk

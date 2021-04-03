@@ -491,7 +491,7 @@ fn calc_sysclock(input_src: InputSrc, divm1: u8, divn1: u16, divp1: u8) -> (u32,
                 PllSrc::Hse(freq) => freq,
                 PllSrc::None => 0, // todo?
             };
-            input_freq as u32 / divm1 as u32 * divn1 as u32 / divp1 as u32
+            input_freq / divm1 as u32 * divn1 as u32 / divp1 as u32
         }
 
         InputSrc::Csi(range) => {

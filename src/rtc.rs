@@ -10,7 +10,6 @@ use rtcc::{Datelike, Hours, NaiveDate, NaiveDateTime, NaiveTime, Rtcc, Timelike}
 
 use cfg_if::cfg_if;
 
-
 /// RTC Clock source.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(u8)]
@@ -152,20 +151,39 @@ impl Rtc {
         // You must enable the `pwren()` bit before making RTC register writes, or they won't stay
         // set. Enable the backup interface by setting PWREN
         // Unlock the backup domain
-        // todo: Shortcut to specify just "l4" instead of all these?
+
+        // Note that unlock other RCC enableing processes, there's no corresponding reset
+        // field here.
+
         cfg_if! {
-            if #[cfg(feature = "f3")] {
+            if #[cfg(any(feature = "f3", feature = "f4"))] {
                 rcc.apb1enr.modify(|_, w| w.pwren().set_bit());
+                // rcc.apb1enr.modify(|_, w| w.rtcen().set_bit());
                 pwr.cr.read(); // read to allow the pwr clock to enable
                 pwr.cr.modify(|_, w| w.dbp().set_bit());
                 while pwr.cr.read().dbp().bit_is_clear() {}
-            } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+            } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
                 rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
                 rcc.apb1enr1.modify(|_, w| w.rtcapben().set_bit());
+                rcc.apb1smenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
+                pwr.cr1.read(); // read to allow the pwr clock to enable
+                pwr.cr1.modify( | _, w| w.dbp().set_bit());
+                while pwr.cr1.read().dbp().bit_is_clear() {}
+            } else if #[cfg(any(feature = "g0"))] {
+                rcc.apbenr1.modify(|_, w| w.pwren().set_bit());
+                rcc.apbenr1.modify(|_, w| w.rtcapben().set_bit());
+                rcc.apbsmenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
+                pwr.cr1.read(); // read to allow the pwr clock to enable
+                pwr.cr1.modify( | _, w| w.dbp().set_bit());
+                while pwr.cr1.read().dbp().bit_is_clear() {}
+            } else { // eg h7
+                rcc.apb4enr.modify(|_, w| w.rtcapben().set_bit());
+                rcc.apb4lpenr.modify(|_, w| w.rtcapblpen().set_bit());  // In sleep and stop modes.
                 pwr.cr1.read(); // read to allow the pwr clock to enable
                 pwr.cr1.modify( | _, w| w.dbp().set_bit());
                 while pwr.cr1.read().dbp().bit_is_clear() {}
             }
+
         }
 
         // Reset the backup domain.
@@ -240,9 +258,9 @@ impl Rtc {
     // /// Setup the alarm. See AN4759, section 2.3.1.
     // /// `sleep_time` is in ms. `Table 8` desribes these steps.
     // pub fn set_alarm(&mut self, exti: &mut EXTI) {
-    //     exti.imr1.modify(|_, w| w.mr17().unmasked());
-    //     exti.rtsr1.modify(|_, w| w.tr17().bit(true));
-    //     exti.ftsr1.modify(|_, w| w.tr17().bit(false));
+    //     exti.imr1.modify(|_, w| w.mr18().unmasked());
+    //     exti.rtsr1.modify(|_, w| w.tr18().bit(true));
+    //     exti.ftsr1.modify(|_, w| w.tr18().bit(false));
     //
     //     self.edit_regs(false, |regs| {
     //         regs.cr.modify(|_, w| w.alrae().clear_bit());
@@ -369,7 +387,6 @@ impl Rtc {
         // interrupt mode and select the rising edge sensitivity.
         // Sleep time is in seconds.  See L4 RM, Table 47 to see that exti line 20 is the RTC wakeup
         // timer. This appears to be the case for all families.
-
 
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "l4"))] {

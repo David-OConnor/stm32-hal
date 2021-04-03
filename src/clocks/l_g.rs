@@ -51,6 +51,7 @@ impl PllSrc {
     /// Required due to numerical value on non-uniform discrim being experimental.
     /// (ie, can't set on `Pll(Pllsrc)`.
     pub fn bits(&self) -> u8 {
+        // L4 RM, 6.4.4
         #[cfg(not(any(feature = "g0", feature = "g4")))]
         match self {
             Self::None => 0b00,
@@ -330,7 +331,7 @@ impl Pllr {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// Division factor for the AHB clock. Also known as AHB Prescaler.
+/// Division factor for the AHB clock. Also known as AHB Prescaler. L4 RM, 6.4.3
 pub enum HclkPrescaler {
     Div1 = 0b0000,
     Div2 = 0b1000,
@@ -921,7 +922,7 @@ fn calc_sysclock(input_src: InputSrc, pllm: Pllm, plln: u8, pllr: Pllr) -> (u32,
                 PllSrc::Hse(freq) => freq,
                 PllSrc::None => 0, // todo?
             };
-            input_freq as u32 / pllm.value() as u32 * plln as u32 / pllr.value() as u32
+            input_freq / pllm.value() as u32 * plln as u32 / pllr.value() as u32
         }
 
         #[cfg(not(any(feature = "g0", feature = "g4")))]
@@ -944,7 +945,7 @@ fn calc_sysclock(input_src: InputSrc, pllm: Pllm, plln: u8, pllr: Pllr) -> (u32,
         }
         #[cfg(feature = "g0")]
         InputSrc::Lse => {
-            input_freq = 32_768; // todo confirm this is right.
+            input_freq = 32_768;
             input_freq
         }
     };
