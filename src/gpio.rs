@@ -14,18 +14,6 @@ use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
 use cfg_if::cfg_if;
 use paste::paste;
 
-// todo: Implement traits for type-state-programming checks.
-
-// #[derive(Copy, Clone)]
-// #[repr(u8)]
-// /// Values for `GPIOx_MODER`
-// pub enum PinMode {
-//     Input = 0b00,
-//     Output = 0b01,
-//     Alt(AltFn) = 0b10,
-//     Analog = 0b11,
-// }
-
 #[derive(Copy, Clone)]
 #[repr(u8)]
 /// Values for `GPIOx_MODER`
@@ -376,7 +364,7 @@ macro_rules! set_alt {
                 match $pin {
                     $(
                         PinNum::[<P $num>] => {
-                            $regs.moder.modify(|_, w| w.moder0().bits(PinMode::Alt($val).val()));
+                            $regs.moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(AltFn::Af0).val()));
                             #[cfg(any(feature = "l5", feature = "g0", feature = "h7"))]
                             $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val as u8));
                             #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7")))]
