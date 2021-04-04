@@ -323,7 +323,7 @@ macro_rules! make_simple_globals {
 /// This affects most (all?) STM32 devices. In production on battery-powered
 /// devices that don't use DMA, consider removing this, to prevent power
 /// use by the DMA clock.
-/// For example, see STM32F446 errata, section 2.1.1.
+/// For why we enable the DMA clock, see STM32F446 errata, section 2.1.1.
 pub fn debug_workaround(dbgmcu: &mut pac::DBGMCU, rcc: &mut pac::RCC) {
     #[cfg(not(feature = "l5"))]
     dbgmcu.cr.modify(|_, w| w.dbg_sleep().set_bit());

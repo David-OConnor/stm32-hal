@@ -484,9 +484,10 @@ impl Rtc {
         self.regs.wpr.write(|w| unsafe { w.bits(0xCA) });
         self.regs.wpr.write(|w| unsafe { w.bits(0x53) });
 
-        self.regs.cr.modify(|_, w| w.wute().clear_bit());
-
-        #[cfg(feature = "l5")]
+        let started_enabled = self.regs.cr.read().wute().bit_is_set();
+        if started_enabled {
+            self.regs.cr.modify(|_, w| w.wute().clear_bit());
+        }
 
         cfg_if! {
             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))] {
@@ -498,7 +499,9 @@ impl Rtc {
 
         self.set_wakeup_interval_inner(sleep_time);
 
-        self.regs.cr.modify(|_, w| w.wute().set_bit());
+        if started_enabled {
+            self.regs.cr.modify(|_, w| w.wute().set_bit());
+        }
 
         self.regs.wpr.write(|w| unsafe { w.bits(0xFF) });
     }
