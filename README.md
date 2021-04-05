@@ -85,7 +85,6 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 - H7 clocks haven't been tested, are missing features, and likely contain errors
 - SPI unimplemented for H7
 - CRC unimplemented for L5, F4, G0, and G4.
-- Timer RCC enabling broken for H7. To work around, manually enable/rst in RCC before configuring.
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
 - ADC is unimplemented on F4.
 - ADC 3 and 4 are unimplemented on G4. ADC3 is unimplemented on H7.

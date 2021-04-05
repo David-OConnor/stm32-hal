@@ -16,7 +16,7 @@ use crate::{
 use cfg_if::cfg_if;
 use paste::paste;
 
-// todo: Make constructor new_tim1 etc?
+// todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
 
 #[derive(Clone, Copy)]
 /// Used for when attempting to set a timer period that is out of range.
@@ -35,7 +35,7 @@ pub enum Event {
 }
 
 /// Output alignment
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub enum Alignment {
     Edge,
     Center1,
@@ -43,7 +43,7 @@ pub enum Alignment {
     Center3,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub enum Channel {
     One,
     Two,
@@ -54,7 +54,7 @@ pub enum Channel {
 /// Capture/Compare selection.
 /// This bit-field defines the direction of the channel (input/output) as well as the used input.
 #[repr(u8)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub enum CaptureCompare {
     Output = 0b00,
     InputTi1 = 0b01,
@@ -63,7 +63,7 @@ pub enum CaptureCompare {
 }
 
 /// Capture/Compare output polarity. Defaults to `ActiveHigh` in hardware.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub enum Polarity {
     ActiveHigh,
     ActiveLow,
@@ -79,7 +79,7 @@ impl Polarity {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 #[repr(u8)]
 /// See F303 ref man, section 21.4.7.
 /// These bits define the behavior of the output reference signal OC1REF from which OC1 and
@@ -162,9 +162,55 @@ impl OutputCompare {
     }
 }
 
+/// Helper macro to make a match arm that only compiles the matched part.
+macro_rules! apb_en_reset {
+    (1, $tim:expr, $rcc:expr) => {
+        paste! { cfg_if! {
+            if #[cfg(any(feature = "f3", feature = "f4"))] {
+                $rcc.apb1enr.modify(|_, w| w.[<$tim en>]().set_bit());
+                $rcc.apb1rstr.modify(|_, w| w.[<$tim rst>]().set_bit());
+                $rcc.apb1rstr.modify(|_, w| w.[<$tim rst>]().clear_bit());
+            } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
+                $rcc.apb1enr1.modify(|_, w| w.[<$tim en>]().set_bit());
+                $rcc.apb1rstr1.modify(|_, w| w.[<$tim rst>]().set_bit());
+                $rcc.apb1rstr1.modify(|_, w| w.[<$tim rst>]().clear_bit());
+            } else if #[cfg(feature = "g0")] {
+                $rcc.apbenr1.modify(|_, w| w.[<$tim en>]().set_bit());
+                $rcc.apbrstr1.modify(|_, w| w.[<$tim rst>]().set_bit());
+                $rcc.apbrstr1.modify(|_, w| w.[<$tim rst>]().clear_bit());
+            } else {  // H7
+                $rcc.apb1lenr.modify(|_, w| w.[<$tim en>]().set_bit());
+                $rcc.apb1lrstr.modify(|_, w| w.[<$tim rst>]().set_bit());
+                $rcc.apb1lrstr.modify(|_, w| w.[<$tim rst>]().clear_bit());
+            }
+        }}
+    };
+    (2, $tim:expr, $rcc:expr) => {
+        paste! { cfg_if! {
+            if #[cfg(any(feature = "f3", feature = "f4"))] {
+                $rcc.apb2enr.modify(|_, w| w.[<$tim en>]().set_bit());
+                $rcc.apb2rstr.modify(|_, w| w.[<$tim rst>]().set_bit());
+                $rcc.apb2rstr.modify(|_, w| w.[<$tim rst>]().clear_bit());
+            } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
+                $rcc.apb2enr.modify(|_, w| w.[<$tim en>]().set_bit());
+                $rcc.apb2rstr.modify(|_, w| w.[<$tim rst>]().set_bit());
+                $rcc.apb2rstr.modify(|_, w| w.[<$tim rst>]().clear_bit());
+            } else if #[cfg(feature = "g0")] {
+                $rcc.apbenr2.modify(|_, w| w.[<$tim en>]().set_bit());
+                $rcc.apbrstr2.modify(|_, w| w.[<$tim rst>]().set_bit());
+                $rcc.apbrstr2.modify(|_, w| w.[<$tim rst>]().clear_bit());
+            } else {  // H7
+                $rcc.apb2enr.modify(|_, w| w.[<$tim en>]().set_bit());
+                $rcc.apb2rstr.modify(|_, w| w.[<$tim rst>]().set_bit());
+                $rcc.apb2rstr.modify(|_, w| w.[<$tim rst>]().clear_bit());
+            }
+        }}
+    };
+}
+
 macro_rules! hal {
     ($({
-        $TIMX:ident: ($tim:ident, $apb:ident, $enr:ident, $rst:ident)
+        $TIMX:ident: ($tim:ident, $apb:expr)
     },)+) => {
         $(
             impl Periodic for Timer<pac::$TIMX> {}
@@ -213,30 +259,18 @@ macro_rules! hal {
                         // `freq` is in Hz.
 
                         // enable and reset peripheral to a clean slate state
-                        // todo: H7!!
-                        cfg_if! {
-                            if #[cfg(any(feature = "f3", feature = "f4"))] {
-                                    rcc.[<$apb enr>].modify(|_, w| w.[<$tim en>]().set_bit());
-                                    rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().set_bit());
-                                    rcc.[<$apb rstr>].modify(|_, w| w.[<$tim rst>]().clear_bit());
-                            } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
-                                    // We use `$enr` and $rst, since we only add `1` after for apb1.
-                                    // This isn't required on f3.
-                                    rcc.[<$apb $enr>].modify(|_, w| w.[<$tim en>]().set_bit());
-                                    rcc.[<$apb $rst>].modify(|_, w| w.[<$tim rst>]().set_bit());
-                                    rcc.[<$apb $rst>].modify(|_, w| w.[<$tim rst>]().clear_bit());
-                            } else {  // H7 // todo broodifken. You need to rearrange macros to use apb1l1enr, apb2enr etc for H7
-                                    // rcc.apb1lenr.my(|_, w| w.[<$tim en>]().set_bit());
-                                    // rcc.apb1lrstr.modify(|_, w| w.[<$tim rst>]().set_bit());
-                                    // rcc.apb1lrstr.modify(|_, w| w.[<$tim rst>]().clear_bit());
-                            }
-                        }
+                        apb_en_reset!($apb, $tim, rcc);
 
-                            let mut timer = Timer { clock_speed: clocks.[<$apb _timer>](), tim };
-                            timer.start(freq);
-                            timer
+                        let clock_speed = match $apb {
+                            1 => clocks.apb1_timer(),
+                            _ => clocks.apb2_timer(),
+                        };
+                        let mut timer = Timer { clock_speed, tim };
+                        timer.start(freq);
+                        timer
                     }
                 }
+                /// Starts listening for an `event`. Used to enable interrupts.
                 /// Starts listening for an `event`. Used to enable interrupts.
                 pub fn listen(&mut self, event: Event) {
                     match event {
@@ -577,7 +611,7 @@ macro_rules! pwm_features {
 #[cfg(not(any(feature = "f373", feature = "f4")))]
 hal! {
     {
-        TIM1: (tim1, apb2, enr, rstr)
+        TIM1: (tim1, 2)
     },
 }
 
@@ -591,7 +625,7 @@ hal! {
 )))]
 hal! {
     {
-        TIM3: (tim3, apb1, enr1, rstr1)
+        TIM3: (tim3, 1)
     },
 }
 
@@ -627,10 +661,10 @@ pwm_features! {
 )))]
 hal! {
     {
-        TIM4: (tim4, apb1, enr1, rstr1)
+        TIM4: (tim4, 1)
     },
     {
-        TIM17: (tim17, apb2, enr, rstr)
+        TIM17: (tim17, 2)
     },
 }
 
@@ -659,7 +693,7 @@ pwm_features! {
 ))]
 hal! {
     {
-        TIM5: (tim5, apb1, enr1, rstr1)
+        TIM5: (tim5, 1)
     },
 }
 
@@ -675,7 +709,7 @@ hal! {
 )))]
 hal! {
     {
-        TIM7: (tim7, apb1, enr1, rstr1)
+        TIM7: (tim7, 1)
     },
 }
 
@@ -690,17 +724,17 @@ hal! {
 )))]
 hal! {
     {
-        TIM2: (tim2, apb1, enr1, rstr1)
+        TIM2: (tim2, 1)
     },
     {
-        TIM6: (tim6, apb1, enr1, rstr1)
+        TIM6: (tim6, 1)
     },
 }
 
 #[cfg(not(feature = "f4"))]
 hal! {
     {
-        TIM16: (tim16, apb2, enr, rstr)
+        TIM16: (tim16, 2)
     },
 }
 
@@ -715,7 +749,7 @@ hal! {
 )))]
 hal! {
     {
-        TIM15: (tim15, apb2, enr, rstr)
+        TIM15: (tim15, 2)
     },
 }
 
@@ -742,34 +776,34 @@ pwm_features! {
 ))]
 hal! {
     {
-        TIM8: (tim8, apb2, enr, rstr)
+        TIM8: (tim8, 2)
     },
 }
 
-// { todo This is causing duplicates when compiling with f303. Why?
+// { todo: tim18
 //     TIM18: (tim18, apb2, enr, rstr),
 // },
 #[cfg(any(feature = "f303"))]
 hal! {
 
     {
-        TIM20: (tim20, apb2, enr, rstr)
+        TIM20: (tim20, 2)
     },
 }
 
 #[cfg(any(feature = "f373"))]
 hal! {
     {
-        TIM12: (tim12, apb1, enr1, rstr1)
+        TIM12: (tim12, 1)
     },
     {
-        TIM13: (tim13, apb1, enr1, rstr1)
+        TIM13: (tim13, 1)
     },
     {
-        TIM14: (tim14, apb1, enr1, rstr1)
+        TIM14: (tim14, 1)
     },
     {
-        TIM19: (tim19, apb2, enr, rstr)
+        TIM19: (tim19, 2)
     },
 }
 
