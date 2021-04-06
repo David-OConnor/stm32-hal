@@ -149,7 +149,7 @@ fn RTC_WKUP() {
 }
 
 #[interrupt]
-/// Timer wakeup handler
+/// Timer interrupt handler
 fn TIM3() {
     free(|cs| {
         // Clear the interrupt flag. If you ommit this, it will fire repeatedly.

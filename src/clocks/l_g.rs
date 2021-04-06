@@ -44,6 +44,7 @@ enum WaitState {
     W2 = 2,
     W3 = 3,
     W4 = 4,
+    #[cfg(not(any(feature = "l4")))]
     W5 = 5,
 }
 

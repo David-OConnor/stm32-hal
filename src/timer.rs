@@ -1,7 +1,5 @@
 //! Timers. Includes initialization, countdown functionality, interrupts, and PWM features.
 
-//  Based on `stm32f3xx-hal`
-
 use num_traits::float::Float;
 
 use embedded_hal::timer::{CountDown, Periodic};
@@ -43,12 +41,22 @@ pub enum Alignment {
     Center3,
 }
 
+// todo: TimerChannel, to avoid input conflicts?
+/// Timer channel
 #[derive(Clone, Copy)]
 pub enum Channel {
     One,
     Two,
     Three,
     Four,
+}
+
+/// Timer count direction
+#[repr(u8)]
+#[derive(Clone, Copy)]
+pub enum CountDir {
+    Up = 0,
+    Down = 1,
 }
 
 /// Capture/Compare selection.
@@ -187,19 +195,11 @@ macro_rules! apb_en_reset {
     };
     (2, $tim:expr, $rcc:expr) => {
         paste! { cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4"))] {
-                $rcc.apb2enr.modify(|_, w| w.[<$tim en>]().set_bit());
-                $rcc.apb2rstr.modify(|_, w| w.[<$tim rst>]().set_bit());
-                $rcc.apb2rstr.modify(|_, w| w.[<$tim rst>]().clear_bit());
-            } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
-                $rcc.apb2enr.modify(|_, w| w.[<$tim en>]().set_bit());
-                $rcc.apb2rstr.modify(|_, w| w.[<$tim rst>]().set_bit());
-                $rcc.apb2rstr.modify(|_, w| w.[<$tim rst>]().clear_bit());
-            } else if #[cfg(feature = "g0")] {
+            if #[cfg(feature = "g0")] {
                 $rcc.apbenr2.modify(|_, w| w.[<$tim en>]().set_bit());
                 $rcc.apbrstr2.modify(|_, w| w.[<$tim rst>]().set_bit());
                 $rcc.apbrstr2.modify(|_, w| w.[<$tim rst>]().clear_bit());
-            } else {  // H7
+            } else {
                 $rcc.apb2enr.modify(|_, w| w.[<$tim en>]().set_bit());
                 $rcc.apb2rstr.modify(|_, w| w.[<$tim rst>]().set_bit());
                 $rcc.apb2rstr.modify(|_, w| w.[<$tim rst>]().clear_bit());
@@ -258,7 +258,6 @@ macro_rules! hal {
                     {
                         // `freq` is in Hz.
 
-                        // enable and reset peripheral to a clean slate state
                         apb_en_reset!($apb, $tim, rcc);
 
                         let clock_speed = match $apb {
@@ -399,6 +398,57 @@ macro_rules! pwm_features {
     },)+) => {
         $(
             impl Timer<pac::$TIMX> {
+                /// Enables basic PWM output
+                pub fn enable_pwm_output(&mut self, channel: Channel, compare: OutputCompare, dir: CountDir, duty: f32) {
+                    self.set_output_compare(channel, compare);
+                    self.set_duty(channel, (self.get_max_duty() as f32 * duty) as $res);
+                    self.tim.cr1.modify(|_, w| w.dir().bit(dir as u8 != 0));
+                    self.enable_capture_compare(channel);
+                }
+
+                /// Enables basic PWM input. TODO: Doesn't work yet.
+                /// L4 RM, section 26.3.8
+                pub fn enable_pwm_input(&mut self, channel: Channel, compare: OutputCompare, dir: CountDir, duty: f32) {
+                    // todo: These instruction sare specifically for TI1
+                    // 1. Select the active input for TIMx_CCR1: write the CC1S bits to 01 in the TIMx_CCMR1
+                    // register (TI1 selected).
+                    // self.tim.ccmr1.modify(|_, w| w.cc1s().bit(0b01));
+
+                    // 2. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
+                    // clear): write the CC1P and CC1NP bits to ‘0’ (active on rising edge).
+                    // self.tim.ccmr1.modify(|_, w| {
+                    //     w.cc1p().bits(0b00);
+                    //     w.cc1np().bits(0b00)
+                    // });
+                    // 3. Select the active input for TIMx_CCR2: write the CC2S bits to 10 in the TIMx_CCMR1
+                    // register (TI1 selected).
+                    // self.tim.ccmr2.modify(|_, w| w.cc2s().bit(0b10));
+
+                    // 4. Select the active polarity for TI1FP2 (used for capture in TIMx_CCR2): write the CC2P
+                    // and CC2NP bits to CC2P/CC2NP=’10’ (active on falling edge).
+                    // self.tim.ccr2.modify(|_, w| {
+                    //     w.cc2p().bits(0b10);
+                    //     w.cc2np().bits(0b10)
+                    // });
+
+                    // 5. Select the valid trigger input: write the TS bits to 101 in the TIMx_SMCR register
+                    // (TI1FP1 selected).
+                    // self.tim.smcr.modify(|_, w| w.ts().bits(0b101));
+
+                    // 6. Configure the slave mode controller in reset mode: write the SMS bits to 0100 in the
+                    // TIMx_SMCR register.
+                    // self.tim.smcr.modify(|_, w| w.sms().bits(0b0100));
+
+                    // 7. Enable the captures: write the CC1E and CC2E bits to ‘1’ in the TIMx_CCER register.
+                    // self.tim.ccer.modify(|_, w| {
+                    //     w.cc1e().set_bit();
+                    //     w.cc2e().set_bit()
+                    // });
+
+                }
+
+                // todo: more advanced PWM modes. Asymmetric, combined, center-aligned etc.
+
                 /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
                 pub fn set_output_compare(&mut self, channel: Channel, mode: OutputCompare) {
                     match channel {

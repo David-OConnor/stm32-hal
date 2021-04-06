@@ -48,10 +48,10 @@ fn main() -> ! {
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
-    let mut pb15 = gpioa.new_pin(PinNum::P15, PinMode::Output);
+    let mut pb15 = gpiob.new_pin(PinNum::P15, PinMode::Output);
     pb15.set_high().ok();
 
-    let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clocks, &mut dp.RCC);
+    let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
     timer.listen(TimeOut);
 
     let mut scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
@@ -60,7 +60,7 @@ fn main() -> ! {
     let mut sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::AF4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clocks, &mut dp.RCC);
+    let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg, &mut dp.RCC);
 
     loop {
         low_power::sleep_now(&mut cp.SCB);
@@ -83,6 +83,7 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 - U[s]ART (serial) isn't implemented outside L4.
 - DMA and CAN aren't implemented.
 - H7 clocks haven't been tested, are missing features, and likely contain errors
+- PWM input unimplemented
 - SPI unimplemented for H7
 - CRC unimplemented for L5, F4, G0, and G4.
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH

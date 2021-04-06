@@ -253,8 +253,14 @@ pub mod qspi;
 pub mod rtc;
 #[cfg(any(feature = "l4"))] // todo
 pub mod serial;
-#[cfg(not(feature = "h7"))] // todo
+
+#[cfg(not(feature = "h7"))]
 pub mod spi;
+// #[cfg(feature = "h7")] // todo
+// pub mod spi_h7;
+// #[cfg(feature = "h7")]
+// pub use spi_h7 as spi;
+
 pub mod timer;
 
 // In the l4 series, only l4x2 and l4x3 have USB.

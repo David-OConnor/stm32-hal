@@ -19,6 +19,7 @@ use stm32_hal::{
     gpio::{Edge, PinMode, PinNum},
     low_power, pac,
     prelude::*,
+    timer::{Channel, CountDir, OutputCompare, Timer},
 };
 
 #[entry]
@@ -36,41 +37,39 @@ fn main() -> ! {
 
     let mut delay = Delay::new(cp.SYST, &clock_cfg);
 
-    let chan_num = 2;
-
     // Enable the GPIOB port.
     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
 
-    // Configure the ADC pin in analog mode. (This is the default state for some STM32 families,
-    // but not all)
-    let _adc_pin = gpiob.new_pin(PinNum::P0, PinMode::Analog);
+    let mut timer = Timer::new_tim1(dp.TIM1, 0.2, &clock_cfg, &mut dp.RCC);
+    timer.listen(TimeOut); // Enable update event interrupts.
 
-    let mut adc = Adc::new_adc1(
-        dp.ADC1,
-        &mut dp.ADC_COMMON,
-        ClockMode::default(),
-        &clock_cfg,
-        &mut dp.RCC,
-    );
+    // Setting auto reload preload allow changing frequency (period) while the timer is running.
+    timer.set_auto_reload_preload(true);
+    timer.enable_pwm_output(Channel::One, OutputCompare::Pwm1, CountDir::Up, 0.5);
 
-    // Take a OneShot reading using the embedded HAL trait.
-    let reading = adc.read();
+    // todo: Flesh out this example.
 
-    // Or, start reading in continuous mode:
-    adc.start_conversion(chan_num, OperationMode::Continuous);
-    // Read from the ADC's latest (continuously-running) conversion:
-    let reading = adc.read_result();
-
-    // Set up differential mode:
-    adc.set_input_type(chan_num, InputType::Differential);
-
-    // Change the sample rate:
-    adc.set_sample_time(chan_num, SampleTime::T2);
-
-    // Set left align mode:
-    adc.set_align(Align::Left);
+    // Unmask the interrupt line.
+    unsafe {
+        NVIC::unmask(pac::Interrupt::TIM1);
+    }
 
     loop {
         low_power::sleep_now(&mut SCB);
     }
+}
+
+#[interrupt]
+/// Timer interrupt handler
+fn TIM3() {
+    free(|cs| {
+        // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
+        unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().clear()) }
+
+        // Alternatively, if you have the timer set up in a global mutex:
+        // access_global!(TIMER, timer, cs);
+        // timer.clear_interrupt();
+    });
+
+    // Do something.
 }
