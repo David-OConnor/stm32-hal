@@ -234,11 +234,6 @@ hal! {
     SPI2: (spi2, new_spi2, apb1, enr1, rstr1, spi2en),
 }
 
-#[cfg(any(feature = "f301", feature = "f302", feature = "f303", feature = "f373",))]
-hal! {
-    SPI3: (spi3, new_spi3, apb1, enr1, rstr1, spi3en),
-}
-
 #[cfg(any(
     feature = "f301",
     feature = "f302",
@@ -248,6 +243,7 @@ hal! {
     feature = "l4x4",
     feature = "l4x5",
     feature = "l4x6",
+    feature = "l5",
     feature = "g4",
 ))]
 hal! {
@@ -256,7 +252,7 @@ hal! {
 
 // The final argument of the macro appears to be needed due to a differene
 // in the SPI3 L4 RM and SVDs: It's `sp3en` instead of `spi3en` for some variants.
-#[cfg(any(feature = "l4x3", feature = "l552", feature = "l562"))]
+#[cfg(any(feature = "l4x3", feature = "l5"))]
 hal! {
     SPI3: (spi3, new_spi3, apb1, enr1, rstr1, sp3en),
 }

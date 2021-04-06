@@ -400,6 +400,7 @@ macro_rules! pwm_features {
             impl Timer<pac::$TIMX> {
                 /// Enables basic PWM output
                 pub fn enable_pwm_output(&mut self, channel: Channel, compare: OutputCompare, dir: CountDir, duty: f32) {
+                    self.set_preload(channel, true);
                     self.set_output_compare(channel, compare);
                     self.set_duty(channel, (self.get_max_duty() as f32 * duty) as $res);
                     self.tim.cr1.modify(|_, w| w.dir().bit(dir as u8 != 0));
