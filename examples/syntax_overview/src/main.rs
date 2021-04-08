@@ -21,7 +21,7 @@ use stm32_hal2::{
     self,
     adc::{self, Adc, AdcChannel},
     clocks::Clocks,
-    dac::{Dac, Channel as DacChannel, DacBits},
+    dac::{Dac, DacChannel, DacBits},
     delay::Delay,
     flash::Flash,
     gpio::{GpioA, GpioB, Edge, PinNum, PinMode, OutputType, AltFn, Pull},
