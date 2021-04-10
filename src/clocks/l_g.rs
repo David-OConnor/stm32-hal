@@ -1,6 +1,6 @@
 use crate::{
     clocks::SpeedError,
-    pac::{FLASH, RCC},
+    pac::{self, FLASH, RCC},
     traits::{ClockCfg, ClocksValid},
 };
 
@@ -429,7 +429,7 @@ impl Clocks {
         let hclk = sysclk / self.hclk_prescaler.value() as u32;
 
         // TODO: these are only implemented for Vcore Rnage 1 (Normal mode as applicable)
-        // todo: Other modes.
+        // todo: Other modes, like MODE 2 (For lower max system clocks) on L4.
 
         cfg_if! {
             if #[cfg(feature = "l4")] {  // RM section 3.3.3
@@ -487,7 +487,6 @@ impl Clocks {
                     }
                 });
             }
-
         }
 
         // Reference Manual, 6.2.5:
@@ -559,9 +558,15 @@ impl Clocks {
                 }
             }
             #[cfg(feature = "g0")]
-            InputSrc::Lsi => {} // todo enable LSI
+            InputSrc::Lsi => unsafe {
+                (*pac::RTC::ptr()).csr.modify(|_, w| w.lsion.set_bit());
+                while (*pac::RTC::ptr()).csr.read().lsirdy().bit_is_clear() {}
+            },
             #[cfg(feature = "g0")]
-            InputSrc::Lse => {} // todo enable LSE
+            InputSrc::Lse => unsafe {
+                (*pac::RTC::ptr()).bdcr.modify(|_, w| w.lseon.set_bit());
+                while (*pac::RTC::ptr()).bdcr.read().lserdy().bit_is_clear() {}
+            },
         }
 
         rcc.cr.modify(|_, w| {
@@ -1021,11 +1026,16 @@ pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
             }
         }
         #[cfg(not(any(feature = "g0", feature = "g4")))]
-        InputSrc::Msi(_) => (), // Already reset to this
-
+        InputSrc::Msi(_) => (), // Already reset to this, unless RCC_CFGR.STOPCUCK is set.
         #[cfg(feature = "g0")]
-        InputSrc::Lsi => (),
+        InputSrc::Lsi => unsafe {
+            (*pac::RTC::ptr()).csr.modify(|_, w| w.lsion.set_bit());
+            while (*pac::RTC::ptr()).csr.read().lsirdy().bit_is_clear() {}
+        },
         #[cfg(feature = "g0")]
-        InputSrc::Lse => (),
+        InputSrc::Lse => unsafe {
+            (*pac::RTC::ptr()).bdcr.modify(|_, w| w.lseon.set_bit());
+            while (*pac::RTC::ptr()).bdcr.read().lserdy().bit_is_clear() {}
+        },
     }
 }

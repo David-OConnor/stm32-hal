@@ -154,6 +154,8 @@ impl Rtc {
         // Note that unlock other RCC enableing processes, there's no corresponding reset
         // field here.
 
+        // See L4 RM, `Backup domain access` section.
+
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "f4"))] {
                 rcc.apb1enr.modify(|_, w| w.pwren().set_bit());
@@ -162,10 +164,14 @@ impl Rtc {
                 pwr.cr.modify(|_, w| w.dbp().set_bit());
                 while pwr.cr.read().dbp().bit_is_clear() {}
             } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
+                // 1. Enable the power interface clock by setting the PWREN bits in the Section 6.4.18:
+                // APB1 peripheral clock enable register 1 (RCC_APB1ENR1)
                 rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
                 rcc.apb1enr1.modify(|_, w| w.rtcapben().set_bit());
                 rcc.apb1smenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
                 pwr.cr1.read(); // Read to allow the pwr clock to enable
+                // 2. Set the DBP bit in the Power control register 1 (PWR_CR1) to enable access to the
+                // backup domain
                 pwr.cr1.modify( | _, w| w.dbp().set_bit()); // Unlock the backup domain
                 while pwr.cr1.read().dbp().bit_is_clear() {}
             } else if #[cfg(any(feature = "g0"))] {
@@ -204,6 +210,9 @@ impl Rtc {
             _ => (),
         }
 
+        // 3. Select the RTC clock source in the Backup domain control register (RCC_BDCR).
+        // 4. Enable the RTC clock by setting the RTCEN [15] bit in the Backup domain control
+        // register (RCC_BDCR)
         rcc.bdcr.modify(|_, w| {
             unsafe { w.rtcsel().bits(result.config.clock_source as u8) };
             w.rtcen().set_bit()
@@ -385,6 +394,10 @@ impl Rtc {
         // interrupt mode and select the rising edge sensitivity.
         // Sleep time is in seconds.  See L4 RM, Table 47 to see that exti line 20 is the RTC wakeup
         // timer. This appears to be the case for all families.
+
+        // L4 RM, 5.3.11: To wakeup from Stop mode with an RTC wakeup event, it is necessary to:
+        // • Configure the EXTI Line 20 to be sensitive to rising edge
+        // • Configure the RTC to generate the RTC alarm
 
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "l4"))] {

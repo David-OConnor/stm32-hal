@@ -32,6 +32,8 @@ pub enum Error {
 pub enum I2cDevice {
     One,
     Two,
+    #[cfg(feature = "H7")]
+    Three,
 }
 
 /// I2C peripheral operating in master mode
@@ -54,30 +56,53 @@ where
         match device {
             I2cDevice::One => {
                 cfg_if::cfg_if! {
-                    if #[cfg(feature = "f3")] {
+                    if #[cfg(any(feature = "f301", feature = "f302", feature = "f303", feature = "f373", feature = "f4"))] {
                         rcc.apb1enr.modify(|_, w| w.i2c1en().set_bit());
                         rcc.apb1rstr.modify(|_, w| w.i2c1rst().set_bit());
                         rcc.apb1rstr.modify(|_, w| w.i2c1rst().clear_bit());
-                    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                    } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
                         rcc.apb1enr1.modify(|_, w| w.i2c1en().set_bit());
                         rcc.apb1rstr1.modify(|_, w| w.i2c1rst().set_bit());
                         rcc.apb1rstr1.modify(|_, w| w.i2c1rst().clear_bit());
+                    } else if #[cfg(feature = "h7")] {
+                        rcc.apb1lenr.modify(|_, w| w.i2c1en().set_bit());
+                        rcc.apb1lrstr.modify(|_, w| w.i2c1rst().set_bit());
+                        rcc.apb1lrstr.modify(|_, w| w.i2c1rst().clear_bit());
+                    } else { // G0, G7. (F4 handled in separate module)
+                        rcc.apbenr1.modify(|_, w| w.i2c1en().set_bit());
+                        rcc.apbrstr1.modify(|_, w| w.i2c1rst().set_bit());
+                        rcc.apbrstr1.modify(|_, w| w.i2c1rst().clear_bit());
                     }
                 }
             }
 
             I2cDevice::Two => {
                 cfg_if::cfg_if! {
-                    if #[cfg(any(feature = "f301", feature = "f302", feature = "f303", feature = "f373"))] {
+                    if #[cfg(any(feature = "f301", feature = "f302", feature = "f303", feature = "f373", feature = "f4"))] {
                         rcc.apb1enr.modify( | _, w| w.i2c2en().set_bit());
                         rcc.apb1rstr.modify( | _, w | w.i2c2rst().set_bit());
                         rcc.apb1rstr.modify(| _, w | w.i2c2rst().clear_bit());
-                    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                    } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
                         rcc.apb1enr1.modify( | _, w| w.i2c2en().set_bit());
                         rcc.apb1rstr1.modify( | _, w | w.i2c2rst().set_bit());
                         rcc.apb1rstr1.modify(| _, w | w.i2c2rst().clear_bit());
+                    } else if #[cfg(feature = "h7")] {
+                        rcc.apb1lenr.modify(|_, w| w.i2c2en().set_bit());
+                        rcc.apb1lrstr.modify(|_, w| w.i2c2rst().set_bit());
+                        rcc.apb1lrstr.modify(|_, w| w.i2c2rst().clear_bit());
+                    } else {  // G0
+                        rcc.apbenr1.modify(|_, w| w.i2c2en().set_bit());
+                        rcc.apbrstr1.modify(|_, w| w.i2c2rst().set_bit());
+                        rcc.apbrstr1.modify(|_, w| w.i2c2rst().clear_bit());
                     }
                 }
+            }
+
+            #[cfg(feature = "h7")]
+            I2cDevice::Three => {
+                rcc.apb1lenr.modify(|_, w| w.i2c3en().set_bit());
+                rcc.apb1lrstr.modify(|_, w| w.i2c3rst().set_bit());
+                rcc.apb1lrstr.modify(|_, w| w.i2c3rst().clear_bit());
             }
         }
 

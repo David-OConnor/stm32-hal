@@ -95,5 +95,4 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 - Disabling GPIO pin interrupts unimplemented
 - USB clock (PLLQ) isn't set up for F4 - USB may not work.
 - GPIO port F unimplemented.
-- If using LSI or LSE as the clock source on G0, you need to enable these manually.
 - Families other than L4, L5, and F3 must enable RCC SPI clock manually.

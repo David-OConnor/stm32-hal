@@ -517,7 +517,7 @@ fn calc_sysclock(input_src: InputSrc, divm1: u8, divn1: u16, divp1: u8) -> (u32,
     (input_freq, sysclk)
 }
 
-/// Re-select innput source; used on Stop and Standby modes, where the system reverts
+/// Re-select input source; used on Stop and Standby modes, where the system reverts
 /// to HSI after wake.
 pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
     // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.

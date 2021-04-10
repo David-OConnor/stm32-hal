@@ -170,7 +170,7 @@ macro_rules! hal {
                 ) -> Self {
                     // Enable and reset the SPI RCC clock
                     cfg_if::cfg_if! {
-                        if #[cfg(feature = "f3")] {
+                        if #[cfg(any(feature = "f3", feature = "f4"))] {
                             paste! {
                                 rcc.[<$apb enr>].modify(|_, w| w.$en().set_bit());
                                 rcc.[<$apb rstr>].modify(|_, w| w.[<$spi rst>]().set_bit());
@@ -468,6 +468,9 @@ macro_rules! hal {
         )+
     }
 }
+
+// We pass enr and rstr-name parameters to macros due to spi1 and 2 being on different
+// registers. An alternative approach is passing an enum to the macro, as we do in i2c.
 
 #[cfg(not(feature = "f301"))]
 hal! {
