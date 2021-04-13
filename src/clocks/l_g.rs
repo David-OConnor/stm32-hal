@@ -524,12 +524,12 @@ impl Clocks {
                 // todo: If LSE is enabled, calibrate MSI.
             }
             InputSrc::Hse(_) => {
-                rcc.cr.modify(|_, w| w.hseon().bit(true));
+                rcc.cr.modify(|_, w| w.hseon().set_bit());
                 // Wait for the HSE to be ready.
                 while rcc.cr.read().hserdy().bit_is_clear() {}
             }
             InputSrc::Hsi => {
-                rcc.cr.modify(|_, w| w.hsion().bit(true));
+                rcc.cr.modify(|_, w| w.hsion().set_bit());
                 while rcc.cr.read().hsirdy().bit_is_clear() {}
             }
             InputSrc::Pll(pll_src) => {
@@ -547,26 +547,26 @@ impl Clocks {
                         });
                     }
                     PllSrc::Hse(_) => {
-                        rcc.cr.modify(|_, w| w.hseon().bit(true));
+                        rcc.cr.modify(|_, w| w.hseon().set_bit());
                         while rcc.cr.read().hserdy().bit_is_clear() {}
                     }
                     PllSrc::Hsi => {
-                        rcc.cr.modify(|_, w| w.hsion().bit(true));
+                        rcc.cr.modify(|_, w| w.hsion().set_bit());
                         while rcc.cr.read().hsirdy().bit_is_clear() {}
                     }
                     PllSrc::None => {}
                 }
             }
             #[cfg(feature = "g0")]
-            InputSrc::Lsi => unsafe {
-                (*pac::RTC::ptr()).csr.modify(|_, w| w.lsion.set_bit());
-                while (*pac::RTC::ptr()).csr.read().lsirdy().bit_is_clear() {}
-            },
+            InputSrc::Lsi => {
+                rcc.csr.modify(|_, w| w.lsion().set_bit());
+                while rcc.csr.read().lsirdy().bit_is_clear() {}
+            }
             #[cfg(feature = "g0")]
-            InputSrc::Lse => unsafe {
-                (*pac::RTC::ptr()).bdcr.modify(|_, w| w.lseon.set_bit());
-                while (*pac::RTC::ptr()).bdcr.read().lserdy().bit_is_clear() {}
-            },
+            InputSrc::Lse => {
+                rcc.bdcr.modify(|_, w| w.lseon().set_bit());
+                while rcc.bdcr.read().lserdy().bit_is_clear() {}
+            }
         }
 
         rcc.cr.modify(|_, w| {
@@ -997,7 +997,7 @@ pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
                 }
                 PllSrc::Hsi => {
                     // Generally reverts to MSI (see note below)
-                    rcc.cr.modify(|_, w| w.hsion().bit(true));
+                    rcc.cr.modify(|_, w| w.hsion().set_bit());
                     while rcc.cr.read().hsirdy().bit_is_clear() {}
                 }
                 #[cfg(not(any(feature = "g0", feature = "g4")))]
@@ -1021,21 +1021,21 @@ pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
                 // Configured by HW to force MSI or HSI16 oscillator selection when exiting Stop mode or in
                 // case of failure of the HSE oscillator, depending on STOPWUCK value."
                 // In tests, from stop, it tends to revert to MSI.
-                rcc.cr.modify(|_, w| w.hsion().bit(true));
+                rcc.cr.modify(|_, w| w.hsion().set_bit());
                 while rcc.cr.read().hsirdy().bit_is_clear() {}
             }
         }
         #[cfg(not(any(feature = "g0", feature = "g4")))]
         InputSrc::Msi(_) => (), // Already reset to this, unless RCC_CFGR.STOPCUCK is set.
         #[cfg(feature = "g0")]
-        InputSrc::Lsi => unsafe {
-            (*pac::RTC::ptr()).csr.modify(|_, w| w.lsion.set_bit());
-            while (*pac::RTC::ptr()).csr.read().lsirdy().bit_is_clear() {}
-        },
+        InputSrc::Lsi => {
+            rcc.csr.modify(|_, w| w.lsion().set_bit());
+            while rcc.csr.read().lsirdy().bit_is_clear() {}
+        }
         #[cfg(feature = "g0")]
-        InputSrc::Lse => unsafe {
-            (*pac::RTC::ptr()).bdcr.modify(|_, w| w.lseon.set_bit());
-            while (*pac::RTC::ptr()).bdcr.read().lserdy().bit_is_clear() {}
-        },
+        InputSrc::Lse => {
+            rcc.bdcr.modify(|_, w| w.lseon().set_bit());
+            while rcc.bdcr.read().lserdy().bit_is_clear() {}
+        }
     }
 }

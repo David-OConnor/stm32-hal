@@ -290,7 +290,7 @@ macro_rules! hal {
                             // DS: 8-bit data size
                             // SSOE: Slave Select output disabled
                             #[cfg(feature = "f4")]
-                            self.spi.cr2.write(|w| w.ssoe().clear_bit());
+                            spi.cr2.write(|w| w.ssoe().clear_bit());
 
                             #[cfg(not(feature = "f4"))]
                             spi.cr2

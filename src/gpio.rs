@@ -734,48 +734,50 @@ macro_rules! make_pin {
     };
 }
 
-make_pin!(A);
-make_pin!(B);
-make_pin!(C);
-
-#[cfg(not(any(feature = "f410")))]
-make_pin!(D);
+// todo: Missing EFGH impls on some variants that have them.
 
 make_port!(A, a);
 make_port!(B, b);
 make_port!(C, c);
 
-#[cfg(not(any(feature = "f410")))]
-make_port!(D, d);
+make_pin!(A);
+make_pin!(B);
+make_pin!(C);
 
-// todo: Missing EFGH impls on some variants that have them.
+cfg_if! {
+    if #[cfg(not(any(feature = "f410")))] {
+        make_port! (D, d);
+        make_pin!(D);
+    }
+}
 
-#[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0")))]
-make_pin!(E);
+cfg_if! {
+    if #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0")))] {
+        make_port!(E, e);
+        make_pin!(E);
+    }
+}
 
-#[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0")))]
-make_port!(E, e);
+cfg_if! {
+    if #[cfg(not(any(feature = "f410", feature = "l4x1", feature = "l4x2", feature = "l4x3")))] {
+        make_port!(F, f);
+        make_pin!(F);
+    }
+}
 
-// todo: Port F as applicable.
+// todo: Is there a port G?
 
-#[cfg(not(any(
-    feature = "f373",
-    feature = "f301",
-    feature = "f3x4",
-    feature = "f410",
-    feature = "l4",
-    feature = "g0",
-    feature = "g4"
-)))]
-make_pin!(H);
-
-#[cfg(not(any(
-    feature = "f373",
-    feature = "f301",
-    feature = "f3x4",
-    feature = "f410",
-    feature = "l4",
-    feature = "g0",
-    feature = "g4"
-)))]
-make_port!(H, h);
+cfg_if! {
+    if #[cfg(not(any(
+        feature = "f373",
+        feature = "f301",
+        feature = "f3x4",
+        feature = "f410",
+        feature = "l4",
+        feature = "g0",
+        feature = "g4"
+    )))] {
+        make_port!(H, h);
+        make_pin!(H);
+    }
+}

@@ -159,15 +159,16 @@ impl Rtc {
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "f4"))] {
                 rcc.apb1enr.modify(|_, w| w.pwren().set_bit());
-                // rcc.apb1enr.modify(|_, w| w.rtcen().set_bit());
                 pwr.cr.read(); // read to allow the pwr clock to enable
                 pwr.cr.modify(|_, w| w.dbp().set_bit());
                 while pwr.cr.read().dbp().bit_is_clear() {}
             } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
                 // 1. Enable the power interface clock by setting the PWREN bits in the Section 6.4.18:
                 // APB1 peripheral clock enable register 1 (RCC_APB1ENR1)
-                rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
-                rcc.apb1enr1.modify(|_, w| w.rtcapben().set_bit());
+                rcc.apb1enr1.modify(|_, w| {
+                    w.pwren().set_bit();
+                    w.rtcapben().set_bit()
+                });
                 rcc.apb1smenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
                 pwr.cr1.read(); // Read to allow the pwr clock to enable
                 // 2. Set the DBP bit in the Power control register 1 (PWR_CR1) to enable access to the
@@ -175,8 +176,10 @@ impl Rtc {
                 pwr.cr1.modify( | _, w| w.dbp().set_bit()); // Unlock the backup domain
                 while pwr.cr1.read().dbp().bit_is_clear() {}
             } else if #[cfg(any(feature = "g0"))] {
-                rcc.apbenr1.modify(|_, w| w.pwren().set_bit());
-                rcc.apbenr1.modify(|_, w| w.rtcapben().set_bit());
+                rcc.apbenr1.modify(|_, w| {
+                    w.pwren().set_bit();
+                    w.rtcapben().set_bit()
+                });
                 rcc.apbsmenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
                 pwr.cr1.read();
                 pwr.cr1.modify( | _, w| w.dbp().set_bit());
@@ -198,7 +201,7 @@ impl Rtc {
         match config.clock_source {
             RtcClockSource::Lsi => {
                 rcc.csr.modify(|_, w| w.lsion().set_bit());
-                while rcc.csr.read().lsion().bit_is_clear() {}
+                while rcc.csr.read().lsirdy().bit_is_clear() {}
             }
             RtcClockSource::Lse => {
                 rcc.bdcr.modify(|_, w| {

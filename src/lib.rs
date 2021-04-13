@@ -254,7 +254,7 @@ pub mod rtc;
 #[cfg(any(feature = "l4"))] // todo
 pub mod serial;
 
-// #[cfg(not(feature = "h7"))]
+#[cfg(not(feature = "h7"))] // todo
 pub mod spi;
 
 pub mod timer;

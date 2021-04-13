@@ -32,7 +32,7 @@ pub enum Error {
 pub enum I2cDevice {
     One,
     Two,
-    #[cfg(feature = "H7")]
+    #[cfg(feature = "h7")]
     Three,
 }
 
