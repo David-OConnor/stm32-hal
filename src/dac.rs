@@ -105,7 +105,31 @@ macro_rules! hal {
                 channel: Channel,
                 bits: DacBits,
                 vref: f32,
+                rcc: &mut RCC,
             ) -> Self {
+                cfg_if! {
+                    if #[cfg(feature = "f3")] {
+                        rcc.apb1enr.modify(|_, w| w.dac1en().set_bit());
+                        rcc.apb1rstr.modify(|_, w| w.dac1rst().set_bit());
+                        rcc.apb1rstr.modify(|_, w| w.dac1rst().clear_bit());
+                    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                        rcc.apb1enr1.modify(|_, w| w.dac1en().set_bit());
+                        rcc.apb1rstr1.modify(|_, w| w.dac1rst().set_bit());
+                        rcc.apb1rstr1.modify(|_, w| w.dac1rst().clear_bit());
+                    } else if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
+                        rcc.apb1lenr.modify(|_, w| w.dac12en().set_bit());
+                        rcc.apb1lrstr.modify(|_, w| w.dac12rst().set_bit());
+                        rcc.apb1lrstr.modify(|_, w| w.dac12rst().clear_bit());
+                    } else if #[cfg(feature = "h7b3")] {
+                        rcc.apb1lenr.modify(|_, w| w.dac1en().set_bit());
+                        rcc.apb1lrstr.modify(|_, w| w.dac1rst().set_bit());
+                        rcc.apb1lrstr.modify(|_, w| w.dac1rst().clear_bit());
+                    } else { // eg g4
+                        rcc.ahb2enr.modify(|_, w| w.dac1en().set_bit());
+                        rcc.ahb2rstr.modify(|_, w| w.dac1rst().set_bit());
+                        rcc.ahb2rstr.modify(|_, w| w.dac1rst().clear_bit());
+                    }
+                }
                 Self {
                     regs,
                     channel,
@@ -115,21 +139,7 @@ macro_rules! hal {
             }
 
             /// Enable the DAC.
-            pub fn enable(&mut self, rcc: &mut RCC) {
-                cfg_if! {
-                    if #[cfg(feature = "f3")] {
-                        rcc.apb1enr.modify(|_, w| w.dac1en().set_bit());
-                    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
-                        rcc.apb1enr1.modify(|_, w| w.dac1en().set_bit());
-                    } else if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
-                        rcc.apb1lenr.modify(|_, w| w.dac12en().set_bit());
-                    } else if #[cfg(feature = "h7b3")] {
-                        rcc.apb1lenr.modify(|_, w| w.dac1en().set_bit());
-                    } else { // eg g4
-                        rcc.ahb2enr.modify(|_, w| w.dac1en().set_bit());
-                    }
-                }
-
+            pub fn enable(&mut self) {
                 match self.channel {
                     Channel::One => self.regs.$cr.modify(|_, w| w.en1().set_bit()),
                     Channel::Two => self.regs.$cr.modify(|_, w| w.en2().set_bit()),
@@ -137,21 +147,7 @@ macro_rules! hal {
             }
 
             /// Disable the DAC
-            pub fn disable(&mut self, rcc: &mut RCC) {
-                cfg_if! {
-                    if #[cfg(feature = "f3")] {
-                        rcc.apb1enr.modify(|_, w| w.dac1en().clear_bit());
-                    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
-                        rcc.apb1enr1.modify(|_, w| w.dac1en().clear_bit());
-                    } else if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
-                        rcc.apb1lenr.modify(|_, w| w.dac12en().clear_bit());
-                    } else if #[cfg(feature = "h7b3")] {
-                        rcc.apb1lenr.modify(|_, w| w.dac1en().clear_bit());
-                    } else { // eg g4
-                        rcc.ahb2enr.modify(|_, w| w.dac1en().clear_bit());
-                    }
-                }
-
+            pub fn disable(&mut self) {
                 match self.channel {
                     Channel::One => self.regs.$cr.modify(|_, w| w.en1().clear_bit()),
                     Channel::Two => self.regs.$cr.modify(|_, w| w.en2().clear_bit()),

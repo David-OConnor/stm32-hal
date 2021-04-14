@@ -225,9 +225,8 @@ cfg_if::cfg_if! {
             pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(0b100) });
             // – WUFx bits are cleared in power status register 1 (PWR_SR1)
             // (Clear by setting cwfuf bits in `pwr_scr`.)
-            pwr.scr.write(|w| unsafe { w.bits(0) });
-            // todo: Unsure why setting the individual bits isn't working; PWR.scr doesn't have modify method?
-            // pwr.scr.modify(|_, w| {
+
+            // pwr.scr.write(|_, w| {
             //     w.cwuf1().set_bit();
             //     w.cwuf2().set_bit();
             //     w.cwuf3().set_bit();

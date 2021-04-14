@@ -339,11 +339,13 @@ macro_rules! hal {
 
                 /// Set the auto-reload register value. Used for adjusting frequency.
                 pub fn set_auto_reload(&mut self, arr: u32) {
+                    // todo: Could be u16 or u32 depending on timer resolution,
+                    // todo but this works for now.
                     self.tim.arr.write(|w| unsafe { w.bits(arr.into()) });
                 }
 
                 /// Set the prescaler value. Used for adjusting frequency.
-                pub fn set_prescaler(&mut self, psc: u32) {
+                pub fn set_prescaler(&mut self, psc: u16) {
                     self.tim.psc.write(|w| unsafe { w.bits(psc.into()) });
                 }
 
