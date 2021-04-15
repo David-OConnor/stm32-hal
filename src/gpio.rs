@@ -759,13 +759,11 @@ cfg_if! {
 }
 
 cfg_if! {
-    if #[cfg(not(any(feature = "f410", feature = "l4x1", feature = "l4x2", feature = "l4x3")))] {
+    if #[cfg(not(any(feature = "f410", feature = "f411", feature = "l4x1", feature = "l4x2", feature = "l4x3")))] {
         make_port!(F, f);
         make_pin!(F);
     }
 }
-
-// todo: Is there a port G?
 
 cfg_if! {
     if #[cfg(not(any(

@@ -68,7 +68,7 @@ where
                         rcc.apb1lenr.modify(|_, w| w.i2c1en().set_bit());
                         rcc.apb1lrstr.modify(|_, w| w.i2c1rst().set_bit());
                         rcc.apb1lrstr.modify(|_, w| w.i2c1rst().clear_bit());
-                    } else { // G0, G7. (F4 handled in separate module)
+                    } else { // G0, G4. (F4 handled in separate module)
                         rcc.apbenr1.modify(|_, w| w.i2c1en().set_bit());
                         rcc.apbrstr1.modify(|_, w| w.i2c1rst().set_bit());
                         rcc.apbrstr1.modify(|_, w| w.i2c1rst().clear_bit());
