@@ -209,7 +209,7 @@ macro_rules! make_port {
                             rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
                             rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
                         } else if #[cfg(feature = "f4")] {
-                            rcc_en_reset!(ahb1, [<giop $port>], rcc);
+                            rcc_en_reset!(ahb1, [<gpio $port>], rcc);
                         } else if #[cfg(feature = "g0")] {
                             rcc.iopenr.modify(|_, w| w.[<iop $port en>]().set_bit());
                             rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().set_bit());
