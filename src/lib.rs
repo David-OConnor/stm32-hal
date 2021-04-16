@@ -221,7 +221,7 @@ pub mod clocks;
 pub mod crc;
 pub mod dac;
 pub mod delay;
-#[cfg(any(feature = "l4"))] // todo
+// #[cfg(any(feature = "l4"))] // todo
 pub mod dma;
 #[cfg(not(any(feature = "l5", feature = "h7")))] // todo
 pub mod flash;
@@ -251,7 +251,7 @@ pub mod low_power;
 )))]
 pub mod qspi;
 pub mod rtc;
-#[cfg(any(feature = "l4"))] // todo
+// #[cfg(any(feature = "l4"))] // todo
 pub mod serial;
 
 #[cfg(not(feature = "h7"))] // todo
@@ -270,6 +270,8 @@ cfg_if::cfg_if! {
         pub mod usb_h7 as usb;
     }
 }
+
+mod util;
 
 // todo: should these helper macros be removed from this library? It has nothing to do with STM32.
 

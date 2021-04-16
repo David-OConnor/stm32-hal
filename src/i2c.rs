@@ -68,7 +68,7 @@ where
                         rcc.apb1lenr.modify(|_, w| w.i2c1en().set_bit());
                         rcc.apb1lrstr.modify(|_, w| w.i2c1rst().set_bit());
                         rcc.apb1lrstr.modify(|_, w| w.i2c1rst().clear_bit());
-                    } else { // G0, G4. (F4 handled in separate module)
+                    } else if #[cfg(not(feature = "f3x4"))] { // G0, G4. (F4 handled in separate module)
                         rcc.apbenr1.modify(|_, w| w.i2c1en().set_bit());
                         rcc.apbrstr1.modify(|_, w| w.i2c1rst().set_bit());
                         rcc.apbrstr1.modify(|_, w| w.i2c1rst().clear_bit());
@@ -90,7 +90,7 @@ where
                         rcc.apb1lenr.modify(|_, w| w.i2c2en().set_bit());
                         rcc.apb1lrstr.modify(|_, w| w.i2c2rst().set_bit());
                         rcc.apb1lrstr.modify(|_, w| w.i2c2rst().clear_bit());
-                    } else {  // G0
+                    } else if #[cfg(not(feature = "f3x4"))] {  // G0
                         rcc.apbenr1.modify(|_, w| w.i2c2en().set_bit());
                         rcc.apbrstr1.modify(|_, w| w.i2c2rst().set_bit());
                         rcc.apbrstr1.modify(|_, w| w.i2c2rst().clear_bit());

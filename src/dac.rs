@@ -11,6 +11,7 @@
 use crate::{
     pac::{self, RCC},
     traits::SingleChannelDac,
+    util::apb_en_reset,
 };
 
 use cfg_if::cfg_if;
@@ -108,28 +109,13 @@ macro_rules! hal {
                 rcc: &mut RCC,
             ) -> Self {
                 cfg_if! {
-                    if #[cfg(feature = "f3")] {
-                        rcc.apb1enr.modify(|_, w| w.dac1en().set_bit());
-                        rcc.apb1rstr.modify(|_, w| w.dac1rst().set_bit());
-                        rcc.apb1rstr.modify(|_, w| w.dac1rst().clear_bit());
-                    } else if #[cfg(any(feature = "l4", feature = "l5"))] {
-                        rcc.apb1enr1.modify(|_, w| w.dac1en().set_bit());
-                        rcc.apb1rstr1.modify(|_, w| w.dac1rst().set_bit());
-                        rcc.apb1rstr1.modify(|_, w| w.dac1rst().clear_bit());
-                    } else if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
-                        rcc.apb1lenr.modify(|_, w| w.dac12en().set_bit());
-                        rcc.apb1lrstr.modify(|_, w| w.dac12rst().set_bit());
-                        rcc.apb1lrstr.modify(|_, w| w.dac12rst().clear_bit());
-                    } else if #[cfg(feature = "h7b3")] {
-                        rcc.apb1lenr.modify(|_, w| w.dac1en().set_bit());
-                        rcc.apb1lrstr.modify(|_, w| w.dac1rst().set_bit());
-                        rcc.apb1lrstr.modify(|_, w| w.dac1rst().clear_bit());
-                    } else { // eg g4
-                        rcc.ahb2enr.modify(|_, w| w.dac1en().set_bit());
-                        rcc.ahb2rstr.modify(|_, w| w.dac1rst().set_bit());
-                        rcc.ahb2rstr.modify(|_, w| w.dac1rst().clear_bit());
+                    if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
+                        apb_en_reset!(1, dac12, rcc);
+                    } else {
+                        apb_en_reset!(1, dac1, rcc);
                     }
                 }
+
                 Self {
                     regs,
                     channel,

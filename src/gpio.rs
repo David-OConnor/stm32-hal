@@ -707,29 +707,6 @@ macro_rules! make_pin {
                 Ok(())
             }
         }
-
-        // impl GpioPin for [<Gpio $Port Pin>] {
-        //     fn get_port(&self) -> PortLetter {
-        //         self.port
-        //     }
-        //
-        //     fn get_pin(&self) -> PinNum {
-        //         self.pin
-        //     }
-        //
-        //     fn get_mode(&self) -> PinMode {
-        //         // self.mode
-        //         // todo: Reg read.
-        //         unimplemented!()
-        //     }
-        //
-        //     fn get_output_type(&self) -> OutputType {
-        //         // self.output_type
-        //         // todo: Reg read.
-        //         unimplemented!()
-        //     }
-        // }
-
         }
     };
 }
@@ -759,7 +736,7 @@ cfg_if! {
 }
 
 cfg_if! {
-    if #[cfg(not(any(feature = "f410", feature = "f411", feature = "l4x1", feature = "l4x2", feature = "l4x3")))] {
+    if #[cfg(not(any(feature = "f401", feature = "f410", feature = "f411", feature = "l4x1", feature = "l4x2", feature = "l4x3")))] {
         make_port!(F, f);
         make_pin!(F);
     }

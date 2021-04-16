@@ -12,6 +12,7 @@ use paste::paste;
 use crate::{
     pac::{self, RCC},
     traits::ClockCfg,
+    util::apb_en_reset,
 };
 
 /// SPI error
@@ -137,46 +138,6 @@ impl From<Mode> for Config {
 /// SPI peripheral operating in full duplex master mode
 pub struct Spi<SPI> {
     spi: SPI,
-}
-
-/// Helper macro to make a match arm that only compiles the matched part.
-/// similar to that in `timer.rs`.
-/// todo: This is effectively DRY; it's prety much a straight C+P from timers
-macro_rules! apb_en_reset {
-    (1, $spi:expr, $rcc:expr) => {
-        paste! { cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4"))] {
-                $rcc.apb1enr.modify(|_, w| w.[<$spi en>]().set_bit());
-                $rcc.apb1rstr.modify(|_, w| w.[<$spi rst>]().set_bit());
-                $rcc.apb1rstr.modify(|_, w| w.[<$spi rst>]().clear_bit());
-            } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
-                $rcc.apb1enr1.modify(|_, w| w.[<$spi en>]().set_bit());
-                $rcc.apb1rstr1.modify(|_, w| w.[<$spi rst>]().set_bit());
-                $rcc.apb1rstr1.modify(|_, w| w.[<$spi rst>]().clear_bit());
-            } else if #[cfg(feature = "g0")] {
-                $rcc.apbenr1.modify(|_, w| w.[<$spi en>]().set_bit());
-                $rcc.apbrstr1.modify(|_, w| w.[<$spi rst>]().set_bit());
-                $rcc.apbrstr1.modify(|_, w| w.[<$spi rst>]().clear_bit());
-            } else {  // H7
-                $rcc.apb1lenr.modify(|_, w| w.[<$spi en>]().set_bit());
-                $rcc.apb1lrstr.modify(|_, w| w.[<$spi rst>]().set_bit());
-                $rcc.apb1lrstr.modify(|_, w| w.[<$spi rst>]().clear_bit());
-            }
-        }}
-    };
-    (2, $spi:expr, $rcc:expr) => {
-        paste! { cfg_if! {
-            if #[cfg(feature = "g0")] {
-                $rcc.apbenr2.modify(|_, w| w.[<$spi en>]().set_bit());
-                $rcc.apbrstr2.modify(|_, w| w.[<$spi rst>]().set_bit());
-                $rcc.apbrstr2.modify(|_, w| w.[<$spi rst>]().clear_bit());
-            } else {
-                $rcc.apb2enr.modify(|_, w| w.[<$spi en>]().set_bit());
-                $rcc.apb2rstr.modify(|_, w| w.[<$spi rst>]().set_bit());
-                $rcc.apb2rstr.modify(|_, w| w.[<$spi rst>]().clear_bit());
-            }
-        }}
-    };
 }
 
 macro_rules! hal {
