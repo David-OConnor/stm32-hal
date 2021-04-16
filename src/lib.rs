@@ -227,7 +227,7 @@ pub mod dma;
 pub mod flash;
 pub mod gpio;
 
-#[cfg(not(feature = "f4"))]
+#[cfg(not(any(feature = "f4", feature = "f3x4")))]
 pub mod i2c;
 #[cfg(feature = "f4")]
 pub mod i2c_f4;
