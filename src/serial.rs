@@ -19,8 +19,8 @@ use embedded_hal::serial::{Read, Write};
 use crate::{
     dma::{dma1, CircBuffer, DMAFrame, FrameReader, FrameSender},
     pac::{self, RCC},
+    rcc_en_reset,
     traits::ClockCfg,
-    util::apb_en_reset,
 };
 
 use paste::paste;
@@ -230,7 +230,7 @@ macro_rules! hal {
                     rcc: &mut RCC,
                 ) -> Self
                 where {
-                    apb_en_reset!($apb, $usart, rcc);
+                    rcc_en_reset!($apb, $usart, rcc);
 
                     // Reset other registers to disable advanced USART features
                     usart.cr1.reset();

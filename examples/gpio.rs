@@ -32,7 +32,7 @@ setup_globals!((EXAMPLE_OUTPUT, GpioBPin));
 fn example_type_sigs<O: OutputPin>(pin1: &mut O, pin2: &mut GpioBPin) {
     let setting = pin2.is_high();
 
-    pin1.set_low().ok();
+    pin1.set_low();
 }
 
 /// An example function to set up the pins that don't need to be interacted with directly later.
@@ -109,8 +109,8 @@ fn main() -> ! {
 
     example_type_sigs(&mut example_output, &mut example_input);
 
-    // Set high using the `OutputPin` trait.
-    example_output.set_high().ok();
+    // Set high.
+    example_output.set_high();
 
     // Unmask interrupt lines associated with the input pins we've configured interrupts
     // for in `setup_pins`.
@@ -135,7 +135,7 @@ fn EXTI3() {
         access_global!(EXAMPLE_OUTPUT, example_output, cs);
 
         // Set a pin high;
-        example_output.set_high().ok();
+        example_output.set_high();
     });
 }
 
@@ -144,13 +144,13 @@ fn EXTI3() {
 fn EXTI4() {
     free(|cs| {
         // Clear the interrupt flag, to prevent continous firing.
-        unsafe { (*EXTI::ptr()).pr1.modify(|_, w| w.pr4().bit(true)) }
+        unsafe { (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr4().bit(true)) }
 
         // This accomplishes the same as `access_global!`, and demonstrates
         // what that macro does.
         let mut p = EXAMPLE_OUTPUT.borrow(cs).borrow_mut();
         let mut example_output = p.as_mut().unwrap();
 
-        example_output.set_low().ok();
+        example_output.set_low();
     });
 }

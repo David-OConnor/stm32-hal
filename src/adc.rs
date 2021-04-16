@@ -5,6 +5,7 @@ use embedded_hal::adc::{Channel, OneShot};
 
 use crate::{
     pac::{self, RCC},
+    rcc_en_reset,
     traits::ClockCfg,
 };
 
@@ -259,27 +260,17 @@ macro_rules! hal {
                  // todo: Macros instead of AdcNum? More consistent with other modules. Not sure which is more apt.
                 paste! {
                     cfg_if! {
-                        if #[cfg(feature = "f3")] {
-                            rcc.ahbenr.modify(|_, w| w.[<adc $rcc_num en>]().set_bit());
-                            rcc.ahbrstr.modify(|_, w| w.[<adc $rcc_num rst>]().set_bit());
-                            rcc.ahbrstr.modify(|_, w| w.[<adc $rcc_num rst>]().clear_bit());
+                        if #[cfg(any(feature = "f3", feature = "h7"))] {
+                            rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
                         } else if #[cfg(feature = "f4")] {
-                            rcc.apb2enr.modify(|_, w| w.[<adc $rcc_num en>]().set_bit());
-                            rcc.apb2rstr.modify(|_, w| w.[<adc $rcc_num rst>]().set_bit());
-                            rcc.apb2rstr.modify(|_, w| w.[<adc $rcc_num rst>].clear_bit());
+                            rcc_en_reset!(2, [<adc $rcc_num>], rcc);
                         } else if #[cfg(any(feature = "h7"))] {
                         // todo: 1 and 2 are on ahb1enr etc. 3 is on ahb4. 3 won't work here.
-                            rcc.ahb1enr.modify(|_, w| w.[<adc $rcc_num en>]().set_bit());
-                            rcc.ahb1rstr.modify(|_, w| w.[<adc $rcc_num rst>]().set_bit());
-                            rcc.ahb1rstr.modify(|_, w| w.[<adc $rcc_num rst>]().clear_bit());
+                            rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
                         } else if #[cfg(any(feature = "g4"))] {
-                            rcc.ahb2enr.modify(|_, w| w.[<adc $rcc_num en>]().set_bit());
-                            rcc.ahb2rstr.modify(|_, w| w.[<adc $rcc_num rst>]().set_bit());
-                            rcc.ahb2rstr.modify(|_, w| w.[<adc $rcc_num rst>]().clear_bit());
+                            rcc_en_reset!(ahb2, [<adc $rcc_num>], rcc);
                         } else {  // ie L4, L5 etc.
-                            rcc.ahb2enr.modify(|_, w| w.adcen().set_bit());
-                            rcc.ahb2rstr.modify(|_, w| w.adcrst().set_bit());
-                            rcc.ahb2rstr.modify(|_, w| w.adcrst().clear_bit());
+                            rcc_en_reset!(ahb2, adc, rcc);
                         }
                     }
                 }

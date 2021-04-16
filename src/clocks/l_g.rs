@@ -1,6 +1,6 @@
 use crate::{
     clocks::SpeedError,
-    pac::{self, FLASH, RCC},
+    pac::{FLASH, RCC},
     traits::{ClockCfg, ClocksValid},
 };
 
@@ -44,7 +44,7 @@ enum WaitState {
     W2 = 2,
     W3 = 3,
     W4 = 4,
-    #[cfg(not(any(feature = "l4")))]
+    #[cfg(feature = "l5")]
     W5 = 5,
 }
 

@@ -8,8 +8,8 @@ use void::Void;
 
 use crate::{
     pac::{self, RCC},
+    rcc_en_reset,
     traits::ClockCfg,
-    util::apb_en_reset,
 };
 
 use cfg_if::cfg_if;
@@ -218,7 +218,7 @@ macro_rules! hal {
                 {
                     // `freq` is in Hz.
 
-                    apb_en_reset!($apb, $tim, rcc);
+                    rcc_en_reset!($apb, $tim, rcc);
 
                     let clock_speed = match $apb {
                         1 => clocks.apb1_timer(),

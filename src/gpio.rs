@@ -4,7 +4,10 @@
 
 use core::convert::Infallible;
 
-use crate::pac::{self, EXTI, RCC};
+use crate::{
+    pac::{self, EXTI, RCC},
+    rcc_en_reset,
+};
 
 #[cfg(not(any(feature = "l5", feature = "g0")))]
 use crate::pac::SYSCFG;
@@ -200,25 +203,19 @@ macro_rules! make_port {
 
                     cfg_if! {
                         if #[cfg(feature = "f3")] {
-                            rcc.ahbenr.modify(|_, w| w.[<iop $port en>]().set_bit());
-                            rcc.ahbrstr.modify(|_, w| w.[<iop $port rst>]().set_bit());
-                            rcc.ahbrstr.modify(|_, w| w.[<iop $port rst>]().clear_bit());
+                            rcc_en_reset!(ahb1, [<iop $port>], rcc);
                         } else if #[cfg(feature = "h7")] {
                             rcc.ahb4enr.modify(|_, w| w.[<gpio $port en>]().set_bit());
                             rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
                             rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
                         } else if #[cfg(feature = "f4")] {
-                            rcc.ahb1enr.modify(|_, w| w.[<gpio $port en>]().set_bit());
-                            rcc.ahb1rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
-                            rcc.ahb1rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
+                            rcc_en_reset!(ahb1, [<giop $port>], rcc);
                         } else if #[cfg(feature = "g0")] {
                             rcc.iopenr.modify(|_, w| w.[<iop $port en>]().set_bit());
                             rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().set_bit());
                             rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().clear_bit());
                         } else { // L4, L5, G4
-                            rcc.ahb2enr.modify(|_, w| w.[<gpio $port en>]().set_bit());
-                            rcc.ahb2rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
-                            rcc.ahb2rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
+                            rcc_en_reset!(ahb2, [<gpio $port>], rcc);
                         }
                     }
 
@@ -315,6 +312,7 @@ macro_rules! set_exti_f4 {
     }
 }
 
+#[cfg(feature = "l5")]
 /// For L5 See `set_exti!`. Different method naming pattern for exticr.
 macro_rules! set_exti_l5 {
     ($pin:expr, $exti:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
@@ -335,7 +333,8 @@ macro_rules! set_exti_l5 {
     }
 }
 
-/// For L5 and G0. See `set_exti!`. Todo? Reduce DRY.
+#[cfg(feature = "g0")]
+/// ForG0. See `set_exti!`. Todo? Reduce DRY.
 macro_rules! set_exti_g0 {
     ($pin:expr, $exti:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
         paste! {
@@ -598,17 +597,12 @@ macro_rules! make_pin {
             pub fn disable_interrupt() {
                 // todo
             }
-        }
 
-        // Implement `embedded-hal` traits. We use raw pointers, since these traits can't
-        // accept a register block.
-        impl InputPin for [<Gpio $Port Pin>] {
-            type Error = Infallible;
-
-            fn is_high(&self) -> Result<bool, Self::Error> {
+            /// Check if the pin's input voltage is high (VCC).
+            pub fn is_high(&self) -> bool {
                 // todo: DRy with `input_data`.
                 unsafe {
-                    let val = match self.pin {
+                    match self.pin {
                         PinNum::P0 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr0().bit(),
                         PinNum::P1 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr1().bit(),
                         PinNum::P2 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr2().bit(),
@@ -625,49 +619,18 @@ macro_rules! make_pin {
                         PinNum::P13 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr13().bit(),
                         PinNum::P14 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr14().bit(),
                         PinNum::P15 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr15().bit(),
-                    };
-
-                    Ok(val)
-                }
-            }
-
-            fn is_low(&self) -> Result<bool, Self::Error> {
-                Ok(!self.is_high()?)
-            }
-        }
-
-        impl OutputPin for [<Gpio $Port Pin>] {
-            type Error = Infallible;
-
-            fn set_low(&mut self) -> Result<(), Self::Error> {
-                // tood; DRY with `set_state`
-                let offset = 16;
-
-                unsafe {
-                    match self.pin {
-                        PinNum::P0 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 0))),
-                        PinNum::P1 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 1))),
-                        PinNum::P2 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 2))),
-                        PinNum::P3 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 3))),
-                        PinNum::P4 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 4))),
-                        PinNum::P5 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 5))),
-                        PinNum::P6 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 6))),
-                        PinNum::P7 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 7))),
-                        PinNum::P8 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 8))),
-                        PinNum::P9 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 9))),
-                        PinNum::P10 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 10))),
-                        PinNum::P11 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 11))),
-                        PinNum::P12 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 12))),
-                        PinNum::P13 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 13))),
-                        PinNum::P14 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 14))),
-                        PinNum::P15 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 15))),
                     }
                 }
-                Ok(())
             }
 
-            fn set_high(&mut self) -> Result<(), Self::Error> {
-                // todo: DRy with `set_low`.
+            /// Check if the pin's input voltage is low (ground).
+            pub fn is_low(&self) -> bool {
+                !self.is_high()
+            }
+
+            /// Set the pin's output voltage to high (VCC).
+            pub fn set_high(&self) {
+                // todo: DRY with self.set_low().
                 let offset = 0;
 
                 unsafe {
@@ -690,8 +653,61 @@ macro_rules! make_pin {
                         PinNum::P15 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 15))),
                     }
                 }
-                Ok(())
+            }
 
+            /// Set the pin's output voltage to ground (low).
+            pub fn set_low(&self) {
+               // todo; DRY with `set_state`
+                let offset = 16;
+
+                unsafe {
+                    match self.pin {
+                        PinNum::P0 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 0))),
+                        PinNum::P1 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 1))),
+                        PinNum::P2 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 2))),
+                        PinNum::P3 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 3))),
+                        PinNum::P4 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 4))),
+                        PinNum::P5 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 5))),
+                        PinNum::P6 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 6))),
+                        PinNum::P7 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 7))),
+                        PinNum::P8 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 8))),
+                        PinNum::P9 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 9))),
+                        PinNum::P10 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 10))),
+                        PinNum::P11 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 11))),
+                        PinNum::P12 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 12))),
+                        PinNum::P13 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 13))),
+                        PinNum::P14 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 14))),
+                        PinNum::P15 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 15))),
+                    }
+                }
+            }
+        }
+
+        // Implement `embedded-hal` traits. We use raw pointers, since these traits can't
+        // accept a register block.
+        impl InputPin for [<Gpio $Port Pin>] {
+            type Error = Infallible;
+
+            fn is_high(&self) -> Result<bool, Self::Error> {
+                Ok([<Gpio $Port Pin>]::is_high(self))
+            }
+
+            fn is_low(&self) -> Result<bool, Self::Error> {
+                Ok([<Gpio $Port Pin>]::is_low(self))
+            }
+        }
+
+        impl OutputPin for [<Gpio $Port Pin>] {
+            type Error = Infallible;
+
+            fn set_low(&mut self) -> Result<(), Self::Error> {
+                [<Gpio $Port Pin>]::set_low(self);
+                Ok(())
+            }
+
+            fn set_high(&mut self) -> Result<(), Self::Error> {
+                [<Gpio $Port Pin>]::set_high(self);
+                Ok(())
             }
         }
 
@@ -699,10 +715,10 @@ macro_rules! make_pin {
             type Error = Infallible;
 
             fn toggle(&mut self) -> Result<(), Self::Error> {
-                if self.is_high()? {
-                    self.set_low()?;
+                if self.is_high() {
+                    [<Gpio $Port Pin>]::set_low(self);
                 } else {
-                    self.set_high()?;
+                    [<Gpio $Port Pin>]::set_high(self);
                 }
                 Ok(())
             }

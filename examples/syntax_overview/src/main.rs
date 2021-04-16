@@ -87,7 +87,7 @@ fn main() -> ! {
 
     // An example GPIO pin, configured in output mode.
     let mut pa15 = gpioa.new_pin(PinNum::P15, PinMode::Output);
-    pa15.set_high().ok();
+    pa15.set_high();
 
     pa15.enable_interrupt(Edge::Rising, &mut dp.EXTI, &mut dp.SYSCFG);
 
@@ -148,8 +148,8 @@ fn main() -> ! {
 
     // Set up the Digital-to-analog converter
     let mut dac_pin = gpioa.new_pin(PinNum::P12, PinMode::Analog);
-    let mut dac = Dac::new(dp.DAC1, DacChannel::One, Bits::TwelveR, 3.3);
-    dac.enable(&mut dp.RCC);
+    let mut dac = Dac::new(dp.DAC1, DacChannel::One, Bits::TwelveR, 3.3, &mut dp.RCC);
+    dac.enable();
 
     // Set up and start a timer; set it to fire interrupts at 5Hz.
     let mut timer = Timer::new_tim1(dp.TIM1, 0.2, &clock_cfg, &mut dp.RCC);

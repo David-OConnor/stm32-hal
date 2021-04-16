@@ -139,31 +139,38 @@ impl Crc {
         self.reg.dr().read().dr().bits()
     }
 
-    /// Write the independent data register. The IDR can be used as
-    /// temporary storage. It is not cleared on CRC hash reset.
-    ///
-    /// The IDR is not involved with CRC calculation.
     cfg_if! {
         if #[cfg(any(feature = "f3x4", feature = "g4", feature = "h7"))] {
+            /// Write the independent data register. The IDR can be used as
+            /// temporary storage. It is not cleared on CRC hash reset.
+            ///
+            /// The IDR is not involved with CRC calculation.
             pub fn set_idr(&mut self, value: u32) {
                 self.reg.idr.write(|w| w.idr().bits(value));
             }
         } else {
+            /// Write the independent data register. The IDR can be used as
+            /// temporary storage. It is not cleared on CRC hash reset.
+            ///
+            /// The IDR is not involved with CRC calculation.
             pub fn set_idr(&mut self, value: u8) {
                 self.reg.idr.write(|w| w.idr().bits(value));
             }
         }
     }
 
-    /// Get the current value of the independent data register.
-    ///
-    /// The IDR is not involved with CRC calculation.
     cfg_if! {
         if #[cfg(any(feature = "f3x4", feature = "g4", feature = "h7"))] {
+            /// Get the current value of the independent data register.
+            ///
+            /// The IDR is not involved with CRC calculation.
             pub fn get_idr(&self) -> u32 {
                 self.reg.idr.read().idr().bits()
             }
         } else {
+            /// Get the current value of the independent data register.
+            ///
+            /// The IDR is not involved with CRC calculation.
             pub fn get_idr(&self) -> u8 {
                 self.reg.idr.read().idr().bits()
             }

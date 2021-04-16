@@ -10,8 +10,8 @@
 
 use crate::{
     pac::{self, RCC},
+    rcc_en_reset,
     traits::SingleChannelDac,
-    util::apb_en_reset,
 };
 
 use cfg_if::cfg_if;
@@ -110,9 +110,11 @@ macro_rules! hal {
             ) -> Self {
                 cfg_if! {
                     if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
-                        apb_en_reset!(1, dac12, rcc);
+                        rcc_en_reset!(1, dac12, rcc);
+                    } else if #[cfg(feature = "g4")] {
+                        rcc_en_reset!(ahb2, dac1, rcc);
                     } else {
-                        apb_en_reset!(1, dac1, rcc);
+                        rcc_en_reset!(1, dac1, rcc);
                     }
                 }
 

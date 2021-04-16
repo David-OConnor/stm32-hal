@@ -11,8 +11,8 @@ use paste::paste;
 
 use crate::{
     pac::{self, RCC},
+    rcc_en_reset,
     traits::ClockCfg,
-    util::apb_en_reset,
 };
 
 /// SPI error
@@ -152,7 +152,7 @@ macro_rules! hal {
                 rcc: &mut RCC,
             ) -> Self {
 
-            apb_en_reset!($apb, $spi, rcc);
+            rcc_en_reset!($apb, $spi, rcc);
                 cfg_if! {
                     if #[cfg(feature = "h7")] {
                           // Disable SS output

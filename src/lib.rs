@@ -221,7 +221,7 @@ pub mod clocks;
 pub mod crc;
 pub mod dac;
 pub mod delay;
-// #[cfg(any(feature = "l4"))] // todo
+#[cfg(any(feature = "l4"))] // todo
 pub mod dma;
 #[cfg(not(any(feature = "l5", feature = "h7")))] // todo
 pub mod flash;
@@ -251,7 +251,7 @@ pub mod low_power;
 )))]
 pub mod qspi;
 pub mod rtc;
-// #[cfg(any(feature = "l4"))] // todo
+#[cfg(any(feature = "l4"))] // todo
 pub mod serial;
 
 #[cfg(not(feature = "h7"))] // todo
@@ -351,12 +351,9 @@ pub mod prelude {
     pub use access_global;
     pub use embedded_hal::{
         adc::OneShot,
-        blocking::{
-            delay::{DelayMs, DelayUs},
-            serial::Write,
-        },
-        digital::v2::{InputPin, OutputPin, ToggleableOutputPin},
-        serial::Read,
+        blocking::delay::{DelayMs, DelayUs},
+        // digital::v2::{InputPin, OutputPin, ToggleableOutputPin},
+        // serial::Read,
     };
     pub use make_globals;
     pub use make_simple_globals;

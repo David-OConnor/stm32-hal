@@ -5,7 +5,10 @@
 // Based on `stm32f3xx-hal`
 
 
-use crate::pac::{RCC, USB};
+use crate::{
+    pac::{RCC, USB},
+    rcc_en_reset,
+};
 use stm32_usbd::UsbPeripheral;
 
 pub use stm32_usbd::UsbBus;
@@ -54,12 +57,7 @@ unsafe impl UsbPeripheral for Peripheral {
         cortex_m::interrupt::free(|_| {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "f3")] {
-                    // Enable USB peripheral
-                    rcc.apb1enr.modify(|_, w| w.usben().enabled());
-
-                    // Reset USB peripheral
-                    rcc.apb1rstr.modify(|_, w| w.usbrst().reset());
-                    rcc.apb1rstr.modify(|_, w| w.usbrst().clear_bit());
+                    rcc_en_reset!(1, usb, rcc);
                 }  else if #[cfg(feature = "l4x3")] {  // todo: rstr fuekd missing in Pac for L4x3.
                     rcc.apb1enr1.modify(|_, w| w.usbfsen().set_bit());
 
@@ -67,9 +65,7 @@ unsafe impl UsbPeripheral for Peripheral {
                     rcc.apb1rstr1.modify(|_, w| unsafe { w.bits(rstr_val | (1 << 26)) }); // Set bit 26
                     rcc.apb1rstr1.modify(|_ ,w| unsafe { w.bits(rstr_val & !(1 << 26)) }); // Clear bit 26
                 } else {
-                    rcc.apb1enr1.modify(|_, w| w.usbfsen().set_bit());
-                    rcc.apb1rstr1.modify(|_, w| w.usbfsrst().set_bit());
-                    rcc.apb1rstr1.modify(|_, w| w.usbfsrst().clear_bit());
+                    rcc_en_reset!(1, usbf, rcc);
                 }
             }
         });

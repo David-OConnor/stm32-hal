@@ -7,7 +7,7 @@
 /// The first argument is a `1` or `2` to specify the APB. The second is something like `tim1`,
 /// and the third is a `pac::RCC`.
 #[macro_export]
-macro_rules! apb_en_reset {
+macro_rules! rcc_en_reset {
     (1, $periph:expr, $rcc:expr) => {
         paste::paste! { cfg_if::cfg_if! {
             if #[cfg(any(feature = "f3", feature = "f4"))] {
@@ -42,6 +42,27 @@ macro_rules! apb_en_reset {
             }
         }}
     };
+    (ahb1, $periph:expr, $rcc:expr) => {
+        paste::paste! { cfg_if::cfg_if! {
+            if #[cfg(feature = "f3")] {
+                $rcc.ahbenr.modify(|_, w| w.[<$periph en>]().set_bit());
+                $rcc.ahbrstr.modify(|_, w| w.[<$periph rst>]().set_bit());
+                $rcc.ahbrstr.modify(|_, w| w.[<$periph rst>]().clear_bit());
+            } else {
+                $rcc.ahb1enr.modify(|_, w| w.[<$periph en>]().set_bit());
+                $rcc.ahb1rstr.modify(|_, w| w.[<$periph rst>]().set_bit());
+                $rcc.ahb1rstr.modify(|_, w| w.[<$periph rst>]().clear_bit());
+            }
+        }}
+    };
+    (ahb2, $periph:expr, $rcc:expr) => {
+        paste::paste! { cfg_if::cfg_if! {
+            if #[cfg(feature = "placeholder")] {
+            } else {
+                $rcc.ahb2enr.modify(|_, w| w.[<$periph en>]().set_bit());
+                $rcc.ahb2rstr.modify(|_, w| w.[<$periph rst>]().set_bit());
+                $rcc.ahb2rstr.modify(|_, w| w.[<$periph rst>]().clear_bit());
+            }
+        }}
+    };
 }
-
-pub(crate) use apb_en_reset;
