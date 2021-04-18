@@ -6,40 +6,33 @@ use crate::{
     pac::{FLASH, RCC},
     traits::{ClockCfg, ClocksValid},
 };
-#[derive(Clone, Copy)]
-#[repr(u8)]
-pub enum Clk48Src {
-    Hsi48 = 0b00, // Only falivd for STM32L49x/L4Ax
-    PllSai1 = 0b01,
-    Pll = 0b10,
-    Csi = 0b11,
-}
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum PllSrc {
     None,
-    Csi(CsiRange),
-    Hsi,
+    Csi,
+    Hsi(HsiDiv),
     Hse(u32),
 }
 
 impl PllSrc {
     /// Required due to numerical value on non-uniform discrim being experimental.
     /// (ie, can't set on `Pll(Pllsrc)`.
+    /// See RCC_PLLCKSELR register, PLLSRC field.
     pub fn bits(&self) -> u8 {
         match self {
-            Self::None => 0b00,
-            Self::Csi(_) => 0b01,
-            Self::Hsi => 0b10,
-            Self::Hse(_) => 0b11,
+            Self::Hse(_) => 0b00,
+            Self::Csi => 0b01,
+            Self::Hsi(_) => 0b10,
+            Self::None => 0b11,
         }
     }
 }
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum InputSrc {
-    Hsi,
-    Csi(CsiRange),
+    Hsi(HsiDiv),
+    Csi,
     Hse(u32), // freq in Mhz,
     Pll1(PllSrc),
 }
@@ -47,49 +40,13 @@ pub enum InputSrc {
 impl InputSrc {
     /// Required due to numerical value on non-uniform discrim being experimental.
     /// (ie, can't set on `Pll(Pllsrc)`.
+    /// See RCC_CFGR register, SW field.
     pub fn bits(&self) -> u8 {
         match self {
-            Self::Hsi => 0b000,
-            Self::Csi(_) => 0b001,
+            Self::Hsi(_) => 0b000,
+            Self::Csi => 0b001,
             Self::Hse(_) => 0b010,
             Self::Pll1(_) => 0b011,
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq)]
-#[repr(u8)]
-pub enum CsiRange {
-    Range0 = 0b0000,
-    Range1 = 0b0001,
-    Range2 = 0b0010,
-    Range3 = 0b0011,
-    Range4 = 0b0100,
-    Range5 = 0b0101,
-    Range6 = 0b0110,
-    Range7 = 0b0111,
-    Range8 = 0b1000,
-    Range9 = 0b1001,
-    Range10 = 0b1010,
-    Range11 = 0b1011,
-}
-
-impl CsiRange {
-    // Calculate the approximate frequency, in Hz.
-    fn value(&self) -> u32 {
-        match self {
-            Self::Range0 => 100_000,
-            Self::Range1 => 200_000,
-            Self::Range2 => 400_000,
-            Self::Range3 => 800_000,
-            Self::Range4 => 1_000_000,
-            Self::Range5 => 2_000_000,
-            Self::Range6 => 4_000_000,
-            Self::Range7 => 8_000_000,
-            Self::Range8 => 16_000_000,
-            Self::Range9 => 24_000_000,
-            Self::Range10 => 32_000_000,
-            Self::Range11 => 48_000_000,
         }
     }
 }
@@ -177,11 +134,32 @@ impl ApbPrescaler {
     }
 }
 
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// Clock divider for the HSI. See RCC_CR register, HSIDIV field.
+pub enum HsiDiv {
+    Div1 = 0b00,
+    Div2 = 0b01,
+    Div4 = 0b10,
+    Div8 = 0b11,
+}
+
+impl HsiDiv {
+    pub fn value(&self) -> u8 {
+        match self {
+            Self::Div1 => 1,
+            Self::Div2 => 2,
+            Self::Div4 => 4,
+            Self::Div8 => 8,
+        }
+    }
+}
+
 /// Settings used to configure clocks.
 /// Note that we use integers instead of enums for some of the scalers, unlike in
 /// the other clock modules. This is due to the wide range available on these fields.
 pub struct Clocks {
-    pub input_src: InputSrc, //
+    pub input_src: InputSrc,
     pub divm1: u8,
     pub divn1: u16,
     pub divp1: u8,
@@ -193,9 +171,9 @@ pub struct Clocks {
     pub d3_prescaler: ApbPrescaler,
     // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     // frees up the pin for use as GPIO.
-    pub clk48_src: Clk48Src,
     pub hse_bypass: bool,
     pub security_system: bool,
+    pub hsi48_on: bool,
 }
 
 impl Clocks {
@@ -233,50 +211,38 @@ impl Clocks {
 
         // Enable oscillators, and wait until ready.
         match self.input_src {
-            InputSrc::Csi(range) => {
-                // rcc.cr.modify(|_, w| unsafe {
-                //     // todo?
-                // }
-                //     w.csirange()
-                //         .bits(range as u8)
-                //         .Csirgsel()
-                //         .set_bit()
-                //         .Csion()
-                //         .set_bit()
-                // });
-                // Wait for the Csi to be ready.
+            InputSrc::Csi => {
+                rcc.cr.modify(|_, w| w.csion().bit(true));
                 while rcc.cr.read().csirdy().bit_is_clear() {}
-                // todo: If LSE is enabled, calibrate Csi.
             }
             InputSrc::Hse(_) => {
                 rcc.cr.modify(|_, w| w.hseon().bit(true));
                 // Wait for the HSE to be ready.
                 while rcc.cr.read().hserdy().bit_is_clear() {}
             }
-            InputSrc::Hsi => {
-                rcc.cr.modify(|_, w| w.hsion().bit(true));
+            InputSrc::Hsi(div) => {
+                rcc.cr.modify(|_, w| {
+                    w.hsidiv().bits(div as u8);
+                    w.hsion().bit(true)
+                });
                 while rcc.cr.read().hsirdy().bit_is_clear() {}
             }
             InputSrc::Pll1(pll_src) => {
                 // todo: PLL setup here is DRY with the HSE, HSI, and Csi setup above.
                 match pll_src {
-                    PllSrc::Csi(range) => {
-                        // todo?
-                        // rcc.cr.modify(|_, w| unsafe {
-                        //     w.csirange()
-                        //         .bits(range as u8)
-                        //         .Csirgsel()
-                        //         .set_bit()
-                        //         .Csion()
-                        //         .set_bit()
-                        // });
+                    PllSrc::Csi => {
+                        rcc.cr.modify(|_, w| w.csion().bit(true));
+                        while rcc.cr.read().csirdy().bit_is_clear() {}
                     }
                     PllSrc::Hse(_) => {
                         rcc.cr.modify(|_, w| w.hseon().bit(true));
                         while rcc.cr.read().hserdy().bit_is_clear() {}
                     }
-                    PllSrc::Hsi => {
-                        rcc.cr.modify(|_, w| w.hsion().bit(true));
+                    PllSrc::Hsi(div) => {
+                        rcc.cr.modify(|_, w| {
+                            w.hsidiv().bits(div as u8);
+                            w.hsion().bit(true)
+                        });
                         while rcc.cr.read().hsirdy().bit_is_clear() {}
                     }
                     PllSrc::None => {}
@@ -331,23 +297,12 @@ impl Clocks {
         rcc.d3cfgr
             .modify(|_, w| unsafe { w.d3ppre().bits(self.d3_prescaler as u8) });
 
-        // todo
-        // rcc.cr.modify(|_, w| w.csson().bit(self.security_system));
+        rcc.cr.modify(|_, w| w.hsecsson().bit(self.security_system));
 
-        #[cfg(feature = "l4")]
-        rcc.ccipr
-            .modify(|_, w| unsafe { w.clk48sel().bits(self.clk48_src as u8) });
-
-        #[cfg(feature = "l5")]
-        rcc.ccipr1
-            .modify(|_, w| unsafe { w.clk48msel().bits(self.clk48_src as u8) });
-
-        // Enable the HSI48 as required, which is used for USB, RNG, etc.
-        // Only valid for STM32L49x/L4Ax devices.
-        // if let Clk48Src::Hsi48 = self.clk48_src { // todo?
-        //     rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
-        //     while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
-        // }
+        if self.hsi48_on {
+            rcc.cr.modify(|_, w| w.hsi48on().set_bit());
+            while rcc.cr.read().hsi48rdy().bit_is_clear() {}
+        }
 
         // Enable and reset System Configuration Controller, ie for interrupts.
         // todo: Is this the right module to do this in?
@@ -361,9 +316,9 @@ impl Clocks {
     /// This preset configures common with a HSI, a 80Mhz sysclck. All peripheral common are at
     /// 80Mhz.
     /// HSE output is not bypassed.
-    pub fn hsi_preset() -> Self {
+    pub fn hse_preset() -> Self {
         Self {
-            input_src: InputSrc::Pll1(PllSrc::Hsi),
+            input_src: InputSrc::Pll1(PllSrc::Hse(8_000_000)),
             divm1: 32,
             divn1: 129,
             divp1: 2,
@@ -373,9 +328,9 @@ impl Clocks {
             d2_prescaler1: ApbPrescaler::Div1,
             d2_prescaler2: ApbPrescaler::Div1,
             d3_prescaler: ApbPrescaler::Div1,
-            clk48_src: Clk48Src::PllSai1,
             hse_bypass: false,
             security_system: false,
+            hsi48_on: false,
         }
     }
 }
@@ -469,7 +424,7 @@ impl Default for Clocks {
     /// HSE output is not bypassed.
     fn default() -> Self {
         Self {
-            input_src: InputSrc::Pll1(PllSrc::Hse(8)),
+            input_src: InputSrc::Pll1(PllSrc::Hsi(HsiDiv::Div1)),
             divm1: 32,
             divn1: 129,
             divp1: 1,
@@ -479,9 +434,9 @@ impl Default for Clocks {
             d2_prescaler1: ApbPrescaler::Div1,
             d2_prescaler2: ApbPrescaler::Div1,
             d3_prescaler: ApbPrescaler::Div1,
-            clk48_src: Clk48Src::PllSai1,
             hse_bypass: false,
             security_system: false,
+            hsi48_on: false,
         }
     }
 }
@@ -492,20 +447,20 @@ fn calc_sysclock(input_src: InputSrc, divm1: u8, divn1: u16, divp1: u8) -> (u32,
     let sysclk = match input_src {
         InputSrc::Pll1(pll_src) => {
             input_freq = match pll_src {
-                PllSrc::Csi(range) => range.value() as u32,
-                PllSrc::Hsi => 64_000_000,
+                PllSrc::Csi => 4_000_000,
+                PllSrc::Hsi(div) => 64_000_000 / (div.value() as u32),
                 PllSrc::Hse(freq) => freq,
                 PllSrc::None => 0, // todo?
             };
             input_freq / divm1 as u32 * divn1 as u32 / divp1 as u32
         }
 
-        InputSrc::Csi(range) => {
-            input_freq = range.value() as u32;
+        InputSrc::Csi => {
+            input_freq = 4_000_000;
             input_freq
         }
-        InputSrc::Hsi => {
-            input_freq = 64_000_000;
+        InputSrc::Hsi(div) => {
+            input_freq = 64_000_000 / (div.value() as u32);
             input_freq
         }
         InputSrc::Hse(freq) => {
@@ -539,12 +494,15 @@ pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
                     rcc.cr.modify(|_, w| w.hseon().set_bit());
                     while rcc.cr.read().hserdy().bit_is_clear() {}
                 }
-                PllSrc::Hsi => {
+                PllSrc::Hsi(div) => {
                     // Generally reverts to Csi (see note below)
-                    rcc.cr.modify(|_, w| w.hsion().bit(true));
+                    rcc.cr.modify(|_, w| {
+                        w.hsidiv().bits(div as u8); // todo: Do we need to reset the HSI div after low power?
+                        w.hsion().bit(true)
+                    });
                     while rcc.cr.read().hsirdy().bit_is_clear() {}
                 }
-                PllSrc::Csi(_) => (), // Already reverted to this.
+                PllSrc::Csi => (), // todo
                 PllSrc::None => (),
             }
 
@@ -558,17 +516,20 @@ pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
             rcc.cr.modify(|_, w| w.pll1on().set_bit());
             while rcc.cr.read().pll1rdy().bit_is_clear() {}
         }
-        InputSrc::Hsi => {
+        InputSrc::Hsi(div) => {
             {
                 // From Reference Manual, RCC_CFGR register section:
                 // "Configured by HW to force Csi oscillator selection when exiting Standby or Shutdown mode.
                 // Configured by HW to force Csi or HSI16 oscillator selection when exiting Stop mode or in
                 // case of failure of the HSE oscillator, depending on STOPWUCK value."
                 // In tests, from stop, it tends to revert to Csi.
-                rcc.cr.modify(|_, w| w.hsion().bit(true));
+                rcc.cr.modify(|_, w| {
+                    w.hsidiv().bits(div as u8); // todo: Do we need to reset the HSI div after low power?
+                    w.hsion().bit(true)
+                });
                 while rcc.cr.read().hsirdy().bit_is_clear() {}
             }
         }
-        InputSrc::Csi(_) => (), // Already reset to this
+        InputSrc::Csi => (), // ?
     }
 }

@@ -69,71 +69,69 @@ impl PllSrc {
     }
 }
 
-#[cfg(feature = "g0")]
-#[derive(Clone, Copy, PartialEq)]
-pub enum InputSrc {
-    Hsi,
-    Hse(u32), // freq in Mhz,
-    Pll(PllSrc),
-    Lsi,
-    Lse,
-}
-
-#[cfg(feature = "g0")]
-impl InputSrc {
-    /// Required due to numerical value on non-uniform discrim being experimental.
-    /// (ie, can't set on `Pll(Pllsrc)`. G0 RM, section 5.4.3.
-    pub fn bits(&self) -> u8 {
-        match self {
-            Self::Hsi => 0b000,
-            Self::Hse(_) => 0b001,
-            Self::Pll(_) => 0b011,
-            Self::Lsi => 0b011,
-            Self::Lse => 0b100,
+cfg_if! {
+    if #[cfg(feature = "g0")] {
+        #[derive(Clone, Copy, PartialEq)]
+        pub enum InputSrc {
+            Hsi,
+            Hse(u32), // freq in Mhz,
+            Pll(PllSrc),
+            Lsi,
+            Lse,
         }
-    }
-}
 
-#[cfg(feature = "g4")]
-#[derive(Clone, Copy, PartialEq)]
-pub enum InputSrc {
-    Hsi,
-    Hse(u32), // freq in Hz,
-    Pll(PllSrc),
-}
-
-#[cfg(feature = "g4")]
-impl InputSrc {
-    /// Required due to numerical value on non-uniform discrim being experimental.
-    /// (ie, can't set on `Pll(Pllsrc)`.
-    pub fn bits(&self) -> u8 {
-        match self {
-            Self::Hsi => 0b01,
-            Self::Hse(_) => 0b10,
-            Self::Pll(_) => 0b11,
+        impl InputSrc {
+            /// Required due to numerical value on non-uniform discrim being experimental.
+            /// (ie, can't set on `Pll(Pllsrc)`. G0 RM, section 5.4.3.
+            pub fn bits(&self) -> u8 {
+                match self {
+                    Self::Hsi => 0b000,
+                    Self::Hse(_) => 0b001,
+                    Self::Pll(_) => 0b011,
+                    Self::Lsi => 0b011,
+                    Self::Lse => 0b100,
+                }
+            }
         }
-    }
-}
+    } else if #[cfg(feature = "g4")] {
+        #[derive(Clone, Copy, PartialEq)]
+        pub enum InputSrc {
+            Hsi,
+            Hse(u32), // freq in Hz,
+            Pll(PllSrc),
+        }
 
-#[cfg(any(feature = "l4", feature = "l5"))]
-#[derive(Clone, Copy, PartialEq)]
-pub enum InputSrc {
-    Msi(MsiRange),
-    Hsi,
-    Hse(u32), // freq in Hz,
-    Pll(PllSrc),
-}
+        impl InputSrc {
+            /// Required due to numerical value on non-uniform discrim being experimental.
+            /// (ie, can't set on `Pll(Pllsrc)`.
+            pub fn bits(&self) -> u8 {
+                match self {
+                    Self::Hsi => 0b01,
+                    Self::Hse(_) => 0b10,
+                    Self::Pll(_) => 0b11,
+                }
+            }
+        }
+    } else {  // ie L4 and L5
+        #[derive(Clone, Copy, PartialEq)]
+        pub enum InputSrc {
+            Msi(MsiRange),
+            Hsi,
+            Hse(u32), // freq in Hz,
+            Pll(PllSrc),
+        }
 
-#[cfg(any(feature = "l4", feature = "l5"))]
-impl InputSrc {
-    /// Required due to numerical value on non-uniform discrim being experimental.
-    /// (ie, can't set on `Pll(Pllsrc)`.
-    pub fn bits(&self) -> u8 {
-        match self {
-            Self::Msi(_) => 0b00,
-            Self::Hsi => 0b01,
-            Self::Hse(_) => 0b10,
-            Self::Pll(_) => 0b11,
+        impl InputSrc {
+            /// Required due to numerical value on non-uniform discrim being experimental.
+            /// (ie, can't set on `Pll(Pllsrc)`.
+            pub fn bits(&self) -> u8 {
+                match self {
+                    Self::Msi(_) => 0b00,
+                    Self::Hsi => 0b01,
+                    Self::Hse(_) => 0b10,
+                    Self::Pll(_) => 0b11,
+                }
+            }
         }
     }
 }
@@ -696,13 +694,7 @@ impl Clocks {
 
         // Enable the HSI48 as required, which is used for USB, RNG, etc.
         // Only valid for STM32L49x/L4Ax devices.
-        #[cfg(not(any(feature = "g0", feature = "g4")))]
-        if Clk48Src::Hsi48 == self.clk48_src && self.hsi48_on {
-            rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
-            while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
-        }
-
-        #[cfg(feature = "g4")]
+        #[cfg(not(feature = "g0"))]
         if self.hsi48_on {
             rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
             while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}

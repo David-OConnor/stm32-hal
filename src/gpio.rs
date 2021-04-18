@@ -593,11 +593,6 @@ macro_rules! make_pin {
                 }
             }
 
-            /// Disable interrupts on this pin.
-            pub fn disable_interrupt() {
-                // todo
-            }
-
             /// Check if the pin's input voltage is high (VCC).
             pub fn is_high(&self) -> bool {
                 // todo: DRy with `input_data`.

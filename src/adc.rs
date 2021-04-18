@@ -761,6 +761,7 @@ cfg_if! {
     if #[cfg(feature = "h7")] {
         hal!(ADC1, ADC12_COMMON, adc1, 12);
         hal!(ADC2, ADC12_COMMON, adc2, 12);
+        // hal!(ADC3, ADC3_COMMON, adc3, 3);
     }
 }
 

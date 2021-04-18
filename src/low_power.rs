@@ -12,8 +12,6 @@ use cfg_if::cfg_if;
 // clocks::re_select_input` is separate (in `clocks` instead of here) due to varying significantly
 // among families.
 
-// todo: G0.
-
 // See L4 Reference Manual section 5.3.6. The values correspond to the PWR_CR1 LPMS bits.
 // todo PWR_CR1, LPMS field.
 #[derive(Clone, Copy)]
@@ -83,13 +81,12 @@ pub fn sleep_on_exit(scb: &mut SCB) {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "f3")] {
+    if #[cfg(any(feature = "f3", feature = "f4"))] {
         /// Enter `Stop` mode: the middle of the 3 low-power states avail on the
         /// STM32f3.
         /// To exit:  Any EXTI Line configured in Interrupt mode (the corresponding EXTI
         /// Interrupt vector must be enabled in the NVIC). Refer to Table 82.
-        /// F3 RM, table 20. F4 RM, Table 27.
-        #[cfg(any(feature = "f3", feature = "f4"))]
+        /// F3 RM, table 20. F4 RM, Table 27. H742 RM, Table 38. (CSrtop on H7)
         pub fn stop(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc, rcc: &mut RCC) {
             // todo: On some F4 variants, you may need to `select voltage regulator
             // todo mode by configuring LPDS, MRUDS, LPUDS and UDEN bits in PWR_CR.`
@@ -102,7 +99,7 @@ cfg_if::cfg_if! {
             // This bit is set and cleared by software. It works together with the LPDS bit.
             // 0: Enter Stop mode when the CPU enters Deepsleep. The regulator status
             // depends on the LPDS bit.
-            // 1: Enter Standby mode when the CPU enters Deepsleep.
+            // 1: Enter Stop mode when the CPU enters Deepsleep.
             pwr.cr.modify(|_, w| w.pdds().clear_bit());
 
             // Select the voltage regulator mode by configuring LPDS bit in PWR_CR
@@ -143,9 +140,9 @@ cfg_if::cfg_if! {
 
             clocks::re_select_input(input_src, rcc);
         }
-
-    } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
+    } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g0", feature = "g4"))] {
         /// Enter Stop 0, Stop 1, or Stop 2 modes. L4 Reference manual, section 5.3.6. Tables 27, 28, and 29.
+        /// G0 RMs, tables 30, 31, 32.
         /// G4 Table 45, 47, 47.
         pub fn stop(scb: &mut SCB, pwr: &mut PWR, mode: StopMode, input_src: InputSrc, rcc: &mut RCC) {
             // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
@@ -186,6 +183,15 @@ cfg_if::cfg_if! {
                         w.wuf4().set_bit();
                         w.wuf5().set_bit()
                     });
+                } else if #[cfg(feature = "g0")] {
+                    pwr.scr.write(|w| {
+                        w.cwuf1().set_bit();
+                        w.cwuf2().set_bit();
+                        // w.cwuf3().set_bit(); // todo: PAC ommission?
+                        w.cwuf4().set_bit();
+                        w.cwuf5().set_bit();
+                        w.cwuf6().set_bit()
+                    });
                 } else {
                     pwr.scr.write(|w| {
                         w.cwuf1().set_bit();
@@ -196,7 +202,6 @@ cfg_if::cfg_if! {
                     });
                 }
             }
-
 
             // todo: `The RTC flag corresponding to the chosen wakeup source (RTC Alarm
             // todo: A, RTC Alarm B, RTC wakeup, tamper or timestamp flags) is cleared`.
@@ -248,5 +253,69 @@ cfg_if::cfg_if! {
 
             clocks::re_select_input(input_src, rcc);
         }
+    } else { // H7
+        ///  Stops clocks on the CPU subsystem. H742 RM, Table 38.
+        pub fn cstop(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc, rcc: &mut RCC) {
+            // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
+
+            // Set SLEEPDEEP bit in ARM® Cortex®-M4 System Control register
+            scb.set_sleepdeep();
+
+            // – CPU NVIC interrupts and events cleared.
+            // – All CPU EXTI Wakeup sources are cleared.
+
+            wfi();
+
+            clocks::re_select_input(input_src, rcc);
+        }
+
+        // /// Stops clocks on the D1 and D2 domain. H742 RM, Table 40.
+        // pub fn dstop(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc, rcc: &mut RCC) {
+        //
+        //     // -The domain CPU subsystem enters CStop.
+        //     // (Don't call self.cstop, since that handles WFI and reselecting clocks as well).
+        //     scb.set_sleepdeep();
+        //
+        //
+        //     // todo?
+        //     // – The CPU subsystem has an allocated peripheral in the D2 domain and
+        //     // enters CStop.
+        //     // – The CPU subsystem deallocated its last peripheral in the D2 domain.
+        //     // – The PDDS_Dn bit for the domain selects Stop mode.
+        //
+        //     wfi();
+        //
+        //     clocks::re_select_input(input_src, rcc);
+        //
+        //
+        //     clocks::re_select_input(input_src, rcc);
+        // }
+
+        // /// Enter `Standby` mode: the lowest-power of the 3 low-power states avail on the
+        // /// STM32f3.
+        // /// To exit: WKUP pin rising edge, RTC alarm event’s rising edge, external Reset in
+        // /// NRST pin, IWDG Reset.
+        // /// Ref man, table 21.
+        // pub fn standby(scb: &mut SCB, pwr: &mut PWR, input_src: InputSrc, rcc: &mut RCC) {
+        //     // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
+        //
+        //     // Set SLEEPDEEP bit in ARM® Cortex®-M4 System Control register
+        //     scb.set_sleepdeep();
+        //
+        //     // Set PDDS bit in Power Control register (PWR_CR)
+        //     // This bit is set and cleared by software. It works together with the LPDS bit.
+        //     // 0: Enter Stop mode when the CPU enters Deepsleep. The regulator status
+        //     // depends on the LPDS bit.
+        //     // 1: Enter Standby mode when the CPU enters Deepsleep.
+        //     pwr.cr.modify(|_, w| w.pdds().set_bit());
+        //
+        //     // Clear WUF bit in Power Control/Status register (PWR_CSR) (Must do this by setting CWUF bit in
+        //     // PWR_CR.)
+        //     pwr.cr.modify(|_, w| w.cwuf().set_bit());
+        //
+        //     wfi();
+        //
+        //     clocks::re_select_input(input_src, rcc);
+        // }
     }
 }
