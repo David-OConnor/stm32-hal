@@ -57,14 +57,14 @@ where
     ) -> Self {
         match device {
             I2cDevice::One => {
-                rcc_en_reset!(1, i2c1, rcc);
+                rcc_en_reset!(apb1, i2c1, rcc);
             }
             I2cDevice::Two => {
-                rcc_en_reset!(1, i2c2, rcc);
+                rcc_en_reset!(apb1, i2c2, rcc);
             }
             #[cfg(feature = "h7")]
             I2cDevice::Three => {
-                rcc_en_reset!(1, i2c3, rcc);
+                rcc_en_reset!(apb1, i2c3, rcc);
             }
         }
 

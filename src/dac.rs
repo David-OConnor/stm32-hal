@@ -110,11 +110,11 @@ macro_rules! hal {
             ) -> Self {
                 cfg_if! {
                     if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
-                        rcc_en_reset!(1, dac12, rcc);
+                        rcc_en_reset!(apb1, dac12, rcc);
                     } else if #[cfg(feature = "g4")] {
                         rcc_en_reset!(ahb2, dac1, rcc);
                     } else {
-                        rcc_en_reset!(1, dac1, rcc);
+                        rcc_en_reset!(apb1, dac1, rcc);
                     }
                 }
 

@@ -57,15 +57,15 @@ unsafe impl UsbPeripheral for Peripheral {
         cortex_m::interrupt::free(|_| {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "f3")] {
-                    rcc_en_reset!(1, usb, rcc);
-                }  else if #[cfg(feature = "l4x3")] {  // todo: rstr fuekd missing in Pac for L4x3.
+                    rcc_en_reset!(apb1, usb, rcc);
+                }  else if #[cfg(feature = "l4x3")] {  // todo: rstr absent or missing in Pac for L4x3.
                     rcc.apb1enr1.modify(|_, w| w.usbfsen().set_bit());
 
                     let rstr_val = rcc.apb1rstr1.read().bits();
                     rcc.apb1rstr1.modify(|_, w| unsafe { w.bits(rstr_val | (1 << 26)) }); // Set bit 26
                     rcc.apb1rstr1.modify(|_ ,w| unsafe { w.bits(rstr_val & !(1 << 26)) }); // Clear bit 26
                 } else {
-                    rcc_en_reset!(1, usbf, rcc);
+                    rcc_en_reset!(apb1, usbf, rcc);
                 }
             }
         });

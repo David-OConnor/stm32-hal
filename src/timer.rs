@@ -218,7 +218,7 @@ macro_rules! hal {
                 {
                     // `freq` is in Hz.
 
-                    rcc_en_reset!($apb, $tim, rcc);
+                    rcc_en_reset!([<apb $apb>], $tim, rcc);
 
                     let clock_speed = match $apb {
                         1 => clocks.apb1_timer(),

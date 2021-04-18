@@ -82,7 +82,7 @@ impl Prediv {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// Division factor for the AHB clock. Also known as AHB Prescaler.
+/// Division factor for the AHB clock. Also known as AHB Prescaler. See RCC_D1CFGR reg.
 pub enum HclkPrescaler {
     Div1 = 0b0000,
     Div2 = 0b1000,
@@ -165,7 +165,7 @@ pub struct Clocks {
     pub divp1: u8,
     pub d1_core_prescaler: HclkPrescaler,
     pub d1_prescaler: ApbPrescaler,
-    pub ahb_prescaler: ApbPrescaler,
+    pub hclk_prescaler: HclkPrescaler,
     pub d2_prescaler1: ApbPrescaler,
     pub d2_prescaler2: ApbPrescaler,
     pub d3_prescaler: ApbPrescaler,
@@ -190,7 +190,7 @@ impl Clocks {
         // We need to do this before enabling PLL, or it won't enable.
         let (_, sysclk) = calc_sysclock(self.input_src, self.divm1, self.divn1, self.divp1);
 
-        let hclk = sysclk / self.ahb_prescaler.value() as u32;
+        let hclk = sysclk / self.hclk_prescaler.value() as u32;
         // Reference manual section 3.3.3
         // todo: What should this be?
         flash.acr.modify(|_, w| unsafe {
@@ -261,11 +261,16 @@ impl Clocks {
             // Wait for the PLL to no longer be ready before executing certain writes.
             while rcc.cr.read().pll1rdy().bit_is_set() {}
 
-            // rcc.pllcfgr.modify(|_, w| { // todo?
-            //
-            // })
+            rcc.pllckselr.modify(|_, w| {
+                w.pllsrc().bits(pll_src.bits());
+                w.divm1().bits(self.divm1)
+            });
 
-            rcc.pllckselr.modify(|_, w| w.divm1().bits(self.divm1));
+            rcc.d1cfgr
+                .modify(|_, w| unsafe { w.hpre().bits(self.hclk_prescaler as u8) });
+
+            // rcc.pllcfgr.modify(|_, w| {
+            // });
 
             rcc.pll1divr.modify(|_, w| unsafe {
                 w.divn1().bits(self.divn1);
@@ -286,7 +291,7 @@ impl Clocks {
         rcc.d1cfgr.modify(|_, w| unsafe {
             w.d1cpre().bits(self.d1_core_prescaler as u8);
             w.d1ppre().bits(self.d1_prescaler as u8);
-            w.hpre().bits(self.ahb_prescaler as u8)
+            w.hpre().bits(self.hclk_prescaler as u8)
         });
 
         rcc.d2cfgr.modify(|_, w| unsafe {
@@ -324,7 +329,7 @@ impl Clocks {
             divp1: 2,
             d1_core_prescaler: HclkPrescaler::Div1,
             d1_prescaler: ApbPrescaler::Div1,
-            ahb_prescaler: ApbPrescaler::Div1,
+            hclk_prescaler: HclkPrescaler::Div1,
             d2_prescaler1: ApbPrescaler::Div1,
             d2_prescaler2: ApbPrescaler::Div1,
             d3_prescaler: ApbPrescaler::Div1,
@@ -344,7 +349,7 @@ impl ClockCfg for Clocks {
     }
 
     fn hclk(&self) -> u32 {
-        self.sysclk() / self.d1_core_prescaler as u32 / self.ahb_prescaler as u32
+        self.sysclk() / self.d1_core_prescaler as u32 / self.hclk_prescaler as u32
     }
 
     fn systick(&self) -> u32 {
@@ -430,7 +435,7 @@ impl Default for Clocks {
             divp1: 1,
             d1_core_prescaler: HclkPrescaler::Div1,
             d1_prescaler: ApbPrescaler::Div1,
-            ahb_prescaler: ApbPrescaler::Div1,
+            hclk_prescaler: HclkPrescaler::Div1,
             d2_prescaler1: ApbPrescaler::Div1,
             d2_prescaler2: ApbPrescaler::Div1,
             d3_prescaler: ApbPrescaler::Div1,

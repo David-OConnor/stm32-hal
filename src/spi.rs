@@ -152,7 +152,7 @@ macro_rules! hal {
                 rcc: &mut RCC,
             ) -> Self {
 
-            rcc_en_reset!($apb, $spi, rcc);
+            rcc_en_reset!([<apb $apb>], $spi, rcc);
                 cfg_if! {
                     if #[cfg(feature = "h7")] {
                           // Disable SS output

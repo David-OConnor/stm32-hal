@@ -1,14 +1,13 @@
 //! This is an internal module that contains utility functionality used by other modules.
 
-// For some reason, we can't import the `paste` and `cfg_if` macros here and use them
-// in `apb_en_reset`.
+// For some reason, we can't import the `paste` and `cfg_if` macros here.
 
-/// Enables and resets peripheral clocks that could be on either APB1 or APB2.
-/// The first argument is a `1` or `2` to specify the APB. The second is something like `tim1`,
-/// and the third is a `pac::RCC`.
+/// Enables and resets peripheral clocks on various RCC registesr.
+/// The first argument is a `apb1`, `ahb2` etc to specify the reg block. The second is something like
+/// `tim1`, and the third is a `pac::RCC`.
 #[macro_export]
 macro_rules! rcc_en_reset {
-    (1, $periph:expr, $rcc:expr) => {
+    (apb1, $periph:expr, $rcc:expr) => {
         paste::paste! { cfg_if::cfg_if! {
             if #[cfg(any(feature = "f3", feature = "f4"))] {
                 $rcc.apb1enr.modify(|_, w| w.[<$periph en>]().set_bit());
@@ -29,7 +28,7 @@ macro_rules! rcc_en_reset {
             }
         }}
     };
-    (2, $periph:expr, $rcc:expr) => {
+    (apb2, $periph:expr, $rcc:expr) => {
         paste::paste! { cfg_if::cfg_if! {
             if #[cfg(feature = "g0")] {
                 $rcc.apbenr2.modify(|_, w| w.[<$periph en>]().set_bit());

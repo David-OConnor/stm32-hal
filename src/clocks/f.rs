@@ -1,6 +1,7 @@
 use crate::{
     clocks::SpeedError,
     pac::{FLASH, RCC},
+    rcc_en_reset,
     traits::{ClockCfg, ClocksValid},
 };
 
@@ -440,9 +441,7 @@ impl Clocks {
 
         // Enable and reset System Configuration Controller, ie for interrupts.
         // todo: Is this the right module to do this in?
-        rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
-        rcc.apb2rstr.modify(|_, w| w.syscfgrst().set_bit());
-        rcc.apb2rstr.modify(|_, w| w.syscfgrst().clear_bit());
+        rcc_en_reset!(apb2, syscfg, rcc);
 
         Ok(())
     }

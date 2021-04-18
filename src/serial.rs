@@ -230,7 +230,7 @@ macro_rules! hal {
                     rcc: &mut RCC,
                 ) -> Self
                 where {
-                    rcc_en_reset!($apb, $usart, rcc);
+                    rcc_en_reset!([<apb $apb>], $usart, rcc);
 
                     // Reset other registers to disable advanced USART features
                     usart.cr1.reset();

@@ -80,17 +80,17 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 
 ## Errata
 
-- U[s]ART (serial) isn't implemented outside L4.
-- DMA and CAN aren't implemented.
-- H7 clocks are missing advanced features.
+- U[s]ART (serial) isn't implemented outside L4
+- DMA and CAN aren't implemented
+- H7 clocks are missing advanced features
 - PWM input unimplemented
 - SPI unimplemented for H7
-- CRC unimplemented for L5, F4, G0, and G4.
+- CRC unimplemented for L5, F4, G0, and G4
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
-- ADC is unimplemented on F4.
-- ADC 3 and 4 are unimplemented on G4. ADC3 is unimplemented on H7.
-- Some timer implementations are missing.
-- Low power modes beyond sleep and cstop aren't implemented for H7.
+- ADC is unimplemented on F4
+- ADC 3 and 4 are unimplemented on G4. ADC3 is unimplemented on H7
+- Some timer implementations are missing
+- Low power modes beyond sleep and cstop aren't implemented for H7
 - Waiting on U5 PAC before implementing
-- USB clock (PLLQ) isn't set up for F4 - USB may not work.
+- USB clock (PLLQ) isn't set up for F4 - USB may not work
 - SPI3 unimplemented on L4x3 and L5. (PAC inconsistency of rcc `sp3en` instead of `spi3en`.)

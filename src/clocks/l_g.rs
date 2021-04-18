@@ -1,6 +1,7 @@
 use crate::{
     clocks::SpeedError,
     pac::{FLASH, RCC},
+    rcc_en_reset,
     traits::{ClockCfg, ClocksValid},
 };
 
@@ -673,7 +674,7 @@ impl Clocks {
 
         rcc.cfgr.modify(|_, w| unsafe {
             w.sw().bits(self.input_src.bits());
-            w.hpre().bits(self.hclk_prescaler as u8); // eg: Divide SYSCLK by 2 to get HCLK of 36Mhz.
+            w.hpre().bits(self.hclk_prescaler as u8);
             #[cfg(not(feature = "g0"))]
             w.ppre2().bits(self.apb2_prescaler as u8); // HCLK division for APB2.
             #[cfg(not(feature = "g0"))]
@@ -702,17 +703,7 @@ impl Clocks {
 
         // Enable and reset System Configuration Controller, ie for interrupts.
         // todo: Is this the right module to do this in?
-        cfg_if! {
-            if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
-                rcc.apb2enr.modify(|_, w| w.syscfgen().set_bit());
-                rcc.apb2rstr.modify(|_, w| w.syscfgrst().set_bit());
-                rcc.apb2rstr.modify(|_, w| w.syscfgrst().clear_bit());
-            } else {  // G0
-                rcc.apbenr2.modify(|_, w| w.syscfgen().set_bit());
-                rcc.apbrstr2.modify(|_, w| w.syscfgrst().set_bit());
-                rcc.apbrstr2.modify(|_, w| w.syscfgrst().clear_bit());
-            }
-        }
+        rcc_en_reset!(apb2, syscfg, rcc);
 
         Ok(())
     }
