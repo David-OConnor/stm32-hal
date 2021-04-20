@@ -35,7 +35,6 @@ jobs:
       - name: Run tests
         run: cargo test --features=${{ matrix.mcu }} --lib
 
-jobs:
   seven:
     name: Thumbv7
     runs-on: ubuntu-latest
