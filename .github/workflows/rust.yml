@@ -10,6 +10,32 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  six:
+    name: Thumbv6
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mcu:
+          - g030
+          - g031
+          - g041
+          - g070
+          - g071
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: thumbv6m-none-eabi
+          components: rust-src
+          override: true
+      - name: Build
+        run: cargo build --features=${{ matrix.mcu }} --lib
+      - name: Run tests
+        run: cargo test --features=${{ matrix.mcu }} --lib
+
+jobs:
   seven:
     name: Thumbv7
     runs-on: ubuntu-latest
@@ -21,8 +47,6 @@ jobs:
           - l4x3
           - l4x5
           - l4x6
-          - l552
-          - l562
           - f301
           - f302
           - f303
@@ -39,11 +63,6 @@ jobs:
           - f429
           - f446
           - f469
-          - g030
-          - g031
-          - g041
-          - g070
-          - g071
           - g431
           - g441
           - g471
@@ -74,25 +93,24 @@ jobs:
       - name: Run tests
         run: cargo test --features=${{ matrix.mcu }} --lib
 
+  eight:
+      name: Thumbv8
+      runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          mcu:
+            - l552
+            - l562
 
-#  eight:
-#      name: Thumbv8
-#      runs-on: ubuntu-latest
-#      strategy:
-#        matrix:
-#          mcu:
-#            - l552
-#            - l562
-#
-#      steps:
-#        - uses: actions/checkout@v2
-#        - uses: actions-rs/toolchain@v1
-#          with:
-#            toolchain: stable
-#            target: thumbv8em-none-eabi
-#            components: rust-src
-#            override: true
-#        - name: Build
-#          run: cargo build --features=${{ matrix.mcu }} --lib --examples
-#        - name: Run tests
-#          run: cargo test --features=${{ matrix.mcu }} --lib --examples
+      steps:
+        - uses: actions/checkout@v2
+        - uses: actions-rs/toolchain@v1
+          with:
+            toolchain: stable
+            target: thumbv8m.main-none-eabihf
+            components: rust-src
+            override: true
+        - name: Build
+          run: cargo build --features=${{ matrix.mcu }} --lib --examples
+        - name: Run tests
+          run: cargo test --features=${{ matrix.mcu }} --lib --examples

@@ -11,7 +11,10 @@ rustflags = [
 ]
 
 [build]
-target = "thumbv7em-none-eabihf"
+# Change this target as required for your MCU.
+target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (eg F, L4, H7)
+# target = "thumbv6m-none-eabi"    # Cortex-M0 and Cortex-M0+ (eg G)
+# target = "thumbv8m.main-none-eabihf" # Cortex-M33F and Cortex-M35F (eg L5, U5)
 
 [alias]
 rb = "run --bin"

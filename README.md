@@ -70,7 +70,7 @@ fn main() -> ! {
 
 The library is influenced by the `stm32fyxx` HALs, and a number of the modules here are modified 
 versions of those. There are some areas where design philosophy is different. For example: GPIO type-checking,
-level-of-abstraction from registers/PAC, and clock config.
+level-of-abstraction from registers/PAC, API relation to EH traits, and clock config.
     
 Most peripheral modules are independent: The only dependency they have within this library
 is the `ClockCfg` trait, which we may move to a standalone crate later. This makes
