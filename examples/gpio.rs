@@ -12,19 +12,19 @@ use cortex_m::{
 };
 use cortex_m_rt::entry;
 
-use stm32_hal::{
+use stm32_hal2::{
     adc::{Adc, AdcChannel, Align, CkMode, InputType, OperationMode},
     clocks::Clocks,
     gpio::{AltFn, Edge, GpioA, GpioAPin, GpioB, GpioBPin, PinMode, PinNum, PinState},
-    low_power,
-    pac,
-    prelude::*, // The prelude includes traits we use here like `InputPin` and `OutputPin`.
+    low_power, pac,
+    prelude::*,
 };
 
 // Set up an output pin in a globally-accessible mutex. This is useful for accessing
 // peripherals in interrupt contexts. We use a macro imported in the
 // `prelude` module to simplify this syntax, and accessing it later.
 // Arguments are a list of (global name to store as, type) tuples.
+// This macro is imported in the prelude.
 setup_globals!((EXAMPLE_OUTPUT, GpioBPin));
 
 /// This function includes type signature examples using `GpioPin`s from this library,

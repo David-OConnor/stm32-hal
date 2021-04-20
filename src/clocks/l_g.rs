@@ -782,6 +782,10 @@ impl ClockCfg for Clocks {
     }
 
     fn apb1_timer(&self) -> u32 {
+        // L4 RM, 6.2.14: The timer clock frequencies are automatically defined by hardware. There are two cases:
+        // 1. If the APB prescaler equals 1, the timer clock frequencies are set to the same
+        // frequency as that of the APB domain.
+        // 2. Otherwise, they are set to twice (×2) the frequency of the APB domain.
         if let ApbPrescaler::Div1 = self.apb1_prescaler {
             self.apb1()
         } else {

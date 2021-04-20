@@ -28,7 +28,6 @@ use stm32_hal2::{
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
-    prelude::*,  // The prelude imports Embedded Hal traits, and some custom ones.
     rtc::{Rtc, RtcClockSource, RtcConfig},
     serial::{self, Serial},
     spi::{self, Spi},
@@ -144,7 +143,8 @@ fn main() -> ! {
         &mut dp.RCC,
     );
 
-    let reading: u16 = adc.read(&mut AdcChannel::C1).unwrap();
+    // Take a reading from ADC channel 1.
+    let reading: u16 = adc.read(1);
 
     // Set up the Digital-to-analog converter
     let mut dac_pin = gpioa.new_pin(PinNum::P12, PinMode::Analog);

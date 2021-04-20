@@ -204,10 +204,10 @@ impl Rtc {
                 while rcc.csr.read().lsirdy().bit_is_clear() {}
             }
             RtcClockSource::Lse => {
-                rcc.bdcr.modify(|_, w| {
-                    w.lseon().set_bit();
-                    w.lsebyp().bit(config.bypass_lse_output)
-                });
+                // Can only set lsebyp when lse is off, so do this as a separate step.
+                rcc.bdcr
+                    .modify(|_, w| w.lsebyp().bit(config.bypass_lse_output));
+                rcc.bdcr.modify(|_, w| w.lseon().set_bit());
                 while rcc.bdcr.read().lserdy().bit_is_clear() {}
             }
             _ => (),

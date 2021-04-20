@@ -12,13 +12,12 @@ use cortex_m::{
 };
 use cortex_m_rt::entry;
 
-use stm32_hal::{
+use stm32_hal2::{
     adc::{Adc, AdcChannel, Align, ClockMode, InputType, OperationMode},
     clocks::Clocks,
     delay::Delay,
     gpio::{Edge, PinMode, PinNum},
     low_power, pac,
-    prelude::*,
     timer::{Channel, CountDir, OutputCompare, Timer},
 };
 

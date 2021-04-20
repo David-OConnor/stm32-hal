@@ -6,6 +6,8 @@ use embedded_hal::timer::{CountDown, Periodic};
 
 use void::Void;
 
+// todo: LPTIM (low-power timers)
+
 use crate::{
     pac::{self, RCC},
     rcc_en_reset,

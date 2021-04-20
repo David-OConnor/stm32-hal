@@ -12,13 +12,12 @@ use cortex_m::{
 };
 use cortex_m_rt::entry;
 
-use stm32_hal::{
+use stm32_hal2::{
     adc::{Adc, AdcChannel, Align, ClockMode, InputType, OperationMode},
     clocks::Clocks,
     delay::Delay,
     gpio::{Edge, PinMode, PinNum},
     low_power, pac,
-    prelude::*,
 };
 
 #[entry]
@@ -53,8 +52,9 @@ fn main() -> ! {
         &mut dp.RCC,
     );
 
-    // Take a OneShot reading using the embedded HAL trait.
-    let reading = adc.read();
+    // Take a OneShot reading from channel 3. (Note that the Embedded HAL trait is also available,
+    // for use in embedded drivers). Channels for EH usage are included: `stm32hal2::adc::AdcChannel::C3`
+    let reading = adc.read(chan_num);
 
     // Or, start reading in continuous mode:
     adc.start_conversion(chan_num, OperationMode::Continuous);

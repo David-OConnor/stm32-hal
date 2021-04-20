@@ -632,6 +632,12 @@ macro_rules! hal {
                     };
                 }
             }
+
+            /// Take a single reading, in OneShot mode
+            pub fn read(&mut self, channel: u8) -> u16 {
+                self.start_conversion(channel, OperationMode::OneShot);
+                self.read_result()
+            }
         }
 
         impl<WORD, PIN> OneShot<pac::$ADC, WORD, PIN> for Adc<pac::$ADC>
@@ -642,12 +648,11 @@ macro_rules! hal {
                 type Error = ();
 
                 fn read(&mut self, _pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
-                    self.start_conversion(PIN::channel(), OperationMode::OneShot);
-                    return Ok(self.read_result().into());
+                    Ok(Adc::read(self, PIN::channel()).into())
                 }
         }
 
-        // todo: This is so janky. There has to be a better way.
+        // todo: This mess is due to how EH implements the OneShot trait.
         impl Channel<pac::$ADC> for AdcChannel::C1 {
             type ID = u8;
             fn channel() -> u8 { 1 }

@@ -8,7 +8,7 @@
 
 use cortex_m_rt::entry;
 
-use stm32_hal::{
+use stm32_hal2::{
     clocks::{ApbPrescaler, Clocks, InputSrc, Pllm},
     low_power, pac,
 };

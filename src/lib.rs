@@ -347,14 +347,7 @@ pub fn debug_workaround(dbgmcu: &mut pac::DBGMCU, rcc: &mut pac::RCC) {
 /// In the prelude, we export the `embedded-hal` traits we implement, and
 /// some custom ones.
 pub mod prelude {
-    pub use crate::traits::*;
     pub use access_global;
-    pub use embedded_hal::{
-        adc::OneShot,
-        blocking::delay::{DelayMs, DelayUs},
-        // digital::v2::{InputPin, OutputPin, ToggleableOutputPin},
-        // serial::Read,
-    };
     pub use make_globals;
     pub use make_simple_globals;
 }
