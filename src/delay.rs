@@ -6,7 +6,6 @@ use cast::u32;
 use cortex_m::peripheral::syst::SystClkSource;
 use cortex_m::peripheral::SYST;
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
-use num_traits::{cast::cast, NumCast, Unsigned};
 
 use crate::traits::ClockCfg;
 
@@ -28,15 +27,13 @@ impl Delay {
     }
 
     /// Delay for a certain duration, ms.
-    pub fn delay_ms<U: Unsigned + NumCast>(&mut self, ms: U) {
-        let ms: u32 = cast(ms).unwrap();
+    pub fn delay_ms(&mut self, ms: u32) {
         self.delay_us(ms * 1_000);
     }
 
     /// Delay for a certain duration, µs. This is the core delay code all other functions,
     /// including the EH trait ones call indirectly.
-    pub fn delay_us<U: Unsigned + NumCast>(&mut self, us: U) {
-        let us: u32 = cast(us).unwrap();
+    pub fn delay_us(&mut self, us: u32) {
         // The SysTick Reload Value register supports values between 1 and 0x00FFFFFF.
         const MAX_RVR: u32 = 0x00FF_FFFF;
 

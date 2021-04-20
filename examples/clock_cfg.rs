@@ -20,7 +20,12 @@ fn main() -> ! {
     // Set up microcontroller peripherals
     let mut dp = pac::Peripherals::take().unwrap();
 
+    // Set up a default setting.  See documentation on Rust docs for details about
+    // what this does (it depends on the MCU), but it usually runs the core and most
+    // peripheral clocks at the max rated speed, using HSI as the input source.
     let mut clock_cfg = Clocks::default();
+    // Or:
+    //let mut clock_cfg = Clocks::hse_preset();
 
     // Bypass HSE output
     clock_cfg.hse_bypass = true;

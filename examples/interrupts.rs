@@ -106,12 +106,14 @@ fn EXTI0() {
     free(|cs| {
         unsafe {
             // Clear the interrupt flag, to prevent continous firing.
-            (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr0().bit(true));
+            (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr0().set_bit());
         }
 
         // Update our global sensor reading. This section dmeonstrates boilerplate
         // for Mutexes etc.
-        let mut s = ADC::borrow(cs).borrow_mut();
+        // Alternative syntax using a convenience macro:
+        // `access_global!(ADC, sensor, cs);`
+        let mut s = ADC.borrow(cs).borrow_mut();
         let sensor = s.as_mut().unwrap();
         let reading = sensor.read(AdcChannel::C1).unwrap();
         SENSOR_READING.borrow(cs).replace(reading);
@@ -153,7 +155,7 @@ fn RTC_WKUP() {
 fn TIM3() {
     free(|cs| {
         // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
-        unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().clear()) }
+        unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().set_bit()) }
 
         // Alternatively, if you have the timer set up in a global mutex:
         // access_global!(TIMER, timer, cs);

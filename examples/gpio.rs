@@ -144,7 +144,7 @@ fn EXTI3() {
 fn EXTI4() {
     free(|cs| {
         // Clear the interrupt flag, to prevent continous firing.
-        unsafe { (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr4().bit(true)) }
+        unsafe { (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr4().set_bit()) }
 
         // This accomplishes the same as `access_global!`, and demonstrates
         // what that macro does.

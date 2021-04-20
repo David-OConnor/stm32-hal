@@ -110,6 +110,6 @@ jobs:
             components: rust-src
             override: true
         - name: Build
-          run: cargo build --features=${{ matrix.mcu }} --lib --examples
+          run: cargo build --features=${{ matrix.mcu }} --lib
         - name: Run tests
-          run: cargo test --features=${{ matrix.mcu }} --lib --examples
+          run: cargo test --features=${{ matrix.mcu }} --lib

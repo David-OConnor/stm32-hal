@@ -4,8 +4,6 @@
 #![no_main]
 #![no_std]
 
-use core::cell::{Cell, RefCell};
-
 use cortex_m::{
     interrupt::{free, Mutex},
     peripheral::NVIC,
@@ -63,7 +61,7 @@ fn main() -> ! {
 fn TIM3() {
     free(|cs| {
         // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
-        unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().clear()) }
+        unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().set_bit()) }
 
         // Alternatively, if you have the timer set up in a global mutex:
         // access_global!(TIMER, timer, cs);

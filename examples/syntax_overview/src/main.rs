@@ -59,6 +59,8 @@ fn main() -> ! {
     // Setup a delay, based on the Cortex-m systick.
     let mut delay = Delay::new(cp.SYST, &clock_cfg);
 
+    delay.delay_ms(500);
+
     // Set up the realtime clock. This is useful for keeping track of dates and times, or
     // setting a 'timer', especially for long durations. Can be used to wake up the MCU
     // from most low-power modes.
