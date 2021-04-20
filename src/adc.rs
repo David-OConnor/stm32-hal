@@ -648,7 +648,7 @@ macro_rules! hal {
                 type Error = ();
 
                 fn read(&mut self, _pin: &mut PIN) -> nb::Result<WORD, Self::Error> {
-                    Ok(Adc::read(self, PIN::channel()).into())
+                    Ok(Self::read(self, PIN::channel()).into())
                 }
         }
 
