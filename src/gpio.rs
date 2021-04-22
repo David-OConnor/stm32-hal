@@ -292,6 +292,7 @@ macro_rules! set_exti {
     }
 }
 
+#[cfg(feature = "f4")]
 /// Similar to `set_exti`, but with reg names sans `1`.
 macro_rules! set_exti_f4 {
     ($pin:expr, $exti:expr, $syscfg:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr)),+]) => {

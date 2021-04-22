@@ -39,6 +39,9 @@ fn main() -> ! {
 
     let mut timer = Timer::new_tim1(dp.TIM1, 0.2, &clock_cfg, &mut dp.RCC);
     timer.listen(TimeOut); // Enable update event interrupts.
+    timer.enable();
+
+    // timer.disable();
 
     // Setting auto reload preload allow changing frequency (period) while the timer is running.
     timer.set_auto_reload_preload(true);

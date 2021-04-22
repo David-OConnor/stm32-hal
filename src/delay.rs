@@ -26,13 +26,13 @@ impl Delay {
         }
     }
 
-    /// Delay for a certain duration, ms.
+    /// Delay using the Cortex-M systick for a certain duration, ms.
     pub fn delay_ms(&mut self, ms: u32) {
         self.delay_us(ms * 1_000);
     }
 
-    /// Delay for a certain duration, µs. This is the core delay code all other functions,
-    /// including the EH trait ones call indirectly.
+    /// Delay using the Cortex-M systick for a certain duration, µs. This is the core delay
+    /// code all other functions, including the EH trait ones call indirectly.
     pub fn delay_us(&mut self, us: u32) {
         // The SysTick Reload Value register supports values between 1 and 0x00FFFFFF.
         const MAX_RVR: u32 = 0x00FF_FFFF;

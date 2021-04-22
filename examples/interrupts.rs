@@ -52,6 +52,10 @@ fn main() -> ! {
     // Set up and start a timer; set it to fire interrupts every 5 seconds.
     let mut timer_1 = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
     timer.listen(TimeOut); // Enable update event interrupts.
+    timer_1.enable();
+
+    let mut debounce_timer = Timer::new_tim15(dp.TIM15, 5., &clock_cfg, &mut dp.RCC);
+    debounce_timer.listen(TimeOut); // Enable update event interrupts.
 
     // Set up the realtime clock.
     let mut rtc = Rtc::new(
@@ -94,7 +98,7 @@ fn main() -> ! {
             &mut cp.SCB,
             &mut dp.PWR,
             low_power::StopMode::Two,
-            clock_cfg.input_src,
+            &clock_cfg,
             &mut dp.RCC,
         );
     }
@@ -163,4 +167,18 @@ fn TIM3() {
     });
 
     // Do something.
+}
+
+#[interrupt]
+/// We use this timer for button debounce.
+fn TIM15() {
+    free(|cs| {
+        unsafe { (*pac::TIM15::ptr()).sr.modify(|_, w| w.uif().set_bit()) }
+
+        // BOUNCING.borrow(cs).set(false);
+
+        defmt::info!("DEBOUNCE FIRED");
+        // Disable the timer until next time you press a button.
+        debounce_timer.disable();
+    });
 }

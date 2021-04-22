@@ -19,3 +19,4 @@ target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (eg F, L4, H7)
 [alias]
 rb = "run --bin"
 rrb = "run --release --bin"
+rr = "run --release"

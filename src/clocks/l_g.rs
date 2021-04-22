@@ -34,6 +34,15 @@ pub enum PllSrc {
     Hse(u32),
 }
 
+#[cfg(any(feature = "l4", feature = "l5"))]
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// Select the system clock used when exiting Stop mode
+pub enum StopWuck {
+    Msi = 0,
+    Hsi = 1,
+}
+
 // L4 uses 0 - 4 only. Others use 1 - 15, but it's not clear when you'd
 // set more than WS5 or so.
 #[derive(Clone, Copy)]
@@ -409,6 +418,8 @@ pub struct Clocks {
     pub security_system: bool,
     #[cfg(not(feature = "g0"))]
     pub hsi48_on: bool,
+    #[cfg(any(feature = "l4", feature = "l5"))]
+    pub stop_wuck: StopWuck,
 }
 
 impl Clocks {
@@ -677,6 +688,8 @@ impl Clocks {
             w.hpre().bits(self.hclk_prescaler as u8);
             #[cfg(not(feature = "g0"))]
             w.ppre2().bits(self.apb2_prescaler as u8); // HCLK division for APB2.
+            #[cfg(any(feature = "l4", feature = "l5"))]
+            w.stopwuck().bit(self.stop_wuck as u8 != 0);
             #[cfg(not(feature = "g0"))]
             return w.ppre1().bits(self.apb1_prescaler as u8); // HCLK division for APB1
             #[cfg(feature = "g0")]
@@ -741,6 +754,8 @@ impl Clocks {
             security_system: false,
             #[cfg(not(feature = "g0"))]
             hsi48_on: false,
+            #[cfg(any(feature = "l4", feature = "l5"))]
+            stop_wuck: StopWuck::Msi,
         }
     }
 }
@@ -913,6 +928,8 @@ impl Default for Clocks {
             security_system: false,
             #[cfg(not(feature = "g0"))]
             hsi48_on: false,
+            #[cfg(any(feature = "l4", feature = "l5"))]
+            stop_wuck: StopWuck::Msi,
         }
     }
 }
@@ -960,20 +977,20 @@ fn calc_sysclock(input_src: InputSrc, pllm: Pllm, plln: u8, pllr: Pllr) -> (u32,
     (input_freq, sysclk)
 }
 
-/// Re-select innput source; used on Stop and Standby modes, where the system reverts
+/// Re-select innput source; used after Stop and Standby modes, where the system reverts
 /// to HSI after wake.
-pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
+pub(crate) fn re_select_input(clocks: &Clocks, rcc: &mut RCC) {
     // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
 
     // Note: It would save code repetition to pass the `Clocks` struct in and re-run setup
     // todo: But this saves a few reg writes.
-    match input_src {
+    match clocks.input_src {
         InputSrc::Hse(_) => {
             rcc.cr.modify(|_, w| w.hseon().set_bit());
             while rcc.cr.read().hserdy().bit_is_clear() {}
 
             rcc.cfgr
-                .modify(|_, w| unsafe { w.sw().bits(input_src.bits()) });
+                .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
         }
         InputSrc::Pll(pll_src) => {
             // todo: DRY with above.
@@ -984,11 +1001,18 @@ pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
                 }
                 PllSrc::Hsi => {
                     // Generally reverts to MSI (see note below)
-                    rcc.cr.modify(|_, w| w.hsion().set_bit());
-                    while rcc.cr.read().hsirdy().bit_is_clear() {}
+                    if let StopWuck::Msi = clocks.stop_wuck {
+                        rcc.cr.modify(|_, w| w.hsion().set_bit());
+                        while rcc.cr.read().hsirdy().bit_is_clear() {}
+                    }
                 }
                 #[cfg(not(any(feature = "g0", feature = "g4")))]
-                PllSrc::Msi(_) => (), // Already reverted to this.
+                PllSrc::Msi(_) => {
+                    if let StopWuck::Hsi = clocks.stop_wuck {
+                        rcc.cr.modify(|_, w| w.msion().set_bit());
+                        while rcc.cr.read().msirdy().bit_is_clear() {}
+                    }
+                },
                 PllSrc::None => (),
             }
 
@@ -996,7 +1020,7 @@ pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
             while rcc.cr.read().pllrdy().bit_is_set() {}
 
             rcc.cfgr
-                .modify(|_, w| unsafe { w.sw().bits(input_src.bits()) });
+                .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
 
             rcc.cr.modify(|_, w| w.pllon().set_bit());
             while rcc.cr.read().pllrdy().bit_is_clear() {}
@@ -1008,21 +1032,35 @@ pub(crate) fn re_select_input(input_src: InputSrc, rcc: &mut RCC) {
                 // Configured by HW to force MSI or HSI16 oscillator selection when exiting Stop mode or in
                 // case of failure of the HSE oscillator, depending on STOPWUCK value."
                 // In tests, from stop, it tends to revert to MSI.
-                rcc.cr.modify(|_, w| w.hsion().set_bit());
-                while rcc.cr.read().hsirdy().bit_is_clear() {}
+                if let StopWuck::Msi = clocks.stop_wuck {
+                    rcc.cr.modify(|_, w| w.hsion().set_bit());
+                    while rcc.cr.read().hsirdy().bit_is_clear() {}
+                }
+
+                rcc.cfgr
+                    .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
             }
         }
         #[cfg(not(any(feature = "g0", feature = "g4")))]
-        InputSrc::Msi(_) => (), // Already reset to this, unless RCC_CFGR.STOPCUCK is set.
+        InputSrc::Msi(_) => {
+        if let StopWuck::Hsi = clocks.stop_wuck {
+            rcc.cr.modify(|_, w| w.msion().set_bit());
+            while rcc.cr.read().msirdy().bit_is_clear() {}
+        }
+        }, // Already reset to this, unless RCC_CFGR.STOPCUCK is set.
         #[cfg(feature = "g0")]
         InputSrc::Lsi => {
             rcc.csr.modify(|_, w| w.lsion().set_bit());
             while rcc.csr.read().lsirdy().bit_is_clear() {}
+            rcc.cfgr
+                .modify(|_, w| unsafe { w.sw().bits(input_src.bits()) });
         }
         #[cfg(feature = "g0")]
         InputSrc::Lse => {
             rcc.bdcr.modify(|_, w| w.lseon().set_bit());
             while rcc.bdcr.read().lserdy().bit_is_clear() {}
+            rcc.cfgr
+                .modify(|_, w| unsafe { w.sw().bits(input_src.bits()) });
         }
     }
 }

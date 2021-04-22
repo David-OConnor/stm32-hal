@@ -42,7 +42,8 @@ fn main() -> ! {
     let mut dp = pac::Peripherals::take().unwrap();
 
     // This line is required to prevent the debugger from disconnecting on entering WFI.
-    // This appears to be a limitation of many STM32 families. Not required in production code.
+    // This appears to be a limitation of many STM32 families. Not required in production code,
+    // and significantly increases power consumption in low-power modes.
     stm32_hal2::debug_workaround(&mut dp.DBGMCU, &mut dp.RCC);
 
     // Create an initial clock configuration that uses the MCU's internal oscillator (HSI),
@@ -156,6 +157,7 @@ fn main() -> ! {
     // Set up and start a timer; set it to fire interrupts at 5Hz.
     let mut timer = Timer::new_tim1(dp.TIM1, 0.2, &clock_cfg, &mut dp.RCC);
     timer.listen(TimeOut); // Enable update event interrupts.
+    timer.enable();
 
     // For pins that aren't called directly (Like the ones we set up for I2C, SPI, UART, ADC, and DAC),
     // consider a separate function:

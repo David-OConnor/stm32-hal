@@ -213,13 +213,8 @@ macro_rules! hal {
         impl Timer<pac::$TIMX> {
             paste! {
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn [<new_ $tim>]<T:, C>(tim: pac::$TIMX, freq: T, clocks: &C, rcc: &mut RCC) -> Self
-                where
-                    T: Into<f32>,
-                    C: ClockCfg,
-                {
+                pub fn [<new_ $tim>]<C: ClockCfg>(tim: pac::$TIMX, freq: f32, clocks: &C, rcc: &mut RCC) -> Self {
                     // `freq` is in Hz.
-
                     rcc_en_reset!([<apb $apb>], $tim, rcc);
 
                     let clock_speed = match $apb {
@@ -227,7 +222,17 @@ macro_rules! hal {
                         _ => clocks.apb2_timer(),
                     };
                     let mut timer = Timer { clock_speed, tim };
-                    timer.start(freq);
+
+                    timer.set_freq(freq).ok();
+
+                    // Trigger an update event to load the prescaler value to the clock
+                    // NOTE(write): uses all bits in this register.
+                    timer.tim.egr.write(|w| w.ug().set_bit());
+                    // The above line raises an update event which will indicate
+                    // that the timer is already finished. Since this is not the case,
+                    // it should be cleared
+                    timer.clear_update_interrupt_flag();
+
                     timer
                 }
             }
