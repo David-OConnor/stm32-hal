@@ -317,27 +317,6 @@ impl Clocks {
 
         Ok(())
     }
-
-    /// This preset configures common with a HSI, a 80Mhz sysclck. All peripheral common are at
-    /// 80Mhz.
-    /// HSE output is not bypassed.
-    pub fn hse_preset() -> Self {
-        Self {
-            input_src: InputSrc::Pll1(PllSrc::Hse(8_000_000)),
-            divm1: 32,
-            divn1: 129,
-            divp1: 2,
-            d1_core_prescaler: HclkPrescaler::Div1,
-            d1_prescaler: ApbPrescaler::Div1,
-            hclk_prescaler: HclkPrescaler::Div1,
-            d2_prescaler1: ApbPrescaler::Div1,
-            d2_prescaler2: ApbPrescaler::Div1,
-            d3_prescaler: ApbPrescaler::Div1,
-            hse_bypass: false,
-            security_system: false,
-            hsi48_on: false,
-        }
-    }
 }
 
 // todo: Some extra calculations here, vice doing it once and caching.

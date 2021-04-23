@@ -23,7 +23,7 @@ is viewed as a whole, there's a lot of DRY.
 
 ## Getting started
 Review the [syntax overview example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/syntax_overview)
-for example uses of many of this library's features. Copy and paste the whole example folder (It's set up
+for example uses of many of this library's features. Copy and paste its whole folder (It's set up
 using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml` 
 and `main.rs` as required.
 
@@ -93,5 +93,4 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 - Some timer implementations are missing
 - Low power modes beyond sleep and cstop aren't implemented for H7
 - Waiting on U5 PAC before implementing
-- USB clock (PLLQ) isn't set up for F4 - USB may not work
 - SPI3 unimplemented on L4x3 and L5. (PAC inconsistency of rcc `sp3en` instead of `spi3en`.)

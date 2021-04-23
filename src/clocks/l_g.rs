@@ -7,13 +7,17 @@ use crate::{
 
 use cfg_if::cfg_if;
 
-#[cfg(not(any(feature = "g0", feature = "g4")))]
+#[cfg(not(feature = "g0"))]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum Clk48Src {
-    Hsi48 = 0b00, // Only falivd for STM32L49x/L4Ax
-    PllSai1 = 0b01,
-    Pll = 0b10,
+    // Note: On G4 which only has HSI48 and PLLQ, PLLSai1 and MSI are marked "reserved", and
+    // The values it has are the same as on L4/5.
+    Hsi48 = 0b00, // Not valid for some L4 variants.
+    #[cfg(not(feature = "g4"))]
+    PllSai1 = 0b01, // Not avail on G4
+    Pllq = 0b10,
+    #[cfg(not(feature = "g4"))]
     Msi = 0b11,
 }
 
@@ -150,18 +154,18 @@ cfg_if! {
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum MsiRange {
-    Range0 = 0b0000,
-    Range1 = 0b0001,
-    Range2 = 0b0010,
-    Range3 = 0b0011,
-    Range4 = 0b0100,
-    Range5 = 0b0101,
-    Range6 = 0b0110,
-    Range7 = 0b0111,
-    Range8 = 0b1000,
-    Range9 = 0b1001,
-    Range10 = 0b1010,
-    Range11 = 0b1011,
+    R100k = 0b0000,
+    R200k = 0b0001,
+    R400k = 0b0010,
+    R800k = 0b0011,
+    R1M = 0b0100,
+    R2M = 0b0101,
+    R4M = 0b0110, // default
+    R8M = 0b0111,
+    R16M = 0b1000,
+    R24M = 0b1001,
+    R32M = 0b1010,
+    R48M = 0b1011,
 }
 
 #[cfg(not(any(feature = "g0", feature = "g4")))]
@@ -169,18 +173,18 @@ impl MsiRange {
     // Calculate the approximate frequency, in Hz.
     fn value(&self) -> u32 {
         match self {
-            Self::Range0 => 100_000,
-            Self::Range1 => 200_000,
-            Self::Range2 => 400_000,
-            Self::Range3 => 800_000,
-            Self::Range4 => 1_000_000,
-            Self::Range5 => 2_000_000,
-            Self::Range6 => 4_000_000,
-            Self::Range7 => 8_000_000,
-            Self::Range8 => 16_000_000,
-            Self::Range9 => 24_000_000,
-            Self::Range10 => 32_000_000,
-            Self::Range11 => 48_000_000,
+            Self::R100k => 100_000,
+            Self::R200k => 200_000,
+            Self::R400k => 400_000,
+            Self::R800k => 800_000,
+            Self::R1M => 1_000_000,
+            Self::R2M => 2_000_000,
+            Self::R4M => 4_000_000,
+            Self::R8M => 8_000_000,
+            Self::R16M => 16_000_000,
+            Self::R24M => 24_000_000,
+            Self::R32M => 32_000_000,
+            Self::R48M => 48_000_000,
         }
     }
 }
@@ -408,7 +412,7 @@ pub struct Clocks {
     pub apb2_prescaler: ApbPrescaler, // APB2 divider, for the high speed peripheral bus.
     // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     // frees up the pin for use as GPIO.
-    #[cfg(not(any(feature = "g0", feature = "g4")))]
+    #[cfg(not(any(feature = "g0")))]
     pub clk48_src: Clk48Src,
     #[cfg(not(any(feature = "g0", feature = "g4")))]
     pub sai1_enabled: bool,
@@ -417,10 +421,12 @@ pub struct Clocks {
     pub hse_bypass: bool,
     pub security_system: bool,
     #[cfg(not(feature = "g0"))]
-    pub hsi48_on: bool,
+    pub hsi48_on: bool, // todo: Only applicable to STM32L49x/L4Ax devices.
     #[cfg(any(feature = "l4", feature = "l5"))]
     pub stop_wuck: StopWuck,
 }
+
+// todo: On L4/5, add a way to enable the MSI for use as CLK48.
 
 impl Clocks {
     /// Setup common and return a `Valid` status if the config is valid. Return
@@ -521,6 +527,11 @@ impl Clocks {
         match self.input_src {
             #[cfg(not(any(feature = "g0", feature = "g4")))]
             InputSrc::Msi(range) => {
+                // MSI initializes to the default clock source. Turn it off before
+                // Adjusting its speed etc.
+                rcc.cr.modify(|_, w| w.msion().clear_bit());
+                while rcc.cr.read().msirdy().bit_is_set() {}
+
                 rcc.cr.modify(|_, w| unsafe {
                     w.msirange()
                         .bits(range as u8)
@@ -555,6 +566,7 @@ impl Clocks {
                                 .msion()
                                 .set_bit()
                         });
+                        while rcc.cr.read().msirdy().bit_is_clear() {}
                     }
                     PllSrc::Hse(_) => {
                         rcc.cr.modify(|_, w| w.hseon().set_bit());
@@ -579,6 +591,18 @@ impl Clocks {
             }
         }
 
+        #[cfg(not(any(feature = "g0", feature = "g4")))]
+        // todo: Set up 48Mhz MSI range.
+        // if self.input_src != InputSrc::Msi(_) {
+        //     rcc.cr.modify(|_, w| unsafe {
+        //         w.msirange()
+        //             .bits(MsiRange::R48M as u8)  // 48Mhz
+        //             .msirgsel()
+        //             .set_bit()
+        //             .msion()
+        //             .set_bit()
+        //     });
+        // while rcc.cr.read().msirdy().bit_is_clear() {}
         rcc.cr.modify(|_, w| {
             // Enable bypass mode on HSE, since we're using a ceramic oscillator.
             w.hsebyp().bit(self.hse_bypass)
@@ -653,7 +677,6 @@ impl Clocks {
                         w.pllren().set_bit()
                     });
                 } else {
-
                     rcc.pllcfgr.modify(|_, w| {
                         w.pllpen().set_bit();
                         w.pllqen().set_bit();
@@ -698,7 +721,7 @@ impl Clocks {
 
         rcc.cr.modify(|_, w| w.csson().bit(self.security_system));
 
-        #[cfg(feature = "l4")]
+        #[cfg(any(feature = "l4", feature = "g4"))]
         rcc.ccipr
             .modify(|_, w| unsafe { w.clk48sel().bits(self.clk48_src as u8) });
 
@@ -707,7 +730,7 @@ impl Clocks {
             .modify(|_, w| unsafe { w.clk48msel().bits(self.clk48_src as u8) });
 
         // Enable the HSI48 as required, which is used for USB, RNG, etc.
-        // Only valid for STM32L49x/L4Ax devices.
+        // Only valid for some devices (On at least L4, and G4.)
         #[cfg(not(feature = "g0"))]
         if self.hsi48_on {
             rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
@@ -719,44 +742,6 @@ impl Clocks {
         rcc_en_reset!(apb2, syscfg, rcc);
 
         Ok(())
-    }
-
-    /// This preset configures common with a 8Mhz HSE, a 80Mhz sysclck (L4). All peripheral clocks are at
-    /// 80Mhz (L4). L5 speeds: 108Mhz. G4 speeds: 168Mhz. HSE output is not bypassed.
-    pub fn hse_preset() -> Self {
-        Self {
-            input_src: InputSrc::Pll(PllSrc::Hse(8_000_000)),
-            pllm: Pllm::Div1,
-            #[cfg(feature = "l4")]
-            plln: 20,
-            #[cfg(feature = "l5")]
-            plln: 27,
-            #[cfg(feature = "g0")]
-            plln: 16,
-            #[cfg(feature = "g4")]
-            plln: 42,
-            #[cfg(not(any(feature = "g0", feature = "g4")))]
-            pll_sai1_mul: 8,
-            #[cfg(not(any(feature = "g0", feature = "g4")))]
-            pll_sai2_mul: 8,
-            pllr: Pllr::Div2,
-            hclk_prescaler: HclkPrescaler::Div1,
-            apb1_prescaler: ApbPrescaler::Div1,
-            #[cfg(not(feature = "g0"))]
-            apb2_prescaler: ApbPrescaler::Div1,
-            #[cfg(not(any(feature = "g0", feature = "g4")))]
-            clk48_src: Clk48Src::PllSai1,
-            #[cfg(not(any(feature = "g0", feature = "g4")))]
-            sai1_enabled: false,
-            #[cfg(not(any(feature = "g0", feature = "g4")))]
-            sai2_enabled: false,
-            hse_bypass: false,
-            security_system: false,
-            #[cfg(not(feature = "g0"))]
-            hsi48_on: false,
-            #[cfg(any(feature = "l4", feature = "l5"))]
-            stop_wuck: StopWuck::Msi,
-        }
     }
 }
 
@@ -918,8 +903,10 @@ impl Default for Clocks {
             apb1_prescaler: ApbPrescaler::Div1,
             #[cfg(not(feature = "g0"))]
             apb2_prescaler: ApbPrescaler::Div1,
-            #[cfg(not(any(feature = "g0", feature = "g4")))]
-            clk48_src: Clk48Src::PllSai1,
+            #[cfg(any(feature = "l4", feature = "l5"))]
+            clk48_src: Clk48Src::Msi,
+            #[cfg(feature = "g4")]
+            clk48_src: Clk48Src::Hsi48,
             #[cfg(not(any(feature = "g0", feature = "g4")))]
             sai1_enabled: false,
             #[cfg(not(any(feature = "g0", feature = "g4")))]
@@ -1000,11 +987,13 @@ pub(crate) fn re_select_input(clocks: &Clocks, rcc: &mut RCC) {
                     while rcc.cr.read().hserdy().bit_is_clear() {}
                 }
                 PllSrc::Hsi => {
+                    #[cfg(any(feature = "l4", feature = "l5"))]
                     // Generally reverts to MSI (see note below)
                     if let StopWuck::Msi = clocks.stop_wuck {
                         rcc.cr.modify(|_, w| w.hsion().set_bit());
                         while rcc.cr.read().hsirdy().bit_is_clear() {}
                     }
+                    // If on G, we'll already be on HSI, so need to take action.
                 }
                 #[cfg(not(any(feature = "g0", feature = "g4")))]
                 PllSrc::Msi(_) => {
@@ -1012,7 +1001,7 @@ pub(crate) fn re_select_input(clocks: &Clocks, rcc: &mut RCC) {
                         rcc.cr.modify(|_, w| w.msion().set_bit());
                         while rcc.cr.read().msirdy().bit_is_clear() {}
                     }
-                },
+                }
                 PllSrc::None => (),
             }
 
@@ -1027,27 +1016,35 @@ pub(crate) fn re_select_input(clocks: &Clocks, rcc: &mut RCC) {
         }
         InputSrc::Hsi => {
             {
-                // From Reference Manual, RCC_CFGR register section:
+                // (This note applies to L4 and L5 only)
+                // From L4 Reference Manual, RCC_CFGR register section:
                 // "Configured by HW to force MSI oscillator selection when exiting Standby or Shutdown mode.
                 // Configured by HW to force MSI or HSI16 oscillator selection when exiting Stop mode or in
                 // case of failure of the HSE oscillator, depending on STOPWUCK value."
-                // In tests, from stop, it tends to revert to MSI.
+
+                // So, if stopwuck is at its default value of MSI, we need to re-enable HSI,
+                // and re-select it. Otherwise, take no action. Reverse for MSI-reselection.
+                // For G, we already are using HSI, so need to take action either.
+                #[cfg(not(any(feature = "g0", feature = "g4")))]
                 if let StopWuck::Msi = clocks.stop_wuck {
                     rcc.cr.modify(|_, w| w.hsion().set_bit());
                     while rcc.cr.read().hsirdy().bit_is_clear() {}
+
+                    rcc.cfgr
+                        .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
                 }
+            }
+        }
+        #[cfg(not(any(feature = "g0", feature = "g4")))]
+        InputSrc::Msi(_) => {
+            if let StopWuck::Hsi = clocks.stop_wuck {
+                rcc.cr.modify(|_, w| w.msion().set_bit());
+                while rcc.cr.read().msirdy().bit_is_clear() {}
 
                 rcc.cfgr
                     .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
             }
         }
-        #[cfg(not(any(feature = "g0", feature = "g4")))]
-        InputSrc::Msi(_) => {
-        if let StopWuck::Hsi = clocks.stop_wuck {
-            rcc.cr.modify(|_, w| w.msion().set_bit());
-            while rcc.cr.read().msirdy().bit_is_clear() {}
-        }
-        }, // Already reset to this, unless RCC_CFGR.STOPCUCK is set.
         #[cfg(feature = "g0")]
         InputSrc::Lsi => {
             rcc.csr.modify(|_, w| w.lsion().set_bit());
@@ -1063,4 +1060,25 @@ pub(crate) fn re_select_input(clocks: &Clocks, rcc: &mut RCC) {
                 .modify(|_, w| unsafe { w.sw().bits(input_src.bits()) });
         }
     }
+}
+
+#[cfg(any(feature = "l4", feature = "l5"))]
+/// Enables MSI48, and configures it at 48Mhz. This is useful when using it as the USB clock,
+/// ie with `clk48_src: Clk48Src::Msi`. Don't use this if using MSI for the input source or PLL source.
+/// You may need to re-run this after exiting `stop` mode.
+pub fn enable_msi_48(rcc: &mut RCC) {
+    // todo: Calibrate MSI with LSE / HSE(?) if avail?
+    rcc.cr.modify(|_, w| w.msion().clear_bit());
+    while rcc.cr.read().msirdy().bit_is_set() {}
+
+    rcc.cr.modify(|_, w| unsafe {
+        w.msirange()
+            .bits(MsiRange::R48M as u8)
+            .msirgsel()
+            .set_bit()
+            .msion()
+            .set_bit()
+    });
+
+    while rcc.cr.read().msirdy().bit_is_clear() {}
 }
