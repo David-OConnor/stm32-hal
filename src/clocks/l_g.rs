@@ -1,3 +1,5 @@
+//! Clock config for STM32L and G-series MCUs
+
 use crate::{
     clocks::SpeedError,
     pac::{FLASH, RCC},
@@ -101,7 +103,7 @@ cfg_if! {
                 match self {
                     Self::Hsi => 0b000,
                     Self::Hse(_) => 0b001,
-                    Self::Pll(_) => 0b011,
+                    Self::Pll(_) => 0b010,
                     Self::Lsi => 0b011,
                     Self::Lse => 0b100,
                 }
@@ -591,18 +593,6 @@ impl Clocks {
             }
         }
 
-        #[cfg(not(any(feature = "g0", feature = "g4")))]
-        // todo: Set up 48Mhz MSI range.
-        // if self.input_src != InputSrc::Msi(_) {
-        //     rcc.cr.modify(|_, w| unsafe {
-        //         w.msirange()
-        //             .bits(MsiRange::R48M as u8)  // 48Mhz
-        //             .msirgsel()
-        //             .set_bit()
-        //             .msion()
-        //             .set_bit()
-        //     });
-        // while rcc.cr.read().msirdy().bit_is_clear() {}
         rcc.cr.modify(|_, w| {
             // Enable bypass mode on HSE, since we're using a ceramic oscillator.
             w.hsebyp().bit(self.hse_bypass)
@@ -742,6 +732,48 @@ impl Clocks {
         rcc_en_reset!(apb2, syscfg, rcc);
 
         Ok(())
+    }
+
+    #[cfg(any(feature = "l4", feature = "l5"))]
+    /// Use this to change the MSI speed. Run this only if your clock source is MSI.
+    /// Ends in a state with MSI on at the new speed, and HSI off.
+    pub fn change_msi_speed(&mut self, range: MsiRange, rcc: &mut RCC) {
+        // todo: Calibrate MSI with LSE / HSE(?) if avail?
+
+        match self.input_src {
+            InputSrc::Msi(_) => (),
+            _ => panic!("Only change MSI speed using this function if MSI is the input source."),
+        }
+
+        // Enable the HSI and set it as the clock source, so we can change MSI.
+        rcc.cr.modify(|_, w| w.hsion().set_bit());
+        while rcc.cr.read().hsirdy().bit_is_clear() {}
+
+        rcc.cr.modify(|_, w| w.msion().clear_bit());
+        while rcc.cr.read().msirdy().bit_is_set() {}
+
+        rcc.cfgr
+            .modify(|_, w| unsafe { w.sw().bits(InputSrc::Hsi.bits()) });
+
+        rcc.cr.modify(|_, w| unsafe {
+            w.msirange()
+                .bits(range as u8)
+                .msirgsel()
+                .set_bit()
+                .msion()
+                .set_bit()
+        });
+
+        while rcc.cr.read().msirdy().bit_is_clear() {}
+
+        // Select MSI, and turn off HSI.
+        rcc.cfgr
+            .modify(|_, w| unsafe { w.sw().bits(InputSrc::Msi(range).bits()) });
+
+        // Update our config to reflect the new speed.
+        self.input_src = InputSrc::Msi(range);
+
+        rcc.cr.modify(|_, w| w.hsion().clear_bit());
     }
 }
 
@@ -964,13 +996,14 @@ fn calc_sysclock(input_src: InputSrc, pllm: Pllm, plln: u8, pllr: Pllr) -> (u32,
     (input_freq, sysclk)
 }
 
-/// Re-select innput source; used after Stop and Standby modes, where the system reverts
+/// Re-select input source; used after Stop and Standby modes, where the system reverts
 /// to HSI after wake.
 pub(crate) fn re_select_input(clocks: &Clocks, rcc: &mut RCC) {
-    // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
+    // todo: Make into a method?
+    // Re-select the input source; useful for changing input source, or reverting
+    // from stop or standby mode. This assumes we're on a clean init,
+    // or waking up from stop mode etc.
 
-    // Note: It would save code repetition to pass the `Clocks` struct in and re-run setup
-    // todo: But this saves a few reg writes.
     match clocks.input_src {
         InputSrc::Hse(_) => {
             rcc.cr.modify(|_, w| w.hseon().set_bit());
@@ -1050,20 +1083,20 @@ pub(crate) fn re_select_input(clocks: &Clocks, rcc: &mut RCC) {
             rcc.csr.modify(|_, w| w.lsion().set_bit());
             while rcc.csr.read().lsirdy().bit_is_clear() {}
             rcc.cfgr
-                .modify(|_, w| unsafe { w.sw().bits(input_src.bits()) });
+                .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
         }
         #[cfg(feature = "g0")]
         InputSrc::Lse => {
             rcc.bdcr.modify(|_, w| w.lseon().set_bit());
             while rcc.bdcr.read().lserdy().bit_is_clear() {}
             rcc.cfgr
-                .modify(|_, w| unsafe { w.sw().bits(input_src.bits()) });
+                .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
         }
     }
 }
 
 #[cfg(any(feature = "l4", feature = "l5"))]
-/// Enables MSI48, and configures it at 48Mhz. This is useful when using it as the USB clock,
+/// Enables MSI, and configures it at 48Mhz. This is useful when using it as the USB clock,
 /// ie with `clk48_src: Clk48Src::Msi`. Don't use this if using MSI for the input source or PLL source.
 /// You may need to re-run this after exiting `stop` mode.
 pub fn enable_msi_48(rcc: &mut RCC) {

@@ -2,7 +2,7 @@
 //! Reference section 5.3.3: `Low power modes` of the L4 Reference Manual.
 
 use crate::{
-    clocks::{self, Clocks},
+    clocks::{self, Clocks, MsiRange},
     pac::{PWR, RCC},
 };
 use cortex_m::{asm::wfi, peripheral::SCB};
@@ -24,10 +24,12 @@ pub enum StopMode {
 }
 
 /// Ref man, table 24
-/// Note that this assumes you've already reduced clock frequency below 2 Mhz.
+/// This assumes you're using MSI as the clock source, and changes speed by lowering the MSI speed.
+/// You must select an MSI speed of 2Mhz or lower.
 #[cfg(any(feature = "l4", feature = "l5"))]
-pub fn low_power_run(pwr: &mut PWR) {
+pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange, rcc: &mut RCC, pwr: &mut PWR) {
     // Decrease the system clock frequency below 2 MHz
+    clocks.change_msi_speed(speed, rcc);
     // LPR = 1
     pwr.cr1.modify(|_, w| w.lpr().set_bit())
 }

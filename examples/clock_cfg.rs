@@ -12,7 +12,7 @@
 use cortex_m_rt::entry;
 
 use stm32_hal2::{
-    clocks::{self, ApbPrescaler, Clocks, InputSrc, PllSrc, Pllm, Pllr},
+    clocks::{self, ApbPrescaler, Clocks, InputSrc, MsiRng, PllSrc, Pllm, Pllr},
     low_power, pac,
 };
 
@@ -54,6 +54,9 @@ fn main() -> ! {
 
     // Enable HSI48 (eg L4, L5, G4 etc)
     clock_cfg.hse48_on = true;
+
+    // Change MSI speed (L4, L5 only)
+    clock_cfg.change_msi_speed(MsiRange::R2M, &mut dp.RCC);
 
     // (L4 and L5 only) If you'd like to use MSI for the USB clock source, run this function.
     // Do not run it if using MSI for the input source or PLL source. You must also have
