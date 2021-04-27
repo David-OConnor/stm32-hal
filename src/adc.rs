@@ -140,8 +140,8 @@ pub enum OperationMode {
 #[repr(u8)]
 /// ADC Clock mode
 pub enum ClockMode {
-    /// Use Kernel Clock adc_ker_ck_input divided by PRESC. Asynchronous to AHB clock
-    ASYNC = 0b00,
+    // Use Kernel Clock adc_ker_ck_input divided by PRESC. Asynchronous to AHB clock
+    // ASYNC = 0b00,
     /// Use AHB clock rcc_hclk3. In this case rcc_hclk must equal sys_d1cpre_ck
     SyncDiv1 = 0b01,
     /// Use AHB clock rcc_hclk3 divided by 2
@@ -241,10 +241,16 @@ macro_rules! hal {
 
                     this_adc.calibrate(InputType::SingleEnded, clocks);
                     this_adc.calibrate(InputType::Differential, clocks);
+
                     // Reference Manual: "ADEN bit cannot be set during ADCAL=1
                     // and 4 ADC clock cycle after the ADCAL
                     // bit is cleared by hardware."
-                    asm::delay(ckmode as u32 * 4);
+                    let adc_per_cpu_cycles = match this_adc.ckmode {
+                        ClockMode::SyncDiv1 => 1,
+                        ClockMode::SyncDiv2 => 2,
+                        ClockMode::SyncDiv4 => 4,
+                    };
+                    asm::delay(adc_per_cpu_cycles * 4);
                     this_adc.enable();
 
                     this_adc.setup_oneshot(); // todo: Setup Continuous

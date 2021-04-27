@@ -2,9 +2,13 @@
 //! Reference section 5.3.3: `Low power modes` of the L4 Reference Manual.
 
 use crate::{
-    clocks::{self, Clocks, MsiRange},
+    clocks::Clocks,
     pac::{PWR, RCC},
 };
+
+#[cfg(any(feature = "l4", feature = "l5"))]
+use crate::clocks::MsiRange;
+
 use cortex_m::{asm::wfi, peripheral::SCB};
 
 use cfg_if::cfg_if;
@@ -25,7 +29,8 @@ pub enum StopMode {
 
 /// Ref man, table 24
 /// This assumes you're using MSI as the clock source, and changes speed by lowering the MSI speed.
-/// You must select an MSI speed of 2Mhz or lower.
+/// You must select an MSI speed of 2Mhz or lower. Note that you may need to adjust peripheral
+/// implementations that rely on system clock or APB speed.
 #[cfg(any(feature = "l4", feature = "l5"))]
 pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange, rcc: &mut RCC, pwr: &mut PWR) {
     // Decrease the system clock frequency below 2 MHz
@@ -113,7 +118,7 @@ cfg_if::cfg_if! {
 
             wfi();
 
-            clocks::re_select_input(clocks, rcc);
+            clocks.re_select_input(rcc);
         }
 
         /// Enter `Standby` mode: the lowest-power of the 3 low-power states avail on the
@@ -140,7 +145,7 @@ cfg_if::cfg_if! {
 
             wfi();
 
-            clocks::re_select_input(clocks, rcc);
+            clocks.re_select_input(rcc);
         }
     } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g0", feature = "g4"))] {
         /// Enter Stop 0, Stop 1, or Stop 2 modes. L4 Reference manual, section 5.3.6. Tables 27, 28, and 29.
@@ -163,7 +168,7 @@ cfg_if::cfg_if! {
 
             wfi();
 
-            clocks::re_select_input(clocks, rcc);
+            clocks.re_select_input(rcc);
         }
 
 
@@ -219,7 +224,7 @@ cfg_if::cfg_if! {
             // A, RTC Alarm B, RTC wakeup, tamper or timestamp flags) is cleared
             wfi();
 
-            clocks::re_select_input(clocks, rcc);
+            clocks.re_select_input(rcc);
         }
 
         /// Enter `Shutdown mode` mode: the lowest-power of the 3 low-power states avail. See
@@ -253,7 +258,7 @@ cfg_if::cfg_if! {
             // cleared
             wfi();
 
-            clocks::re_select_input(clocks, rcc);
+            clocks.re_select_input(rcc);
         }
     } else { // H7
         ///  Stops clocks on the CPU subsystem. H742 RM, Table 38.
@@ -268,7 +273,7 @@ cfg_if::cfg_if! {
 
             wfi();
 
-            clocks::re_select_input(clocks, rcc);
+            clocks.re_select_input(rcc);
         }
 
         // /// Stops clocks on the D1 and D2 domain. H742 RM, Table 40.
@@ -287,10 +292,7 @@ cfg_if::cfg_if! {
         //
         //     wfi();
         //
-        //     clocks::re_select_input(clocks, rcc);
-        //
-        //
-        //     clocks::re_select_input(clocks, rcc);
+        //     clocks.re_select_input(rcc);
         // }
 
         // /// Enter `Standby` mode: the lowest-power of the 3 low-power states avail on the
@@ -317,7 +319,7 @@ cfg_if::cfg_if! {
         //
         //     wfi();
         //
-        //     clocks::re_select_input(clocks, rcc);
+        //     clocks.re_select_input(rcc);
         // }
     }
 }

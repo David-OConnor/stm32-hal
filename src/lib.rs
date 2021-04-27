@@ -344,8 +344,7 @@ pub fn debug_workaround(dbgmcu: &mut pac::DBGMCU, rcc: &mut pac::RCC) {
     rcc.ahb1enr.modify(|_, w| w.dma1en().set_bit());
 }
 
-/// In the prelude, we export the `embedded-hal` traits we implement, and
-/// some custom ones.
+/// In the prelude, we export helper macros.
 pub mod prelude {
     pub use access_global;
     pub use make_globals;

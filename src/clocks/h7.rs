@@ -317,6 +317,68 @@ impl Clocks {
 
         Ok(())
     }
+
+    /// Re-select input source; used on Stop and Standby modes, where the system reverts
+    /// to HSI after wake.
+    pub(crate) fn re_select_input(&self, rcc: &mut RCC) {
+        // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
+
+        // Note: It would save code repetition to pass the `Clocks` struct in and re-run setup
+        // todo: But this saves a few reg writes.
+        match self.input_src {
+            InputSrc::Hse(_) => {
+                rcc.cr.modify(|_, w| w.hseon().set_bit());
+                while rcc.cr.read().hserdy().bit_is_clear() {}
+
+                rcc.cfgr
+                    .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
+            }
+            InputSrc::Pll1(pll_src) => {
+                // todo: DRY with above.
+                match pll_src {
+                    PllSrc::Hse(_) => {
+                        rcc.cr.modify(|_, w| w.hseon().set_bit());
+                        while rcc.cr.read().hserdy().bit_is_clear() {}
+                    }
+                    PllSrc::Hsi(div) => {
+                        // Generally reverts to Csi (see note below)
+                        rcc.cr.modify(|_, w| {
+                            w.hsidiv().bits(div as u8); // todo: Do we need to reset the HSI div after low power?
+                            w.hsion().bit(true)
+                        });
+                        while rcc.cr.read().hsirdy().bit_is_clear() {}
+                    }
+                    PllSrc::Csi => (), // todo
+                    PllSrc::None => (),
+                }
+
+                // todo: PLL 2 and 3?
+                rcc.cr.modify(|_, w| w.pll1on().clear_bit());
+                while rcc.cr.read().pll1rdy().bit_is_set() {}
+
+                rcc.cfgr
+                    .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
+
+                rcc.cr.modify(|_, w| w.pll1on().set_bit());
+                while rcc.cr.read().pll1rdy().bit_is_clear() {}
+            }
+            InputSrc::Hsi(div) => {
+                {
+                    // From Reference Manual, RCC_CFGR register section:
+                    // "Configured by HW to force Csi oscillator selection when exiting Standby or Shutdown mode.
+                    // Configured by HW to force Csi or HSI16 oscillator selection when exiting Stop mode or in
+                    // case of failure of the HSE oscillator, depending on STOPWUCK value."
+                    // In tests, from stop, it tends to revert to Csi.
+                    rcc.cr.modify(|_, w| {
+                        w.hsidiv().bits(div as u8); // todo: Do we need to reset the HSI div after low power?
+                        w.hsion().bit(true)
+                    });
+                    while rcc.cr.read().hsirdy().bit_is_clear() {}
+                }
+            }
+            InputSrc::Csi => (), // ?
+        }
+    }
 }
 
 // todo: Some extra calculations here, vice doing it once and caching.
@@ -454,66 +516,4 @@ fn calc_sysclock(input_src: InputSrc, divm1: u8, divn1: u16, divp1: u8) -> (u32,
     };
 
     (input_freq, sysclk)
-}
-
-/// Re-select input source; used on Stop and Standby modes, where the system reverts
-/// to HSI after wake.
-pub(crate) fn re_select_input(clocks: &Clocks, rcc: &mut RCC) {
-    // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
-
-    // Note: It would save code repetition to pass the `Clocks` struct in and re-run setup
-    // todo: But this saves a few reg writes.
-    match clocks.input_src {
-        InputSrc::Hse(_) => {
-            rcc.cr.modify(|_, w| w.hseon().set_bit());
-            while rcc.cr.read().hserdy().bit_is_clear() {}
-
-            rcc.cfgr
-                .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
-        }
-        InputSrc::Pll1(pll_src) => {
-            // todo: DRY with above.
-            match pll_src {
-                PllSrc::Hse(_) => {
-                    rcc.cr.modify(|_, w| w.hseon().set_bit());
-                    while rcc.cr.read().hserdy().bit_is_clear() {}
-                }
-                PllSrc::Hsi(div) => {
-                    // Generally reverts to Csi (see note below)
-                    rcc.cr.modify(|_, w| {
-                        w.hsidiv().bits(div as u8); // todo: Do we need to reset the HSI div after low power?
-                        w.hsion().bit(true)
-                    });
-                    while rcc.cr.read().hsirdy().bit_is_clear() {}
-                }
-                PllSrc::Csi => (), // todo
-                PllSrc::None => (),
-            }
-
-            // todo: PLL 2 and 3?
-            rcc.cr.modify(|_, w| w.pll1on().clear_bit());
-            while rcc.cr.read().pll1rdy().bit_is_set() {}
-
-            rcc.cfgr
-                .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
-
-            rcc.cr.modify(|_, w| w.pll1on().set_bit());
-            while rcc.cr.read().pll1rdy().bit_is_clear() {}
-        }
-        InputSrc::Hsi(div) => {
-            {
-                // From Reference Manual, RCC_CFGR register section:
-                // "Configured by HW to force Csi oscillator selection when exiting Standby or Shutdown mode.
-                // Configured by HW to force Csi or HSI16 oscillator selection when exiting Stop mode or in
-                // case of failure of the HSE oscillator, depending on STOPWUCK value."
-                // In tests, from stop, it tends to revert to Csi.
-                rcc.cr.modify(|_, w| {
-                    w.hsidiv().bits(div as u8); // todo: Do we need to reset the HSI div after low power?
-                    w.hsion().bit(true)
-                });
-                while rcc.cr.read().hsirdy().bit_is_clear() {}
-            }
-        }
-        InputSrc::Csi => (), // ?
-    }
 }

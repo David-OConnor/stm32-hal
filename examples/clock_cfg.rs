@@ -61,7 +61,7 @@ fn main() -> ! {
     // (L4 and L5 only) If you'd like to use MSI for the USB clock source, run this function.
     // Do not run it if using MSI for the input source or PLL source. You must also have
     // `clk48_src: Clk48Src::MSI` in the clock cfg, which is the default for L4 and L5.
-    clocks::enable_msi_48(&mut dp.RCC);
+    clocks_cfg.enable_msi_48(&mut dp.RCC);
 
     // Change  PLL prescalers:
     clock_cfg.pllm = Pllm::Div4;

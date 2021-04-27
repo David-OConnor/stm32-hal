@@ -727,11 +727,145 @@ impl Clocks {
             while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
         }
 
+        // If we're not using the default clock source as input source or for PLL, turn it off.
+        cfg_if! {
+            if #[cfg(any(feature = "l4", feature = "l5"))] {
+                match self.input_src {
+                    InputSrc::Msi(_) => (),
+                    InputSrc::Pll(pll_src) => {
+                        match pll_src {
+                        PllSrc::Msi(_) => (),
+                            _ => {
+                                rcc.cr.modify(|_, w| w.msion().clear_bit());
+                            }
+                        }
+                    }
+                    _ => {
+                        rcc.cr.modify(|_, w| w.msion().clear_bit());
+                   }
+                }
+
+            } else {
+                 match self.input_src {
+                    InputSrc::Hsi => (),
+                    InputSrc::Pll(pll_src) => {
+                        match pll_src {
+                        PllSrc::Hsi => (),
+                            _ => {
+                                rcc.cr.modify(|_, w| w.hsion().clear_bit());
+                            }
+                        }
+                    }
+                    _ => {
+                        rcc.cr.modify(|_, w| w.hsion().clear_bit());
+                   }
+                }
+            }
+        }
+
         // Enable and reset System Configuration Controller, ie for interrupts.
         // todo: Is this the right module to do this in?
         rcc_en_reset!(apb2, syscfg, rcc);
 
         Ok(())
+    }
+
+    /// Re-select input source; used after Stop and Standby modes, where the system reverts
+    /// to MSI or HSI after wake.
+    pub(crate) fn re_select_input(&self, rcc: &mut RCC) {
+        // Re-select the input source; useful for changing input source, or reverting
+        // from stop or standby mode. This assumes we're on a clean init,
+        // or waking up from stop mode etc.
+
+        match self.input_src {
+            InputSrc::Hse(_) => {
+                rcc.cr.modify(|_, w| w.hseon().set_bit());
+                while rcc.cr.read().hserdy().bit_is_clear() {}
+
+                rcc.cfgr
+                    .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
+            }
+            InputSrc::Pll(pll_src) => {
+                // todo: DRY with above.
+                match pll_src {
+                    PllSrc::Hse(_) => {
+                        rcc.cr.modify(|_, w| w.hseon().set_bit());
+                        while rcc.cr.read().hserdy().bit_is_clear() {}
+                    }
+                    PllSrc::Hsi => {
+                        #[cfg(any(feature = "l4", feature = "l5"))]
+                        // Generally reverts to MSI (see note below)
+                        if let StopWuck::Msi = self.stop_wuck {
+                            rcc.cr.modify(|_, w| w.hsion().set_bit());
+                            while rcc.cr.read().hsirdy().bit_is_clear() {}
+                        }
+                        // If on G, we'll already be on HSI, so need to take action.
+                    }
+                    #[cfg(not(any(feature = "g0", feature = "g4")))]
+                    PllSrc::Msi(_) => {
+                        if let StopWuck::Hsi = self.stop_wuck {
+                            rcc.cr.modify(|_, w| w.msion().set_bit());
+                            while rcc.cr.read().msirdy().bit_is_clear() {}
+                        }
+                    }
+                    PllSrc::None => (),
+                }
+
+                rcc.cr.modify(|_, w| w.pllon().clear_bit());
+                while rcc.cr.read().pllrdy().bit_is_set() {}
+
+                rcc.cfgr
+                    .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
+
+                rcc.cr.modify(|_, w| w.pllon().set_bit());
+                while rcc.cr.read().pllrdy().bit_is_clear() {}
+            }
+            InputSrc::Hsi => {
+                {
+                    // (This note applies to L4 and L5 only)
+                    // From L4 Reference Manual, RCC_CFGR register section:
+                    // "Configured by HW to force MSI oscillator selection when exiting Standby or Shutdown mode.
+                    // Configured by HW to force MSI or HSI16 oscillator selection when exiting Stop mode or in
+                    // case of failure of the HSE oscillator, depending on STOPWUCK value."
+
+                    // So, if stopwuck is at its default value of MSI, we need to re-enable HSI,
+                    // and re-select it. Otherwise, take no action. Reverse for MSI-reselection.
+                    // For G, we already are using HSI, so need to take action either.
+                    #[cfg(not(any(feature = "g0", feature = "g4")))]
+                    if let StopWuck::Msi = self.stop_wuck {
+                        rcc.cr.modify(|_, w| w.hsion().set_bit());
+                        while rcc.cr.read().hsirdy().bit_is_clear() {}
+
+                        rcc.cfgr
+                            .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
+                    }
+                }
+            }
+            #[cfg(not(any(feature = "g0", feature = "g4")))]
+            InputSrc::Msi(_) => {
+                if let StopWuck::Hsi = self.stop_wuck {
+                    rcc.cr.modify(|_, w| w.msion().set_bit());
+                    while rcc.cr.read().msirdy().bit_is_clear() {}
+
+                    rcc.cfgr
+                        .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
+                }
+            }
+            #[cfg(feature = "g0")]
+            InputSrc::Lsi => {
+                rcc.csr.modify(|_, w| w.lsion().set_bit());
+                while rcc.csr.read().lsirdy().bit_is_clear() {}
+                rcc.cfgr
+                    .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
+            }
+            #[cfg(feature = "g0")]
+            InputSrc::Lse => {
+                rcc.bdcr.modify(|_, w| w.lseon().set_bit());
+                while rcc.bdcr.read().lserdy().bit_is_clear() {}
+                rcc.cfgr
+                    .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
+            }
+        }
     }
 
     #[cfg(any(feature = "l4", feature = "l5"))]
@@ -745,19 +879,49 @@ impl Clocks {
             _ => panic!("Only change MSI speed using this function if MSI is the input source."),
         }
 
-        // Enable the HSI and set it as the clock source, so we can change MSI.
-        rcc.cr.modify(|_, w| w.hsion().set_bit());
-        while rcc.cr.read().hsirdy().bit_is_clear() {}
+        // RM: "`"Warning: MSIRANGE can be modified when MSI is OFF (MSION=0) or when MSI is ready (MSIRDY=1).
+        // MSIRANGE must NOT be modified when MSI is ON and NOT ready (MSION=1 and MSIRDY=0)"
+        // So, we can change MSI range while it's running.
+        while rcc.cr.read().msirdy().bit_is_clear() {}
 
+        rcc.cr
+            .modify(|_, w| unsafe { w.msirange().bits(range as u8).msirgsel().set_bit() });
+
+        // Update our config to reflect the new speed.
+        self.input_src = InputSrc::Msi(range);
+    }
+
+    #[cfg(any(feature = "l4", feature = "l5"))]
+    /// Enables MSI, and configures it at 48Mhz. This is useful when using it as the USB clock,
+    /// ie with `clk48_src: Clk48Src::Msi`. Don't use this if using MSI for the input source or PLL source.
+    /// You may need to re-run this after exiting `stop` mode.
+    pub fn enable_msi_48(&self, rcc: &mut RCC) {
+        if let InputSrc::Msi(_) = self.input_src {
+            panic!(
+                "Only use this function to set up MSI as 48MHz oscillator\
+            if not using it as the input source."
+            );
+        }
+        if let InputSrc::Pll(pll_src) = self.input_src {
+            if let PllSrc::Msi(_) = pll_src {
+                panic!(
+                    "Only use this function to set up MSI as 48MHz oscillator \
+                if not using it as the input source."
+                );
+            }
+            panic!(
+                "Only use this function to set up MSI as 48MHz oscillator \
+            if not using it as the input source."
+            );
+        }
+
+        // todo: Calibrate MSI with LSE / HSE(?) if avail?
         rcc.cr.modify(|_, w| w.msion().clear_bit());
         while rcc.cr.read().msirdy().bit_is_set() {}
 
-        rcc.cfgr
-            .modify(|_, w| unsafe { w.sw().bits(InputSrc::Hsi.bits()) });
-
         rcc.cr.modify(|_, w| unsafe {
             w.msirange()
-                .bits(range as u8)
+                .bits(MsiRange::R48M as u8)
                 .msirgsel()
                 .set_bit()
                 .msion()
@@ -765,15 +929,6 @@ impl Clocks {
         });
 
         while rcc.cr.read().msirdy().bit_is_clear() {}
-
-        // Select MSI, and turn off HSI.
-        rcc.cfgr
-            .modify(|_, w| unsafe { w.sw().bits(InputSrc::Msi(range).bits()) });
-
-        // Update our config to reflect the new speed.
-        self.input_src = InputSrc::Msi(range);
-
-        rcc.cr.modify(|_, w| w.hsion().clear_bit());
     }
 }
 
@@ -994,124 +1149,4 @@ fn calc_sysclock(input_src: InputSrc, pllm: Pllm, plln: u8, pllr: Pllr) -> (u32,
     };
 
     (input_freq, sysclk)
-}
-
-/// Re-select input source; used after Stop and Standby modes, where the system reverts
-/// to HSI after wake.
-pub(crate) fn re_select_input(clocks: &Clocks, rcc: &mut RCC) {
-    // todo: Make into a method?
-    // Re-select the input source; useful for changing input source, or reverting
-    // from stop or standby mode. This assumes we're on a clean init,
-    // or waking up from stop mode etc.
-
-    match clocks.input_src {
-        InputSrc::Hse(_) => {
-            rcc.cr.modify(|_, w| w.hseon().set_bit());
-            while rcc.cr.read().hserdy().bit_is_clear() {}
-
-            rcc.cfgr
-                .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
-        }
-        InputSrc::Pll(pll_src) => {
-            // todo: DRY with above.
-            match pll_src {
-                PllSrc::Hse(_) => {
-                    rcc.cr.modify(|_, w| w.hseon().set_bit());
-                    while rcc.cr.read().hserdy().bit_is_clear() {}
-                }
-                PllSrc::Hsi => {
-                    #[cfg(any(feature = "l4", feature = "l5"))]
-                    // Generally reverts to MSI (see note below)
-                    if let StopWuck::Msi = clocks.stop_wuck {
-                        rcc.cr.modify(|_, w| w.hsion().set_bit());
-                        while rcc.cr.read().hsirdy().bit_is_clear() {}
-                    }
-                    // If on G, we'll already be on HSI, so need to take action.
-                }
-                #[cfg(not(any(feature = "g0", feature = "g4")))]
-                PllSrc::Msi(_) => {
-                    if let StopWuck::Hsi = clocks.stop_wuck {
-                        rcc.cr.modify(|_, w| w.msion().set_bit());
-                        while rcc.cr.read().msirdy().bit_is_clear() {}
-                    }
-                }
-                PllSrc::None => (),
-            }
-
-            rcc.cr.modify(|_, w| w.pllon().clear_bit());
-            while rcc.cr.read().pllrdy().bit_is_set() {}
-
-            rcc.cfgr
-                .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
-
-            rcc.cr.modify(|_, w| w.pllon().set_bit());
-            while rcc.cr.read().pllrdy().bit_is_clear() {}
-        }
-        InputSrc::Hsi => {
-            {
-                // (This note applies to L4 and L5 only)
-                // From L4 Reference Manual, RCC_CFGR register section:
-                // "Configured by HW to force MSI oscillator selection when exiting Standby or Shutdown mode.
-                // Configured by HW to force MSI or HSI16 oscillator selection when exiting Stop mode or in
-                // case of failure of the HSE oscillator, depending on STOPWUCK value."
-
-                // So, if stopwuck is at its default value of MSI, we need to re-enable HSI,
-                // and re-select it. Otherwise, take no action. Reverse for MSI-reselection.
-                // For G, we already are using HSI, so need to take action either.
-                #[cfg(not(any(feature = "g0", feature = "g4")))]
-                if let StopWuck::Msi = clocks.stop_wuck {
-                    rcc.cr.modify(|_, w| w.hsion().set_bit());
-                    while rcc.cr.read().hsirdy().bit_is_clear() {}
-
-                    rcc.cfgr
-                        .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
-                }
-            }
-        }
-        #[cfg(not(any(feature = "g0", feature = "g4")))]
-        InputSrc::Msi(_) => {
-            if let StopWuck::Hsi = clocks.stop_wuck {
-                rcc.cr.modify(|_, w| w.msion().set_bit());
-                while rcc.cr.read().msirdy().bit_is_clear() {}
-
-                rcc.cfgr
-                    .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
-            }
-        }
-        #[cfg(feature = "g0")]
-        InputSrc::Lsi => {
-            rcc.csr.modify(|_, w| w.lsion().set_bit());
-            while rcc.csr.read().lsirdy().bit_is_clear() {}
-            rcc.cfgr
-                .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
-        }
-        #[cfg(feature = "g0")]
-        InputSrc::Lse => {
-            rcc.bdcr.modify(|_, w| w.lseon().set_bit());
-            while rcc.bdcr.read().lserdy().bit_is_clear() {}
-            rcc.cfgr
-                .modify(|_, w| unsafe { w.sw().bits(clocks.input_src.bits()) });
-        }
-    }
-}
-
-#[cfg(any(feature = "l4", feature = "l5"))]
-/// Enables MSI, and configures it at 48Mhz. This is useful when using it as the USB clock,
-/// ie with `clk48_src: Clk48Src::Msi`. Don't use this if using MSI for the input source or PLL source.
-/// You may need to re-run this after exiting `stop` mode.
-pub fn enable_msi_48(rcc: &mut RCC) {
-    // todo: Calibrate MSI with LSE / HSE(?) if avail?
-    rcc.cr.modify(|_, w| w.msion().clear_bit());
-    while rcc.cr.read().msirdy().bit_is_set() {}
-
-    rcc.cr.modify(|_, w| unsafe {
-        w.msirange()
-            .bits(MsiRange::R48M as u8)
-            .msirgsel()
-            .set_bit()
-            .msion()
-            .set_bit()
-    });
-
-    while rcc.cr.read().msirdy().bit_is_clear() {}
 }
