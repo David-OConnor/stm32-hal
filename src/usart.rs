@@ -17,6 +17,7 @@ use core::ops::Deref;
 use cfg_if::cfg_if;
 
 // todo: Make a single interrupt function that takes this macro?
+// todo: Prescaler (USART_PRESC) register on v3 (L5, G, H etc)
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
@@ -141,9 +142,16 @@ where
         // Set up transmission. See L44 RM, section 38.5.2: "Character Transmission Procedures".
         // 1. Program the M bits in USART_CR1 to define the word length.
         // todo: Make sure you aren't doing this backwards.
-        let word_len_bits = word_len.bits();
-        regs.cr1.modify(|_, w| w.m1().bit(word_len_bits.0 != 0));
-        regs.cr1.modify(|_, w| w.m0().bit(word_len_bits.1 != 0));
+
+        cfg_if! {
+            if #[cfg(feature = "f3")] {
+                regs.cr1.modify(|_, w| w.m().bit(word_len as u8 != 0));
+            } else {
+                let word_len_bits = word_len.bits();
+                regs.cr1.modify(|_, w| w.m1().bit(word_len_bits.0 != 0));
+                regs.cr1.modify(|_, w| w.m0().bit(word_len_bits.1 != 0));
+            }
+        }
 
         // 2. Select the desired baud rate using the USART_BRR register.
 
@@ -257,7 +265,7 @@ where
                     w.addm7().set_bit();
                     // Set the character to detect
                     cfg_if! {
-                        if #[cfg(any(feature = "l4"))] {
+                        if #[cfg(any(feature = "f3", feature = "l4", feature = "h7"))] {
                             w.add().bits(char)
                         } else { unsafe { // todo: Is this right, or backwards?
                             w.add0_3().bits(char & 0b1111);
