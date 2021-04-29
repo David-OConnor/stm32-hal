@@ -48,6 +48,25 @@ impl WordLen {
 }
 
 #[derive(Clone, Copy)]
+/// Used for setting the appropriate APB.
+pub enum UsartDevice {
+    One,
+    Two,
+    Three,
+    // Four,
+    // Five,
+    // todo: Feature gate as appplicable
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// Used for setting the appropriate APB.
+pub enum OverSampling {
+    O16 = 0,
+    O8 = 1,
+}
+
+#[derive(Clone, Copy)]
 /// The type of USART interrupt to configure. Reference the USART_ISR register.
 pub enum UsartInterrupt {
     CharDetect(u8),
@@ -71,21 +90,49 @@ pub struct Usart<U> {
     baud: u32,
     word_len: WordLen,
     stop_bits: StopBits,
+    oversampling: OverSampling,
 }
 
-
 impl<U> Usart<U>
-    where U: Deref<Target = pac::usart1::RegisterBlock> {
+where
+    U: Deref<Target = pac::usart1::RegisterBlock>,
+{
     pub fn new<C: ClockCfg>(
-        regs: U, baud: u32, word_len: WordLen, stop_bits: StopBits, clocks: &C, rcc: &mut RCC
+        regs: U,
+        device: UsartDevice,
+        baud: u32,
+        word_len: WordLen,
+        stop_bits: StopBits,
+        clocks: &C,
+        rcc: &mut RCC,
     ) -> Self {
+        // todo: Let user customize oversampling?
+        let oversampling = OverSampling::O16;
 
         // todo: Hard set to usart 1 to get started
-        rcc_en_reset!(apb2, usart1, rcc);
+        match device {
+            UsartDevice::One => {
+                rcc_en_reset!(apb2, usart1, rcc);
+            }
+            UsartDevice::Two => {
+                rcc_en_reset!(apb1, usart2, rcc);
+            }
+            UsartDevice::Three => {
+                rcc_en_reset!(apb1, usart3, rcc);
+            } // UsartDevice::Four => {
+              //     rcc_en_reset!(apb1, uart4, rcc);
+              // }
+              // UsartDevice::Five => {
+              //     rcc_en_reset!(apb1, usart5, rcc);
+              // }
+        }
 
         // This should already be disabled on power up, but disable here just in case:
         regs.cr1.modify(|_, w| w.ue().clear_bit());
         while regs.cr1.read().ue().bit_is_set() {}
+
+        regs.cr1
+            .modify(|_, w| w.over8().bit(oversampling as u8 != 0));
 
         // Set up transmission. See L44 RM, section 38.5.2: "Character Transmission Procedures".
         // 1. Program the M bits in USART_CR1 to define the word length.
@@ -97,11 +144,16 @@ impl<U> Usart<U>
         // 2. Select the desired baud rate using the USART_BRR register.
 
         // To set BAUD rate, see L4 RM section 38.5.4: "USART baud rate generation".
-        // Oversampling by 16:
-        let usart_div = clocks.apb1() / baud;
+        let fclk = match device {
+            UsartDevice::One => clocks.apb2(),
+            _ => clocks.apb1(),
+        };
 
-        // Oversamping by 8:
-        let usart_div = 2 * f_clk.apb1() / baud;
+        // Oversampling by 16:
+        let usart_div = match oversampling {
+            OverSampling::O16 => fclk / baud,
+            OverSampling::O8 => 2 * fclk / baud,
+        };
 
         // USARTDIV is an unsigned fixed point number that is coded on the USART_BRR register.
         // • When OVER8 = 0, BRR = USARTDIV.
@@ -109,8 +161,9 @@ impl<U> Usart<U>
         // – BRR[2:0] = USARTDIV[3:0] shifted 1 bit to the right.
         // – BRR[3] must be kept cleared.
         // – BRR[15:4] = USARTDIV[15:4]
-        let baud_rate = 0;
-        regs.brr.modify(|_, w| w.brr().bits(baud_rate));
+        // todo: BRR needs to be modified per the above if on oversampling 8.
+
+        regs.brr.modify(|_, w| w.brr().bits(usart_div as u16));
         // 3. Program the number of stop bits in USART_CR2.
         regs.cr2.modify(|_, w| w.stop().bits(stop_bits as u8));
         // 4. Enable the USART by writing the UE bit in USART_CR1 register to 1.
@@ -119,12 +172,23 @@ impl<U> Usart<U>
         // place. Configure the DMA register as explained in multibuffer communication.
         // todo?
         // 6. Set the TE bit in USART_CR1 to send an idle frame as first transmission.
-        regs.cr1.modify(|_, w| w.te().set_bit());
+        // 6. Set the RE bit USART_CR1. This enables the receiver which begins searching for a
+        // start bit.
+        regs.cr1.modify(|_, w| {
+            w.te().set_bit();
+            w.re().set_bit()
+        });
 
-        Self {regs, baud, word_len, stop_bits}
+        Self {
+            regs,
+            baud,
+            word_len,
+            stop_bits,
+            oversampling,
+        }
     }
 
-    /// Transmit data. See L44 RM, section 38.5.2: "Character transmission procedure"
+    /// Transmit data, as a sequence of u8.. See L44 RM, section 38.5.2: "Character transmission procedure"
     pub fn write(&mut self, data: &[u8]) {
         // 7. Write the data to send in the USART_TDR register (this clears the TXE bit). Repeat this
         // for each data to be transmitted in case of single buffer.
@@ -133,7 +197,9 @@ impl<U> Usart<U>
             while self.regs.isr.read().txe().bit_is_clear() {}
             // todo: how does this work with a 9 bit words? Presumably you'd need to make `data`
             // todo take `&u16`.
-            self.regs.tdr.modify(|_, w| unsafe { w.tdr().bits(*word as u16) });
+            self.regs
+                .tdr
+                .modify(|_, w| unsafe { w.tdr().bits(*word as u16) });
         }
         // 8. After writing the last data into the USART_TDR register, wait until TC=1. This indicates
         // that the transmission of the last frame is complete. This is required for instance when
@@ -142,11 +208,14 @@ impl<U> Usart<U>
         while self.regs.isr.read().tc().bit_is_clear() {}
     }
 
-    /// Receive data. See L44 RM, section 38.5.3: "Character reception procedure"
-    pub fn read(&mut self, size: u32) -> &[u8] {
-        // 6. Set the RE bit USART_CR1. This enables the receiver which begins searching for a
-        // start bit.
-        regs.cr1.modify(|_, w| w.re().set_bit());
+    /// Receive data into a u8 buffer. See L44 RM, section 38.5.3: "Character reception procedure"
+    pub fn read(&mut self, buf: &mut [u8]) {
+        for i in 0..buf.len() {
+            // Wait for the next bit
+            while self.regs.isr.read().rxne().bit_is_clear() {}
+            buf[i] = self.regs.rdr.read().rdr().bits() as u8;
+        }
+
         // When a character is received:
         // • The RXNE bit is set to indicate that the content of the shift register is transferred to the
         // RDR. In other words, data has been received and can be read (as well as its
@@ -185,42 +254,43 @@ impl<U> Usart<U>
                     w.add().bits(char)
                 });
             }
-            UsartInterrupt::Cts=> {
-                self.regs.cr3.modify(|_, w| w.ctsie.set_bit());
+            UsartInterrupt::Cts => {
+                self.regs.cr3.modify(|_, w| w.ctsie().set_bit());
             }
-            UsartInterrupt::EndOfBlock=> {
-                self.regs.cr1.modify(|_, w| w.eobie.set_bit());
+            UsartInterrupt::EndOfBlock => {
+                self.regs.cr1.modify(|_, w| w.eobie().set_bit());
             }
-            UsartInterrupt::Idle=> {
-                self.regs.cr1.modify(|_, w| w.idleie.set_bit());
+            UsartInterrupt::Idle => {
+                self.regs.cr1.modify(|_, w| w.idleie().set_bit());
             }
-            UsartInterrupt::FramingError=> {
-                self.regs.cr1.modify(|_, w| w.eie.set_bit());
+            UsartInterrupt::FramingError => {
+                // todo
+                // self.regs.cr1.modify(|_, w| w.eie().set_bit());
             }
-            UsartInterrupt::LineBreak=> {
-                self.regs.cr2.modify(|_, w| w.lbdie.set_bit());
+            UsartInterrupt::LineBreak => {
+                self.regs.cr2.modify(|_, w| w.lbdie().set_bit());
             }
-            UsartInterrupt::Overrun=> {
-                self.regs.cr1.modify(|_, w| w.eie.set_bit());
+            UsartInterrupt::Overrun => {
+                // self.regs.cr1.modify(|_, w| w.eie().set_bit()); // todo
             }
-            UsartInterrupt::ParityError=> {
-                self.regs.cr1.modify(|_, w| w.peie.set_bit());
+            UsartInterrupt::ParityError => {
+                self.regs.cr1.modify(|_, w| w.peie().set_bit());
             }
-            UsartInterrupt::ReadNotEmpty=> {
-                self.regs.cr1.modify(|_, w| w.rxneie.set_bit());
+            UsartInterrupt::ReadNotEmpty => {
+                self.regs.cr1.modify(|_, w| w.rxneie().set_bit());
             }
-            UsartInterrupt::ReceiverTimeout=> {
-                self.regs.cr1.modify(|_, w| w.rtoie.set_bit());
+            UsartInterrupt::ReceiverTimeout => {
+                self.regs.cr1.modify(|_, w| w.rtoie().set_bit());
             }
-            UsartInterrupt::Tcbgt=> {
-                self.regs.cr3.modify(|_, w| w.tcbgtie.set_bit());
+            UsartInterrupt::Tcbgt => {
+                // self.regs.cr3.modify(|_, w| w.tcbgtie().set_bit()); // todo?
             }
-            UsartInterrupt::TransmissionComplete=> {
-                self.regs.cr1.modify(|_, w| w.tcie.set_bit());
+            UsartInterrupt::TransmissionComplete => {
+                self.regs.cr1.modify(|_, w| w.tcie().set_bit());
             }
-            UsartInterrupt::TransmitEmpty=> {
-                self.regs.cr1.modify(|_, w| w.txeie.set_bit());
-            },
+            UsartInterrupt::TransmitEmpty => {
+                self.regs.cr1.modify(|_, w| w.txeie().set_bit());
+            }
         }
 
         self.regs.cr1.modify(|_, w| w.ue().set_bit());
@@ -229,45 +299,21 @@ impl<U> Usart<U>
     /// Clears the interrupt pending flag for a specific type of interrupt.
     pub fn clear_interrupt(&mut self, interrupt_type: UsartInterrupt) {
         match interrupt_type {
-            UsartInterrupt::CharDetect(_) => {
-                self.regs.icr.write(|w| w.cmcf().set_bit())
+            UsartInterrupt::CharDetect(_) => self.regs.icr.write(|w| w.cmcf().set_bit()),
+            UsartInterrupt::Cts => self.regs.icr.write(|w| w.ctscf().set_bit()),
+            UsartInterrupt::EndOfBlock => self.regs.icr.write(|w| w.eobcf().set_bit()),
+            UsartInterrupt::Idle => self.regs.icr.write(|w| w.idlecf().set_bit()),
+            UsartInterrupt::FramingError => self.regs.icr.write(|w| w.fecf().set_bit()),
+            UsartInterrupt::LineBreak => self.regs.icr.write(|w| w.lbdcf().set_bit()),
+            UsartInterrupt::Overrun => self.regs.icr.write(|w| w.orecf().set_bit()),
+            UsartInterrupt::ParityError => self.regs.icr.write(|w| w.pecf().set_bit()),
+            UsartInterrupt::ReadNotEmpty => self.regs.rqr.write(|w| w.rxfrq().set_bit()),
+            UsartInterrupt::ReceiverTimeout => self.regs.icr.write(|w| w.rtocf().set_bit()),
+            UsartInterrupt::Tcbgt => {
+                // self.regs.icr.write(|w| w.tcbgtcf().set_bit()) // todo ?
             }
-            UsartInterrupt::Cts=> {
-                self.regs.icr.write(|w| w.ctscf().set_bit())
-            }
-            UsartInterrupt::EndOfBlock=> {
-                self.regs.icr.write(|w| w.eobcf().set_bit())
-            }
-            UsartInterrupt::Idle=> {
-                self.regs.icr.write(|w| w.idlecf().set_bit())
-            }
-            UsartInterrupt::FramingError=> {
-                self.regs.icr.write(|w| w.fecf().set_bit())
-            }
-            UsartInterrupt::LineBreak=> {
-                self.regs.icr.write(|w| w.lbcf().set_bit())
-            }
-            UsartInterrupt::Overrun=> {
-                self.regs.icr.write(|w| w.orecf().set_bit())
-            }
-            UsartInterrupt::ParityError=> {
-                self.regs.icr.write(|w| w.pecf().set_bit())
-            }
-            UsartInterrupt::ReadNotEmpty=> {
-                self.regs.rqr.write(|w| w.cmcf().set_bit())
-            }
-            UsartInterrupt::ReceiverTimeout=> {
-                self.regs.icr.write(|w| w.rxfrq().set_bit())
-            }
-            UsartInterrupt::Tcbgt=> {
-                self.regs.icr.write(|w| w.tcbgtcf().set_bit())
-            }
-            UsartInterrupt::TransmissionComplete=> {
-                self.regs.icr.write(|w| w.tccf().set_bit())
-            }
-            UsartInterrupt::TransmitEmpty=> {
-                self.regs.rqr.write(|w| w.txfrq().set_bit())
-            },
+            UsartInterrupt::TransmissionComplete => self.regs.icr.write(|w| w.tccf().set_bit()),
+            UsartInterrupt::TransmitEmpty => self.regs.rqr.write(|w| w.txfrq().set_bit()),
         }
     }
 }

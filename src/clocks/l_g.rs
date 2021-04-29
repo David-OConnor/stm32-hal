@@ -402,8 +402,8 @@ impl ApbPrescaler {
 pub struct Clocks {
     /// The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
     pub input_src: InputSrc, //
-    pub pllm: Pllm,          // PLL divider
-    pub plln: u8,            // PLL multiplier. Valid range of 7 to 86.
+    pub pllm: Pllm, // PLL divider
+    pub plln: u8,   // PLL multiplier. Valid range of 7 to 86.
     #[cfg(not(any(feature = "g0", feature = "g4")))]
     pub pll_sai1_mul: u8, // PLL SAI1 multiplier. Valid range of 7 to 86.
     #[cfg(not(any(feature = "g0", feature = "g4")))]
