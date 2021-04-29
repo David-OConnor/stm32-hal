@@ -56,7 +56,7 @@ impl WordLen {
 pub enum UsartDevice {
     One,
     Two,
-    #[cfg(not(feature = "g0"))]
+    #[cfg(not(any(feature = "l4x1", feature = "g0")))]
     Three,
     // Four,  todo
     // Five,
@@ -121,7 +121,7 @@ where
             UsartDevice::Two => {
                 rcc_en_reset!(apb1, usart2, rcc);
             }
-            #[cfg(not(feature = "g0"))]
+            #[cfg(not(any(feature = "l4x1", feature = "g0")))]
             UsartDevice::Three => {
                 rcc_en_reset!(apb1, usart3, rcc);
             } // UsartDevice::Four => {
