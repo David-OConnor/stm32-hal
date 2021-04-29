@@ -16,10 +16,8 @@ become available.
 **Motivation**: Use STM32s in real-world hardware projects. Be able to switch MCUs with
 minimal code change. 
 
-**Design priority**: Get hardware working with a robust feature set.
-As of this library's creation, this is not feasible with existing HAL crates due
-to lack of maintainer time, and differing priorities. When the `stm32fyxx` ecosystem
-is viewed as a whole, there's a lot of DRY.
+**Design priority**: Get hardware working with a robust feature set, aimed at
+practical uses.
 
 ## Getting started
 Review the [syntax overview example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/syntax_overview)
@@ -69,8 +67,9 @@ fn main() -> ! {
 ```
 
 The library is influenced by the `stm32fyxx` HALs, and a number of the modules here are modified 
-versions of those. There are some areas where design philosophy is different. For example: GPIO type-checking,
-level-of-abstraction from registers/PAC, API relation to EH traits, and clock config.
+versions of those. There are some areas where design philosophy is different. For example: GPIO 
+type-checking, level-of-abstraction from registers/PAC, role of EH traits in the API, 
+feature parity among STM32 families, and clock config.
     
 Most peripheral modules are independent: The only dependency they have within this library
 is the `ClockCfg` trait, which we may move to a standalone crate later. This makes
@@ -80,16 +79,16 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 
 ## Errata
 
-- U[s]ART (serial) isn't implemented outside L4
-- DMA and CAN aren't implemented
+- DMA and CAN unimplemented
+- USART synchronous moude unimplemented
 - H7 clocks are missing advanced features
 - PWM input unimplemented
 - SPI unimplemented for H7
 - CRC unimplemented for L5, F4, G0, and G4
-- Low power timers (LPTIM) are not implemented
+- Low power timers (LPTIM) unimplemented
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
 - ADC is unimplemented on F4
-- ADC 3 and 4 are unimplemented on G4. ADC3 is unimplemented on H7
+- ADC 3 and 4 unimplemented on G4. ADC3 is unimplemented on H7
 - Some timer implementations are missing
 - Low power modes beyond sleep and cstop aren't implemented for H7
 - Waiting on U5 PAC before implementing

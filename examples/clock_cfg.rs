@@ -30,6 +30,13 @@ fn main() -> ! {
     // For details on what these fields are, and
     let mut clock_cfg = Clocks::default();
 
+    // Or something like this to change a few of the defaults
+    let clock_cfg = Clocks {
+        input_src: InputSrc::Hsi,
+        stop_wuck: StopWuck::Hsi,
+        ..Clocks::default()
+    };
+
     // Set it up to use the HSI, with no PLL. This will result in a reduced speed:
     clock_cfg.input_src = InputSrc::Hsi;
 

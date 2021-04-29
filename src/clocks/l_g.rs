@@ -400,6 +400,7 @@ impl ApbPrescaler {
 
 /// Settings used to configure clocks.
 pub struct Clocks {
+    /// The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
     pub input_src: InputSrc, //
     pub pllm: Pllm,          // PLL divider
     pub plln: u8,            // PLL multiplier. Valid range of 7 to 86.
@@ -408,23 +409,31 @@ pub struct Clocks {
     #[cfg(not(any(feature = "g0", feature = "g4")))]
     pub pll_sai2_mul: u8, // PLL SAI2 multiplier. Valid range of 7 to 86.
     pub pllr: Pllr,
-    pub hclk_prescaler: HclkPrescaler, // The AHB clock divider.
-    pub apb1_prescaler: ApbPrescaler,  // APB1 divider, for the low speed peripheral bus.
+    /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
+    pub hclk_prescaler: HclkPrescaler,
+    /// The divider of HCLK to get the APB1 peripheral clock
+    pub apb1_prescaler: ApbPrescaler,
     #[cfg(not(feature = "g0"))]
-    pub apb2_prescaler: ApbPrescaler, // APB2 divider, for the high speed peripheral bus.
+    /// The divider of HCLK to get the APB2 peripheral clock
+    pub apb2_prescaler: ApbPrescaler,
     // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     // frees up the pin for use as GPIO.
     #[cfg(not(any(feature = "g0")))]
+    /// The input source for the 48Mhz clock used by USB.
     pub clk48_src: Clk48Src,
     #[cfg(not(any(feature = "g0", feature = "g4")))]
     pub sai1_enabled: bool,
     #[cfg(not(any(feature = "g0", feature = "g4")))]
     pub sai2_enabled: bool,
+    /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
+    /// frees up the pin for use as GPIO.
     pub hse_bypass: bool,
     pub security_system: bool,
     #[cfg(not(feature = "g0"))]
-    pub hsi48_on: bool, // todo: Only applicable to STM32L49x/L4Ax devices.
+    /// Enable the HSI48. For L4, this is only applicable on L49X and L4Ax devices.
+    pub hsi48_on: bool,
     #[cfg(any(feature = "l4", feature = "l5"))]
+    /// Select the input source to use after waking up from `stop` mode. Eg HSI or MSI.
     pub stop_wuck: StopWuck,
 }
 
@@ -958,8 +967,12 @@ impl ClockCfg for Clocks {
             }
         } else { // L4 and L5
             fn usb(&self) -> u32 {
-                let (input_freq, _) = calc_sysclock(self.input_src, self.pllm, self.plln, self.pllr);
-                input_freq / self.pllm.value() as u32 * self.pll_sai1_mul as u32 / 2
+                match self.clk48_src {
+                    Clk48Src::Hsi48 => 48_000_000,
+                    Clk48Src::PllSai1 => unimplemented!(),
+                    Clk48Src::Pllq => unimplemented!(),
+                    Clk48Src::Msi => unimplemented!(),
+                }
             }
         }
     }

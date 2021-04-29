@@ -316,12 +316,14 @@ impl Pllq {
 
 /// Settings used to configure clocks.
 pub struct Clocks {
+    /// The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
     pub input_src: InputSrc,
 
     #[cfg(feature = "f3")]
-    pub prediv: Prediv, // Input source predivision, for PLL.
+    /// Input source predivision, for PLL
+    pub prediv: Prediv,
     #[cfg(feature = "f3")]
-    pub pll_mul: PllMul, // PLL multiplier
+    pub pll_mul: PllMul,
 
     #[cfg(feature = "f4")]
     pub pllm: u8,
@@ -334,11 +336,14 @@ pub struct Clocks {
     pub pllq: Pllq, // USB prescaler, for target of 48Mhz.
     #[cfg(feature = "f3")]
     pub usb_pre: UsbPrescaler, // USB prescaler, for target of 48Mhz.
-    pub hclk_prescaler: HclkPrescaler, // The AHB clock divider.
-    pub apb1_prescaler: ApbPrescaler,  // APB1 divider, for the low speed peripheral bus.
-    pub apb2_prescaler: ApbPrescaler,  // APB2 divider, for the high speed peripheral bus.
-    // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
-    // frees up the pin for use as GPIO.
+    /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
+    pub hclk_prescaler: HclkPrescaler,
+    /// The divider of HCLK to get the APB1 peripheral clock
+    pub apb1_prescaler: ApbPrescaler,
+    /// The divider of HCLK to get the APB2 peripheral clock
+    pub apb2_prescaler: ApbPrescaler,
+    /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
+    /// frees up the pin for use as GPIO.
     pub hse_bypass: bool,
     pub security_system: bool,
 }
