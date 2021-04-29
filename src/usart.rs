@@ -4,6 +4,7 @@
 // todo here and in I2c
 
 // todo: Synchronous mode.
+// todo: Auto baud
 
 use crate::{
     pac::{self, RCC},
@@ -12,6 +13,8 @@ use crate::{
 };
 
 use core::ops::Deref;
+
+use cfg_if::cfg_if;
 
 // todo: Make a single interrupt function that takes this macro?
 
@@ -52,10 +55,10 @@ impl WordLen {
 pub enum UsartDevice {
     One,
     Two,
+    #[cfg(not(feature = "g0"))]
     Three,
-    // Four,
+    // Four,  todo
     // Five,
-    // todo: Feature gate as appplicable
 }
 
 #[derive(Clone, Copy)]
@@ -117,6 +120,7 @@ where
             UsartDevice::Two => {
                 rcc_en_reset!(apb1, usart2, rcc);
             }
+            #[cfg(not(feature = "g0"))]
             UsartDevice::Three => {
                 rcc_en_reset!(apb1, usart3, rcc);
             } // UsartDevice::Four => {
@@ -163,9 +167,10 @@ where
         // – BRR[15:4] = USARTDIV[15:4]
         // todo: BRR needs to be modified per the above if on oversampling 8.
 
-        regs.brr.modify(|_, w| w.brr().bits(usart_div as u16));
+        regs.brr.write(|w| unsafe { w.bits(usart_div as u32) });
         // 3. Program the number of stop bits in USART_CR2.
-        regs.cr2.modify(|_, w| w.stop().bits(stop_bits as u8));
+        regs.cr2
+            .modify(|_, w| unsafe { w.stop().bits(stop_bits as u8) });
         // 4. Enable the USART by writing the UE bit in USART_CR1 register to 1.
         regs.cr1.modify(|_, w| w.ue().set_bit());
         // 5. Select DMA enable (DMAT) in USART_CR3 if multibuffer communication is to take
@@ -251,7 +256,14 @@ where
                 self.regs.cr2.modify(|_, w| {
                     w.addm7().set_bit();
                     // Set the character to detect
-                    w.add().bits(char)
+                    cfg_if! {
+                        if #[cfg(any(feature = "l4"))] {
+                            w.add().bits(char)
+                        } else { unsafe { // todo: Is this right, or backwards?
+                            w.add0_3().bits(char & 0b1111);
+                            w.add4_7().bits(char & (0b1111 << 4))
+                        }}
+                    }
                 });
             }
             UsartInterrupt::Cts => {
@@ -264,8 +276,7 @@ where
                 self.regs.cr1.modify(|_, w| w.idleie().set_bit());
             }
             UsartInterrupt::FramingError => {
-                // todo
-                // self.regs.cr1.modify(|_, w| w.eie().set_bit());
+                // self.regs.cr1.modify(|_, w| w.eie().set_bit()); // todo
             }
             UsartInterrupt::LineBreak => {
                 self.regs.cr2.modify(|_, w| w.lbdie().set_bit());

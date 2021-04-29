@@ -81,6 +81,7 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 
 - DMA and CAN unimplemented
 - USART synchronous moude unimplemented
+- USART unimplemented for F4
 - H7 clocks are missing advanced features
 - PWM input unimplemented
 - SPI unimplemented for H7

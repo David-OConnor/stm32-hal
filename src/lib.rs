@@ -254,6 +254,7 @@ pub mod rtc;
 #[cfg(any(feature = "l4"))] // todo
 pub mod serial;
 
+#[cfg(not(feature = "f4"))]
 pub mod usart;
 
 #[cfg(not(feature = "h7"))] // todo
