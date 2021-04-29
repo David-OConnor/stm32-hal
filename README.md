@@ -80,7 +80,7 @@ PRs encouraged. Documenting each step using reference manuals is encouraged, but
 ## Errata
 
 - DMA and CAN unimplemented
-- USART synchronous moude unimplemented
+- USART synchronous mode, and auto-baud-rate detection unimplemented
 - USART unimplemented for F4
 - H7 clocks are missing advanced features
 - PWM input unimplemented
