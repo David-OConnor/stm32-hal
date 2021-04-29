@@ -27,6 +27,7 @@ and `main.rs` as required.
 
 ### Example highlights:
 ```rust
+use cortex_m;
 use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::Clocks,
@@ -39,7 +40,6 @@ use stm32_hal2::{
 
 #[entry]
 fn main() -> ! {
-    let mut cp = cortex_m::Peripherals::take().unwrap();
     let mut dp = pac::Peripherals::take().unwrap();
 
     let clock_cfg = Clocks::default();

@@ -17,8 +17,6 @@ pub use generic_array::typenum::{self, consts};
 use generic_array::{ArrayLength, GenericArray};
 use stable_deref_trait::StableDeref;
 
-use paste::paste;
-
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum Error {

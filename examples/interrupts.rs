@@ -92,6 +92,8 @@ fn main() -> ! {
         cp.NVIC.set_priority(pac::Interrupt::TIM3, 1);
     }
 
+    // todo: UART interrupts.
+
     loop {
         // Enter a low power mode.
         low_power::stop(

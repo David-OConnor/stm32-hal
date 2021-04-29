@@ -2,6 +2,8 @@
 
 // Based on `stm32l4xx-hal` and `stm32h7xx-hal`.
 
+// todo: Consider a macro-less approach like I2C and USART.
+
 use core::ptr;
 
 use embedded_hal::spi::{FullDuplex, Mode, Phase, Polarity};

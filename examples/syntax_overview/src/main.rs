@@ -29,7 +29,7 @@ use stm32_hal2::{
     low_power,
     pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
-    serial::{self, Serial},
+    usart::{Usart, UsartDevice, UsartInterrupt, UsartConfig},
     spi::{self, Spi},
     timer::{Event::TimeOut, Timer},
 };
@@ -127,13 +127,22 @@ fn main() -> ! {
     let _uart_rx = gpioa.new_pin(PinNum::P10, PinMode::Alt(AltFn::Af7));
 
     // Set up a UART peripheral.
-    let mut serial = Serial::new_usart1(
+    // Setup UART for connecting to the host
+    let mut uart = Usart::new(
         dp.USART1,
-        serial::Config::default().baudrate(9_600),
+        UsartDevice::One,
+        9_600,
+        UsartConfig::default(),
         &clock_cfg,
         &mut dp.RCC,
     );
-    let (tx, rx) = serial.split();
+
+    // Write a byte array to the UART
+    uart.write(&[1, 2, 3, 4]);
+
+    // Read a byte array from the UART.
+    let buffer = [0_u8; 10];
+    uart.read(&mut uart_buffer);
 
     // Set up the Analog-to-digital converter
     let _adc_pin = gpiob.new_pin(PinNum::P5, PinMode::Analog);

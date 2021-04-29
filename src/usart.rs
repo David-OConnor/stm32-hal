@@ -12,6 +12,11 @@ use crate::{
     traits::ClockCfg,
 };
 
+use embedded_hal::{
+    blocking,
+    serial::{Read, Write},
+};
+
 use core::ops::Deref;
 
 use cfg_if::cfg_if;
@@ -52,7 +57,7 @@ impl WordLen {
 }
 
 #[derive(Clone, Copy)]
-/// Used for setting the appropriate APB.
+/// Specify the Usart device to use. Used internally for setting the appropriate APB.
 pub enum UsartDevice {
     One,
     Two,
@@ -64,7 +69,7 @@ pub enum UsartDevice {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// Used for setting the appropriate APB.
+/// Set Oversampling16 or Oversampling8 modes.
 pub enum OverSampling {
     O16 = 0,
     O8 = 1,
@@ -88,13 +93,27 @@ pub enum UsartInterrupt {
     TransmitEmpty,
 }
 
+pub struct UsartConfig {
+    word_len: WordLen,
+    stop_bits: StopBits,
+    oversampling: OverSampling,
+}
+
+impl Default for UsartConfig {
+    fn default() -> Self {
+        Self {
+            word_len: WordLen::W8,
+            stop_bits: StopBits::S1,
+            oversampling: OverSampling::O16,
+        }
+    }
+}
+
 /// Represents the USART peripheral, for serial communications.
 pub struct Usart<U> {
     regs: U,
     baud: u32,
-    word_len: WordLen,
-    stop_bits: StopBits,
-    oversampling: OverSampling,
+    config: UsartConfig,
 }
 
 impl<U> Usart<U>
@@ -105,14 +124,10 @@ where
         regs: U,
         device: UsartDevice,
         baud: u32,
-        word_len: WordLen,
-        stop_bits: StopBits,
+        config: UsartConfig,
         clocks: &C,
         rcc: &mut RCC,
     ) -> Self {
-        // todo: Let user customize oversampling?
-        let oversampling = OverSampling::O16;
-
         // todo: Hard set to usart 1 to get started
         match device {
             UsartDevice::One => {
@@ -137,7 +152,7 @@ where
         while regs.cr1.read().ue().bit_is_set() {}
 
         regs.cr1
-            .modify(|_, w| w.over8().bit(oversampling as u8 != 0));
+            .modify(|_, w| w.over8().bit(config.oversampling as u8 != 0));
 
         // Set up transmission. See L44 RM, section 38.5.2: "Character Transmission Procedures".
         // 1. Program the M bits in USART_CR1 to define the word length.
@@ -145,9 +160,9 @@ where
 
         cfg_if! {
             if #[cfg(feature = "f3")] {
-                regs.cr1.modify(|_, w| w.m().bit(word_len as u8 != 0));
+                regs.cr1.modify(|_, w| w.m().bit(config.word_len as u8 != 0));
             } else {
-                let word_len_bits = word_len.bits();
+                let word_len_bits = config.word_len.bits();
                 regs.cr1.modify(|_, w| w.m1().bit(word_len_bits.0 != 0));
                 regs.cr1.modify(|_, w| w.m0().bit(word_len_bits.1 != 0));
             }
@@ -162,7 +177,7 @@ where
         };
 
         // Oversampling by 16:
-        let usart_div = match oversampling {
+        let usart_div = match config.oversampling {
             OverSampling::O16 => fclk / baud,
             OverSampling::O8 => 2 * fclk / baud,
         };
@@ -178,7 +193,7 @@ where
         regs.brr.write(|w| unsafe { w.bits(usart_div as u32) });
         // 3. Program the number of stop bits in USART_CR2.
         regs.cr2
-            .modify(|_, w| unsafe { w.stop().bits(stop_bits as u8) });
+            .modify(|_, w| unsafe { w.stop().bits(config.stop_bits as u8) });
         // 4. Enable the USART by writing the UE bit in USART_CR1 register to 1.
         regs.cr1.modify(|_, w| w.ue().set_bit());
         // 5. Select DMA enable (DMAT) in USART_CR3 if multibuffer communication is to take
@@ -192,13 +207,7 @@ where
             w.re().set_bit()
         });
 
-        Self {
-            regs,
-            baud,
-            word_len,
-            stop_bits,
-            oversampling,
-        }
+        Self { regs, baud, config }
     }
 
     /// Transmit data, as a sequence of u8.. See L44 RM, section 38.5.2: "Character transmission procedure"
@@ -337,4 +346,74 @@ where
     }
 }
 
-// todo: Implement EH traits.
+/// Serial error
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum Error {
+    /// Framing error
+    Framing,
+    /// Noise error
+    Noise,
+    /// RX buffer overrun
+    Overrun,
+    /// Parity check error
+    Parity,
+}
+
+impl<U> Read<u8> for Usart<U>
+where
+    U: Deref<Target = pac::usart1::RegisterBlock>,
+{
+    type Error = Error;
+
+    fn read(&mut self) -> nb::Result<u8, Error> {
+        if self.regs.isr.read().rxne().bit_is_set() {
+            Ok(self.regs.rdr.read().rdr().bits() as u8)
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+}
+
+impl<U> Write<u8> for Usart<U>
+where
+    U: Deref<Target = pac::usart1::RegisterBlock>,
+{
+    type Error = Error;
+
+    fn write(&mut self, word: u8) -> nb::Result<(), Error> {
+        if self.regs.isr.read().txe().bit_is_set() {
+            self.regs
+                .tdr
+                .modify(|_, w| unsafe { w.tdr().bits(word as u16) });
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    fn flush(&mut self) -> nb::Result<(), Error> {
+        if self.regs.isr.read().tc().bit_is_set() {
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+}
+
+impl<U> blocking::serial::Write<u8> for Usart<U>
+where
+    U: Deref<Target = pac::usart1::RegisterBlock>,
+{
+    type Error = Error;
+
+    fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Error> {
+        Usart::write(self, buffer);
+        Ok(())
+    }
+
+    fn bflush(&mut self) -> Result<(), Error> {
+        while self.regs.isr.read().tc().bit_is_clear() {}
+        Ok(())
+    }
+}
