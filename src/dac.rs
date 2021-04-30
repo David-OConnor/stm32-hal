@@ -160,6 +160,7 @@ macro_rules! hal {
 
             /// Set the DAC voltage. `v` is in Volts.
             pub fn set_voltage(&mut self, volts: f32) {
+                // todo: should these be 256 and 4096?
                 let val = match self.bits {
                     DacBits::EightR => ((volts / self.vref) * 255.) as u32,
                     DacBits::TwelveL => ((volts / self.vref) * 4_095.) as u32,

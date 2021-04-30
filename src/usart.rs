@@ -1,10 +1,13 @@
 //! This module allows for serial communication using the STM32 USART module.
+//! Supports Embedded HAL `Read` and `Write` traits.
 
 // todo: see if you can use this macro-less approach elsewhere. Currently used
 // todo here and in I2c
 
 // todo: Synchronous mode.
 // todo: Auto baud
+
+use core::ops::Deref;
 
 use crate::{
     pac::{self, RCC},
@@ -16,8 +19,6 @@ use embedded_hal::{
     blocking,
     serial::{Read, Write},
 };
-
-use core::ops::Deref;
 
 use cfg_if::cfg_if;
 
@@ -112,8 +113,8 @@ impl Default for UsartConfig {
 /// Represents the USART peripheral, for serial communications.
 pub struct Usart<U> {
     regs: U,
-    baud: u32,
-    config: UsartConfig,
+    pub baud: u32,
+    pub config: UsartConfig,
 }
 
 impl<U> Usart<U>

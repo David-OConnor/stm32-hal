@@ -221,8 +221,7 @@ pub mod clocks;
 pub mod crc;
 pub mod dac;
 pub mod delay;
-#[cfg(any(feature = "l4"))] // todo
-pub mod dma;
+
 #[cfg(not(any(feature = "l5", feature = "h7")))] // todo
 pub mod flash;
 pub mod gpio;
@@ -251,11 +250,13 @@ pub mod low_power;
 )))]
 pub mod qspi;
 pub mod rtc;
-#[cfg(any(feature = "l4"))] // todo
-pub mod serial;
+
 
 #[cfg(not(feature = "f4"))]
 pub mod usart;
+
+// #[cfg(not(any(feature = "f3")))]
+// pub mod sai;
 
 #[cfg(not(feature = "h7"))] // todo
 pub mod spi;

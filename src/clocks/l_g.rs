@@ -155,6 +155,7 @@ cfg_if! {
 #[cfg(not(any(feature = "g0", feature = "g4")))]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
+/// Specify the range of MSI - this is effectively it's oscillation speed.
 pub enum MsiRange {
     R100k = 0b0000,
     R200k = 0b0001,

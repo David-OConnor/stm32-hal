@@ -40,6 +40,7 @@ use stm32_hal2::{
 
 #[entry]
 fn main() -> ! {
+    let mut cp = cortex_m::Peripherals::take().unwrap();
     let mut dp = pac::Peripherals::take().unwrap();
 
     let clock_cfg = Clocks::default();
@@ -77,15 +78,21 @@ it easy to interchange them with other projects.
 
 PRs encouraged. Documenting each step using reference manuals is encouraged, but not required.
 
+The Rust docs page is built for STM32L4x3, and some aspects are not accurate for other
+variants. We currently don't have a good solution to this problem, and may
+self-host docs in the future.
+
 ## Errata
 
-- DMA and CAN unimplemented
+
+- DMA, CAN, SAI, SDIO, ethernet unimplemented
 - USART synchronous mode, and auto-baud-rate detection unimplemented
 - USART unimplemented for F4
 - H7 clocks are missing advanced features
 - PWM input unimplemented
 - SPI unimplemented for H7
 - CRC unimplemented for L5, F4, G0, and G4
+- Flash read/write unimplemented on L5 and H7
 - Low power timers (LPTIM) unimplemented
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
 - ADC is unimplemented on F4
