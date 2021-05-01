@@ -4,18 +4,21 @@
 
 // todo: Consider a macro-less approach like I2C and USART.
 
-use core::ptr;
+use core::{ops::Deref, ptr};
 
 use embedded_hal::spi::{FullDuplex, Mode, Phase, Polarity};
 
 use cfg_if::cfg_if;
-use paste::paste;
 
 use crate::{
     pac::{self, RCC},
     rcc_en_reset,
     traits::ClockCfg,
 };
+
+// todo: More config options and enums?
+
+// todo: Don't make EH the default API.
 
 /// SPI error
 #[non_exhaustive]
@@ -29,24 +32,12 @@ pub enum Error {
     Crc,
 }
 
-#[doc(hidden)]
-mod private {
-    pub trait Sealed {}
+#[derive(Clone, Copy)]
+pub enum SpiDevice {
+    One,
+    Two,
+    Three,
 }
-
-/// SCK pin. This trait is sealed and cannot be implemented.
-pub trait SckPin<SPI>: private::Sealed {}
-/// MISO pin. This trait is sealed and cannot be implemented.
-pub trait MisoPin<SPI>: private::Sealed {}
-/// MOSI pin. This trait is sealed and cannot be implemented.
-pub trait MosiPin<SPI>: private::Sealed {}
-
-// #[derive(Clone, Copy)]
-// pub enum SpiDevice {
-//     One,
-//     Two,
-//     Three,
-// }
 
 #[cfg(feature = "h7")]
 #[derive(Copy, Clone)]
@@ -138,313 +129,328 @@ impl From<Mode> for Config {
 }
 
 /// SPI peripheral operating in full duplex master mode
-pub struct Spi<SPI> {
-    spi: SPI,
+pub struct Spi<S> {
+    regs: S,
 }
 
-macro_rules! hal {
-    ($SPIX:ident, $spi:ident, $apb:expr) => {
-        impl Spi<pac::$SPIX> { paste! {
-            /// Configures the SPI peripheral to operate in full duplex master mode
-            pub fn [<new_ $spi>]<C: ClockCfg>(
-                spi: pac::$SPIX,
-                mode: Mode,
-                freq: u32,
-                clocks: &C,
-                rcc: &mut RCC,
-            ) -> Self {
-
-            rcc_en_reset!([<apb $apb>], $spi, rcc);
+impl<S> Spi<S>
+where
+    S: Deref<Target = pac::spi1::RegisterBlock>,
+{
+    /// Configures the SPI peripheral to operate in full duplex master mode
+    pub fn new<C: ClockCfg>(
+        regs: S,
+        device: SpiDevice,
+        mode: Mode,
+        freq: u32,
+        clocks: &C,
+        rcc: &mut RCC,
+    ) -> Self {
+        // l4x3 and L5 support SPI3, but have an inconsitent naming convention for enabling rcc.
+        // (ie `sp3en` instead of `spi3en`.)
+        match device {
+            SpiDevice::One => {
+                rcc_en_reset!(apb2, spi1, rcc);
+            }
+            SpiDevice::Two => {
+                rcc_en_reset!(apb1, spi2, rcc);
+            }
+            SpiDevice::Three => {
                 cfg_if! {
-                    if #[cfg(feature = "h7")] {
-                          // Disable SS output
-                        spi.cfg2.write(|w| w.ssoe().disabled());
-
-                        let config: Config = config.into();
-
-                        let spi_freq = freq;
-                        let spi_ker_ck = match Self::kernel_clk(clocks) {
-                            Some(ker_hz) => ker_hz.0,
-                            _ => panic!("$SPIX kernel clock not running!")
-                        };
-                        let mbr = match spi_ker_ck / spi_freq {
-                            0 => unreachable!(),
-                            1..=2 => MBR::DIV2,
-                            3..=5 => MBR::DIV4,
-                            6..=11 => MBR::DIV8,
-                            12..=23 => MBR::DIV16,
-                            24..=47 => MBR::DIV32,
-                            48..=95 => MBR::DIV64,
-                            96..=191 => MBR::DIV128,
-                            _ => MBR::DIV256,
-                        };
-                        spi.cfg1.modify(|_, w| {
-                            w.mbr()
-                                .variant(mbr) // master baud rate
-                        });
-                        spi!(DSIZE, spi, $TY); // modify CFG1 for DSIZE
-
-                        // ssi: select slave = master mode
-                        spi.cr1.write(|w| w.ssi().slave_not_selected());
-
-                        // Calculate the CS->transaction cycle delay bits.
-                        let (start_cycle_delay, interdata_cycle_delay) = {
-                            let mut delay: u32 = (config.cs_delay * spi_freq as f32) as u32;
-
-                            // If the cs-delay is specified as non-zero, add 1 to the delay cycles
-                            // before truncation to an integer to ensure that we have at least as
-                            // many cycles as required.
-                            if config.cs_delay > 0.0_f32 {
-                                delay += 1;
-                            }
-
-                            if delay > 0xF {
-                                delay = 0xF;
-                            }
-
-                            // If CS suspends while data is inactive, we also require an
-                            // "inter-data" delay.
-                            if config.suspend_when_inactive {
-                                (delay as u8, delay as u8)
-                            } else {
-                                (delay as u8, 0_u8)
-                            }
-                        };
-
-                        // The calculated cycle delay may not be more than 4 bits wide for the
-                        // configuration register.
-                        let communication_mode = match config.communication_mode {
-                            CommunicationMode::Transmitter => COMM::TRANSMITTER,
-                            CommunicationMode::Receiver => COMM::RECEIVER,
-                            CommunicationMode::FullDuplex => COMM::FULLDUPLEX,
-                        };
-
-                        // mstr: master configuration
-                        // lsbfrst: MSB first
-                        // comm: full-duplex
-                        spi.cfg2.write(|w| {
-                            w.cpha()
-                                .bit(config.mode.phase ==
-                                     Phase::CaptureOnSecondTransition)
-                                .cpol()
-                                .bit(config.mode.polarity == Polarity::IdleHigh)
-                                .master()
-                                .master()
-                                .lsbfrst()
-                                .msbfirst()
-                                .ssom()
-                                .bit(config.suspend_when_inactive)
-                                .ssm()
-                                .bit(config.managed_cs == false)
-                                .ssoe()
-                                .bit(config.managed_cs == true)
-                                .mssi()
-                                .bits(start_cycle_delay)
-                                .midi()
-                                .bits(interdata_cycle_delay)
-                                .ioswp()
-                                .bit(config.swap_miso_mosi == true)
-                                .comm()
-                                .variant(communication_mode)
-                        });
-
-                        // spe: enable the SPI bus
-                        spi.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+                    // Note the difference of `sp3en` mixed with `spi3rst`.
+                    if #[cfg(any(feature = "l4x3", feature = "l5"))] {
+                        rcc.apb1enr1.modify(|_, w| w.sp3en().set_bit());
+                        rcc.apb1rstr1.modify(|_, w| w.spi3rst().set_bit());
+                        rcc.apb1rstr1.modify(|_, w| w.spi3rst().clear_bit());
                     } else {
-                        // FRXTH: RXNE event is generated if the FIFO level is greater than or equal to
-                        //        8-bit
-                        // DS: 8-bit data size
-                        // SSOE: Slave Select output disabled
-                        #[cfg(feature = "f4")]
-                        spi.cr2.write(|w| w.ssoe().clear_bit());
-
-                        #[cfg(not(feature = "f4"))]
-                        spi.cr2
-                            .write(|w| unsafe {
-                                w.frxth().set_bit().ds().bits(0b111).ssoe().clear_bit()
-                            });
-
-                        let br = Self::compute_baud_rate(clocks.[<apb $apb _timer>](), freq);
-
-                        // CPHA: phase
-                        // CPOL: polarity
-                        // MSTR: master mode
-                        // BR: 1 MHz
-                        // SPE: SPI disabled
-                        // LSBFIRST: MSB first
-                        // SSM: enable software slave management (NSS pin free for other uses)
-                        // SSI: set nss high = master mode
-                        // CRCEN: hardware CRC calculation disabled
-                        // BIDIMODE: 2 line unidirectional (full duplex)
-                        spi.cr1.write(|w| unsafe {
-                            w.cpha()
-                                .bit(mode.phase == Phase::CaptureOnSecondTransition)
-                                .cpol()
-                                .bit(mode.polarity == Polarity::IdleHigh)
-                                .mstr()
-                                .set_bit()
-                                .br()
-                                .bits(br)
-                                .spe()
-                                .set_bit()
-                                .lsbfirst()
-                                .clear_bit()
-                                .ssi()
-                                .set_bit()
-                                .ssm()
-                                .set_bit()
-                                .crcen()
-                                .clear_bit()
-                                .bidimode()
-                                .clear_bit()
-                        });
+                        rcc_en_reset!(apb1, spi3, rcc);
                     }
                 }
-                Spi { spi }
             }
+        }
 
-            #[cfg(not(feature = "h7"))]
-            /// Change the baud rate of the SPI
-            pub fn reclock<F, C: ClockCfg>(&mut self, freq: u32, clocks: C) {
-                self.spi.cr1.modify(|_, w| w.spe().clear_bit());
-                self.spi.cr1.modify(|_, w| {
-                    unsafe {w.br().bits(Self::compute_baud_rate(clocks.[<apb $apb _timer>](), freq));}
-                    w.spe().set_bit()
+        cfg_if! {
+            if #[cfg(feature = "h7")] {
+                  // Disable SS output
+                regs.cfg2.write(|w| w.ssoe().disabled());
+
+                let config: Config = config.into();
+
+                let spi_freq = freq;
+                let spi_ker_ck = match Self::kernel_clk(clocks) {
+                    Some(ker_hz) => ker_hz.0,
+                    _ => panic!("$SPIX kernel clock not running!")
+                };
+                let mbr = match spi_ker_ck / spi_freq {
+                    0 => unreachable!(),
+                    1..=2 => MBR::DIV2,
+                    3..=5 => MBR::DIV4,
+                    6..=11 => MBR::DIV8,
+                    12..=23 => MBR::DIV16,
+                    24..=47 => MBR::DIV32,
+                    48..=95 => MBR::DIV64,
+                    96..=191 => MBR::DIV128,
+                    _ => MBR::DIV256,
+                };
+                regs.cfg1.modify(|_, w| {
+                    w.mbr()
+                        .variant(mbr) // master baud rate
+                });
+                spi!(DSIZE, spi, $TY); // modify CFG1 for DSIZE
+
+                // ssi: select slave = master mode
+                regs.cr1.write(|w| w.ssi().slave_not_selected());
+
+                // Calculate the CS->transaction cycle delay bits.
+                let (start_cycle_delay, interdata_cycle_delay) = {
+                    let mut delay: u32 = (config.cs_delay * spi_freq as f32) as u32;
+
+                    // If the cs-delay is specified as non-zero, add 1 to the delay cycles
+                    // before truncation to an integer to ensure that we have at least as
+                    // many cycles as required.
+                    if config.cs_delay > 0.0_f32 {
+                        delay += 1;
+                    }
+
+                    if delay > 0xF {
+                        delay = 0xF;
+                    }
+
+                    // If CS suspends while data is inactive, we also require an
+                    // "inter-data" delay.
+                    if config.suspend_when_inactive {
+                        (delay as u8, delay as u8)
+                    } else {
+                        (delay as u8, 0_u8)
+                    }
+                };
+
+                // The calculated cycle delay may not be more than 4 bits wide for the
+                // configuration register.
+                let communication_mode = match config.communication_mode {
+                    CommunicationMode::Transmitter => COMM::TRANSMITTER,
+                    CommunicationMode::Receiver => COMM::RECEIVER,
+                    CommunicationMode::FullDuplex => COMM::FULLDUPLEX,
+                };
+
+                // mstr: master configuration
+                // lsbfrst: MSB first
+                // comm: full-duplex
+                regs.cfg2.write(|w| {
+                    w.cpha()
+                        .bit(config.mode.phase ==
+                             Phase::CaptureOnSecondTransition)
+                        .cpol()
+                        .bit(config.mode.polarity == Polarity::IdleHigh)
+                        .master()
+                        .master()
+                        .lsbfrst()
+                        .msbfirst()
+                        .ssom()
+                        .bit(config.suspend_when_inactive)
+                        .ssm()
+                        .bit(config.managed_cs == false)
+                        .ssoe()
+                        .bit(config.managed_cs == true)
+                        .mssi()
+                        .bits(start_cycle_delay)
+                        .midi()
+                        .bits(interdata_cycle_delay)
+                        .ioswp()
+                        .bit(config.swap_miso_mosi == true)
+                        .comm()
+                        .variant(communication_mode)
+                });
+
+                // spe: enable the SPI bus
+                regs.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+            } else {
+                // FRXTH: RXNE event is generated if the FIFO level is greater than or equal to
+                //        8-bit
+                // DS: 8-bit data size
+                // SSOE: Slave Select output disabled
+                #[cfg(feature = "f4")]
+                regs.cr2.write(|w| w.ssoe().clear_bit());
+
+                #[cfg(not(feature = "f4"))]
+                regs.cr2
+                    .write(|w| unsafe {
+                        w.frxth().set_bit().ds().bits(0b111).ssoe().clear_bit()
+                    });
+
+                let fclk = match device {
+                    SpiDevice::One => clocks.apb2(),
+                    _ => clocks.apb1(),
+                };
+
+                let br = Self::compute_baud_rate(fclk, freq);
+
+                // CPHA: phase
+                // CPOL: polarity
+                // MSTR: master mode
+                // BR: 1 MHz
+                // SPE: SPI disabled
+                // LSBFIRST: MSB first
+                // SSM: enable software slave management (NSS pin free for other uses)
+                // SSI: set nss high = master mode
+                // CRCEN: hardware CRC calculation disabled
+                // BIDIMODE: 2 line unidirectional (full duplex)
+                regs.cr1.write(|w| unsafe {
+                    w.cpha()
+                        .bit(mode.phase == Phase::CaptureOnSecondTransition)
+                        .cpol()
+                        .bit(mode.polarity == Polarity::IdleHigh)
+                        .mstr()
+                        .set_bit()
+                        .br()
+                        .bits(br)
+                        .spe()
+                        .set_bit()
+                        .lsbfirst()
+                        .clear_bit()
+                        .ssi()
+                        .set_bit()
+                        .ssm()
+                        .set_bit()
+                        .crcen()
+                        .clear_bit()
+                        .bidimode()
+                        .clear_bit()
                 });
             }
-
-            fn compute_baud_rate(clocks: u32, freq: u32) -> u8 {
-                match clocks / freq {
-                    0 => unreachable!(),
-                    1..=2 => 0b000,
-                    3..=5 => 0b001,
-                    6..=11 => 0b010,
-                    12..=23 => 0b011,
-                    24..=39 => 0b100,
-                    40..=95 => 0b101,
-                    96..=191 => 0b110,
-                    _ => 0b111,
-                }
-            }}
         }
+        Spi { regs }
+    }
 
-        impl FullDuplex<u8> for Spi<pac::$SPIX> {
-            type Error = Error;
+    #[cfg(not(feature = "h7"))]
+    /// Change the baud rate of the SPI
+    pub fn reclock<F, C: ClockCfg>(&mut self, freq: u32, clocks: C) {
+        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+        self.regs.cr1.modify(|_, w| {
+            // todo: Set this back up.
+            // unsafe {w.br().bits(Self::compute_baud_rate(clocks.[<apb $apb _timer>](), freq));}
+            w.spe().set_bit()
+        });
+    }
 
-            fn read(&mut self) -> nb::Result<u8, Error> {
-                let sr = self.spi.sr.read();
-
-            // todo: DRY between H7 and non-H7 branches here
-                cfg_if! {
-                    if #[cfg(feature = "h7")] {
-                        return Err(if sr.ovr().is_overrun() {
-                            nb::Error::Other(Error::Overrun)
-                        } else if sr.modf().is_fault() {
-                            nb::Error::Other(Error::ModeFault)
-                        } else if sr.crce().is_error() {
-                            nb::Error::Other(Error::Crc)
-                        } else if sr.rxp().is_not_empty() {
-                            // NOTE(read_volatile) read only 1 byte (the
-                            // svd2rust API only allows reading a
-                            // half-word)
-                            return Ok(unsafe {
-                                ptr::read_volatile(
-                                    &self.spi.rxdr as *const _ as *const $TY,
-                                )
-                            });
-                        } else {
-                            nb::Error::WouldBlock
-                        });
-                    } else {
-                        return Err(if sr.ovr().bit_is_set() {
-                        nb::Error::Other(Error::Overrun)
-                    } else if sr.modf().bit_is_set() {
-                        nb::Error::Other(Error::ModeFault)
-                    } else if sr.crcerr().bit_is_set() {
-                        nb::Error::Other(Error::Crc)
-                    } else if sr.rxne().bit_is_set() {
-                        // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
-                        // reading a half-word)
-                        return Ok(unsafe {
-                            ptr::read_volatile(&self.spi.dr as *const _ as *const u8)
-                        });
-                    } else {
-                        nb::Error::WouldBlock
-                    });
-                    }
-                }
-            }
-
-            fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
-                let sr = self.spi.sr.read();
-
-                // todo: DRY between H7 and non-H7 branches here
-                cfg_if! {
-                    if #[cfg(feature = "h7")] {
-                        return  Err(if sr.ovr().is_overrun() {
-                            nb::Error::Other(Error::Overrun)
-                        } else if sr.modf().is_fault() {
-                            nb::Error::Other(Error::ModeFault)
-                        } else if sr.crce().is_error() {
-                            nb::Error::Other(Error::Crc)
-                        } else if sr.txp().is_not_full() {
-                            // NOTE(write_volatile) see note above
-                            unsafe {
-                                ptr::write_volatile(
-                                    &self.spi.txdr as *const _ as *mut $TY,
-                                    byte,
-                                )
-                            }
-                            // write CSTART to start a transaction in
-                            // master mode
-                            self.spi.cr1.modify(|_, w| w.cstart().started());
-
-                            return Ok(());
-                        } else {
-                            nb::Error::WouldBlock
-                        });
-                    } else {
-                        return Err(if sr.ovr().bit_is_set() {
-                            nb::Error::Other(Error::Overrun)
-                        } else if sr.modf().bit_is_set() {
-                            nb::Error::Other(Error::ModeFault)
-                        } else if sr.crcerr().bit_is_set() {
-                            nb::Error::Other(Error::Crc)
-                        } else if sr.txe().bit_is_set() {
-                            // NOTE(write_volatile) see note above
-                            unsafe { ptr::write_volatile(&self.spi.dr as *const _ as *mut u8, byte) }
-                            return Ok(());
-                        } else {
-                            nb::Error::WouldBlock
-                        });
-                    }
-                }
-            }
+    fn compute_baud_rate(clocks: u32, freq: u32) -> u8 {
+        match clocks / freq {
+            0 => unreachable!(),
+            1..=2 => 0b000,
+            3..=5 => 0b001,
+            6..=11 => 0b010,
+            12..=23 => 0b011,
+            24..=39 => 0b100,
+            40..=95 => 0b101,
+            96..=191 => 0b110,
+            _ => 0b111,
         }
-
-        impl embedded_hal::blocking::spi::transfer::Default<u8> for Spi<pac::$SPIX> {}
-
-        impl embedded_hal::blocking::spi::write::Default<u8> for Spi<pac::$SPIX> {}
     }
 }
 
-#[cfg(not(feature = "f301"))]
-hal!(SPI1, spi1, 2);
+impl<S> FullDuplex<u8> for Spi<S>
+where
+    S: Deref<Target = pac::spi1::RegisterBlock>,
+{
+    type Error = Error;
 
-#[cfg(not(feature = "f3x4"))]
-hal!(SPI2, spi2, 1);
+    fn read(&mut self) -> nb::Result<u8, Error> {
+        let sr = self.regs.sr.read();
 
-// l4x3 and L5 support SPI3, but have an inconsitent naming convention for enabling rcc.
-// (ie `sp3en` instead of `spi3en`.)
-#[cfg(any(
-    feature = "f301",
-    feature = "f302",
-    feature = "f303",
-    feature = "f373",
-    feature = "l4x1",
-    feature = "l4x4",
-    feature = "l4x5",
-    feature = "l4x6",
-    feature = "g4",
-))]
-hal!(SPI3, spi3, 1);
+        // todo: DRY between H7 and non-H7 branches here
+        cfg_if! {
+            if #[cfg(feature = "h7")] {
+                return Err(if sr.ovr().is_overrun() {
+                    nb::Error::Other(Error::Overrun)
+                } else if sr.modf().is_fault() {
+                    nb::Error::Other(Error::ModeFault)
+                } else if sr.crce().is_error() {
+                    nb::Error::Other(Error::Crc)
+                } else if sr.rxp().is_not_empty() {
+                    // NOTE(read_volatile) read only 1 byte (the
+                    // svd2rust API only allows reading a
+                    // half-word)
+                    return Ok(unsafe {
+                        ptr::read_volatile(
+                            &self.spi.rxdr as *const _ as *const $TY,
+                        )
+                    });
+                } else {
+                    nb::Error::WouldBlock
+                });
+            } else {
+                return Err(if sr.ovr().bit_is_set() {
+                nb::Error::Other(Error::Overrun)
+            } else if sr.modf().bit_is_set() {
+                nb::Error::Other(Error::ModeFault)
+            } else if sr.crcerr().bit_is_set() {
+                nb::Error::Other(Error::Crc)
+            } else if sr.rxne().bit_is_set() {
+                // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
+                // reading a half-word)
+                return Ok(unsafe {
+                    ptr::read_volatile(&self.regs.dr as *const _ as *const u8)
+                });
+            } else {
+                nb::Error::WouldBlock
+            });
+            }
+        }
+    }
+
+    fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
+        let sr = self.regs.sr.read();
+
+        // todo: DRY between H7 and non-H7 branches here
+        cfg_if! {
+            if #[cfg(feature = "h7")] {
+                return  Err(if sr.ovr().is_overrun() {
+                    nb::Error::Other(Error::Overrun)
+                } else if sr.modf().is_fault() {
+                    nb::Error::Other(Error::ModeFault)
+                } else if sr.crce().is_error() {
+                    nb::Error::Other(Error::Crc)
+                } else if sr.txp().is_not_full() {
+                    // NOTE(write_volatile) see note above
+                    unsafe {
+                        ptr::write_volatile(
+                            &self.spi.txdr as *const _ as *mut $TY,
+                            byte,
+                        )
+                    }
+                    // write CSTART to start a transaction in
+                    // master mode
+                    self.spi.cr1.modify(|_, w| w.cstart().started());
+
+                    return Ok(());
+                } else {
+                    nb::Error::WouldBlock
+                });
+            } else {
+                return Err(if sr.ovr().bit_is_set() {
+                    nb::Error::Other(Error::Overrun)
+                } else if sr.modf().bit_is_set() {
+                    nb::Error::Other(Error::ModeFault)
+                } else if sr.crcerr().bit_is_set() {
+                    nb::Error::Other(Error::Crc)
+                } else if sr.txe().bit_is_set() {
+                    // NOTE(write_volatile) see note above
+                    unsafe { ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, byte) }
+                    return Ok(());
+                } else {
+                    nb::Error::WouldBlock
+                });
+            }
+        }
+    }
+}
+
+impl<S> embedded_hal::blocking::spi::transfer::Default<u8> for Spi<S> where
+    S: Deref<Target = pac::spi1::RegisterBlock>
+{
+}
+
+impl<S> embedded_hal::blocking::spi::write::Default<u8> for Spi<S> where
+    S: Deref<Target = pac::spi1::RegisterBlock>
+{
+}

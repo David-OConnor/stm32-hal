@@ -76,11 +76,28 @@ Most peripheral modules are independent: The only dependency they have within th
 is the `ClockCfg` trait, which we may move to a standalone crate later. This makes
 it easy to interchange them with other projects.
 
-PRs encouraged. Documenting each step using reference manuals is encouraged, but not required.
-
 The Rust docs page is built for STM32L4x3, and some aspects are not accurate for other
 variants. We currently don't have a good solution to this problem, and may
 self-host docs in the future.
+
+## Contributing
+
+PRs are encouraged. Documenting each step using reference manuals is encouraged, but not required.
+
+Most modules use the following format:
+
+- Enums for various config variables
+- A peripheral struct that owns the reg block, and has fields for config. This struct includes
+a `regs` field that is the appropriate reg block. Where possible, this is generic, eg:
+`U: Deref<Target = pac::usart1::RegisterBlock>,`. [Reference the stm32-rs-nightlies Githug](https://github.com/stm32-rs/stm32-rs-nightlies)
+to identify when we can use this code-saver.
+- If config fields are complicated, we use a separate Config struct owned by the peripheral struct.
+This Config struct impls `Default`.
+- A constructor named `new` that performs setup code, including RCC peripheral enable and reset
+- `enable_interrupt` and `clear_interrupt` functions
+- `embedded-hal` implementations as required, that call our own methods. (They are not the primary API)
+
+
 
 ## Errata
 
@@ -97,7 +114,5 @@ self-host docs in the future.
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
 - ADC is unimplemented on F4
 - ADC 3 and 4 unimplemented on G4. ADC3 is unimplemented on H7
-- Some timer implementations are missing
 - Low power modes beyond sleep and cstop aren't implemented for H7
 - Waiting on U5 PAC before implementing
-- SPI3 unimplemented on L4x3 and L5. (PAC inconsistency of rcc `sp3en` instead of `spi3en`.)
