@@ -84,23 +84,23 @@ self-host docs in the future.
 
 PRs are encouraged. Documenting each step using reference manuals is encouraged, but not required.
 
-Most modules use the following format:
+Most peripheral modules use the following format:
 
-- Enums for various config variables
+- Enums for various config settings, that implement `#[repr(u8)]` for their associated register values
 - A peripheral struct that owns the reg block, and has fields for config. This struct includes
-a `regs` field that is the appropriate reg block. Where possible, this is generic, eg:
+a private `regs` field that is the appropriate reg block. Where possible, this is defined generically
+in the implementation, eg:
 `U: Deref<Target = pac::usart1::RegisterBlock>,`. [Reference the stm32-rs-nightlies Githug](https://github.com/stm32-rs/stm32-rs-nightlies)
-to identify when we can use this code-saver.
+to identify when we can take advantage of this.
 - If config fields are complicated, we use a separate Config struct owned by the peripheral struct.
 This Config struct impls `Default`.
 - A constructor named `new` that performs setup code, including RCC peripheral enable and reset
 - `enable_interrupt` and `clear_interrupt` functions
-- `embedded-hal` implementations as required, that call our own methods. (They are not the primary API)
-
+- `embedded-hal` implementations as required, that call native methods as applicable. Note that
+we design our APIs based on STM32 capabilities, and apply EH traits as applicable.
 
 
 ## Errata
-
 
 - DMA, CAN, SAI, SDIO, ethernet unimplemented
 - USART synchronous mode, and auto-baud-rate detection unimplemented

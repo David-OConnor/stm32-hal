@@ -30,7 +30,7 @@ use stm32_hal2::{
     pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
     usart::{Usart, UsartDevice, UsartInterrupt, UsartConfig},
-    spi::{self, Spi},
+    spi::{self, Spi, SpiDevice},
     timer::{Event::TimeOut, Timer},
 };
 
@@ -114,8 +114,9 @@ fn main() -> ! {
     };
 
     // Set up an SPI peripheral, running at 4Mhz, in SPI mode 0.
-    let spi = Spi::new_spi1(
+    let spi = Spi::new(
         dp.SPI1,
+        SpiDevice::One,
         spi_mode,
         4_000_000,
         &clock_cfg,
