@@ -36,6 +36,7 @@ pub enum Error {
 pub enum SpiDevice {
     One,
     Two,
+    #[cfg(not(any(feature = "f3x4", feature = "g0")))]
     Three,
 }
 
@@ -146,8 +147,6 @@ where
         clocks: &C,
         rcc: &mut RCC,
     ) -> Self {
-        // l4x3 and L5 support SPI3, but have an inconsitent naming convention for enabling rcc.
-        // (ie `sp3en` instead of `spi3en`.)
         match device {
             SpiDevice::One => {
                 rcc_en_reset!(apb2, spi1, rcc);
@@ -155,9 +154,10 @@ where
             SpiDevice::Two => {
                 rcc_en_reset!(apb1, spi2, rcc);
             }
+            #[cfg(not(any(feature = "f3x4", feature = "g0")))]
             SpiDevice::Three => {
                 cfg_if! {
-                    // Note the difference of `sp3en` mixed with `spi3rst`.
+                    // Note `sp3en` mixed with `spi3rst`; why we can't use the usual macro.
                     if #[cfg(any(feature = "l4x3", feature = "l5"))] {
                         rcc.apb1enr1.modify(|_, w| w.sp3en().set_bit());
                         rcc.apb1rstr1.modify(|_, w| w.spi3rst().set_bit());
