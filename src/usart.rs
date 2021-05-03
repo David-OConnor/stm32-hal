@@ -6,7 +6,7 @@
 
 // todo: Missing some features (like additional interrupts) on the USARTv3 peripheral . (L5, G etc)
 
-use core::ops::Deref;
+use core::{ops::Deref, ptr};
 
 use crate::{
     pac::{self, RCC},
@@ -64,6 +64,7 @@ pub enum UsartDevice {
         feature = "f401",
         feature = "f410",
         feature = "f411",
+        feature = "f412",
         feature = "f413",
         feature = "l4x1",
         feature = "g0"
@@ -120,6 +121,7 @@ impl Default for UsartConfig {
 /// Represents the USART peripheral, for serial communications.
 pub struct Usart<U> {
     regs: U,
+    device: UsartDevice,
     pub baud: u32,
     pub config: UsartConfig,
 }
@@ -133,7 +135,7 @@ where
         device: UsartDevice,
         baud: u32,
         config: UsartConfig,
-        clocks: &C,
+        clock_cfg: &C,
         rcc: &mut RCC,
     ) -> Self {
         match device {
@@ -156,6 +158,7 @@ where
                 feature = "f401",
                 feature = "f410",
                 feature = "f411",
+                feature = "f412",
                 feature = "f413",
                 feature = "l4x1",
                 feature = "g0"
@@ -178,12 +181,21 @@ where
               // }
         }
 
-        // This should already be disabled on power up, but disable here just in case:
-        regs.cr1.modify(|_, w| w.ue().clear_bit());
-        while regs.cr1.read().ue().bit_is_set() {}
+        let mut result = Self {
+            regs,
+            device,
+            baud,
+            config,
+        };
 
-        regs.cr1
-            .modify(|_, w| w.over8().bit(config.oversampling as u8 != 0));
+        // This should already be disabled on power up, but disable here just in case:
+        result.regs.cr1.modify(|_, w| w.ue().clear_bit());
+        while result.regs.cr1.read().ue().bit_is_set() {}
+
+        result
+            .regs
+            .cr1
+            .modify(|_, w| w.over8().bit(result.config.oversampling as u8 != 0));
 
         // Set up transmission. See L44 RM, section 38.5.2: "Character Transmission Procedures".
         // 1. Program the M bits in USART_CR1 to define the word length.
@@ -191,23 +203,54 @@ where
 
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "f4"))] {
-                regs.cr1.modify(|_, w| w.m().bit(config.word_len as u8 != 0));
+                result.regs.cr1.modify(|_, w| w.m().bit(result.config.word_len as u8 != 0));
             } else {
-                let word_len_bits = config.word_len.bits();
-                regs.cr1.modify(|_, w| w.m1().bit(word_len_bits.0 != 0));
-                regs.cr1.modify(|_, w| w.m0().bit(word_len_bits.1 != 0));
+                let word_len_bits = result.config.word_len.bits();
+                result.regs.cr1.modify(|_, w| w.m1().bit(word_len_bits.0 != 0));
+                result.regs.cr1.modify(|_, w| w.m0().bit(word_len_bits.1 != 0));
             }
         }
 
         // 2. Select the desired baud rate using the USART_BRR register.
+        result.set_baud(baud, clock_cfg);
+        // 3. Program the number of stop bits in USART_CR2.
+        result
+            .regs
+            .cr2
+            .modify(|_, w| unsafe { w.stop().bits(result.config.stop_bits as u8) });
+        // 4. Enable the USART by writing the UE bit in USART_CR1 register to 1.
+        result.regs.cr1.modify(|_, w| w.ue().set_bit());
+        // 5. Select DMA enable (DMAT) in USART_CR3 if multibuffer communication is to take
+        // place. Configure the DMA register as explained in multibuffer communication.
+        // todo?
+        // 6. Set the TE bit in USART_CR1 to send an idle frame as first transmission.
+        // 6. Set the RE bit USART_CR1. This enables the receiver which begins searching for a
+        // start bit.
+        result.regs.cr1.modify(|_, w| {
+            w.te().set_bit();
+            w.re().set_bit()
+        });
+
+        result
+    }
+
+    /// Set the BAUD rate. Called during init, and can be called later to change BAUD
+    /// during program execution.
+    pub fn set_baud<C: ClockCfg>(&mut self, baud: u32, clock_cfg: &C) {
+        let originally_enabled = self.regs.cr1.read().ue().bit_is_set();
+
+        if originally_enabled {
+            self.regs.cr1.modify(|_, w| w.ue().clear_bit());
+            while self.regs.cr1.read().ue().bit_is_set() {}
+        }
 
         // To set BAUD rate, see L4 RM section 38.5.4: "USART baud rate generation".
-        let fclk = match device {
-            UsartDevice::One => clocks.apb2(),
-            _ => clocks.apb1(),
+        let fclk = match self.device {
+            UsartDevice::One => clock_cfg.apb2(),
+            _ => clock_cfg.apb1(),
         };
 
-        let usart_div = match config.oversampling {
+        let usart_div = match self.config.oversampling {
             OverSampling::O16 => fclk / baud,
             OverSampling::O8 => 2 * fclk / baud,
         };
@@ -220,24 +263,13 @@ where
         // – BRR[15:4] = USARTDIV[15:4]
         // todo: BRR needs to be modified per the above if on oversampling 8.
 
-        regs.brr.write(|w| unsafe { w.bits(usart_div as u32) });
-        // 3. Program the number of stop bits in USART_CR2.
-        regs.cr2
-            .modify(|_, w| unsafe { w.stop().bits(config.stop_bits as u8) });
-        // 4. Enable the USART by writing the UE bit in USART_CR1 register to 1.
-        regs.cr1.modify(|_, w| w.ue().set_bit());
-        // 5. Select DMA enable (DMAT) in USART_CR3 if multibuffer communication is to take
-        // place. Configure the DMA register as explained in multibuffer communication.
-        // todo?
-        // 6. Set the TE bit in USART_CR1 to send an idle frame as first transmission.
-        // 6. Set the RE bit USART_CR1. This enables the receiver which begins searching for a
-        // start bit.
-        regs.cr1.modify(|_, w| {
-            w.te().set_bit();
-            w.re().set_bit()
-        });
+        self.regs.brr.write(|w| unsafe { w.bits(usart_div as u32) });
 
-        Self { regs, baud, config }
+        self.baud = baud;
+
+        if originally_enabled {
+            self.regs.cr1.modify(|_, w| w.ue().set_bit());
+        }
     }
 
     /// Transmit data, as a sequence of u8.. See L44 RM, section 38.5.2: "Character transmission procedure"
@@ -266,6 +298,11 @@ where
                     self.regs
                         .dr
                         .modify(|_, w| unsafe { w.dr().bits(*word as u16) });
+
+                    // // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
+                    // unsafe {
+                    //     ptr::write_volatile(*self.regs.dr, word)
+                    // }
                 }
                 while self.regs.sr.read().tc().bit_is_clear() {}
             }

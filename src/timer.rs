@@ -762,18 +762,6 @@ cfg_if! {
    }
 }
 
-#[cfg(not(any(
-    feature = "f301",
-    feature = "f302",
-    feature = "f401",
-    feature = "f410",
-    feature = "f411",
-    feature = "g031",
-    feature = "g041",
-    feature = "g030"
-)))]
-hal!(TIM7, tim7, 1);
-
 cfg_if! {
     if #[cfg(not(any(
         feature = "f401",
@@ -788,8 +776,26 @@ cfg_if! {
     }
 }
 
-#[cfg(not(feature = "f4"))]
-hal!(TIM16, tim16, 2);
+#[cfg(not(any(
+    feature = "f301",
+    feature = "f302",
+    feature = "f401",
+    feature = "f410",
+    feature = "f411",
+    feature = "g031",
+    feature = "g041",
+    feature = "g030"
+)))]
+hal!(TIM7, tim7, 1);
+
+#[cfg(any(
+    feature = "f303",
+    feature = "l4x5",
+    feature = "l4x6",
+    feature = "l562",
+    feature = "g4"
+))]
+hal!(TIM8, tim8, 2);
 
 // Todo: the L5 PAC has an address error on TIM15 - remove it until solved.
 #[cfg(not(any(
@@ -802,14 +808,8 @@ hal!(TIM16, tim16, 2);
 )))]
 hal!(TIM15, tim15, 2);
 
-#[cfg(any(
-    feature = "f303",
-    feature = "l4x5",
-    feature = "l4x6",
-    feature = "l562",
-    feature = "g4"
-))]
-hal!(TIM8, tim8, 2);
+#[cfg(not(feature = "f4"))]
+hal!(TIM16, tim16, 2);
 
 cfg_if! {
     if #[cfg(not(any(
