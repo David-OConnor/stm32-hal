@@ -7,6 +7,8 @@
 // todo: Synchronous mode.
 // todo: Auto baud
 
+// todo: Missing some features (like additional interrupts) on the USARTv3 peripheral . (L5, G etc)
+
 use core::ops::Deref;
 
 use crate::{
@@ -62,7 +64,7 @@ impl WordLen {
 pub enum UsartDevice {
     One,
     Two,
-    #[cfg(not(any(feature = "l4x1", feature = "g0")))]
+    #[cfg(not(any(feature = "f410", feature = "f411", feature = "l4x1", feature = "g0")))]
     Three,
     // Four,  todo
     // Five,
@@ -76,6 +78,7 @@ pub enum OverSampling {
     O8 = 1,
 }
 
+#[cfg(not(feature = "f4"))]
 #[derive(Clone, Copy)]
 /// The type of USART interrupt to configure. Reference the USART_ISR register.
 pub enum UsartInterrupt {
@@ -132,14 +135,34 @@ where
         // todo: Hard set to usart 1 to get started
         match device {
             UsartDevice::One => {
+                // #[cfg(not(feature = "f4"))]
                 rcc_en_reset!(apb2, usart1, rcc);
+                // #[cfg(feature = "f4")]
+                // rcc_en_reset!(apb2, uart1, rcc);
             }
             UsartDevice::Two => {
-                rcc_en_reset!(apb1, usart2, rcc);
+                cfg_if! {
+                    if #[cfg(not(feature = "f4"))] {
+                        rcc_en_reset!(apb1, usart2, rcc);
+                    } else {
+                        // Notice the `usart` vs `uart` asymmetry.
+                        rcc.apb1enr.modify(|_, w| w.usart2en().set_bit());
+                        rcc.apb1rstr.modify(|_, w| w.uart2rst().set_bit());
+                        rcc.apb1rstr.modify(|_, w| w.uart2rst().clear_bit());
+                    }
+                }
             }
-            #[cfg(not(any(feature = "l4x1", feature = "g0")))]
+            #[cfg(not(any(feature = "f410", feature = "f411", feature = "l4x1", feature = "g0")))]
             UsartDevice::Three => {
-                rcc_en_reset!(apb1, usart3, rcc);
+                cfg_if! {
+                    if #[cfg(not(feature = "f4"))] {
+                        rcc_en_reset!(apb1, usart3, rcc);
+                    } else {
+                        rcc.apb1enr.modify(|_, w| w.usart3en().set_bit());
+                        rcc.apb1rstr.modify(|_, w| w.uart3rst().set_bit());
+                        rcc.apb1rstr.modify(|_, w| w.uart3rst().clear_bit());
+                    }
+                }
             } // UsartDevice::Four => {
               //     rcc_en_reset!(apb1, uart4, rcc);
               // }
@@ -160,7 +183,7 @@ where
         // todo: Make sure you aren't doing this backwards.
 
         cfg_if! {
-            if #[cfg(feature = "f3")] {
+            if #[cfg(any(feature = "f3", feature = "f4"))] {
                 regs.cr1.modify(|_, w| w.m().bit(config.word_len as u8 != 0));
             } else {
                 let word_len_bits = config.word_len.bits();
@@ -215,28 +238,47 @@ where
     pub fn write(&mut self, data: &[u8]) {
         // 7. Write the data to send in the USART_TDR register (this clears the TXE bit). Repeat this
         // for each data to be transmitted in case of single buffer.
-        // todo: Do we need to manually wait until txe = 1?
-        for word in data {
-            while self.regs.isr.read().txe().bit_is_clear() {}
-            // todo: how does this work with a 9 bit words? Presumably you'd need to make `data`
-            // todo take `&u16`.
-            self.regs
-                .tdr
-                .modify(|_, w| unsafe { w.tdr().bits(*word as u16) });
+
+        cfg_if! {
+            if #[cfg(not(feature = "f4"))] {
+                for word in data {
+                    while self.regs.isr.read().txe().bit_is_clear() {}
+                    // todo: how does this work with a 9 bit words? Presumably you'd need to make `data`
+                    // todo take `&u16`.
+                    self.regs
+                        .tdr
+                        .modify(|_, w| unsafe { w.tdr().bits(*word as u16) });
+                }
+                // 8. After writing the last data into the USART_TDR register, wait until TC=1. This indicates
+                // that the transmission of the last frame is complete. This is required for instance when
+                // the USART is disabled or enters the Halt mode to avoid corrupting the last
+                // transmission
+                while self.regs.isr.read().tc().bit_is_clear() {}
+            } else {
+                for word in data {
+                    while self.regs.sr.read().txe().bit_is_clear() {}
+                    self.regs
+                        .dr
+                        .modify(|_, w| unsafe { w.dr().bits(*word as u16) });
+                }
+                while self.regs.sr.read().tc().bit_is_clear() {}
+            }
         }
-        // 8. After writing the last data into the USART_TDR register, wait until TC=1. This indicates
-        // that the transmission of the last frame is complete. This is required for instance when
-        // the USART is disabled or enters the Halt mode to avoid corrupting the last
-        // transmission
-        while self.regs.isr.read().tc().bit_is_clear() {}
     }
 
     /// Receive data into a u8 buffer. See L44 RM, section 38.5.3: "Character reception procedure"
     pub fn read(&mut self, buf: &mut [u8]) {
         for i in 0..buf.len() {
             // Wait for the next bit
-            while self.regs.isr.read().rxne().bit_is_clear() {}
-            buf[i] = self.regs.rdr.read().rdr().bits() as u8;
+            cfg_if! {
+                if #[cfg(not(feature = "f4"))] {
+                    while self.regs.isr.read().rxne().bit_is_clear() {}
+                    buf[i] = self.regs.rdr.read().rdr().bits() as u8;
+                } else {
+                    while self.regs.sr.read().rxne().bit_is_clear() {}
+                    buf[i] = self.regs.dr.read().dr().bits() as u8;
+                }
+            }
         }
 
         // When a character is received:
@@ -259,6 +301,7 @@ where
     //
     // }
 
+    #[cfg(not(feature = "f4"))]
     /// Enable a specific type of interrupt.
     pub fn enable_interrupt(&mut self, interrupt_type: UsartInterrupt) {
         // Disable the UART to allow writing the `add` and `addm7` bits
@@ -325,6 +368,7 @@ where
         self.regs.cr1.modify(|_, w| w.ue().set_bit());
     }
 
+    #[cfg(not(feature = "f4"))]
     /// Clears the interrupt pending flag for a specific type of interrupt.
     pub fn clear_interrupt(&mut self, interrupt_type: UsartInterrupt) {
         match interrupt_type {
@@ -367,9 +411,23 @@ where
 {
     type Error = Error;
 
+    #[cfg(not(feature = "f4"))]
     fn read(&mut self) -> nb::Result<u8, Error> {
-        if self.regs.isr.read().rxne().bit_is_set() {
+        let rxne = self.regs.isr.read().rxne().bit_is_set();
+
+        if rxne {
             Ok(self.regs.rdr.read().rdr().bits() as u8)
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    #[cfg(feature = "f4")]
+    fn read(&mut self) -> nb::Result<u8, Error> {
+        let rxne = self.regs.sr.read().rxne().bit_is_set();
+
+        if rxne {
+            Ok(self.regs.dr.read().dr().bits() as u8)
         } else {
             Err(nb::Error::WouldBlock)
         }
@@ -382,8 +440,11 @@ where
 {
     type Error = Error;
 
+    #[cfg(not(feature = "f4"))]
     fn write(&mut self, word: u8) -> nb::Result<(), Error> {
-        if self.regs.isr.read().txe().bit_is_set() {
+        let txe = self.regs.isr.read().txe().bit_is_set();
+
+        if txe {
             self.regs
                 .tdr
                 .modify(|_, w| unsafe { w.tdr().bits(word as u16) });
@@ -393,8 +454,27 @@ where
         }
     }
 
+    #[cfg(feature = "f4")]
+    fn write(&mut self, word: u8) -> nb::Result<(), Error> {
+        let txe = self.regs.sr.read().txe().bit_is_set();
+
+        if txe {
+            self.regs
+                .dr
+                .modify(|_, w| unsafe { w.dr().bits(word as u16) });
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
     fn flush(&mut self) -> nb::Result<(), Error> {
-        if self.regs.isr.read().tc().bit_is_set() {
+        #[cfg(not(feature = "f4"))]
+        let tc = self.regs.isr.read().tc().bit_is_set();
+        #[cfg(feature = "f4")]
+        let tc = self.regs.sr.read().tc().bit_is_set();
+
+        if tc {
             Ok(())
         } else {
             Err(nb::Error::WouldBlock)
@@ -414,7 +494,11 @@ where
     }
 
     fn bflush(&mut self) -> Result<(), Error> {
+        #[cfg(not(feature = "f4"))]
         while self.regs.isr.read().tc().bit_is_clear() {}
+        #[cfg(feature = "f4")]
+        while self.regs.sr.read().tc().bit_is_clear() {}
+
         Ok(())
     }
 }

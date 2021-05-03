@@ -17,7 +17,8 @@ become available.
 minimal code change. 
 
 **Design priority**: Get hardware working with a robust feature set, aimed at
-practical uses.
+practical uses. The freedom to choose the right MCU for each project, without 
+changing code bases.
 
 ## Getting started
 Review the [syntax overview example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/syntax_overview)
@@ -106,7 +107,7 @@ These steps are copy+pasted in comments before the code that performs each one.
 
 - DMA, CAN, SAI, SDIO, ethernet unimplemented
 - USART synchronous mode, and auto-baud-rate detection unimplemented
-- USART unimplemented for F4
+- USART interrupts unimplemented on f4
 - H7 clocks are missing advanced features
 - PWM input unimplemented
 - SPI unimplemented for H7

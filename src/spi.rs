@@ -36,7 +36,7 @@ pub enum Error {
 pub enum SpiDevice {
     One,
     Two,
-    #[cfg(not(any(feature = "f3x4", feature = "g0")))]
+    #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
     Three,
 }
 
@@ -154,7 +154,7 @@ where
             SpiDevice::Two => {
                 rcc_en_reset!(apb1, spi2, rcc);
             }
-            #[cfg(not(any(feature = "f3x4", feature = "g0")))]
+            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
             SpiDevice::Three => {
                 cfg_if! {
                     // Note `sp3en` mixed with `spi3rst`; why we can't use the usual macro.

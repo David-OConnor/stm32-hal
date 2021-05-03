@@ -251,7 +251,7 @@ pub mod low_power;
 pub mod qspi;
 pub mod rtc;
 
-#[cfg(not(feature = "f4"))]
+// #[cfg(not(feature = "f4"))]
 pub mod usart;
 
 // #[cfg(not(any(feature = "f3")))]

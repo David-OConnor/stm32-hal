@@ -1,4 +1,4 @@
-//! Digital to Analog converter.
+//! Support for the digital to Analog converter peripheral.
 
 // Note that we don't use macros hereto the same extent as with other modules,
 // since all families appear to only have a single DAC register block. For example,
@@ -11,7 +11,6 @@
 use crate::{
     pac::{self, RCC},
     rcc_en_reset,
-    traits::SingleChannelDac,
 };
 
 use cfg_if::cfg_if;
@@ -229,18 +228,6 @@ macro_rules! hal {
                 }
                 self.set_trigger(trigger);
                 self.set_value(data);
-            }
-        }
-
-        pub struct DacError {}
-
-        impl SingleChannelDac<u32> for Dac {
-            type Error = DacError;
-
-            /// Set the DAC value as an integer.
-            fn try_set_value(&mut self, val: u32) -> Result<(), DacError> {
-                self.set_value(val);
-                Ok(())
             }
         }
     };
