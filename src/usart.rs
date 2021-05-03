@@ -64,6 +64,7 @@ pub enum UsartDevice {
         feature = "f401",
         feature = "f410",
         feature = "f411",
+        feature = "f413",
         feature = "l4x1",
         feature = "g0"
     )))]
@@ -155,6 +156,7 @@ where
                 feature = "f401",
                 feature = "f410",
                 feature = "f411",
+                feature = "f413",
                 feature = "l4x1",
                 feature = "g0"
             )))]

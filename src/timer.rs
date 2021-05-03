@@ -664,7 +664,13 @@ macro_rules! pwm_features {
 
 #[cfg(not(any(feature = "f373")))]
 hal!(TIM1, tim1, 2);
-#[cfg(not(any(feature = "f373", feature = "f4", feature = "l4", feature = "g0")))]
+#[cfg(not(any(
+    feature = "f373",
+    feature = "f4",
+    feature = "l4",
+    feature = "l5",
+    feature = "g0"
+)))]
 pwm_features!(TIM1, u16);
 
 #[cfg(any(feature = "g0"))]
@@ -705,6 +711,7 @@ cfg_if! {
     if #[cfg(not(any(
         feature = "f301",
         feature = "f3x4",
+        feature = "f410",
         feature = "l4x1",
         feature = "l4x2",
         feature = "l4x3",
@@ -712,6 +719,20 @@ cfg_if! {
         feature = "g0",
     )))] {
         hal!(TIM4, tim4, 1);
+    }
+}
+
+cfg_if! {
+    if #[cfg(not(any(
+        feature = "f301",
+        feature = "f3x4",
+        feature = "f410",
+        feature = "l4x1",
+        feature = "l4x2",
+        feature = "l4x3",
+        feature = "l5",
+        feature = "g0",
+    )))] {
         pwm_features!(TIM4, u16);
     }
 }
@@ -726,6 +747,17 @@ cfg_if! {
        all(feature = "f4", not(feature = "f410")),
    ))] {
         hal!(TIM5, tim5, 1);
+   }
+}
+
+cfg_if! {
+    if #[cfg(any(
+       feature = "f373",
+       feature = "l4x5",
+       feature = "l4x6",
+       feature = "h7",
+       all(feature = "f4", not(feature = "f410")),
+   ))] {
         pwm_features!(TIM5, u32);
    }
 }
