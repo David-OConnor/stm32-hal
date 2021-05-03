@@ -2,8 +2,6 @@
 
 // Based on `stm32l4xx-hal` and `stm32h7xx-hal`.
 
-// todo: Consider a macro-less approach like I2C and USART.
-
 use core::{ops::Deref, ptr};
 
 use embedded_hal::spi::{FullDuplex, Mode, Phase, Polarity};
@@ -35,6 +33,7 @@ pub enum Error {
 #[derive(Clone, Copy)]
 pub enum SpiDevice {
     One,
+    #[cfg(not(feature = "f3x4"))]
     Two,
     #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
     Three,
@@ -149,8 +148,10 @@ where
     ) -> Self {
         match device {
             SpiDevice::One => {
+                #[cfg(not(feature = "f301"))] // todo: Not sure what's going on  here.
                 rcc_en_reset!(apb2, spi1, rcc);
             }
+            #[cfg(not(feature = "f3x4"))]
             SpiDevice::Two => {
                 rcc_en_reset!(apb1, spi2, rcc);
             }

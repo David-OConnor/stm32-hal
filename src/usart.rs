@@ -1,9 +1,6 @@
 //! This module allows for serial communication using the STM32 USART module.
 //! Supports Embedded HAL `Read` and `Write` traits.
 
-// todo: see if you can use this macro-less approach elsewhere. Currently used
-// todo here and in I2c
-
 // todo: Synchronous mode.
 // todo: Auto baud
 
@@ -24,7 +21,6 @@ use embedded_hal::{
 
 use cfg_if::cfg_if;
 
-// todo: Make a single interrupt function that takes this macro?
 // todo: Prescaler (USART_PRESC) register on v3 (L5, G, H etc)
 
 #[derive(Clone, Copy)]
@@ -135,10 +131,7 @@ where
         // todo: Hard set to usart 1 to get started
         match device {
             UsartDevice::One => {
-                // #[cfg(not(feature = "f4"))]
                 rcc_en_reset!(apb2, usart1, rcc);
-                // #[cfg(feature = "f4")]
-                // rcc_en_reset!(apb2, uart1, rcc);
             }
             UsartDevice::Two => {
                 cfg_if! {

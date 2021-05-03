@@ -107,7 +107,7 @@ These steps are copy+pasted in comments before the code that performs each one.
 
 - DMA, CAN, SAI, SDIO, ethernet unimplemented
 - USART synchronous mode, and auto-baud-rate detection unimplemented
-- USART interrupts unimplemented on f4
+- USART interrupts unimplemented on F4
 - H7 clocks are missing advanced features
 - PWM input unimplemented
 - SPI unimplemented for H7
@@ -115,7 +115,6 @@ These steps are copy+pasted in comments before the code that performs each one.
 - Flash read/write unimplemented on L5 and H7
 - Low power timers (LPTIM) unimplemented
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
-- ADC is unimplemented on F4
+- ADC unimplemented on F4
 - ADC 3 and 4 unimplemented on G4. ADC3 is unimplemented on H7
 - Low power modes beyond sleep and cstop aren't implemented for H7
-- Waiting on U5 PAC before implementing
