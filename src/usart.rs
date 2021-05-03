@@ -60,7 +60,13 @@ impl WordLen {
 pub enum UsartDevice {
     One,
     Two,
-    #[cfg(not(any(feature = "f410", feature = "f411", feature = "l4x1", feature = "g0")))]
+    #[cfg(not(any(
+        feature = "f401",
+        feature = "f410",
+        feature = "f411",
+        feature = "l4x1",
+        feature = "g0"
+    )))]
     Three,
     // Four,  todo
     // Five,
@@ -145,7 +151,13 @@ where
                     }
                 }
             }
-            #[cfg(not(any(feature = "f410", feature = "f411", feature = "l4x1", feature = "g0")))]
+            #[cfg(not(any(
+                feature = "f401",
+                feature = "f410",
+                feature = "f411",
+                feature = "l4x1",
+                feature = "g0"
+            )))]
             UsartDevice::Three => {
                 cfg_if! {
                     if #[cfg(not(feature = "f4"))] {
@@ -375,8 +387,10 @@ where
             UsartInterrupt::ParityError => self.regs.icr.write(|w| w.pecf().set_bit()),
             UsartInterrupt::ReadNotEmpty => self.regs.rqr.write(|w| w.rxfrq().set_bit()),
             UsartInterrupt::ReceiverTimeout => self.regs.icr.write(|w| w.rtocf().set_bit()),
-            #[cfg(not(any(feature = "f3", feature = "l4")))]
+            #[cfg(not(any(feature = "f3", feature = "l4", feature = "h7")))]
             UsartInterrupt::Tcbgt => self.regs.icr.write(|w| w.tcbgtcf().set_bit()),
+            #[cfg(feature = "h7")]
+            UsartInterrupt::Tcbgt => self.regs.icr.write(|w| w.tcbgtc().set_bit()),
             UsartInterrupt::TransmissionComplete => self.regs.icr.write(|w| w.tccf().set_bit()),
             UsartInterrupt::TransmitEmpty => self.regs.rqr.write(|w| w.txfrq().set_bit()),
         }

@@ -662,8 +662,27 @@ macro_rules! pwm_features {
 // We only implement `pwm_features` for general purpose timers. Perhaps we should implement
 // for advanced-control timers too.
 
-#[cfg(not(any(feature = "f373", feature = "f4")))]
+#[cfg(not(any(feature = "f373")))]
 hal!(TIM1, tim1, 2);
+// #[cfg(not(any(feature = "f373")))]
+// pwm_features!(TIM1, u16);
+
+cfg_if! {
+    if #[cfg(not(any(
+        feature = "f401",
+        feature = "f410",
+        feature = "g070",
+    )))] {
+        hal!(TIM2, tim2, 1);
+    }
+}
+
+// todo: G4 has tim2, and it's 32-bit, but there may be a PAC error here; pac expects arr to be 16 bit.
+#[cfg(feature = "g4")]
+pwm_features!(TIM2, u16);
+
+#[cfg(not(any(feature = "l5", feature = "g4", feature = "f410",)))]
+pwm_features!(TIM2, u32);
 
 #[cfg(not(any(
     feature = "f301",
@@ -695,34 +714,26 @@ cfg_if! {
         feature = "l4x2",
         feature = "l4x3",
         feature = "l552",
-        feature = "f4",
         feature = "g0",
     )))] {
         hal!(TIM4, tim4, 1);
-        hal!(TIM17, tim17, 2);
+        pwm_features!(TIM4, u16);
     }
 }
 
-#[cfg(not(any(
-    feature = "f3x4",
-    feature = "l4x1",
-    feature = "l4x2",
-    feature = "l4x3",
-    feature = "l5",
-    feature = "f410",
-    feature = "g0",
-)))]
-pwm_features!(TIM4, u16);
-
-#[cfg(any(
-    feature = "f373",
-    feature = "l4x5",
-    feature = "l4x6",
-    feature = "l562",
-    feature = "h7",
-    feature = "f4",
-))]
-hal!(TIM5, tim5, 1);
+cfg_if! {
+    if #[cfg(any(
+       feature = "f373",
+       feature = "l4x5",
+       feature = "l4x6",
+       feature = "l562",
+       feature = "h7",
+       all(feature = "f4", not(feature = "f410")),
+   ))] {
+        hal!(TIM5, tim5, 1);
+        pwm_features!(TIM5, u32);
+   }
+}
 
 #[cfg(not(any(
     feature = "f301",
@@ -746,7 +757,6 @@ cfg_if! {
         feature = "g070",
         feature = "g030"
     )))] {
-        hal!(TIM2, tim2, 1);
         hal!(TIM6, tim6, 1);
     }
 }
@@ -765,16 +775,6 @@ hal!(TIM16, tim16, 2);
 )))]
 hal!(TIM15, tim15, 2);
 
-// todo: G4 has tim2, and it's 32-bit, but there may be a PAC error here; pac expects arr to be 16 bit.
-#[cfg(not(any(
-    feature = "l4x1",
-    feature = "l5",
-    feature = "g4",
-    feature = "f410",
-    feature = "g070"
-)))]
-pwm_features!(TIM2, u32);
-
 #[cfg(any(
     feature = "f303",
     feature = "l4x5",
@@ -784,12 +784,20 @@ pwm_features!(TIM2, u32);
 ))]
 hal!(TIM8, tim8, 2);
 
+cfg_if! {
+    if #[cfg(not(any(
+        feature = "l4x1",
+        feature = "l4x2",
+        feature = "l4x3",
+        feature = "f4",
+    )))] {
+        hal!(TIM17, tim17, 2);
+    }
+}
+
 // { todo: tim18
 //     TIM18: (tim18, apb2, enr, rstr),
 // },
-
-#[cfg(any(feature = "f303"))]
-hal!(TIM20, tim20, 2);
 
 cfg_if! {
     if #[cfg(any(feature = "f373"))] {
@@ -800,4 +808,5 @@ cfg_if! {
     }
 }
 
-// todo: Figure out which timers G4 has, and add A/R.
+#[cfg(any(feature = "f303"))]
+hal!(TIM20, tim20, 2);
