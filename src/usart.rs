@@ -88,6 +88,7 @@ pub enum UsartInterrupt {
     ParityError,
     ReadNotEmpty,
     ReceiverTimeout,
+    #[cfg(not(any(feature = "f3", feature = "l4")))] // todo: PAC ommission?
     Tcbgt,
     TransmissionComplete,
     TransmitEmpty,
@@ -128,7 +129,6 @@ where
         clocks: &C,
         rcc: &mut RCC,
     ) -> Self {
-        // todo: Hard set to usart 1 to get started
         match device {
             UsartDevice::One => {
                 rcc_en_reset!(apb2, usart1, rcc);
@@ -193,7 +193,6 @@ where
             _ => clocks.apb1(),
         };
 
-        // Oversampling by 16:
         let usart_div = match config.oversampling {
             OverSampling::O16 => fclk / baud,
             OverSampling::O8 => 2 * fclk / baud,
@@ -330,13 +329,13 @@ where
                 self.regs.cr1.modify(|_, w| w.idleie().set_bit());
             }
             UsartInterrupt::FramingError => {
-                // self.regs.cr1.modify(|_, w| w.eie().set_bit()); // todo
+                self.regs.cr3.modify(|_, w| w.eie().set_bit());
             }
             UsartInterrupt::LineBreak => {
                 self.regs.cr2.modify(|_, w| w.lbdie().set_bit());
             }
             UsartInterrupt::Overrun => {
-                // self.regs.cr1.modify(|_, w| w.eie().set_bit()); // todo
+                self.regs.cr3.modify(|_, w| w.eie().set_bit());
             }
             UsartInterrupt::ParityError => {
                 self.regs.cr1.modify(|_, w| w.peie().set_bit());
@@ -347,8 +346,9 @@ where
             UsartInterrupt::ReceiverTimeout => {
                 self.regs.cr1.modify(|_, w| w.rtoie().set_bit());
             }
+            #[cfg(not(any(feature = "f3", feature = "l4")))]
             UsartInterrupt::Tcbgt => {
-                // self.regs.cr3.modify(|_, w| w.tcbgtie().set_bit()); // todo?
+                self.regs.cr3.modify(|_, w| w.tcbgtie().set_bit());
             }
             UsartInterrupt::TransmissionComplete => {
                 self.regs.cr1.modify(|_, w| w.tcie().set_bit());
@@ -375,9 +375,8 @@ where
             UsartInterrupt::ParityError => self.regs.icr.write(|w| w.pecf().set_bit()),
             UsartInterrupt::ReadNotEmpty => self.regs.rqr.write(|w| w.rxfrq().set_bit()),
             UsartInterrupt::ReceiverTimeout => self.regs.icr.write(|w| w.rtocf().set_bit()),
-            UsartInterrupt::Tcbgt => {
-                // self.regs.icr.write(|w| w.tcbgtcf().set_bit()) // todo ?
-            }
+            #[cfg(not(any(feature = "f3", feature = "l4")))]
+            UsartInterrupt::Tcbgt => self.regs.icr.write(|w| w.tcbgtcf().set_bit()),
             UsartInterrupt::TransmissionComplete => self.regs.icr.write(|w| w.tccf().set_bit()),
             UsartInterrupt::TransmitEmpty => self.regs.rqr.write(|w| w.txfrq().set_bit()),
         }
