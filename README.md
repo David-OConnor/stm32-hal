@@ -112,7 +112,7 @@ These steps are copy+pasted in comments before the code that performs each one.
 - PWM input unimplemented
 - SPI unimplemented for H7
 - CRC unimplemented for L5, F4, G0, and G4
-- Flash read/write unimplemented on L5 and H7
+- Flash read/write unimplemented on H7
 - Low power timers (LPTIM) unimplemented
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
 - ADC unimplemented on F4
