@@ -19,7 +19,7 @@ use paste::paste;
 
 // todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 /// Used for when attempting to set a timer period that is out of range.
 pub struct ValueError {}
 

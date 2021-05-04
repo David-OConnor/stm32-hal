@@ -30,4 +30,5 @@ cfg_if::cfg_if! {
 // todo: Continue working through DRY between the clock modules.
 
 /// Speed out of limits.
+#[derive(Debug)]
 pub struct SpeedError {}
