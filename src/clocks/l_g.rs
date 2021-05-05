@@ -452,7 +452,7 @@ impl Clocks {
 
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
-        let (_, sysclk) = calc_sysclock(self.input_src, self.pllm, self.plln, self.pllr);
+        let (_, sysclk) = self.calc_sysclock();
 
         let hclk = sysclk / self.hclk_prescaler.value() as u32;
 
@@ -940,12 +940,56 @@ impl Clocks {
 
         while rcc.cr.read().msirdy().bit_is_clear() {}
     }
+
+    /// Calculate the systick, and input frequency, in Hz.
+fn calc_sysclock(&self) -> (u32, u32) {
+    let input_freq;
+    let sysclk = match self.input_src {
+        InputSrc::Pll(pll_src) => {
+            input_freq = match pll_src {
+                #[cfg(not(any(feature = "g0", feature = "g4")))]
+                PllSrc::Msi(range) => range.value() as u32,
+                PllSrc::Hsi => 16_000_000,
+                PllSrc::Hse(freq) => freq,
+                PllSrc::None => 0, // todo?
+            };
+            input_freq / self.pllm.value() as u32 * self.plln as u32 / self.pllr.value() as u32
+        }
+
+        #[cfg(not(any(feature = "g0", feature = "g4")))]
+        InputSrc::Msi(range) => {
+            input_freq = range.value() as u32;
+            input_freq
+        }
+        InputSrc::Hsi => {
+            input_freq = 16_000_000;
+            input_freq
+        }
+        InputSrc::Hse(freq) => {
+            input_freq = freq;
+            input_freq
+        }
+        #[cfg(feature = "g0")]
+        InputSrc::Lsi => {
+            input_freq = 32_000; // todo confirm this is right.
+            input_freq
+        }
+        #[cfg(feature = "g0")]
+        InputSrc::Lse => {
+            input_freq = 32_768;
+            input_freq
+        }
+    };
+
+    (input_freq, sysclk)
+}
+
 }
 
 // todo: Some extra calculations here, vice doing it once and caching.
 impl ClockCfg for Clocks {
     fn sysclk(&self) -> u32 {
-        let (_, sysclk) = calc_sysclock(self.input_src, self.pllm, self.plln, self.pllr);
+        let (_, sysclk) = self.calc_sysclock();
         sysclk
     }
 
@@ -1120,47 +1164,4 @@ impl Default for Clocks {
             stop_wuck: StopWuck::Msi,
         }
     }
-}
-
-/// Calculate the systick, and input frequency, in Hz.
-fn calc_sysclock(input_src: InputSrc, pllm: Pllm, plln: u8, pllr: Pllr) -> (u32, u32) {
-    let input_freq;
-    let sysclk = match input_src {
-        InputSrc::Pll(pll_src) => {
-            input_freq = match pll_src {
-                #[cfg(not(any(feature = "g0", feature = "g4")))]
-                PllSrc::Msi(range) => range.value() as u32,
-                PllSrc::Hsi => 16_000_000,
-                PllSrc::Hse(freq) => freq,
-                PllSrc::None => 0, // todo?
-            };
-            input_freq / pllm.value() as u32 * plln as u32 / pllr.value() as u32
-        }
-
-        #[cfg(not(any(feature = "g0", feature = "g4")))]
-        InputSrc::Msi(range) => {
-            input_freq = range.value() as u32;
-            input_freq
-        }
-        InputSrc::Hsi => {
-            input_freq = 16_000_000;
-            input_freq
-        }
-        InputSrc::Hse(freq) => {
-            input_freq = freq;
-            input_freq
-        }
-        #[cfg(feature = "g0")]
-        InputSrc::Lsi => {
-            input_freq = 32_000; // todo confirm this is right.
-            input_freq
-        }
-        #[cfg(feature = "g0")]
-        InputSrc::Lse => {
-            input_freq = 32_768;
-            input_freq
-        }
-    };
-
-    (input_freq, sysclk)
 }

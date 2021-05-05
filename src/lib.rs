@@ -222,7 +222,6 @@ pub mod crc;
 pub mod dac;
 pub mod delay;
 
-// #[cfg(not(any(feature = "l5", feature = "h7")))] // todo
 #[cfg(not(feature = "h7"))] // todo
 pub mod flash;
 pub mod gpio;
@@ -252,7 +251,6 @@ pub mod low_power;
 pub mod qspi;
 pub mod rtc;
 
-// #[cfg(not(feature = "f4"))]
 pub mod usart;
 
 // #[cfg(not(any(feature = "f3")))]

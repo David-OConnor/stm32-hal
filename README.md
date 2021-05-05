@@ -11,7 +11,7 @@ multiple STM32 families, with minimal code repetition. This makes it easy to swi
 within, or across families, for a given project.
 
 **Family support**: F3, F4, L4, L5, G0, G4, and H7. U5 is planned once its SVD files and PAC
-become available.
+become available. WL and WB eventually.
 
 **Motivation**: Use STM32s in real-world hardware projects. Be able to switch MCUs with
 minimal code change. 
@@ -68,7 +68,7 @@ fn main() -> ! {
 }
 ```
 
-The library is influenced by the `stm32fyxx` HALs, and a number of the modules here are modified 
+The library is influenced by the `stm32fyxx` HALs, and several of the modules here are modified 
 versions of those. There are some areas where design philosophy is different. For example: GPIO 
 type-checking, level-of-abstraction from registers/PAC, role of EH traits in the API, 
 feature parity among STM32 families, and clock config.
@@ -91,7 +91,7 @@ Most peripheral modules use the following format:
 - A peripheral struct that has public fields for config. This struct also includes
 a private `regs` field that is the appropriate reg block. Where possible, this is defined generically
 in the implementation, eg:
-`U: Deref<Target = pac::usart1::RegisterBlock>,`. Reference the [stm32-rs-nightlies Github](https://github.com/stm32-rs/stm32-rs-nightlies)
+`U: Deref<Target = pac::usart1::RegisterBlock>`. Reference the [stm32-rs-nightlies Github](https://github.com/stm32-rs/stm32-rs-nightlies)
 to identify when we can take advantage of this.
 - If config fields are complicated, we use a separate `PeriphConfig` struct owned by the peripheral struct.
 This struct impls `Default`.

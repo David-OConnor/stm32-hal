@@ -34,6 +34,9 @@ pub enum StopMode {
 #[cfg(any(feature = "l4", feature = "l5"))]
 pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange, rcc: &mut RCC, pwr: &mut PWR) {
     // Decrease the system clock frequency below 2 MHz
+    if speed as u8 > MsiRange::R2M as u8 {
+        panic!("Selected Msi speed must be 2Mhz or lower to enter use low power run.")
+    }
     clocks.change_msi_speed(speed, rcc);
     // LPR = 1
     pwr.cr1.modify(|_, w| w.lpr().set_bit())

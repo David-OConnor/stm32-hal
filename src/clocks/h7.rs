@@ -188,7 +188,7 @@ impl Clocks {
 
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
-        let (_, sysclk) = calc_sysclock(self.input_src, self.divm1, self.divn1, self.divp1);
+        let (_, sysclk) = self.calc_sysclock();
 
         let hclk = sysclk / self.hclk_prescaler.value() as u32;
         // Reference manual section 3.3.3
@@ -379,13 +379,45 @@ impl Clocks {
             InputSrc::Csi => (), // ?
         }
     }
+
+    /// Calculate the systick, and input frequency.
+    fn calc_sysclock(&self) -> (u32, u32) {
+        let input_freq;
+        let sysclk = match self.input_src {
+            InputSrc::Pll1(pll_src) => {
+                input_freq = match pll_src {
+                    PllSrc::Csi => 4_000_000,
+                    PllSrc::Hsi(div) => 64_000_000 / (div.value() as u32),
+                    PllSrc::Hse(freq) => freq,
+                    PllSrc::None => 0, // todo?
+                };
+                input_freq / self.divm1 as u32 * self.divn1 as u32 / self.divp1 as u32
+            }
+
+            InputSrc::Csi => {
+                input_freq = 4_000_000;
+                input_freq
+            }
+            InputSrc::Hsi(div) => {
+                input_freq = 64_000_000 / (div.value() as u32);
+                input_freq
+            }
+            InputSrc::Hse(freq) => {
+                input_freq = freq;
+                input_freq
+            }
+        };
+
+        (input_freq, sysclk)
+    }
+
 }
 
 // todo: Some extra calculations here, vice doing it once and caching.
 // todo: This is all wrong; haven't adapted for H7. Fix it!
 impl ClockCfg for Clocks {
     fn sysclk(&self) -> u32 {
-        let (_, sysclk) = calc_sysclock(self.input_src, self.divm1, self.divn1, self.divp1);
+        let (_, sysclk) = self.calc_sysclock();
         sysclk
     }
 
@@ -485,35 +517,4 @@ impl Default for Clocks {
             hsi48_on: false,
         }
     }
-}
-
-/// Calculate the systick, and input frequency.
-fn calc_sysclock(input_src: InputSrc, divm1: u8, divn1: u16, divp1: u8) -> (u32, u32) {
-    let input_freq;
-    let sysclk = match input_src {
-        InputSrc::Pll1(pll_src) => {
-            input_freq = match pll_src {
-                PllSrc::Csi => 4_000_000,
-                PllSrc::Hsi(div) => 64_000_000 / (div.value() as u32),
-                PllSrc::Hse(freq) => freq,
-                PllSrc::None => 0, // todo?
-            };
-            input_freq / divm1 as u32 * divn1 as u32 / divp1 as u32
-        }
-
-        InputSrc::Csi => {
-            input_freq = 4_000_000;
-            input_freq
-        }
-        InputSrc::Hsi(div) => {
-            input_freq = 64_000_000 / (div.value() as u32);
-            input_freq
-        }
-        InputSrc::Hse(freq) => {
-            input_freq = freq;
-            input_freq
-        }
-    };
-
-    (input_freq, sysclk)
 }
