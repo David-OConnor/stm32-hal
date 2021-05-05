@@ -171,6 +171,18 @@ pub enum Pllp {
     Div8 = 0b11,
 }
 
+#[cfg(feature = "f4")]
+impl Pllp {
+    pub fn value(&self) -> u8 {
+        match self {
+            Self::Div2 => 2,
+            Self::Div4 => 4,
+            Self::Div6 => 6,
+            Self::Div8 => 8,
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 #[repr(u8)]
 /// Division factor for the AHB clock. Also known as AHB Prescaler.
@@ -692,7 +704,7 @@ fn calc_sysclock(input_src: InputSrc, pllm: u8, plln: u16, pllp: Pllp) -> u32 {
                 PllSrc::Hsi => 16_000_000,
                 PllSrc::Hse(freq) => freq,
             };
-            input_freq / pllm as u32 * plln as u32 / pllp as u8 as u32
+            input_freq / pllm as u32 * plln as u32 / pllp.value() as u32
         }
         InputSrc::Hsi => 16_000_000,
         InputSrc::Hse(freq) => freq,
