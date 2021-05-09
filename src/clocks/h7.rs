@@ -410,7 +410,6 @@ impl Clocks {
 
         (input_freq, sysclk)
     }
-
 }
 
 // todo: Some extra calculations here, vice doing it once and caching.

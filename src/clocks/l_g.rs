@@ -9,6 +9,9 @@ use crate::{
 
 use cfg_if::cfg_if;
 
+// todo: MSI and HSI calibration with LSE. The L4 RM describes this as possible, but doesn't tell you how
+// todo to do it. Something about tim15 and tim16? `RCC_ICSCR` resgister?
+
 #[cfg(not(feature = "g0"))]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
@@ -812,9 +815,14 @@ impl Clocks {
                         // If on G, we'll already be on HSI, so need to take action.
                     }
                     #[cfg(not(any(feature = "g0", feature = "g4")))]
-                    PllSrc::Msi(_) => {
+                    PllSrc::Msi(range) => {
+                        // Range initializes to 4Mhz, so set that as well.
+                        rcc.cr.modify(|_, w| unsafe {
+                            w.msirange().bits(range as u8).msirgsel().set_bit()
+                        });
                         if let StopWuck::Hsi = self.stop_wuck {
                             rcc.cr.modify(|_, w| w.msion().set_bit());
+
                             while rcc.cr.read().msirdy().bit_is_clear() {}
                         }
                     }
@@ -852,7 +860,11 @@ impl Clocks {
                 }
             }
             #[cfg(not(any(feature = "g0", feature = "g4")))]
-            InputSrc::Msi(_) => {
+            InputSrc::Msi(range) => {
+                // Range initializes to 4Mhz, so set that as well.
+                rcc.cr
+                    .modify(|_, w| unsafe { w.msirange().bits(range as u8).msirgsel().set_bit() });
+
                 if let StopWuck::Hsi = self.stop_wuck {
                     rcc.cr.modify(|_, w| w.msion().set_bit());
                     while rcc.cr.read().msirdy().bit_is_clear() {}
@@ -919,10 +931,6 @@ impl Clocks {
                 if not using it as the input source."
                 );
             }
-            panic!(
-                "Only use this function to set up MSI as 48MHz oscillator \
-            if not using it as the input source."
-            );
         }
 
         // todo: Calibrate MSI with LSE / HSE(?) if avail?
@@ -942,48 +950,47 @@ impl Clocks {
     }
 
     /// Calculate the systick, and input frequency, in Hz.
-fn calc_sysclock(&self) -> (u32, u32) {
-    let input_freq;
-    let sysclk = match self.input_src {
-        InputSrc::Pll(pll_src) => {
-            input_freq = match pll_src {
-                #[cfg(not(any(feature = "g0", feature = "g4")))]
-                PllSrc::Msi(range) => range.value() as u32,
-                PllSrc::Hsi => 16_000_000,
-                PllSrc::Hse(freq) => freq,
-                PllSrc::None => 0, // todo?
-            };
-            input_freq / self.pllm.value() as u32 * self.plln as u32 / self.pllr.value() as u32
-        }
+    fn calc_sysclock(&self) -> (u32, u32) {
+        let input_freq;
+        let sysclk = match self.input_src {
+            InputSrc::Pll(pll_src) => {
+                input_freq = match pll_src {
+                    #[cfg(not(any(feature = "g0", feature = "g4")))]
+                    PllSrc::Msi(range) => range.value() as u32,
+                    PllSrc::Hsi => 16_000_000,
+                    PllSrc::Hse(freq) => freq,
+                    PllSrc::None => 0, // todo?
+                };
+                input_freq / self.pllm.value() as u32 * self.plln as u32 / self.pllr.value() as u32
+            }
 
-        #[cfg(not(any(feature = "g0", feature = "g4")))]
-        InputSrc::Msi(range) => {
-            input_freq = range.value() as u32;
-            input_freq
-        }
-        InputSrc::Hsi => {
-            input_freq = 16_000_000;
-            input_freq
-        }
-        InputSrc::Hse(freq) => {
-            input_freq = freq;
-            input_freq
-        }
-        #[cfg(feature = "g0")]
-        InputSrc::Lsi => {
-            input_freq = 32_000; // todo confirm this is right.
-            input_freq
-        }
-        #[cfg(feature = "g0")]
-        InputSrc::Lse => {
-            input_freq = 32_768;
-            input_freq
-        }
-    };
+            #[cfg(not(any(feature = "g0", feature = "g4")))]
+            InputSrc::Msi(range) => {
+                input_freq = range.value() as u32;
+                input_freq
+            }
+            InputSrc::Hsi => {
+                input_freq = 16_000_000;
+                input_freq
+            }
+            InputSrc::Hse(freq) => {
+                input_freq = freq;
+                input_freq
+            }
+            #[cfg(feature = "g0")]
+            InputSrc::Lsi => {
+                input_freq = 32_000; // todo confirm this is right.
+                input_freq
+            }
+            #[cfg(feature = "g0")]
+            InputSrc::Lse => {
+                input_freq = 32_768;
+                input_freq
+            }
+        };
 
-    (input_freq, sysclk)
-}
-
+        (input_freq, sysclk)
+    }
 }
 
 // todo: Some extra calculations here, vice doing it once and caching.

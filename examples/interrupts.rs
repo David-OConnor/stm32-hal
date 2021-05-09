@@ -50,9 +50,9 @@ fn main() -> ! {
     button.enable_interrupt(Edge::Falling, &mut dp.EXTI, &mut dp.SYSCFG);
 
     // Set up and start a timer; set it to fire interrupts every 5 seconds.
-    let mut timer_1 = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
+    let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
     timer.listen(TimeOut); // Enable update event interrupts.
-    timer_1.enable();
+    timer.enable();
 
     let mut debounce_timer = Timer::new_tim15(dp.TIM15, 5., &clock_cfg, &mut dp.RCC);
     debounce_timer.listen(TimeOut); // Enable update event interrupts.

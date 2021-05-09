@@ -69,6 +69,9 @@
 )))]
 compile_error!("This crate requires an MCU-specifying feature to be enabled. eg `l552`.");
 
+// Re-export of the [svd2rust](https://crates.io/crates/svd2rust) auto-generated API for
+// stm32 peripherals.
+
 #[cfg(feature = "f301")]
 pub use stm32f3::stm32f301 as pac;
 

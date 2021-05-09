@@ -163,6 +163,11 @@ impl Flash {
         }
     }
 
+    #[cfg(not(feature = "l5"))]
+    pub fn lock(&mut self) {
+        self.regs.cr.modify(|_, w| w.lock().set_bit());
+    }
+
     #[cfg(feature = "l5")]
     /// Lock the flash memory, allowing writes.
     pub fn lock(&mut self, security: Security) {
@@ -170,11 +175,6 @@ impl Flash {
             Security::NonSecure => self.regs.nscr.modify(|_, w| w.nslock().set_bit()),
             Security::Secure => self.regs.seccr.modify(|_, w| w.seclock().set_bit()),
         };
-    }
-
-    #[cfg(not(feature = "l5"))]
-    pub fn lock(&mut self) {
-        self.regs.cr.modify(|_, w| w.lock().set_bit());
     }
 
     #[cfg(not(feature = "l5"))]

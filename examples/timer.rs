@@ -52,6 +52,7 @@ fn main() -> ! {
     // Unmask the interrupt line.
     unsafe {
         NVIC::unmask(pac::Interrupt::TIM1);
+        NVIC::unmask(pac::Interrupt::TIM15);
     }
 
     loop {

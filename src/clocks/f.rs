@@ -486,7 +486,7 @@ impl Clocks {
             }
 
             #[cfg(feature = "f3")]
-                rcc.cfgr2.modify(|_, w| w.prediv().bits(self.prediv as u8));
+            rcc.cfgr2.modify(|_, w| w.prediv().bits(self.prediv as u8));
 
             // Now turn PLL back on, once we're configured things that can only be set with it off.
             rcc.cr.modify(|_, w| w.pllon().on());
@@ -496,7 +496,7 @@ impl Clocks {
 
         rcc.cfgr.modify(|_, w| unsafe {
             #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f4")))]
-                w.usbpre().bit(self.usb_pre.bit()); // eg: Divide by 1.5: 72/1.5 = 48Mhz, required by USB clock.
+            w.usbpre().bit(self.usb_pre.bit()); // eg: Divide by 1.5: 72/1.5 = 48Mhz, required by USB clock.
 
             w.sw().bits(self.input_src.bits());
             w.hpre().bits(self.hclk_prescaler as u8); // eg: Divide SYSCLK by 2 to get HCLK of 36Mhz.
@@ -569,7 +569,9 @@ impl Clocks {
         match self.input_src {
             InputSrc::Pll(pll_src) => match pll_src {
                 PllSrc::HsiDiv2 => 4_000_000 * self.pll_mul.value() as u32,
-                PllSrc::Hse(freq) => freq / self.prediv.value() as u32 * self.pll_mul.value() as u32,
+                PllSrc::Hse(freq) => {
+                    freq / self.prediv.value() as u32 * self.pll_mul.value() as u32
+                }
             },
             InputSrc::Hsi => 8_000_000,
             InputSrc::Hse(freq) => freq,
@@ -588,14 +590,13 @@ impl Clocks {
                     PllSrc::Hse(freq) => freq,
                 };
                 input_freq / self.pllm as u32 * self.plln as u32 / self.pllp.value() as u32
-            }
-            // InputSrc::Pllr(pll_src) => {
-            //     let input_freq = match pll_src {
-            //         PllSrc::Hsi => 16_000_000,
-            //         PllSrc::Hse(freq) => freq,
-            //     };
-            //     input_freq / self.pllm as u32 * self.plln as u32 / self.pllr.value() as u32
-            // }
+            } // InputSrc::Pllr(pll_src) => {
+              //     let input_freq = match pll_src {
+              //         PllSrc::Hsi => 16_000_000,
+              //         PllSrc::Hse(freq) => freq,
+              //     };
+              //     input_freq / self.pllm as u32 * self.plln as u32 / self.pllr.value() as u32
+              // }
         };
 
         sysclk
@@ -617,9 +618,9 @@ impl ClockCfg for Clocks {
 
     fn usb(&self) -> u32 {
         #[cfg(feature = "f3")]
-            return self.sysclk() / self.usb_pre.value() as u32;
+        return self.sysclk() / self.usb_pre.value() as u32;
         #[cfg(feature = "f4")]
-            return 0; // todo
+        return 0; // todo
     }
 
     fn apb1(&self) -> u32 {
@@ -650,10 +651,10 @@ impl ClockCfg for Clocks {
         let mut result = ClocksValid::Valid;
 
         #[cfg(feature = "f3")]
-            let max_clock = 72_000_000;
+        let max_clock = 72_000_000;
 
         #[cfg(feature = "f4")]
-            let max_clock = 180_000_000;
+        let max_clock = 180_000_000;
 
         #[cfg(feature = "f4")]
         if self.plln < 50 || self.plln > 432 || self.pllm < 2 || self.pllm > 63 {
@@ -717,4 +718,3 @@ impl Default for Clocks {
         }
     }
 }
-

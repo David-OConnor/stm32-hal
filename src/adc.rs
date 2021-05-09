@@ -116,24 +116,8 @@ pub enum OperationMode {
     Continuous = 1,
 }
 
-// #[cfg(any(feature = "l4", feature = "l5"))]
-// #[derive(Clone, Copy, PartialEq)]
-// #[repr(u8)]
-// /// ADC Clock mode
-// pub enum ClockMode {
-//     // todo
-//     Sysclock = 0b00,
-//     PllSai1 = 0b01,
-// }
-//
-// #[cfg(any(feature = "l4", feature = "l5"))]
-// impl Default for ClockMode {
-//     fn default() -> Self {
-//         Self::Sysclock
-//     }
-// }
-
 // todo: Clock mode for other MCUs!
+// todo: Check the diff ways of configuring clock; i don't think teh enum below covers all.(?)
 
 // #[cfg(any(feature = "f3"))]
 #[derive(Clone, Copy, PartialEq)]
@@ -226,7 +210,7 @@ macro_rules! hal {
                     clocks: &C,
                     rcc: &mut RCC,
                 ) -> Self {
-                    let mut this_adc = Self {
+                    let mut result = Self {
                         regs,
                         ckmode,
                         operation_mode: OperationMode::OneShot,
@@ -234,28 +218,28 @@ macro_rules! hal {
                         cal_differential: None,
                     };
 
-                    this_adc.enable_clock(adc_common, rcc);
-                    this_adc.set_align(Align::default());
+                    result.enable_clock(adc_common, rcc);
+                    result.set_align(Align::default());
 
-                    this_adc.advregen_enable(clocks);
+                    result.advregen_enable(clocks);
 
-                    this_adc.calibrate(InputType::SingleEnded, clocks);
-                    this_adc.calibrate(InputType::Differential, clocks);
+                    result.calibrate(InputType::SingleEnded, clocks);
+                    result.calibrate(InputType::Differential, clocks);
 
                     // Reference Manual: "ADEN bit cannot be set during ADCAL=1
                     // and 4 ADC clock cycle after the ADCAL
                     // bit is cleared by hardware."
-                    let adc_per_cpu_cycles = match this_adc.ckmode {
+                    let adc_per_cpu_cycles = match result.ckmode {
                         ClockMode::SyncDiv1 => 1,
                         ClockMode::SyncDiv2 => 2,
                         ClockMode::SyncDiv4 => 4,
                     };
                     asm::delay(adc_per_cpu_cycles * 4);
-                    this_adc.enable();
+                    result.enable();
 
-                    this_adc.setup_oneshot(); // todo: Setup Continuous
+                    result.setup_oneshot(); // todo: Setup Continuous
 
-                    this_adc
+                    result
                 }
             }
 
@@ -334,7 +318,7 @@ macro_rules! hal {
             /// operation.
             fn enable(&mut self) {
                 // 1. Clear the ADRDY bit in the ADC_ISR register by writing ‘1’.
-                self.regs.isr.modify(|_, w| w.adrdy().clear_bit());
+                self.regs.isr.modify(|_, w| w.adrdy().set_bit());
                 // 2. Set ADEN=1.
                 self.regs.cr.modify(|_, w| w.aden().set_bit());  // Enable
                 // 3. Wait until ADRDY=1 (ADRDY is set after the ADC startup time). This can be done
@@ -783,16 +767,13 @@ cfg_if! {
     }
 }
 
-// todo: Implement ADCs 3, 4, 5 on G4 variants that support it.
-// cfg_if! {
-//     if #[cfg(any(feature = "g4..."))] {
-//         hal!(ADC3, ADC345_COMMON, adc3, 345);
-//         hal!(ADC4, ADC345_COMMON, adc4, 345);
-//         hal!(ADC5, ADC345_COMMON, adc5, 345);
-//     }
-// }
+#[cfg(all(feature = "g4", not(any(feature = "g431", feature = "g441"))))]
+hal!(ADC3, ADC345_COMMON, adc3, 345);
 
-// #[cfg(all(feature = "f4")]
-// hal!(ADC1, ADC1, adc1, 1);
+#[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
+hal!(ADC4, ADC345_COMMON, adc4, 345);
+
+#[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
+hal!(ADC5, ADC345_COMMON, adc5, 345);
 
 // todo F4 as (depending on variant?) ADC 1, 2, 3

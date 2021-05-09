@@ -625,7 +625,7 @@ macro_rules! make_pin {
             }
 
             /// Set the pin's output voltage to high (VCC).
-            pub fn set_high(&self) {
+            pub fn set_high(&mut self) {
                 // todo: DRY with self.set_low().
                 let offset = 0;
 
@@ -652,7 +652,7 @@ macro_rules! make_pin {
             }
 
             /// Set the pin's output voltage to ground (low).
-            pub fn set_low(&self) {
+            pub fn set_low(&mut self) {
                // todo; DRY with `set_state`
                 let offset = 16;
 

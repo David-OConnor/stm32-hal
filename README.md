@@ -116,5 +116,5 @@ These steps are copy+pasted in comments before the code that performs each one.
 - Low power timers (LPTIM) unimplemented
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
 - ADC unimplemented on F4
-- ADC 3 and 4 unimplemented on G4. ADC3 is unimplemented on H7
+- ADC3 unimplemented on H7
 - Low power modes beyond sleep and cstop aren't implemented for H7
