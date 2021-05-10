@@ -15,6 +15,8 @@
 // Using `unsafe` for all is cleaner than feature-gating, due to how many fields this affects. We've allowed
 // these warnings; ie hidden during build.
 
+// todo: Modify `rust.yml` to test with `usb` and `can` features.
+
 #![no_std]
 // Some reg modifications are marked `unsafe` in some PAC crates, but not others.
 // Disable these warnings.
@@ -223,11 +225,11 @@ pub mod adc;
 // bxCAN families: F3, F4, L4,
 // fdCAN families: L5, U5, G4, H7
 // G0 and W don't support either CAN. H7 suppords fd and can_ccu. (What's that?)
-#[cfg(any(
+#[cfg(all(feature = "can", any(
     feature = "f3",
     all(feature = "f4", not(any(feature = "f401", feature = "f410"))),
     feature = "l4"
-))] // todo
+)))]
 pub mod can;
 
 pub mod clocks;
