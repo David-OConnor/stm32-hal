@@ -223,6 +223,10 @@ pub mod clocks;
 #[cfg(not(any(feature = "f4", feature = "g0", feature = "g4", feature = "l5")))] // todo
 pub mod crc;
 pub mod dac;
+
+#[cfg(feature = "l4")] // todo
+// pub mod dma;
+
 pub mod delay;
 
 #[cfg(not(feature = "h7"))] // todo

@@ -2,16 +2,16 @@
 
 // Based on `stm32h7xx-hal`.
 
+use cast::{u16, u8};
+use core::ops::Deref;
+
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 use crate::{
-    pac::{i2c1, RCC},
+    pac::{self, RCC},
     rcc_en_reset,
     traits::ClockCfg,
 };
-
-use cast::{u16, u8};
-use core::ops::Deref;
 
 /// I2C error
 #[non_exhaustive]
@@ -43,13 +43,13 @@ pub struct I2c<I2C> {
     i2c: I2C,
 }
 
-impl<I2C> I2c<I2C>
+impl<I> I2c<I>
 where
-    I2C: Deref<Target = i2c1::RegisterBlock>,
+    I: Deref<Target = pac::i2c1::RegisterBlock>,
 {
     /// Configures the I2C peripheral. `freq` is in Hz. Doesn't check pin config.
     pub fn new<C: ClockCfg>(
-        i2c: I2C,
+        i2c: I,
         device: I2cDevice,
         freq: u32,
         clocks: &C,
@@ -149,7 +149,7 @@ where
     }
 
     /// Frees the I2C peripheral
-    pub fn free(self) -> I2C {
+    pub fn free(self) -> I {
         self.i2c
     }
 }
@@ -197,7 +197,7 @@ macro_rules! busy_wait {
 
 impl<I2C> Write for I2c<I2C>
 where
-    I2C: Deref<Target = i2c1::RegisterBlock>,
+    I2C: Deref<Target = pac::i2c1::RegisterBlock>,
 {
     type Error = Error;
 
@@ -253,7 +253,7 @@ where
 
 impl<I2C> Read for I2c<I2C>
 where
-    I2C: Deref<Target = i2c1::RegisterBlock>,
+    I2C: Deref<Target = pac::i2c1::RegisterBlock>,
 {
     type Error = Error;
 
@@ -299,7 +299,7 @@ where
 
 impl<I2C> WriteRead for I2c<I2C>
 where
-    I2C: Deref<Target = i2c1::RegisterBlock>,
+    I2C: Deref<Target = pac::i2c1::RegisterBlock>,
 {
     type Error = Error;
 

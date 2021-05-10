@@ -116,10 +116,8 @@ pub enum OperationMode {
     Continuous = 1,
 }
 
-// todo: Clock mode for other MCUs!
 // todo: Check the diff ways of configuring clock; i don't think teh enum below covers all.(?)
 
-// #[cfg(any(feature = "f3"))]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 /// ADC Clock mode
@@ -134,7 +132,6 @@ pub enum ClockMode {
     SyncDiv4 = 0b11,
 }
 
-// #[cfg(any(feature = "f3"))]
 impl Default for ClockMode {
     fn default() -> Self {
         Self::SyncDiv2
@@ -741,17 +738,17 @@ hal!(ADC4, ADC3_4, adc4, 34);
 #[cfg(any(feature = "l4"))]
 hal!(ADC1, ADC_COMMON, adc1, _);
 
-// todo: ADC 1 vs 2 on L5? L5 supports up to 2 ADCs, so I'm not sure what's going on here.
-#[cfg(any(feature = "l5"))]
-hal!(ADC, ADC_COMMON, adc1, _);
-
 #[cfg(any(feature = "l4x1", feature = "l4x2", feature = "l4x5", feature = "l4x6",))]
 hal!(ADC2, ADC_COMMON, adc2, _);
 
 #[cfg(any(feature = "l4x5", feature = "l4x6",))]
 hal!(ADC3, ADC_COMMON, adc3, _);
 
-// todo Implement ADC3 on H7.
+// todo: ADC 1 vs 2 on L5? L5 supports up to 2 ADCs, so I'm not sure what's going on here.
+#[cfg(any(feature = "l5"))]
+hal!(ADC, ADC_COMMON, adc1, _);
+
+// todo Implement ADC3 on H7. The issue is the enable / reset being on ahb4.
 cfg_if! {
     if #[cfg(feature = "h7")] {
         hal!(ADC1, ADC12_COMMON, adc1, 12);
@@ -759,6 +756,8 @@ cfg_if! {
         // hal!(ADC3, ADC3_COMMON, adc3, 3);
     }
 }
+
+#[cfg(feature = "h7")]
 
 cfg_if! {
     if #[cfg(feature = "g4")] {
@@ -770,10 +769,11 @@ cfg_if! {
 #[cfg(all(feature = "g4", not(any(feature = "g431", feature = "g441"))))]
 hal!(ADC3, ADC345_COMMON, adc3, 345);
 
-#[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
-hal!(ADC4, ADC345_COMMON, adc4, 345);
-
-#[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
-hal!(ADC5, ADC345_COMMON, adc5, 345);
+cfg_if! {
+    if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
+        hal!(ADC4, ADC345_COMMON, adc4, 345);
+        hal!(ADC5, ADC345_COMMON, adc5, 345);
+    }
+}
 
 // todo F4 as (depending on variant?) ADC 1, 2, 3

@@ -101,6 +101,8 @@ This struct impls `Default`.
 we design APIs based on STM32 capabilities, and apply EH traits as applicable.
 - When available, base setup and usage steps on instructions provided in Reference Manuals.
 These steps are copy+pasted in comments before the code that performs each one.
+- Don't use PAC convenience field settings; they're implemented inconsistently across PACs.
+(eg don't use something like `en.enabled()`; use `en.set_bit()`.)
 
 
 ## Errata

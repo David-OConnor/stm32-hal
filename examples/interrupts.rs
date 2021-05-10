@@ -85,6 +85,7 @@ fn main() -> ! {
     unsafe {
         NVIC::unmask(pac::Interrupt::EXTI0); // GPIO
         NVIC::unmask(pac::Interrupt::TIM3); // Timer
+        NVIC::unmask(pac::Interrupt::TIM15); // Timer
         NVIC::unmask(pac::Interrupt::RTC_WKUP); // RTC
 
         // I'm leaving this priority-setting code in for future reference.
