@@ -102,6 +102,10 @@ where
     D: Deref<Target = pac::dma1::RegisterBlock>,
 {
     pub fn new(regs: D) -> Self {
+
+        // todo: Enable RCC!
+        // rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
+
         Self { regs }
     }
 

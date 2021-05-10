@@ -95,6 +95,8 @@ in the implementation, eg:
 to identify when we can take advantage of this.
 - If config fields are complicated, we use a separate `PeriphConfig` struct owned by the peripheral struct.
 This struct impls `Default`.
+- Use raw pointers only when necessary. They can help with certain abstractions, but consider if it's 
+worth it. For example pass `&mut dp.RCC` to methods when able.
 - A constructor named `new` that performs setup code, including RCC peripheral enable and reset
 - `enable_interrupt` and `clear_interrupt` functions, which accept an enum of interrupt type
 - `embedded-hal` implementations as required, that call native methods. Note that
@@ -107,7 +109,8 @@ These steps are copy+pasted in comments before the code that performs each one.
 
 ## Errata
 
-- DMA, CAN, SAI, SDIO, ethernet unimplemented
+- DMA, SAI, SDIO, ethernet unimplemented
+- Only bxCAN is implemented. Ie the `fdCAN` used on newer families is unimplemented.
 - USART synchronous mode, and auto-baud-rate detection unimplemented
 - USART interrupts unimplemented on F4
 - H7 clocks are missing advanced features
