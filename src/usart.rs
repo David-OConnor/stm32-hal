@@ -6,9 +6,10 @@
 
 // todo: Missing some features (like additional interrupts) on the USARTv3 peripheral . (L5, G etc)
 
-use core::{ops::Deref, ptr};
+use core::ops::Deref;
 
 use crate::{
+    dma::{self, Dma},
     pac::{self, RCC},
     rcc_en_reset,
     traits::ClockCfg,
@@ -339,10 +340,163 @@ where
         // reception of the next character to avoid an overrun error
     }
 
-    // /// Flush the transmit buffer.
-    // pub fn flush(&mut self) {
-    //
-    // }
+    /// Enable use of DMA transmission for U[s]ART: (L44 RM, section 38.5.15)
+    pub fn enable_dma(&mut self) {
+        // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
+        // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
+        // Section 11: Direct memory access controller (DMA) on page 295) to the USART_TDR
+        // register whenever the TXE bit is set."
+        self.regs.cr3.modify(|_, w| w.dmat().set_bit());
+    }
+
+    /// Transmit data using DMA. (L44 RM, section 38.5.15)
+    pub fn write_dma<D>(&mut self, data: &[u8], dma: &mut Dma<D>)
+    where
+        D: Deref<Target = pac::dma1::RegisterBlock>,
+    {
+        // To map a DMA channel for USART transmission, use
+        // the following procedure (x denotes the channel number):
+
+        // todo: This channel selection is confirmed for L4 only - check other families
+        // todo DMA channel mapping
+        // todo: CxS[3:0] bits to select which periph is on the channel?? (L4 Table 41.)
+        let channel = match self.device {
+            UsartDevice::One => dma::DmaChannel::C4,
+            UsartDevice::Two => dma::DmaChannel::C7,
+            #[cfg(not(any(
+                feature = "f401",
+                feature = "f410",
+                feature = "f411",
+                feature = "f412",
+                feature = "f413",
+                feature = "l4x1",
+                feature = "g0"
+            )))]
+            UsartDevice::Three => dma::DmaChannel::C2,
+        };
+
+        dma.cfg_channel(
+            channel,
+            // 1. Write the USART_TDR register address in the DMA control register to configure it as
+            // the destination of the transfer. The data is moved to this address from memory after
+            // each TXE event.
+            &self.regs.tdr as *const _ as u32,
+            // 2. Write the memory address in the DMA control register to configure it as the source of
+            // the transfer. The data is loaded into the USART_TDR register from this memory area
+            // after each TXE event.
+            // data[0] ,
+            // data[0].as_mut().as_ptr() as u32, // todo is this right?
+            data[0] as u32, // todo is this right?
+            // data[0].as_mut() as u32,
+
+            // 3. Configure the total number of bytes to be transferred to the DMA control register.
+            (data.len() * 2) as u16, // todo: Why x2?
+            // 4. Configure the channel priority in the DMA register
+            dma::Priority::Medium, // todo: Pass pri as an arg?
+            dma::Direction::ReadFromMem,
+            dma::Circular::Disabled, // todo?
+            // Increment the buffer address, not the peripheral address.
+            dma::IncrMode::Disabled,
+            dma::IncrMode::Enabled,
+            dma::DataSize::S8, // todo: S16 for 9-bit support?
+            dma::DataSize::S8, // todo: S16 for 9-bit support?
+        );
+
+        // 5. Configure DMA interrupt generation after half/ full transfer as required by the
+        // application.
+        // todo (Let the user call `dma.setup_interrupt()`? But that requires they know
+        // todo which channel of DMA usart tx is on.
+
+        // 6. Clear the TC flag in the USART_ISR register by setting the TCCF bit in the
+        // USART_ICR register.
+        self.regs.icr.write(|w| w.tccf().set_bit());
+
+        // 7. Activate the channel in the DMA register.
+        // When the number of data transfers programmed in the DMA Controller is reached, the DMA
+        // controller generates an interrupt on the DMA channel interrupt vector.
+        // (Handled in above fn call)
+
+        // In transmission mode, once the DMA has written all the data to be transmitted (the TCIF flag
+        // is set in the DMA_ISR register), the TC flag can be monitored to make sure that the USART
+        // communication is complete. This is required to avoid corrupting the last transmission before
+        // disabling the USART or entering Stop mode. Software must wait until TC=1. The TC flag
+        // remains cleared during all data transfers and it is set by hardware at the end of transmission
+        // of the last frame.
+    }
+
+    /// Receive data using DMA. (L44 RM, section 38.5.15)
+    pub fn read_dma<D>(&mut self, buf: &[u8], dma: &mut Dma<D>)
+    where
+        D: Deref<Target = pac::dma1::RegisterBlock>,
+    {
+        // To map a DMA channel for USART reception, use
+        // the following procedure:
+
+        // todo: This channel selection is confirmed for L4 only - check other families
+        // todo DMA channel mapping
+        // todo: CxS[3:0] bits to select which periph is on the channel?? (L4 Table 41.)
+        let channel = match self.device {
+            UsartDevice::One => dma::DmaChannel::C5,
+            UsartDevice::Two => dma::DmaChannel::C6,
+            #[cfg(not(any(
+                feature = "f401",
+                feature = "f410",
+                feature = "f411",
+                feature = "f412",
+                feature = "f413",
+                feature = "l4x1",
+                feature = "g0"
+            )))]
+            UsartDevice::Three => dma::DmaChannel::C3,
+        };
+
+        dma.cfg_channel(
+            channel,
+            // 1. Write the USART_RDR register address in the DMA control register to configure it as
+            // the source of the transfer. The data is moved from this address to the memory after
+            // each RXNE event.
+            &self.regs.tdr as *const _ as u32,
+            // 2. Write the memory address in the DMA control register to configure it as the destination
+            // of the transfer. The data is loaded from USART_RDR to this memory area after each
+            // RXNE event.
+            // data[0] ,
+            // data[0].as_mut().as_ptr() as u32, // todo is this right?
+            buf[0] as u32, // todo is this right?
+            // data[0].as_mut() as u32,
+
+            // 3. Configure the total number of bytes to be transferred to the DMA control register.
+            (buf.len() * 2) as u16, // todo: Why x2?
+            // 4. Configure the channel priority in the DMA control register
+            dma::Priority::Medium, // todo: Pass pri as an arg?
+            dma::Direction::ReadFromPeriph,
+            dma::Circular::Disabled, // todo?
+            // Increment the buffer address, not the peripheral address.
+            dma::IncrMode::Disabled,
+            dma::IncrMode::Enabled,
+            dma::DataSize::S8, // todo: S16 for 9-bit support?
+            dma::DataSize::S8, // todo: S16 for 9-bit support?
+        );
+
+        // 5. Configure interrupt generation after half/ full transfer as required by the application.
+        // todo (Let the user call `dma.setup_interrupt()`? But that requires they know
+        // todo which channel of DMA usart tx is on.
+
+        // 6. Activate the channel in the DMA control register.
+        // When the number of data transfers programmed in the DMA Controller is reached, the DMA
+        // controller generates an interrupt on the DMA channel interrupt vector.
+        // (Handled in above fn call)
+
+        // When the number of data transfers programmed in the DMA Controller is reached, the DMA
+        // controller generates an interrupt on the DMA channel interrupt vector.
+    }
+
+    /// Flush the transmit buffer.
+    pub fn flush(&self) {
+        #[cfg(not(feature = "f4"))]
+        while self.regs.isr.read().tc().bit_is_clear() {}
+        #[cfg(feature = "f4")]
+        while self.regs.sr.read().tc().bit_is_clear() {}
+    }
 
     #[cfg(not(feature = "f4"))]
     /// Enable a specific type of interrupt.

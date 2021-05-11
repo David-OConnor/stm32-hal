@@ -3,7 +3,7 @@
 //!
 //! Requires the `can` feature.
 
-// todo: support fdcan! Check G4 HAL?
+// todo: Decouble from the `bxCAN` crate, remove the feature, and add fdCAN support.
 
 use bxcan;
 use core::ops::Deref;

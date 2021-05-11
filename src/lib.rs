@@ -224,12 +224,15 @@ pub mod adc;
 
 // bxCAN families: F3, F4, L4,
 // fdCAN families: L5, U5, G4, H7
-// G0 and W don't support either CAN. H7 suppords fd and can_ccu. (What's that?)
-#[cfg(all(feature = "can", any(
-    feature = "f3",
-    all(feature = "f4", not(any(feature = "f401", feature = "f410"))),
-    feature = "l4"
-)))]
+// H7 suppords fd and can_ccu. (What's that?)
+#[cfg(all(
+    feature = "can",
+    any(
+        feature = "f3",
+        all(feature = "f4", not(any(feature = "f401", feature = "f410"))),
+        feature = "l4"
+    )
+))]
 pub mod can;
 
 pub mod clocks;
@@ -238,7 +241,7 @@ pub mod crc;
 pub mod dac;
 
 // #[cfg(feature = "l4")] // todo
-// pub mod dma;
+pub mod dma;
 
 pub mod delay;
 
@@ -282,6 +285,9 @@ pub mod spi;
 pub mod timer;
 
 // In the l4 series, only l4x2 and l4x3 have USB.
+// Non-OTG: F3, L4, [L5, G4?] (Are these newer ones really non-OTG? Use the usbd crate?)
+// OTG HS: F4, H7
+// OTG FS: F4
 cfg_if::cfg_if! {
     if #[cfg(all(
         feature = "usb",
@@ -289,7 +295,7 @@ cfg_if::cfg_if! {
     ))] {
         pub mod usb;
     } else if #[cfg(all(feature ="h7", feature = "usb"))] {
-        pub mod usb_h7 as usb;
+        pub mod usb_otg as usb;
     }
 }
 
