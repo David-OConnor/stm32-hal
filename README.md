@@ -175,6 +175,20 @@ where
         }   
     }
 }
+
+/// Wrap our native methods with `embedded-hal` traits.
+impl<F> embedded_hal::TargetTrack for FcRadar<F>
+where
+    F: Deref<Target = pac::fcrdr1::RegisterBlock>,
+{
+    type Error = Error;
+
+    fn track(&mut self, track: u8) -> Result<(), Error> {
+        FcRadar::track(self, track);
+        Ok(())
+    }
+}
+
 ```
 
 ## Errata
