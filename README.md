@@ -106,10 +106,79 @@ These steps are copy+pasted in comments before the code that performs each one.
 (eg don't use something like `en.enabled()` - use `en.set_bit()`.)
 
 
+### Example module structure:
+```rust
+#[derive(clone, copy)]
+#[repr(u8)]
+/// Select pulse repetiation frequency. Modifies `FCRDR_CR` register, `Prf` field.
+enum Prf {
+    Medium = 0,
+    High = 1,
+}
+
+#[derive(clone, copy)]
+/// Available interrupts. Enabled in `FCRDR_CR`, `...IE` fields. Cleared in `FCRDR_ICR`.
+enum FcRadarInterrupt {
+    TgtAcq,
+    LostTrack,
+}
+
+/// Represents the Fire Control Radar peripheral.
+pub struct FcRadar<F> {
+    regs: F,
+    prf: Prf,
+}
+
+impl<F> FcRadar<F>
+where
+    F: Deref<Target = pac::FCRDR::RegisterBlock>,
+{
+    pub fn new(regs: R, prf: Prf, rcc: &mut pac::RCC) -> Self {
+        rcc_en_reset!(apb1, fcradar1, rcc);
+
+        regs.cr.modify(|_, w| w.prf().bit(prf as u8 != 0));        
+
+        Self { regs, prf }
+    }
+
+    /// Track a target. See H8 RM, section 3.3.5.
+    pub fn track(&mut self, hit_num: u8) -> Self {
+        // RM: "To begin tracking a target, perform the following steps:"
+
+        // 1. Select the hit to track to setting the HIT bits in the FCRDR_TR register. 
+        #[cfg(feature = "h8")]
+        self.regs.tr.modify(|_, w| unsafe { w.HIT().bits(hit_num) });
+        #[cfg(feature = "g5")]
+        self.regs.tr.modify(|_, w| unsafe { w.HITN().bits(hit_num) });
+
+        // 2. Begin tarcking by setting the TRKEN bit in the FCRDR_TR register.
+        self.regs.tr.modify(|_, w| w.TRKEN().set_bit());
+
+    }
+    
+    /// Enable an interrupt.
+    pub fn enable_interrupt(&mut self, interrupt: FcRadarInterrupt) {
+        match interrupt {
+            FcRadarInterrupt::TgtAcq => self.regs.cr.modify(|_, w| w.taie().set_bit()),
+            FcRadarInterrupt::LostTrack => self.regs.cr.modify(|_, w| w.ltie().set_bit()),
+        }   
+    }
+
+    /// Clear an interrupt flag - run this in the interrupt's handler to prevent
+    /// repeat firings.
+    pub fn clear_interrupt(&mut self, interrupt: FcRadarInterrupt) {
+        match interrupt {
+            FcRadarInterrupt::TgtAcq => self.regs.icr.write(|w| w.tacf().set_bit()),
+            FcRadarInterrupt::LostTrack => self.regs.icr.write(|w| w.ltcf().set_bit()),
+        }   
+    }
+}
+```
+
 ## Errata
 
 - SAI, SDIO, ethernet unimplemented
-- DMA only implemented for USART
+- DMA only implemented for USART, and only on L4 and G4.
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
 - USART synchronous mode, and auto-baud-rate detection unimplemented
 - USART interrupts unimplemented on F4
