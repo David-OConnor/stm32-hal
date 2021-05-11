@@ -13,13 +13,7 @@ use crate::{
 };
 use core::ops::Deref;
 
-#[cfg(not(any(
-    feature = "f3",
-    feature = "g0",
-    feature = "h7",
-    feature = "f4",
-    feature = "l5"
-)))]
+#[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
 use crate::dma::{self, Dma};
 
 use embedded_hal::{
@@ -356,13 +350,7 @@ where
         self.regs.cr3.modify(|_, w| w.dmat().set_bit());
     }
 
-    #[cfg(not(any(
-        feature = "f3",
-        feature = "g0",
-        feature = "h7",
-        feature = "f4",
-        feature = "l5"
-    )))]
+    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
     pub fn write_dma<D>(&mut self, data: &[u8], dma: &mut Dma<D>)
     where
@@ -438,13 +426,7 @@ where
         // of the last frame.
     }
 
-    #[cfg(not(any(
-        feature = "f3",
-        feature = "g0",
-        feature = "h7",
-        feature = "f4",
-        feature = "l5"
-    )))]
+    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. (L44 RM, section 38.5.15)
     pub fn read_dma<D>(&mut self, buf: &[u8], dma: &mut Dma<D>)
     where

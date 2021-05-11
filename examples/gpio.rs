@@ -7,7 +7,7 @@
 use core::cell::{Cell, RefCell};
 
 use cortex_m::{
-    interrupt::{self, free},
+    interrupt::{self, free, Mutex},
     peripheral::NVIC,
 };
 use cortex_m_rt::entry;

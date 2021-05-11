@@ -7,6 +7,12 @@
 #![no_std]
 
 use core::sync::atomic::{AtomicUsize, Ordering};
+
+use cortex_m::{
+    self,
+    interrupt::{free, Mutex},
+    peripheral::NVIC,
+};
 use cortex_m_rt::entry;
 
 // These lines are part of our setup for debug printing.
@@ -22,6 +28,7 @@ use stm32_hal2::{
     adc::{self, Adc, AdcChannel},
     clocks::Clocks,
     dac::{Dac, DacChannel, DacBits},
+    dma::Dma,
     delay::Delay,
     flash::Flash,
     gpio::{GpioA, GpioB, Edge, PinNum, PinMode, OutputType, AltFn, Pull},
@@ -108,6 +115,9 @@ fn main() -> ! {
     let _miso = gpioa.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af5));
     let _mosi = gpioa.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af5));
 
+    // Configure DMA, to be used by peripherals.
+    let mut dma = Dma::new(&mut dp.DMA1, &mut dp.RCC);
+
     let spi_mode = Mode {
         polarity: Polarity::IdleLow,
         phase: Phase::CaptureOnFirstTransition,
@@ -143,7 +153,11 @@ fn main() -> ! {
 
     // Read a byte array from the UART.
     let buffer = [0_u8; 10];
-    uart.read(&mut uart_buffer);
+    uart.read(&mut uart_buffer, &mut dma);
+
+    // Or, read and write using DMA:
+    uart.write_dma(&[1, 2, 3, 4]);
+    uart.read_dma(&mut uart_buffer, &mut dma);
 
     // Set up the Analog-to-digital converter
     let _adc_pin = gpiob.new_pin(PinNum::P5, PinMode::Analog);

@@ -110,7 +110,7 @@ These steps are copy+pasted in comments before the code that performs each one.
 ```rust
 #[derive(clone, copy)]
 #[repr(u8)]
-/// Select pulse repetiation frequency. Modifies `FCRDR_CR` register, `Prf` field.
+/// Select pulse repetiation frequency. Modifies `FCRDR_CR` register, `PRF` field.
 enum Prf {
     Medium = 0,
     High = 1,
@@ -131,7 +131,7 @@ pub struct FcRadar<F> {
 
 impl<F> FcRadar<F>
 where
-    F: Deref<Target = pac::FCRDR::RegisterBlock>,
+    F: Deref<Target = pac::fcrdr1::RegisterBlock>,
 {
     pub fn new(regs: R, prf: Prf, rcc: &mut pac::RCC) -> Self {
         rcc_en_reset!(apb1, fcradar1, rcc);
@@ -151,9 +151,11 @@ where
         #[cfg(feature = "g5")]
         self.regs.tr.modify(|_, w| unsafe { w.HITN().bits(hit_num) });
 
-        // 2. Begin tarcking by setting the TRKEN bit in the FCRDR_TR register.
+        // 2. Begin tracking by setting the TRKEN bit in the FCRDR_TR register.
         self.regs.tr.modify(|_, w| w.TRKEN().set_bit());
 
+        // In tracking mode, the TA flag can be monitored to make sure that the radar
+        // is still tracking the target.
     }
     
     /// Enable an interrupt.
@@ -178,7 +180,7 @@ where
 ## Errata
 
 - SAI, SDIO, ethernet unimplemented
-- DMA only implemented for USART, and only on L4 and G4.
+- DMA only implemented for USART, and only on F3, L4 and G4.
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
 - USART synchronous mode, and auto-baud-rate detection unimplemented
 - USART interrupts unimplemented on F4

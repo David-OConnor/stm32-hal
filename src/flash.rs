@@ -16,8 +16,6 @@
 use crate::pac::FLASH;
 use core;
 
-use cfg_if::cfg_if;
-
 const FLASH_KEY1: u32 = 0x4567_0123;
 const FLASH_KEY2: u32 = 0xCDEF_89AB;
 

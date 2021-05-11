@@ -242,13 +242,7 @@ pub mod dac;
 
 // todo: F3, G0 missing many DMA registers like CCR? H7 DMA layout is different.
 // todo: F4 needs some mods. L5 appears to be missing all bits on DMA_CCR. So, only working on L4 and G4.
-#[cfg(not(any(
-    feature = "f3",
-    feature = "g0",
-    feature = "h7",
-    feature = "f4",
-    feature = "l5"
-)))]
+#[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
 pub mod dma;
 
 pub mod delay;
