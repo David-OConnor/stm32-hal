@@ -222,9 +222,9 @@ where
             .modify(|_, w| unsafe { w.stop().bits(result.config.stop_bits as u8) });
         // 4. Enable the USART by writing the UE bit in USART_CR1 register to 1.
         result.regs.cr1.modify(|_, w| w.ue().set_bit());
-        // 5. Select DMA enable (DMAT) in USART_CR3 if multibuffer communication is to take
+        // 5. Select DMA enable (DMAT[R]] in USART_CR3 if multibuffer communication is to take
         // place. Configure the DMA register as explained in multibuffer communication.
-        // todo?
+        // (Handled in `enable_dma()`)
         // 6. Set the TE bit in USART_CR1 to send an idle frame as first transmission.
         // 6. Set the RE bit USART_CR1. This enables the receiver which begins searching for a
         // start bit.
@@ -341,13 +341,71 @@ where
         // reception of the next character to avoid an overrun error
     }
 
+    #[cfg(not(any(feature = "h7", feature = "f4")))]
     /// Enable use of DMA transmission for U[s]ART: (L44 RM, section 38.5.15)
-    pub fn enable_dma(&mut self) {
+    pub fn enable_dma<D>(&mut self, dma: &mut Dma<D>)
+    where
+        D: Deref<Target = pac::dma1::RegisterBlock>,
+    {
         // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
         // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
         // Section 11: Direct memory access controller (DMA) on page 295) to the USART_TDR
         // register whenever the TXE bit is set."
         self.regs.cr3.modify(|_, w| w.dmat().set_bit());
+        self.regs.cr3.modify(|_, w| w.dmar().set_bit());
+
+        // todo: These are only valid for DMA1!
+        #[cfg(feature = "l4")]
+        match self.device {
+            UsartDevice::One => {
+                dma.channel_select(dma::DmaChannel::C4, 0b010); // Tx
+                dma.channel_select(dma::DmaChannel::C5, 0b010); // Rx
+            }
+            UsartDevice::Two => {
+                dma.channel_select(dma::DmaChannel::C7, 0b010);
+                dma.channel_select(dma::DmaChannel::C6, 0b010);
+            }
+            UsartDevice::Three => {
+                dma.channel_select(dma::DmaChannel::C2, 0b010);
+                dma.channel_select(dma::DmaChannel::C3, 0b010);
+            }
+        };
+        // Note that we need neither channel select, nor multiplex for F3.
+    }
+
+    #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
+    /// Enable use of DMA transmission for U[s]ART: (L44 RM, section 38.5.15)
+    pub fn enable_dma<D>(&mut self, dma: &mut D, mux: &mut pac::DMAMUX)
+    where
+        D: Deref<Target = pac::dma1::RegisterBlock>,
+    {
+        // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
+        // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
+        // Section 11: Direct memory access controller (DMA) on page 295) to the USART_TDR
+        // register whenever the TXE bit is set."
+
+        self.regs.cr3.modify(|_, w| w.dmat().set_bit());
+
+        // todo: How do we pick channel here, given we can choose from a selectino, and
+        // todo need to deconflict?
+        #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
+        // See G4 RM, Table 91.
+        match self.device {
+            UsartDevice::One => {
+                dma.mux(dma::DmaChannel::C1, 25, mux); // Tx
+                dma.mux(dma::DmaChannel::C2, 24, mux); // Rx
+            }
+            UsartDevice::Two => {
+                dma.mux(dma::DmaChannel::C1, 27, mux);
+                dma.mux(dma::DmaChannel::C2, 26, mux);
+            }
+            UsartDevice::Three => {
+                dma.mux(dma::DmaChannel::C1, 29, mux);
+                dma.mux(dma::DmaChannel::C2, 28, mux);
+            }
+        };
+
+        // Note that we need neither channel select, nor multiplex for F3.
     }
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
@@ -361,7 +419,8 @@ where
 
         // todo: This channel selection is confirmed for L4 only - check other families
         // todo DMA channel mapping
-        // todo: CxS[3:0] bits to select which periph is on the channel?? (L4 Table 41.)
+
+        // todo: These are only valid for DMA1!
         let channel = match self.device {
             UsartDevice::One => dma::DmaChannel::C4,
             UsartDevice::Two => dma::DmaChannel::C7,

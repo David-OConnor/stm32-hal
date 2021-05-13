@@ -7,6 +7,8 @@ use crate::{
     rcc_en_reset,
 };
 
+// todo: Several sections of this are only correct for DMA1.
+
 #[derive(Copy, Clone)]
 #[repr(u8)]
 /// L4 RM, 11.4.3, "DMA arbitration":
@@ -28,15 +30,18 @@ pub enum Priority {
 }
 
 #[derive(Copy, Clone)]
-#[repr(u8)]
+/// Represents a DMA channel to select, eg when configuring for use with a peripheral.
 pub enum DmaChannel {
-    C1 = 1,
-    C2 = 2,
-    C3 = 3,
-    C4 = 4,
-    C5 = 5,
-    C6 = 6,
-    C7 = 7,
+    C1,
+    C2,
+    C3,
+    C4,
+    C5,
+    C6,
+    C7,
+    // todo: Which else have 8? Also, note that some have diff amoutns on dam1 vs 2.
+    #[cfg(any(feature = "l5", feature = "g4"))]
+    C8,
 }
 
 #[derive(Copy, Clone)]
@@ -548,55 +553,209 @@ where
         // todo: Check for no pending request and transfer complete/error
     }
 
+    #[cfg(feature = "l4")] // Only on L4
+    /// Select which peripheral on a given channel we're using.
+    /// See L44 RM, Table 41.
+    pub fn channel_select(&mut self, channel: DmaChannel, selection: u8) {
+        if selection > 7 {
+            // Alternatively, we could use an enum
+            panic!("CSEL must be 0 - 7")
+        }
+        match channel {
+            DmaChannel::C1 => self.regs.cselr.modify(|_, w| w.c1s().bits(selection)),
+            DmaChannel::C2 => self.regs.cselr.modify(|_, w| w.c2s().bits(selection)),
+            DmaChannel::C3 => self.regs.cselr.modify(|_, w| w.c3s().bits(selection)),
+            DmaChannel::C4 => self.regs.cselr.modify(|_, w| w.c4s().bits(selection)),
+            DmaChannel::C5 => self.regs.cselr.modify(|_, w| w.c5s().bits(selection)),
+            DmaChannel::C6 => self.regs.cselr.modify(|_, w| w.c6s().bits(selection)),
+            DmaChannel::C7 => self.regs.cselr.modify(|_, w| w.c7s().bits(selection)),
+        }
+    }
+
+    #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
+    /// Configure a specific DMA channel to work with a specific peripheral.
+    pub fn mux(&mut self, channel: DmaChannel, selection: u8, mux: &pac::DMAMUX) {
+        // Note: This is similar in API and purpose to `channel_select` above,
+        // for different families. We're keeping it as a separate function instead
+        // of feature-gating within the same function so the name can be recognizable
+        // from the RM etc.
+        match channel {
+            DmaChannel::C1 => mux.c1cr.dmareq_id().bits(selection),
+            DmaChannel::C2 => mux.c2cr.dmareq_id().bits(selection),
+            DmaChannel::C3 => mux.c3cr.dmareq_id().bits(selection),
+            DmaChannel::C4 => mux.c4cr.dmareq_id().bits(selection),
+            DmaChannel::C5 => mux.c5cr.dmareq_id().bits(selection),
+            DmaChannel::C6 => mux.c6cr.dmareq_id().bits(selection),
+            DmaChannel::C7 => mux.c7cr.dmareq_id().bits(selection),
+        }
+    }
+
     /// Enable a specific type of interrupt.
     pub fn enable_interrupt(&mut self, channel: DmaChannel, interrupt_type: DmaInterrupt) {
         // Can only be set when the channel is disabled.
 
+        // todo: Macro. This is excessive DRY.
+        // todo: This is DRY from sevearl places above.
+
         match channel {
-            DmaChannel::C1 => {}
-            DmaChannel::C2 => {}
-            DmaChannel::C3 => {}
-            DmaChannel::C4 => {}
-            DmaChannel::C5 => {}
-            DmaChannel::C6 => {}
-            DmaChannel::C7 => {}
-        }
+            DmaChannel::C1 => {
+                #[cfg(not(feature = "f3"))]
+                let ccr = &self.regs.ccr1;
+                #[cfg(feature = "f3")]
+                let ccr = &self.regs.ch1.cr;
 
-        // todo!
+                let originally_enabled = ccr.read().en().bit_is_set();
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().clear_bit());
+                    while ccr.read().en().bit_is_set() {}
+                }
+                match interrupt_type {
+                    DmaInterrupt::TransferError => ccr.modify(|_, w| w.teie().set_bit()),
+                    DmaInterrupt::HalfTransfer => ccr.modify(|_, w| w.htie().set_bit()),
+                    DmaInterrupt::TransferComplete => ccr.modify(|_, w| w.tcie().set_bit()),
+                }
 
-        //     let originally_enabled = ccr.read().en().bit_is_set();
-        //     if originally_enabled {
-        //         ccr.modify(|_, w| w.en().clear_bit());
-        //         while ccr.read().en().bit_is_set() {}
-        //     }
-        //     match interrupt_type {
-        //         DmaInterrupt::TransferError => ccr.modify(|_, w| w.teie.set_bit()),
-        //         DmaInterrupt::HalfTransfer => ccr.modify(|_, w| w.htie.set_bit()),
-        //         DmaInterrupt::TransferComplete => ccr.modify(|_, w| w.tcie.set_bit()),
-        //     }
-        //
-        //     if originally_enabled {
-        //         ccr.modify(|_, w| w.en().set_bit());
-        //         while ccr.read().en().bit_is_clear() {}
-        //     }
-        //
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().set_bit());
+                    while ccr.read().en().bit_is_clear() {}
+                }
+            }
+            DmaChannel::C2 => {
+                #[cfg(not(feature = "f3"))]
+                let ccr = &self.regs.ccr2;
+                #[cfg(feature = "f3")]
+                let ccr = &self.regs.ch2.cr;
+
+                let originally_enabled = ccr.read().en().bit_is_set();
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().clear_bit());
+                    while ccr.read().en().bit_is_set() {}
+                }
+                match interrupt_type {
+                    DmaInterrupt::TransferError => ccr.modify(|_, w| w.teie().set_bit()),
+                    DmaInterrupt::HalfTransfer => ccr.modify(|_, w| w.htie().set_bit()),
+                    DmaInterrupt::TransferComplete => ccr.modify(|_, w| w.tcie().set_bit()),
+                }
+
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().set_bit());
+                    while ccr.read().en().bit_is_clear() {}
+                }
+            }
+            DmaChannel::C3 => {
+                #[cfg(not(feature = "f3"))]
+                let ccr = &self.regs.ccr3;
+                #[cfg(feature = "f3")]
+                let ccr = &self.regs.ch3.cr;
+
+                let originally_enabled = ccr.read().en().bit_is_set();
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().clear_bit());
+                    while ccr.read().en().bit_is_set() {}
+                }
+                match interrupt_type {
+                    DmaInterrupt::TransferError => ccr.modify(|_, w| w.teie().set_bit()),
+                    DmaInterrupt::HalfTransfer => ccr.modify(|_, w| w.htie().set_bit()),
+                    DmaInterrupt::TransferComplete => ccr.modify(|_, w| w.tcie().set_bit()),
+                }
+
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().set_bit());
+                    while ccr.read().en().bit_is_clear() {}
+                }
+            }
+            DmaChannel::C4 => {
+                #[cfg(not(feature = "f3"))]
+                let ccr = &self.regs.ccr4;
+                #[cfg(feature = "f3")]
+                let ccr = &self.regs.ch4.cr;
+
+                let originally_enabled = ccr.read().en().bit_is_set();
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().clear_bit());
+                    while ccr.read().en().bit_is_set() {}
+                }
+                match interrupt_type {
+                    DmaInterrupt::TransferError => ccr.modify(|_, w| w.teie().set_bit()),
+                    DmaInterrupt::HalfTransfer => ccr.modify(|_, w| w.htie().set_bit()),
+                    DmaInterrupt::TransferComplete => ccr.modify(|_, w| w.tcie().set_bit()),
+                }
+
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().set_bit());
+                    while ccr.read().en().bit_is_clear() {}
+                }
+            }
+            DmaChannel::C5 => {
+                #[cfg(not(feature = "f3"))]
+                let ccr = &self.regs.ccr5;
+                #[cfg(feature = "f3")]
+                let ccr = &self.regs.ch5.cr;
+
+                let originally_enabled = ccr.read().en().bit_is_set();
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().clear_bit());
+                    while ccr.read().en().bit_is_set() {}
+                }
+                match interrupt_type {
+                    DmaInterrupt::TransferError => ccr.modify(|_, w| w.teie().set_bit()),
+                    DmaInterrupt::HalfTransfer => ccr.modify(|_, w| w.htie().set_bit()),
+                    DmaInterrupt::TransferComplete => ccr.modify(|_, w| w.tcie().set_bit()),
+                }
+
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().set_bit());
+                    while ccr.read().en().bit_is_clear() {}
+                }
+            }
+            DmaChannel::C6 => {
+                #[cfg(not(feature = "f3"))]
+                let ccr = &self.regs.ccr6;
+                #[cfg(feature = "f3")]
+                let ccr = &self.regs.ch6.cr;
+
+                let originally_enabled = ccr.read().en().bit_is_set();
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().clear_bit());
+                    while ccr.read().en().bit_is_set() {}
+                }
+                match interrupt_type {
+                    DmaInterrupt::TransferError => ccr.modify(|_, w| w.teie().set_bit()),
+                    DmaInterrupt::HalfTransfer => ccr.modify(|_, w| w.htie().set_bit()),
+                    DmaInterrupt::TransferComplete => ccr.modify(|_, w| w.tcie().set_bit()),
+                }
+
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().set_bit());
+                    while ccr.read().en().bit_is_clear() {}
+                }
+            }
+            DmaChannel::C7 => {
+                #[cfg(not(feature = "f3"))]
+                let ccr = &self.regs.ccr7;
+                #[cfg(feature = "f3")]
+                let ccr = &self.regs.ch7.cr;
+
+                let originally_enabled = ccr.read().en().bit_is_set();
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().clear_bit());
+                    while ccr.read().en().bit_is_set() {}
+                }
+                match interrupt_type {
+                    DmaInterrupt::TransferError => ccr.modify(|_, w| w.teie().set_bit()),
+                    DmaInterrupt::HalfTransfer => ccr.modify(|_, w| w.htie().set_bit()),
+                    DmaInterrupt::TransferComplete => ccr.modify(|_, w| w.tcie().set_bit()),
+                }
+
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().set_bit());
+                    while ccr.read().en().bit_is_clear() {}
+                }
+            }
+        };
     }
 
-    pub fn clear_interrupt(&mut self, interrupt_type: DmaInterrupt) {}
-
-    // todo: Put this back if you think changing the priority is something you want to do
-    // todo after initial config.
-    // pub fn set_priority(&mut self, channel: DmaChannel, priority: Priority) {
-    //     let ccr = match channel {
-    //         // todo DRY
-    //         DmaChannel::C1 => self.regs.ccr1,
-    //         DmaChannel::C2 => self.regs.ccr2,
-    //         DmaChannel::C3 => self.regs.ccr3,
-    //         DmaChannel::C4 => self.regs.ccr4,
-    //         DmaChannel::C5 => self.regs.ccr5,
-    //         DmaChannel::C6 => self.regs.ccr6,
-    //         DmaChannel::C7 => self.regs.ccr7,
-    //     };
-    //     ccr.modify(|_, w| w.asfd);
-    // }
+    pub fn clear_interrupt(&mut self, interrupt_type: DmaInterrupt) {
+        // todo!
+    }
 }

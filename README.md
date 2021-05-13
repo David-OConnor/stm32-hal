@@ -83,7 +83,7 @@ self-host docs in the future.
 
 ## Contributing
 
-PRs are encouraged. Documenting each step using reference manuals is encouraged, but not required.
+PRs are encouraged. Documenting each step using reference manuals is encouraged where applicable.
 
 Most peripheral modules use the following format:
 
@@ -98,7 +98,7 @@ This struct impls `Default`.
 - Use raw pointers only when necessary. For example, pass `&mut dp.RCC` to methods when able.
 - A constructor named `new` that performs setup code, including RCC peripheral enable and reset
 - `enable_interrupt` and `clear_interrupt` functions, which accept an enum of interrupt type
-- `embedded-hal` implementations as required, that call native methods. Note that
+- Add `embedded-hal` implementations as required, that call native methods. Note that
 we design APIs based on STM32 capabilities, and apply EH traits as applicable.
 - When available, base setup and usage steps on instructions provided in Reference Manuals.
 These steps are copy+pasted in comments before the code that performs each one.
@@ -126,7 +126,7 @@ enum FcRadarInterrupt {
 /// Represents the Fire Control Radar peripheral.
 pub struct FcRadar<F> {
     regs: F,
-    prf: Prf,
+    pub prf: Prf,
 }
 
 impl<F> FcRadar<F>
@@ -145,7 +145,7 @@ where
     pub fn track(&mut self, hit_num: u8) -> Self {
         // RM: "To begin tracking a target, perform the following steps:"
 
-        // 1. Select the hit to track to setting the HIT bits in the FCRDR_TR register. 
+        // 1. Select the hit to track by setting the HIT bits in the FCRDR_TR register. 
         #[cfg(feature = "h8")]
         self.regs.tr.modify(|_, w| unsafe { w.HIT().bits(hit_num) });
         #[cfg(feature = "g5")]
@@ -188,7 +188,6 @@ where
         Ok(())
     }
 }
-
 ```
 
 ## Errata

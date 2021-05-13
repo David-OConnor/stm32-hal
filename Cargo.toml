@@ -131,8 +131,8 @@ h753 = ["stm32h7/stm32h753", "h7"]
 h753v = ["stm32h7/stm32h753v", "h7"]
 h7b3 = ["stm32h7/stm32h7b3", "h7"]
 
-# todo: Maybe have separate OTG trait, so you're not importing the unused USB crate.
-usb = ["stm32-usbd", "synopsys-usb-otg"]
+usb = ["stm32-usbd"]
+usbotg = ["synopsys-usb-otg"]
 can = ["bxcan"]
 
 # These features are used to featured gate sections of code that apply

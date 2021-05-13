@@ -27,7 +27,7 @@ use crate::{
     traits::ClockCfg,
 };
 
-use core::{marker::PhantomData, ptr};
+use core::ptr;
 
 use cfg_if::cfg_if;
 
