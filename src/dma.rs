@@ -9,6 +9,49 @@ use crate::{
 
 // todo: Several sections of this are only correct for DMA1.
 
+#[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
+#[repr(u8)]
+/// See G4, Table 91: DMAMUX: Assignment of multiplexer inputs to resources.
+pub(crate) enum MuxInput {
+    // todo: This (on G4) goes up to 115. For now, just implement things we're likely
+    // todo to use in this HAL. Make sure this is compatible beyond G4.
+    Adc1 = 5,
+    Dac1Ch1 = 6,
+    Dac1Ch2 = 7,
+    Tim6Up = 8,
+    Tim7Up = 9,
+    Spi1Rx = 10,
+    Spi1Tx = 11,
+    Spi2Rx = 12,
+    Spi2Tx = 13,
+    Spi3Rx = 14,
+    Spi3Tx = 15,
+    I2c1Rx = 16,
+    I2c1Tx = 17,
+    I2c2Rx = 18,
+    I2c2Tx = 19,
+    I2c3Rx = 20,
+    I2c3Tx = 21,
+    I2c4Rx = 22,
+    I2c4Tx = 23,
+    Usart1Rx = 24,
+    Usart1Tx = 25,
+    Usart2Rx = 26,
+    Usart2Tx = 27,
+    Usart3Rx = 28,
+    Usart3Tx = 29,
+    Uart4Rx = 30,
+    Uart4Tx = 31,
+    Uart5Rx = 32,
+    Uart5Tx = 33,
+    Lpuart1Rx = 34,
+    Lpuart1Tx = 35,
+    Adc2 = 36,
+    Adc3 = 37,
+    Adc4 = 38,
+    Adc5 = 39,
+}
+
 #[derive(Copy, Clone)]
 #[repr(u8)]
 /// L4 RM, 11.4.3, "DMA arbitration":
@@ -132,8 +175,8 @@ pub struct Dma<D> {
 }
 
 impl<D> Dma<D>
-where
-    D: Deref<Target = pac::dma1::RegisterBlock>,
+    where
+        D: Deref<Target = pac::dma1::RegisterBlock>,
 {
     pub fn new(regs: D, rcc: &mut RCC) -> Self {
         // todo: Enable RCC for DMA 2 etc!
@@ -141,7 +184,7 @@ where
         #[cfg(not(feature = "f3"))]
         rcc_en_reset!(ahb1, dma1, rcc);
         #[cfg(feature = "f3")]
-        rcc.ahbenr.modify(|_, w| w.dma1en().set_bit()); // no dmarst on F3.
+            rcc.ahbenr.modify(|_, w| w.dma1en().set_bit()); // no dmarst on F3.
 
         Self { regs }
     }
@@ -174,51 +217,59 @@ where
             match channel {
                 DmaChannel::C1 => {
                     #[cfg(not(feature = "f3"))]
-                    let cpar = &self.regs.cpar1;
+                        let cpar = &self.regs.cpar1;
                     #[cfg(feature = "f3")]
-                    let cpar = &self.regs.ch1.par;
+                        let cpar = &self.regs.ch1.par;
                     cpar.write(|w| w.bits(periph_reg));
                 }
                 DmaChannel::C2 => {
                     #[cfg(not(feature = "f3"))]
-                    let cpar = &self.regs.cpar2;
+                        let cpar = &self.regs.cpar2;
                     #[cfg(feature = "f3")]
-                    let cpar = &self.regs.ch2.par;
+                        let cpar = &self.regs.ch2.par;
                     cpar.write(|w| w.bits(periph_reg));
                 }
                 DmaChannel::C3 => {
                     #[cfg(not(feature = "f3"))]
-                    let cpar = &self.regs.cpar3;
+                        let cpar = &self.regs.cpar3;
                     #[cfg(feature = "f3")]
-                    let cpar = &self.regs.ch3.par;
+                        let cpar = &self.regs.ch3.par;
                     cpar.write(|w| w.bits(periph_reg));
                 }
                 DmaChannel::C4 => {
                     #[cfg(not(feature = "f3"))]
-                    let cpar = &self.regs.cpar4;
+                        let cpar = &self.regs.cpar4;
                     #[cfg(feature = "f3")]
-                    let cpar = &self.regs.ch4.par;
+                        let cpar = &self.regs.ch4.par;
                     cpar.write(|w| w.bits(periph_reg));
                 }
                 DmaChannel::C5 => {
                     #[cfg(not(feature = "f3"))]
-                    let cpar = &self.regs.cpar5;
+                        let cpar = &self.regs.cpar5;
                     #[cfg(feature = "f3")]
-                    let cpar = &self.regs.ch5.par;
+                        let cpar = &self.regs.ch5.par;
                     cpar.write(|w| w.bits(periph_reg));
                 }
                 DmaChannel::C6 => {
                     #[cfg(not(feature = "f3"))]
-                    let cpar = &self.regs.cpar6;
+                        let cpar = &self.regs.cpar6;
                     #[cfg(feature = "f3")]
-                    let cpar = &self.regs.ch6.par;
+                        let cpar = &self.regs.ch6.par;
                     cpar.write(|w| w.bits(periph_reg));
                 }
                 DmaChannel::C7 => {
                     #[cfg(not(feature = "f3"))]
-                    let cpar = &self.regs.cpar7;
+                        let cpar = &self.regs.cpar7;
                     #[cfg(feature = "f3")]
-                    let cpar = &self.regs.ch7.par;
+                        let cpar = &self.regs.ch7.par;
+                    cpar.write(|w| w.bits(periph_reg));
+                }
+                #[cfg(any(feature = "l5", feature = "g4"))]
+                DmaChannel::C8 => {
+                    #[cfg(not(feature = "f3"))]
+                        let cpar = &self.regs.cpar8;
+                    #[cfg(feature = "f3")]
+                        let cpar = &self.regs.ch8.par;
                     cpar.write(|w| w.bits(periph_reg));
                 }
             }
@@ -231,51 +282,59 @@ where
             match channel {
                 DmaChannel::C1 => {
                     #[cfg(not(feature = "f3"))]
-                    let cmar = &self.regs.cmar1;
+                        let cmar = &self.regs.cmar1;
                     #[cfg(feature = "f3")]
-                    let cmar = &self.regs.ch1.mar;
+                        let cmar = &self.regs.ch1.mar;
                     cmar.write(|w| w.bits(mem_addr));
                 }
                 DmaChannel::C2 => {
                     #[cfg(not(feature = "f3"))]
-                    let cmar = &self.regs.cmar2;
+                        let cmar = &self.regs.cmar2;
                     #[cfg(feature = "f3")]
-                    let cmar = &self.regs.ch2.mar;
+                        let cmar = &self.regs.ch2.mar;
                     cmar.write(|w| w.bits(mem_addr));
                 }
                 DmaChannel::C3 => {
                     #[cfg(not(feature = "f3"))]
-                    let cmar = &self.regs.cmar3;
+                        let cmar = &self.regs.cmar3;
                     #[cfg(feature = "f3")]
-                    let cmar = &self.regs.ch3.mar;
+                        let cmar = &self.regs.ch3.mar;
                     cmar.write(|w| w.bits(mem_addr));
                 }
                 DmaChannel::C4 => {
                     #[cfg(not(feature = "f3"))]
-                    let cmar = &self.regs.cmar4;
+                        let cmar = &self.regs.cmar4;
                     #[cfg(feature = "f3")]
-                    let cmar = &self.regs.ch4.mar;
+                        let cmar = &self.regs.ch4.mar;
                     cmar.write(|w| w.bits(mem_addr));
                 }
                 DmaChannel::C5 => {
                     #[cfg(not(feature = "f3"))]
-                    let cmar = &self.regs.cmar5;
+                        let cmar = &self.regs.cmar5;
                     #[cfg(feature = "f3")]
-                    let cmar = &self.regs.ch5.mar;
+                        let cmar = &self.regs.ch5.mar;
                     cmar.write(|w| w.bits(mem_addr));
                 }
                 DmaChannel::C6 => {
                     #[cfg(not(feature = "f3"))]
-                    let cmar = &self.regs.cmar6;
+                        let cmar = &self.regs.cmar6;
                     #[cfg(feature = "f3")]
-                    let cmar = &self.regs.ch6.mar;
+                        let cmar = &self.regs.ch6.mar;
                     cmar.write(|w| w.bits(mem_addr));
                 }
                 DmaChannel::C7 => {
                     #[cfg(not(feature = "f3"))]
-                    let cmar = &self.regs.cmar7;
+                        let cmar = &self.regs.cmar7;
                     #[cfg(feature = "f3")]
-                    let cmar = &self.regs.ch7.mar;
+                        let cmar = &self.regs.ch7.mar;
+                    cmar.write(|w| w.bits(mem_addr));
+                }
+                #[cfg(any(feature = "l5", feature = "g4"))]
+                DmaChannel::C8 => {
+                    #[cfg(not(feature = "f3"))]
+                        let cmar = &self.regs.cmar8;
+                    #[cfg(feature = "f3")]
+                        let cmar = &self.regs.ch8.mar;
                     cmar.write(|w| w.bits(mem_addr));
                 }
             }
@@ -287,51 +346,59 @@ where
             match channel {
                 DmaChannel::C1 => {
                     #[cfg(not(feature = "f3"))]
-                    let cndtr = &self.regs.cndtr1;
+                        let cndtr = &self.regs.cndtr1;
                     #[cfg(feature = "f3")]
-                    let cndtr = &self.regs.ch1.ndtr;
+                        let cndtr = &self.regs.ch1.ndtr;
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
                 DmaChannel::C2 => {
                     #[cfg(not(feature = "f3"))]
-                    let cndtr = &self.regs.cndtr2;
+                        let cndtr = &self.regs.cndtr2;
                     #[cfg(feature = "f3")]
-                    let cndtr = &self.regs.ch2.ndtr;
+                        let cndtr = &self.regs.ch2.ndtr;
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
                 DmaChannel::C3 => {
                     #[cfg(not(feature = "f3"))]
-                    let cndtr = &self.regs.cndtr3;
+                        let cndtr = &self.regs.cndtr3;
                     #[cfg(feature = "f3")]
-                    let cndtr = &self.regs.ch3.ndtr;
+                        let cndtr = &self.regs.ch3.ndtr;
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
                 DmaChannel::C4 => {
                     #[cfg(not(feature = "f3"))]
-                    let cndtr = &self.regs.cndtr4;
+                        let cndtr = &self.regs.cndtr4;
                     #[cfg(feature = "f3")]
-                    let cndtr = &self.regs.ch4.ndtr;
+                        let cndtr = &self.regs.ch4.ndtr;
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
                 DmaChannel::C5 => {
                     #[cfg(not(feature = "f3"))]
-                    let cndtr = &self.regs.cndtr5;
+                        let cndtr = &self.regs.cndtr5;
                     #[cfg(feature = "f3")]
-                    let cndtr = &self.regs.ch5.ndtr;
+                        let cndtr = &self.regs.ch5.ndtr;
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
                 DmaChannel::C6 => {
                     #[cfg(not(feature = "f3"))]
-                    let cndtr = &self.regs.cndtr6;
+                        let cndtr = &self.regs.cndtr6;
                     #[cfg(feature = "f3")]
-                    let cndtr = &self.regs.ch6.ndtr;
+                        let cndtr = &self.regs.ch6.ndtr;
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
                 DmaChannel::C7 => {
                     #[cfg(not(feature = "f3"))]
-                    let cndtr = &self.regs.cndtr7;
+                        let cndtr = &self.regs.cndtr7;
                     #[cfg(feature = "f3")]
-                    let cndtr = &self.regs.ch7.ndtr;
+                        let cndtr = &self.regs.ch7.ndtr;
+                    cndtr.write(|w| w.ndt().bits(num_data));
+                }
+                #[cfg(any(feature = "l5", feature = "g4"))]
+                DmaChannel::C8 => {
+                    #[cfg(not(feature = "f3"))]
+                        let cndtr = &self.regs.cndtr8;
+                    #[cfg(feature = "f3")]
+                        let cndtr = &self.regs.ch8.ndtr;
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
             }
@@ -365,9 +432,9 @@ where
         match channel {
             DmaChannel::C1 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr1;
+                    let ccr = &self.regs.ccr1;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch1.cr;
+                    let ccr = &self.regs.ch1.cr;
 
                 set_ccr!(
                     ccr,
@@ -382,9 +449,9 @@ where
             }
             DmaChannel::C2 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr2;
+                    let ccr = &self.regs.ccr2;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch2.cr;
+                    let ccr = &self.regs.ch2.cr;
 
                 set_ccr!(
                     ccr,
@@ -399,9 +466,9 @@ where
             }
             DmaChannel::C3 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr3;
+                    let ccr = &self.regs.ccr3;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch3.cr;
+                    let ccr = &self.regs.ch3.cr;
 
                 set_ccr!(
                     ccr,
@@ -416,9 +483,9 @@ where
             }
             DmaChannel::C4 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr4;
+                    let ccr = &self.regs.ccr4;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch4.cr;
+                    let ccr = &self.regs.ch4.cr;
 
                 set_ccr!(
                     ccr,
@@ -433,9 +500,9 @@ where
             }
             DmaChannel::C5 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr5;
+                    let ccr = &self.regs.ccr5;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch5.cr;
+                    let ccr = &self.regs.ch5.cr;
 
                 set_ccr!(
                     ccr,
@@ -450,9 +517,9 @@ where
             }
             DmaChannel::C6 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr6;
+                    let ccr = &self.regs.ccr6;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch6.cr;
+                    let ccr = &self.regs.ch6.cr;
 
                 set_ccr!(
                     ccr,
@@ -467,9 +534,27 @@ where
             }
             DmaChannel::C7 => {
                 #[cfg(not(feature = "f3"))]
-                let mut ccr = &self.regs.ccr7;
+                    let mut ccr = &self.regs.ccr7;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch7.cr;
+                    let ccr = &self.regs.ch7.cr;
+
+                set_ccr!(
+                    ccr,
+                    priority,
+                    direction,
+                    circular,
+                    periph_incr,
+                    mem_incr,
+                    periph_size,
+                    mem_size
+                );
+            }
+            #[cfg(any(feature = "l5", feature = "g4"))]
+            DmaChannel::C8 => {
+                #[cfg(not(feature = "f3"))]
+                    let mut ccr = &self.regs.ccr8;
+                #[cfg(feature = "f3")]
+                    let ccr = &self.regs.ch8.cr;
 
                 set_ccr!(
                     ccr,
@@ -501,51 +586,59 @@ where
         match channel {
             DmaChannel::C1 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr1;
+                    let ccr = &self.regs.ccr1;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch1.cr;
+                    let ccr = &self.regs.ch1.cr;
                 ccr.modify(|_, w| w.en().clear_bit())
             }
             DmaChannel::C2 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr2;
+                    let ccr = &self.regs.ccr2;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch2.cr;
+                    let ccr = &self.regs.ch2.cr;
                 ccr.modify(|_, w| w.en().clear_bit())
             }
             DmaChannel::C3 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr3;
+                    let ccr = &self.regs.ccr3;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch3.cr;
+                    let ccr = &self.regs.ch3.cr;
                 ccr.modify(|_, w| w.en().clear_bit())
             }
             DmaChannel::C4 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr4;
+                    let ccr = &self.regs.ccr4;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch4.cr;
+                    let ccr = &self.regs.ch4.cr;
                 ccr.modify(|_, w| w.en().clear_bit())
             }
             DmaChannel::C5 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr5;
+                    let ccr = &self.regs.ccr5;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch5.cr;
+                    let ccr = &self.regs.ch5.cr;
                 ccr.modify(|_, w| w.en().clear_bit())
             }
             DmaChannel::C6 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr6;
+                    let ccr = &self.regs.ccr6;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch6.cr;
+                    let ccr = &self.regs.ch6.cr;
                 ccr.modify(|_, w| w.en().clear_bit())
             }
             DmaChannel::C7 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr7;
+                    let ccr = &self.regs.ccr7;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch7.cr;
+                    let ccr = &self.regs.ch7.cr;
+                ccr.modify(|_, w| w.en().clear_bit())
+            }
+            #[cfg(any(feature = "l5", feature = "g4"))]
+            DmaChannel::C8 => {
+                #[cfg(not(feature = "f3"))]
+                    let ccr = &self.regs.ccr8;
+                #[cfg(feature = "f3")]
+                    let ccr = &self.regs.ch8.cr;
                 ccr.modify(|_, w| w.en().clear_bit())
             }
         };
@@ -569,6 +662,8 @@ where
             DmaChannel::C5 => self.regs.cselr.modify(|_, w| w.c5s().bits(selection)),
             DmaChannel::C6 => self.regs.cselr.modify(|_, w| w.c6s().bits(selection)),
             DmaChannel::C7 => self.regs.cselr.modify(|_, w| w.c7s().bits(selection)),
+            #[cfg(any(feature = "l5", feature = "g4"))]
+            DmaChannel::C8 => self.regs.cselr.modify(|_, w| w.c8s().bits(selection)),
         }
     }
 
@@ -587,6 +682,8 @@ where
             DmaChannel::C5 => mux.c5cr.dmareq_id().bits(selection),
             DmaChannel::C6 => mux.c6cr.dmareq_id().bits(selection),
             DmaChannel::C7 => mux.c7cr.dmareq_id().bits(selection),
+            #[cfg(any(feature = "l5", feature = "g4"))]
+            DmaChannel::C8 => mux.c8cr.dmareq_id().bits(selection),
         }
     }
 
@@ -600,9 +697,9 @@ where
         match channel {
             DmaChannel::C1 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr1;
+                    let ccr = &self.regs.ccr1;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch1.cr;
+                    let ccr = &self.regs.ch1.cr;
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {
@@ -622,9 +719,9 @@ where
             }
             DmaChannel::C2 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr2;
+                    let ccr = &self.regs.ccr2;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch2.cr;
+                    let ccr = &self.regs.ch2.cr;
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {
@@ -644,9 +741,9 @@ where
             }
             DmaChannel::C3 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr3;
+                    let ccr = &self.regs.ccr3;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch3.cr;
+                    let ccr = &self.regs.ch3.cr;
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {
@@ -666,9 +763,9 @@ where
             }
             DmaChannel::C4 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr4;
+                    let ccr = &self.regs.ccr4;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch4.cr;
+                    let ccr = &self.regs.ch4.cr;
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {
@@ -688,9 +785,9 @@ where
             }
             DmaChannel::C5 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr5;
+                    let ccr = &self.regs.ccr5;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch5.cr;
+                    let ccr = &self.regs.ch5.cr;
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {
@@ -710,9 +807,9 @@ where
             }
             DmaChannel::C6 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr6;
+                    let ccr = &self.regs.ccr6;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch6.cr;
+                    let ccr = &self.regs.ch6.cr;
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {
@@ -732,9 +829,9 @@ where
             }
             DmaChannel::C7 => {
                 #[cfg(not(feature = "f3"))]
-                let ccr = &self.regs.ccr7;
+                    let ccr = &self.regs.ccr7;
                 #[cfg(feature = "f3")]
-                let ccr = &self.regs.ch7.cr;
+                    let ccr = &self.regs.ch7.cr;
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {

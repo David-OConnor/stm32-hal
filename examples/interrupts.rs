@@ -88,7 +88,7 @@ fn main() -> ! {
         NVIC::unmask(pac::Interrupt::TIM15); // Timer
         NVIC::unmask(pac::Interrupt::RTC_WKUP); // RTC
 
-        // I'm leaving this priority-setting code in for future reference.
+        // Set interrupt priority. See the reference manual's NVIC section for details.
         cp.NVIC.set_priority(pac::Interrupt::EXTI0, 0);
         cp.NVIC.set_priority(pac::Interrupt::TIM3, 1);
     }

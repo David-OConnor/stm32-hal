@@ -110,7 +110,7 @@ These steps are copy+pasted in comments before the code that performs each one.
 ```rust
 #[derive(clone, copy)]
 #[repr(u8)]
-/// Select pulse repetiation frequency. Modifies `FCRDR_CR` register, `PRF` field.
+/// Select pulse repetition frequency. Modifies `FCRDR_CR` register, `PRF` field.
 enum Prf {
     Medium = 0,
     High = 1,

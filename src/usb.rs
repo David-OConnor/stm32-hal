@@ -58,14 +58,18 @@ unsafe impl UsbPeripheral for Peripheral {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "f3")] {
                     rcc_en_reset!(apb1, usb, rcc);
-                }  else if #[cfg(feature = "l4x3")] {  // todo: rstr absent or missing in Pac for L4x3.
+                } else if #[cfg(feature = "l4x3")] {
+                    // todo: rstr absent or missing in Pac for L4x3. Present in RM.
                     rcc.apb1enr1.modify(|_, w| w.usbfsen().set_bit());
 
                     let rstr_val = rcc.apb1rstr1.read().bits();
                     rcc.apb1rstr1.modify(|_, w| unsafe { w.bits(rstr_val | (1 << 26)) }); // Set bit 26
                     rcc.apb1rstr1.modify(|_ ,w| unsafe { w.bits(rstr_val & !(1 << 26)) }); // Clear bit 26
-                } else {
-                    rcc_en_reset!(apb1, usbf, rcc);
+                } else if #[cfg(feature = "l4x2")] {
+                    rcc_en_reset!(apb1, usbfs, rcc);
+                }
+                else { // G
+                    rcc_en_reset!(apb1, usb, rcc);
                 }
             }
         });

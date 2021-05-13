@@ -341,7 +341,19 @@ where
         // reception of the next character to avoid an overrun error
     }
 
-    #[cfg(not(any(feature = "h7", feature = "f4")))]
+    /// Read a single word, without confirming if it's ready. This is useful in async concepts,
+    /// when you know word is ready to be read.
+    pub fn read_one(&mut self) -> u8 {
+        cfg_if! {
+            if #[cfg(not(feature = "f4"))] {
+                self.regs.rdr.read().rdr().bits() as u8
+            } else {
+                 self.regs.dr.read().dr().bits() as u8
+            }
+        }
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
     /// Enable use of DMA transmission for U[s]ART: (L44 RM, section 38.5.15)
     pub fn enable_dma<D>(&mut self, dma: &mut Dma<D>)
     where
@@ -375,7 +387,7 @@ where
 
     #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
     /// Enable use of DMA transmission for U[s]ART: (L44 RM, section 38.5.15)
-    pub fn enable_dma<D>(&mut self, dma: &mut D, mux: &mut pac::DMAMUX)
+    pub fn enable_dma<D>(&mut self, dma: &mut D, chan_tx: dma::DmaChannel, chan_rx: dma::DmaChannel, mux: &mut pac::DMAMUX)
     where
         D: Deref<Target = pac::dma1::RegisterBlock>,
     {
@@ -386,22 +398,20 @@ where
 
         self.regs.cr3.modify(|_, w| w.dmat().set_bit());
 
-        // todo: How do we pick channel here, given we can choose from a selectino, and
-        // todo need to deconflict?
         #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
         // See G4 RM, Table 91.
         match self.device {
             UsartDevice::One => {
-                dma.mux(dma::DmaChannel::C1, 25, mux); // Tx
-                dma.mux(dma::DmaChannel::C2, 24, mux); // Rx
+                dma.mux(chan_tx, dma::MuxInput::Usart1Tx, mux); // Tx
+                dma.mux(chan_rx, dma::MuxInput::Usart1Rx, mux); // Rx
             }
             UsartDevice::Two => {
-                dma.mux(dma::DmaChannel::C1, 27, mux);
-                dma.mux(dma::DmaChannel::C2, 26, mux);
+                dma.mux(chan_tx, dma::MuxInput::Usart2Tx, mux);
+                dma.mux(chan_rx, dma::MuxInput::Usart2Rx, mux);
             }
             UsartDevice::Three => {
-                dma.mux(dma::DmaChannel::C1, 29, mux);
-                dma.mux(dma::DmaChannel::C2, 28, mux);
+                dma.mux(chan_tx, dma::MuxInput::Usart3Tx, mux);
+                dma.mux(chan_rx, dma::MuxInput::Usart3Rx, mux);
             }
         };
 

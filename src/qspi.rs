@@ -23,7 +23,7 @@
 //! which all 8 IOs are used for the interface).
 
 use crate::{
-    pac::{self, QUADSPI, RCC},
+    pac::{QUADSPI, RCC},
     traits::ClockCfg,
 };
 
