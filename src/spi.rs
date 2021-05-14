@@ -6,13 +6,24 @@ use core::{ops::Deref, ptr};
 
 use embedded_hal::spi::{FullDuplex, Mode, Phase, Polarity};
 
-use cfg_if::cfg_if;
-
 use crate::{
     pac::{self, RCC},
     rcc_en_reset,
     traits::ClockCfg,
 };
+
+#[cfg(feature = "g0")]
+use crate::pac::dma as dma_p;
+#[cfg(not(feature = "g0"))]
+use crate::pac::dma1 as dma_p;
+
+#[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
+use crate::dma::{self, Dma};
+
+// todo: non-static buffers?
+use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
+
+use cfg_if::cfg_if;
 
 // todo: More config options and enums?
 
@@ -243,19 +254,6 @@ where
                 // spe: enable the SPI bus
                 regs.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
             } else {
-                // FRXTH: RXNE event is generated if the FIFO level is greater than or equal to
-                //        8-bit
-                // DS: 8-bit data size
-                // SSOE: Slave Select output disabled
-                #[cfg(feature = "f4")]
-                regs.cr2.write(|w| w.ssoe().clear_bit());
-
-                #[cfg(not(feature = "f4"))]
-                regs.cr2
-                    .write(|w| unsafe {
-                        w.frxth().set_bit().ds().bits(0b111).ssoe().clear_bit()
-                    });
-
                 let fclk = match device {
                     SpiDevice::One => clocks.apb2(),
                     _ => clocks.apb1(),
@@ -273,28 +271,73 @@ where
                 // SSI: set nss high = master mode
                 // CRCEN: hardware CRC calculation disabled
                 // BIDIMODE: 2 line unidirectional (full duplex)
-                regs.cr1.write(|w| unsafe {
-                    w.cpha()
-                        .bit(mode.phase == Phase::CaptureOnSecondTransition)
-                        .cpol()
-                        .bit(mode.polarity == Polarity::IdleHigh)
-                        .mstr()
-                        .set_bit()
-                        .br()
-                        .bits(br)
-                        .spe()
-                        .set_bit()
-                        .lsbfirst()
-                        .clear_bit()
-                        .ssi()
-                        .set_bit()
-                        .ssm()
-                        .set_bit()
-                        .crcen()
-                        .clear_bit()
-                        .bidimode()
-                        .clear_bit()
+
+                // L44 RM, section 40.4.7: Configuration of SPI
+                // The configuration procedure is almost the same for master and slave. For specific mode
+                // setups, follow the dedicated sections. When a standard communication is to be initialized,
+                // perform these steps:
+
+                // 1. Write proper GPIO registers: Configure GPIO for MOSI, MISO and SCK pins.
+                // (Handled in GPIO modules and user code)
+
+                // 2. Write to the SPI_CR1 register:
+                // todo: Should more of these be configurable vice hard set?)
+                regs.cr1.modify(|_, w| unsafe {
+                    // a) Configure the serial clock baud rate using the BR[2:0] bits (Note: 4)
+                    w.br().bits(br);
+                    // b) Configure the CPOL and CPHA bits combination to define one of the four
+                    // relationships between the data transfer and the serial clock (CPHA must be
+                    // cleared in NSSP mode). (Note: 2 - except the case when CRC is enabled at TI
+                    // mode).
+                    w.cpol().bit(mode.polarity == Polarity::IdleHigh);
+                    w.cpha().bit(mode.phase == Phase::CaptureOnSecondTransition);
+                    // c) Select simplex or half-duplex mode by configuring RXONLY or BIDIMODE and
+                    // BIDIOE (RXONLY and BIDIMODE can't be set at the same time).
+                    // (TODO: absent from L4X impl.)
+                    // d) Configure the LSBFIRST bit to define the frame format (Note: 2).
+                    w.lsbfirst().clear_bit();
+                    // e) Configure the CRCL and CRCEN bits if CRC is needed (while SCK clock signal is
+                    // at idle state).
+                    w.crcen().clear_bit();
+                    // f) Configure SSM and SSI (Notes: 2 & 3).
+                    w.ssi().set_bit();
+                    w.ssm().set_bit();
+                    // g) Configure the MSTR bit (in multimaster NSS configuration, avoid conflict state on
+                    // NSS if master is configured to prevent MODF error).
+                    w.mstr().set_bit();
+                    w.bidimode().clear_bit(); // todo?
+                    w.spe().set_bit() // Enable SPI
                 });
+
+                // FRXTH: RXNE event is generated if the FIFO level is greater than or equal to
+                //        8-bit
+                // DS: 8-bit data size
+                // SSOE: Slave Select output disabled
+
+                // 3. Write to SPI_CR2 register:
+                #[cfg(feature = "f4")]
+                regs.cr2.modify(|_, w| w.ssoe().clear_bit());
+
+                #[cfg(not(feature = "f4"))]
+                regs.cr2
+                    .modify(|_, w| unsafe {
+                        // a) Configure the DS[3:0] bits to select the data length for the transfer.
+                        w.ds().bits(0b111);
+                        // b) Configure SSOE (Notes: 1 & 2 & 3).
+                        w.ssoe().clear_bit();
+                        // e) Configure the FRXTH bit. The RXFIFO threshold must be aligned to the read
+                        // access size for the SPIx_DR register.
+                        w.frxth().set_bit()
+                    });
+
+                // c) Set the FRF bit if the TI protocol is required (keep NSSP bit cleared in TI mode).
+                // d) Set the NSSP bit if the NSS pulse mode between two data units is required (keep
+                // CHPA and TI bits cleared in NSSP mode).
+
+                // f) Initialize LDMA_TX and LDMA_RX bits if DMA is used in packed mode.
+                // 4. Write to SPI_CRCPR register: Configure the CRC polynomial if needed.
+                // 5. Write proper DMA registers: Configure DMA streams dedicated for SPI Tx and Rx in
+                // DMA registers if the DMA streams are used.
             }
         }
         Spi { regs, device }
@@ -333,6 +376,193 @@ where
             _ => 0b111,
         }
     }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    /// Enable use of DMA transmission for U[s]ART: (L44 RM, section 38.5.15)
+    pub fn enable_dma<D>(&mut self, dma: &mut Dma<D>)
+    where
+        D: Deref<Target = dma_p::RegisterBlock>,
+    {
+        // (see comments in below variant of this fn.)
+        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+        self.regs.cr2.modify(|_, w| w.rxdmaen().set_bit());
+        self.regs.cr2.modify(|_, w| w.txdmaen().set_bit());
+        self.regs.cr1.modify(|_, w| w.spe().set_bit());
+
+        // todo: These are only valid for DMA1!
+        #[cfg(feature = "l4")]
+        match self.device {
+            SpiDevice::One => {
+                dma.channel_select(dma::DmaChannel::C3, 0b001); // Tx
+                dma.channel_select(dma::DmaChannel::C2, 0b001); // Rx
+            }
+            #[cfg(not(feature = "f3x4"))]
+            SpiDevice::Two => {
+                dma.channel_select(dma::DmaChannel::C5, 0b001);
+                dma.channel_select(dma::DmaChannel::C4, 0b001);
+            }
+            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
+            SpiDevice::Three => {
+                panic!(
+                    "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
+                or PR on Github."
+                )
+            }
+        };
+        // Note that we need neither channel select, nor multiplex for F3.
+    }
+
+    #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
+    /// Enable use of DMA transmission for U[s]ART: (L44 RM, section 38.5.15)
+    pub fn enable_dma<D>(
+        &mut self,
+        dma: &mut Dma<D>,
+        chan_tx: dma::DmaChannel,
+        chan_rx: dma::DmaChannel,
+        mux: &mut pac::DMAMUX,
+    ) where
+        D: Deref<Target = dma_p::RegisterBlock>,
+    {
+        // RM:
+        // When starting communication using DMA, to prevent DMA channel management raising
+        // error events, these steps must be followed in order:
+
+        // todo: Is disabling spi here required? Implied by "followed in order" above?
+        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+
+        // 1. Enable DMA Rx buffer in the RXDMAEN bit in the SPI_CR2 register, if DMA Rx is
+        // used.
+        self.regs.cr2.modify(|_, w| w.rxdmaen().set_bit());
+        // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
+        // todo?
+        // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
+        self.regs.cr2.modify(|_, w| w.txdmaen().set_bit());
+        // 4. Enable the SPI by setting the SPE bit.
+        self.regs.cr1.modify(|_, w| w.spe().set_bit());
+
+        // todo: `disable_dma` or `stop_dma` function!
+        // To close communication it is mandatory to follow these steps in order:
+        // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
+        // 2. Disable the SPI by following the SPI disable procedure.
+        // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
+        // SPI_CR2 register, if DMA Tx and/or DMA Rx are used
+
+        #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
+        // See G4 RM, Table 91.
+        match self.device {
+            SpiDevice::One => {
+                dma.mux(chan_tx, dma::MuxInput::Spi1Tx as u8, mux); // Tx
+                dma.mux(chan_rx, dma::MuxInput::Spi1Rx as u8, mux); // Rx
+            }
+            SpiDevice::Two => {
+                dma.mux(chan_tx, dma::MuxInput::Spi2Tx as u8, mux);
+                dma.mux(chan_rx, dma::MuxInput::Spi2Rx as u8, mux);
+            }
+            SpiDevice::Three => {
+                dma.mux(chan_tx, dma::MuxInput::Spi3Tx as u8, mux);
+                dma.mux(chan_rx, dma::MuxInput::Spi3Rx as u8, mux);
+            }
+        };
+
+        // Note that we need neither channel select, nor multiplex for F3.
+    }
+
+    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
+    /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA
+    pub fn write_dma<D, B>(&mut self, mut buf: B, dma: &mut Dma<D>)
+    where
+        D: Deref<Target = dma_p::RegisterBlock>,
+        B: StaticWriteBuffer,
+    {
+        let (ptr, len) = unsafe { buf.write_buffer() };
+
+        // A DMA access is requested when the TXE or RXNE enable bit in the SPIx_CR2 register is
+        // set. Separate requests must be issued to the Tx and Rx buffers.
+        // In transmission, a DMA request is issued each time TXE is set to 1. The DMA then
+        // writes to the SPIx_DR register.
+
+        // todo: This channel selection is confirmed for L4 only - check other families
+        // todo DMA channel mapping
+
+        // todo: Does this work with Muxing?
+        // todo: Make these configurable with muxing on supported families.
+        let channel = match self.device {
+            SpiDevice::One => dma::DmaChannel::C3,
+            #[cfg(not(feature = "f3x4"))]
+            SpiDevice::Two => dma::DmaChannel::C5,
+            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
+            SpiDevice::Three => panic!(
+                "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
+                or PR on Github."
+            ),
+        };
+
+        #[cfg(feature = "h7")]
+        let periph_addr = &self.regs.rxdr as *const _ as u32;
+        #[cfg(not(feature = "h7"))]
+        let periph_addr = &self.regs.dr as *const _ as u32;
+
+        dma.cfg_channel(
+            channel,
+            periph_addr,
+            ptr as u32,
+            len as u16, // (x2 per one of the examples??)
+            dma::Priority::Medium, // todo: Pass pri as an arg?
+            dma::Direction::ReadFromMem,
+            dma::Circular::Disabled, // todo?
+            dma::IncrMode::Disabled,
+            dma::IncrMode::Enabled,
+            dma::DataSize::S8,
+            dma::DataSize::S8,
+        );
+    }
+
+    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
+    /// Receive data using DMA. See L44 RM, section 40.4.9: Communication using DMA
+    pub fn read_dma<D, B>(&mut self, buf: B, dma: &mut Dma<D>)
+    where
+        B: StaticReadBuffer,
+        D: Deref<Target = dma_p::RegisterBlock>,
+    {
+        let (ptr, len) = unsafe { buf.read_buffer() };
+
+        // In reception, a DMA request is issued each time RXNE is set to 1. The DMA then reads
+        // the SPIx_DR register.
+
+        // todo: Make these configurable with muxing on supported families.
+        // todo: This channel selection is confirmed for L4 only - check other families
+        // todo DMA channel mapping
+        let channel = match self.device {
+            SpiDevice::One => dma::DmaChannel::C2,
+            #[cfg(not(feature = "f3x4"))]
+            SpiDevice::Two => dma::DmaChannel::C4,
+            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
+            SpiDevice::Three => panic!(
+                "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
+                or PR on Github."
+            ),
+        };
+
+        #[cfg(feature = "h7")]
+        let periph_addr = &self.regs.rxdr as *const _ as u32;
+        #[cfg(not(feature = "h7"))]
+        let periph_addr = &self.regs.dr as *const _ as u32;
+
+        dma.cfg_channel(
+            channel,
+            periph_addr,
+            ptr as u32,
+            len as u16, // (x2 per one of the examples??)
+            dma::Priority::Medium, // todo: Pass pri as an arg?
+            dma::Direction::ReadFromPeriph,
+            dma::Circular::Disabled, // todo?
+
+            dma::IncrMode::Disabled,
+            dma::IncrMode::Enabled,
+            dma::DataSize::S8,
+            dma::DataSize::S8,
+        );
+    }
 }
 
 impl<S> FullDuplex<u8> for Spi<S>
@@ -341,93 +571,73 @@ where
 {
     type Error = Error;
 
+    /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
     fn read(&mut self) -> nb::Result<u8, Error> {
         let sr = self.regs.sr.read();
 
-        // todo: DRY between H7 and non-H7 branches here
         cfg_if! {
             if #[cfg(feature = "h7")] {
-                return Err(if sr.ovr().is_overrun() {
-                    nb::Error::Other(Error::Overrun)
-                } else if sr.modf().is_fault() {
-                    nb::Error::Other(Error::ModeFault)
-                } else if sr.crce().is_error() {
-                    nb::Error::Other(Error::Crc)
-                } else if sr.rxp().is_not_empty() {
-                    // NOTE(read_volatile) read only 1 byte (the
-                    // svd2rust API only allows reading a
-                    // half-word)
-                    return Ok(unsafe {
-                        ptr::read_volatile(
-                            &self.spi.rxdr as *const _ as *const $TY,
-                        )
-                    });
-                } else {
-                    nb::Error::WouldBlock
-                });
+                let crce = sr.crce().bit_is_set();
+                let not_empty = sr.rxp().bit_is_set();
             } else {
-                return Err(if sr.ovr().bit_is_set() {
-                    nb::Error::Other(Error::Overrun)
-                } else if sr.modf().bit_is_set() {
-                    nb::Error::Other(Error::ModeFault)
-                } else if sr.crcerr().bit_is_set() {
-                    nb::Error::Other(Error::Crc)
-                } else if sr.rxne().bit_is_set() {
-                    // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
-                    // reading a half-word)
-                    return Ok(unsafe {
-                        ptr::read_volatile(&self.regs.dr as *const _ as *const u8)
-                    });
-                } else {
-                    nb::Error::WouldBlock
-                });
+                let crce = sr.crcerr().bit_is_set();
+                let not_empty = sr.rxne().bit_is_set();
             }
+        }
+
+        if sr.ovr().bit_is_set() {
+            Err(nb::Error::Other(Error::Overrun))
+        } else if sr.modf().bit_is_set() {
+            Err(nb::Error::Other(Error::ModeFault))
+        } else if crce {
+            Err(nb::Error::Other(Error::Crc))
+        } else if not_empty {
+            #[cfg(feature = "h7")]
+            // todo: note: H7 can support words beyond u8. (Can others too?)
+            let result = unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) };
+            #[cfg(not(feature = "h7"))]
+            let result = unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) };
+            Ok(result)
+        } else {
+            Err(nb::Error::WouldBlock)
         }
     }
 
     fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
         let sr = self.regs.sr.read();
 
-        // todo: DRY between H7 and non-H7 branches here
         cfg_if! {
             if #[cfg(feature = "h7")] {
-                return  Err(if sr.ovr().is_overrun() {
-                    nb::Error::Other(Error::Overrun)
-                } else if sr.modf().is_fault() {
-                    nb::Error::Other(Error::ModeFault)
-                } else if sr.crce().is_error() {
-                    nb::Error::Other(Error::Crc)
-                } else if sr.txp().is_not_full() {
-                    // NOTE(write_volatile) see note above
-                    unsafe {
-                        ptr::write_volatile(
-                            &self.spi.txdr as *const _ as *mut $TY,
-                            byte,
-                        )
-                    }
-                    // write CSTART to start a transaction in
-                    // master mode
-                    self.spi.cr1.modify(|_, w| w.cstart().started());
-
-                    return Ok(());
-                } else {
-                    nb::Error::WouldBlock
-                });
+                let crce = sr.crce().bit_is_set();
+                let rdy = sr.txp().bit_is_set();
+                let rdy = sr.txp().bit_is_set();
             } else {
-                return Err(if sr.ovr().bit_is_set() {
-                    nb::Error::Other(Error::Overrun)
-                } else if sr.modf().bit_is_set() {
-                    nb::Error::Other(Error::ModeFault)
-                } else if sr.crcerr().bit_is_set() {
-                    nb::Error::Other(Error::Crc)
-                } else if sr.txe().bit_is_set() {
-                    // NOTE(write_volatile) see note above
-                    unsafe { ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, byte) }
-                    return Ok(());
-                } else {
-                    nb::Error::WouldBlock
-                });
+                let crce = sr.crcerr().bit_is_set();
+                let rdy = sr.txe().bit_is_set();
             }
+        }
+
+        if sr.ovr().bit_is_set() {
+            Err(nb::Error::Other(Error::Overrun))
+        } else if sr.modf().bit_is_set() {
+            Err(nb::Error::Other(Error::ModeFault))
+        } else if crce {
+            Err(nb::Error::Other(Error::Crc))
+        } else if rdy {
+            cfg_if! {
+                if #[cfg(feature = "h7")] {
+                    // todo: note: H7 can support words beyond u8. (Can others too?)
+                    unsafe { ptr::write_volatile(&self.regs.txdr as *const _ as *mut u8, byte) };
+                    // write CSTART to start a transaction in master mode
+                    self.regs.cr1.modify(|_, w| w.cstart().started());
+                }
+                 else {
+                    unsafe { ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, byte) };
+                }
+            }
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
         }
     }
 }

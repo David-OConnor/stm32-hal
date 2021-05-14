@@ -193,7 +193,7 @@ where
 ## Errata
 
 - SAI, SDIO, ethernet unimplemented
-- DMA only implemented for USART, and only on F3, L4 and G4.
+- DMA only implemented for USART and SPI, and only on F3, L4, G0, and G4.
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
 - USART synchronous mode, and auto-baud-rate detection unimplemented
 - USART interrupts unimplemented on F4

@@ -1,6 +1,6 @@
 //! Direct Memory Access
 
-use core::{mem, ops::Deref};
+use core::ops::Deref;
 
 use crate::{
     pac::{self, RCC},
@@ -210,7 +210,7 @@ where
     pub fn cfg_channel(
         &mut self,
         channel: DmaChannel,
-        periph_reg: u32,
+        periph_addr: u32,
         mem_addr: u32,
         num_data: u16,
         priority: Priority,
@@ -240,7 +240,7 @@ where
                             let cpar = &self.regs.cpar1;
                         }
                     }
-                    cpar.write(|w| w.bits(periph_reg));
+                    cpar.write(|w| w.bits(periph_addr));
                 }
                 DmaChannel::C2 => {
                     cfg_if! {
@@ -250,7 +250,7 @@ where
                             let cpar = &self.regs.cpar2;
                         }
                     }
-                    cpar.write(|w| w.bits(periph_reg));
+                    cpar.write(|w| w.bits(periph_addr));
                 }
                 DmaChannel::C3 => {
                     cfg_if! {
@@ -260,7 +260,7 @@ where
                             let cpar = &self.regs.cpar3;
                         }
                     }
-                    cpar.write(|w| w.bits(periph_reg));
+                    cpar.write(|w| w.bits(periph_addr));
                 }
                 DmaChannel::C4 => {
                     cfg_if! {
@@ -270,7 +270,7 @@ where
                             let cpar = &self.regs.cpar4;
                         }
                     }
-                    cpar.write(|w| w.bits(periph_reg));
+                    cpar.write(|w| w.bits(periph_addr));
                 }
                 DmaChannel::C5 => {
                     cfg_if! {
@@ -280,7 +280,7 @@ where
                             let cpar = &self.regs.cpar5;
                         }
                     }
-                    cpar.write(|w| w.bits(periph_reg));
+                    cpar.write(|w| w.bits(periph_addr));
                 }
                 #[cfg(not(feature = "g0"))]
                 DmaChannel::C6 => {
@@ -291,7 +291,7 @@ where
                             let cpar = &self.regs.cpar6;
                         }
                     }
-                    cpar.write(|w| w.bits(periph_reg));
+                    cpar.write(|w| w.bits(periph_addr));
                 }
                 #[cfg(not(feature = "g0"))]
                 DmaChannel::C7 => {
@@ -302,12 +302,12 @@ where
                             let cpar = &self.regs.cpar7;
                         }
                     }
-                    cpar.write(|w| w.bits(periph_reg));
+                    cpar.write(|w| w.bits(periph_addr));
                 }
                 #[cfg(any(feature = "l5", feature = "g4"))]
                 DmaChannel::C8 => {
                     let cpar = &self.regs.cpar8;
-                    cpar.write(|w| w.bits(periph_reg));
+                    cpar.write(|w| w.bits(periph_addr));
                 }
             }
         }
