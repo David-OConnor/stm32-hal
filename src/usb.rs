@@ -6,7 +6,7 @@
 
 
 use crate::{
-    pac::{RCC, USB},
+    pac::{PWR, RCC, USB},
     rcc_en_reset,
 };
 use stm32_usbd::UsbPeripheral;
@@ -31,7 +31,10 @@ unsafe impl UsbPeripheral for Peripheral {
     const DP_PULL_UP_FEATURE: bool = true; // todo: What should this be?
 
     // Pointer to the endpoint memory
-    const EP_MEMORY: *const () = 0x4000_6000 as _;
+    // todo: This is the L4 setting. Is this right?
+    // L4 Reference manual, Table 2. USB SRAM is on APB1, at this address:
+    // Note: L4 USB FS is at `0x400_6800`.
+    const EP_MEMORY: *const () = 0x4000_6c00 as _;
 
     // Endpoint memory access scheme. Check RM.
     // Set to `true` if "2x16 bits/word" access scheme is used, otherwise set to `false`.
@@ -79,7 +82,7 @@ unsafe impl UsbPeripheral for Peripheral {
         // There is a chip specific startup delay. For STM32F103xx it's 1µs and this should wait for
         // at least that long.
         // 72 Mhz is the highest frequency, so this ensures a minimum of 1µs wait time.
-        cortex_m::asm::delay(72);
+        cortex_m::asm::delay(120);
     }
 }
 
@@ -88,3 +91,12 @@ unsafe impl UsbPeripheral for Peripheral {
 /// As this MCU family has only USB peripheral,
 /// this is the only possible concrete type construction.
 pub type UsbBusType = UsbBus<Peripheral>;
+
+/// Enables the Vdd USB power supply
+pub fn enable_usb_pwr(pwr: &mut PWR, rcc: &mut RCC) {
+    // Enable PWR peripheral
+    rcc_en_reset!(apb1, pwr, rcc);
+
+    // Enable VddUSB
+    pwr.cr2.modify(|_, w| w.usv().set_bit());
+}

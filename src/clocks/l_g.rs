@@ -328,7 +328,7 @@ impl Pllr {
 #[cfg(not(feature = "g0"))]
 #[derive(Clone, Copy)]
 #[repr(u8)]
-// Main PLL division factor for PLLCLK (system clock). G4 RM 7.4.4
+// Main PLL division factor for PLLCLK (system clock). G4 RM 7.4.4. Also used to set PLLQ.
 pub enum Pllr {
     Div2 = 0b00,
     Div4 = 0b01,
@@ -413,6 +413,7 @@ pub struct Clocks {
     #[cfg(not(any(feature = "g0", feature = "g4")))]
     pub pll_sai2_mul: u8, // PLL SAI2 multiplier. Valid range of 7 to 86.
     pub pllr: Pllr,
+    pub pllq: Pllr,
     /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
     pub hclk_prescaler: HclkPrescaler,
     /// The divider of HCLK to get the APB1 peripheral clock
@@ -623,14 +624,16 @@ impl Clocks {
                         w.pllsrc().bits(pll_src.bits());
                         w.plln().bits(self.plln);
                         w.pllm().bits(self.pllm as u8);
-                        w.pllr().bits(self.pllr as u8)
+                        w.pllr().bits(self.pllr as u8);
+                        w.pllq().bits(self.pllq as u8)
                     });
                 } else {
                     rcc.pllcfgr.modify(|_, w| unsafe {
                         w.pllsrc().bits(pll_src.bits());
                         w.plln().bits(self.plln);
                         w.pllm().bits(self.pllm as u8);
-                        w.pllr().bits(self.pllr as u8)
+                        w.pllr().bits(self.pllr as u8);
+                        w.pllq().bits(self.pllq as u8)
                     });
                 }
             }
@@ -1151,6 +1154,7 @@ impl Default for Clocks {
             #[cfg(not(any(feature = "g0", feature = "g4")))]
             pll_sai2_mul: 8,
             pllr: Pllr::Div2,
+            pllq: Pllr::Div4,
             hclk_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div1,
             #[cfg(not(feature = "g0"))]

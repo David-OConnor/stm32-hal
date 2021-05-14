@@ -1,6 +1,6 @@
 //! Direct Memory Access
 
-use core::ops::Deref;
+use core::{mem, ops::Deref};
 
 use crate::{
     pac::{self, RCC},
@@ -11,6 +11,8 @@ use crate::{
 use crate::pac::dma;
 #[cfg(not(feature = "g0"))]
 use crate::pac::dma1 as dma;
+
+// use embedded_dma::StaticWriteBuffer;
 
 use cfg_if::cfg_if;
 
@@ -1022,7 +1024,52 @@ where
         };
     }
 
-    pub fn clear_interrupt(&mut self, interrupt_type: DmaInterrupt) {
-        // todo!
+    pub fn clear_interrupt(&mut self, channel: DmaChannel, interrupt_type: DmaInterrupt) {
+        // todo: CGIFx for global interrupt flag clear. What is that? Should we impl?
+        match channel {
+            DmaChannel::C1 => match interrupt_type {
+                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif1().set_bit()),
+                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif1().set_bit()),
+                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif1().set_bit()),
+            },
+            DmaChannel::C2 => match interrupt_type {
+                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif2().set_bit()),
+                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif2().set_bit()),
+                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif2().set_bit()),
+            },
+            DmaChannel::C3 => match interrupt_type {
+                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif3().set_bit()),
+                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif3().set_bit()),
+                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif3().set_bit()),
+            },
+            DmaChannel::C4 => match interrupt_type {
+                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif4().set_bit()),
+                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif4().set_bit()),
+                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif4().set_bit()),
+            },
+            DmaChannel::C5 => match interrupt_type {
+                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif5().set_bit()),
+                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif5().set_bit()),
+                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif5().set_bit()),
+            },
+            #[cfg(not(feature = "g0"))]
+            DmaChannel::C6 => match interrupt_type {
+                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif6().set_bit()),
+                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif6().set_bit()),
+                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif6().set_bit()),
+            },
+            #[cfg(not(feature = "g0"))]
+            DmaChannel::C7 => match interrupt_type {
+                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif7().set_bit()),
+                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif7().set_bit()),
+                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif7().set_bit()),
+            },
+            #[cfg(any(feature = "l5", feature = "g4"))]
+            DmaChannel::C8 => match interrupt_type {
+                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif8().set_bit()),
+                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif8().set_bit()),
+                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif8().set_bit()),
+            },
+        }
     }
 }

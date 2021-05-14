@@ -21,6 +21,9 @@ use crate::pac::dma1 as dma_p;
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
 use crate::dma::{self, Dma};
 
+// todo: non-static buffers?
+use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
+
 use embedded_hal::{
     blocking,
     serial::{Read, Write},
@@ -439,17 +442,21 @@ where
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
-    pub fn write_dma<D>(&mut self, data: &[u8], dma: &mut Dma<D>)
+    pub fn write_dma<D, B>(&mut self, mut buf: B, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
+        B: StaticWriteBuffer,
     {
+        let (ptr, len) = unsafe { buf.write_buffer() };
+
         // To map a DMA channel for USART transmission, use
         // the following procedure (x denotes the channel number):
 
         // todo: This channel selection is confirmed for L4 only - check other families
         // todo DMA channel mapping
 
-        // todo: These are only valid for DMA1!
+        // todo: Does this work with Muxing?
+        // todo: Make these configurable with muxing on supported families.
         let channel = match self.device {
             UsartDevice::One => dma::DmaChannel::C4,
             UsartDevice::Two => dma::DmaChannel::C7,
@@ -474,13 +481,9 @@ where
             // 2. Write the memory address in the DMA control register to configure it as the source of
             // the transfer. The data is loaded into the USART_TDR register from this memory area
             // after each TXE event.
-            // data[0] ,
-            // data[0].as_mut().as_ptr() as u32, // todo is this right?
-            data[0] as u32, // todo is this right?
-            // data[0].as_mut() as u32,
-
+            ptr as u32,
             // 3. Configure the total number of bytes to be transferred to the DMA control register.
-            (data.len() * 2) as u16, // todo: Why x2?
+            len as u16, // (x2 per one of the examples??)
             // 4. Configure the channel priority in the DMA register
             dma::Priority::Medium, // todo: Pass pri as an arg?
             dma::Direction::ReadFromMem,
@@ -516,16 +519,19 @@ where
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. (L44 RM, section 38.5.15)
-    pub fn read_dma<D>(&mut self, buf: &[u8], dma: &mut Dma<D>)
+    pub fn read_dma<D, B>(&mut self, buf: B, dma: &mut Dma<D>)
     where
+        B: StaticReadBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
+        let (ptr, len) = unsafe { buf.read_buffer() };
+
         // To map a DMA channel for USART reception, use
         // the following procedure:
 
+        // todo: Make these configurable with muxing on supported families.
         // todo: This channel selection is confirmed for L4 only - check other families
         // todo DMA channel mapping
-        // todo: CxS[3:0] bits to select which periph is on the channel?? (L4 Table 41.)
         let channel = match self.device {
             UsartDevice::One => dma::DmaChannel::C5,
             UsartDevice::Two => dma::DmaChannel::C6,
@@ -550,13 +556,10 @@ where
             // 2. Write the memory address in the DMA control register to configure it as the destination
             // of the transfer. The data is loaded from USART_RDR to this memory area after each
             // RXNE event.
-            // data[0] ,
-            // data[0].as_mut().as_ptr() as u32, // todo is this right?
-            buf[0] as u32, // todo is this right?
-            // data[0].as_mut() as u32,
-
+            ptr as u32,
             // 3. Configure the total number of bytes to be transferred to the DMA control register.
-            (buf.len() * 2) as u16, // todo: Why x2?
+            // (buf.len() * 2) as u16, // todo: Why x2?
+            len as u16, // (x2 per one of the examples??)
             // 4. Configure the channel priority in the DMA control register
             dma::Priority::Medium, // todo: Pass pri as an arg?
             dma::Direction::ReadFromPeriph,

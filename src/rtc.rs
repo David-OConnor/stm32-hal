@@ -140,8 +140,6 @@ impl Rtc {
     /// calendar clock of 1Hz.
     /// The `bypass` argument is `true` if you're using an external oscillator that
     /// doesn't connect to `OSC32_IN`, such as a MEMS resonator.
-    /// Note: You may need to run `dp.RCC.apb1enr.modify(|_, w| w.pwren().set_bit());` before
-    /// constraining RCC, eg before running this constructor.
     /// Note that if using HSE as the clock source, we assume you've already enabled it, eg
     /// in clock config.
     pub fn new(regs: RTC, rcc: &mut RCC, pwr: &mut PWR, config: RtcConfig) -> Self {

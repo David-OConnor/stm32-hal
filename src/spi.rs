@@ -41,42 +41,14 @@ pub enum SpiDevice {
 
 #[cfg(feature = "h7")]
 #[derive(Copy, Clone)]
-pub struct Config {
-    mode: Mode,
-    swap_miso_mosi: bool,
-    cs_delay: f32,
-    managed_cs: bool,
-    suspend_when_inactive: bool,
-    communication_mode: CommunicationMode,
-}
-
-#[cfg(feature = "h7")]
-impl Config {
-    /// Create a default configuration for the SPI interface.
-    ///
-    /// Arguments:
-    /// * `mode` - The SPI mode to configure.
-    pub fn new(mode: Mode) -> Self {
-        Config {
-            mode,
-            swap_miso_mosi: false,
-            cs_delay: 0.0,
-            managed_cs: false,
-            suspend_when_inactive: false,
-            communication_mode: CommunicationMode::FullDuplex,
-        }
-    }
-
+pub struct SpiConfig {
+    pub mode: Mode,
     /// Specify that the SPI MISO/MOSI lines are swapped.
     ///
     /// Note:
     /// * This function updates the HAL peripheral to treat the pin provided in the MISO parameter
     /// as the MOSI pin and the pin provided in the MOSI parameter as the MISO pin.
-    pub fn swap_mosi_miso(mut self) -> Self {
-        self.swap_miso_mosi = true;
-        self
-    }
-
+    pub swap_miso_mosi: bool,
     /// Specify a delay between CS assertion and the beginning of the SPI transaction.
     ///
     /// Note:
@@ -86,11 +58,7 @@ impl Config {
     /// Arguments:
     /// * `delay` - The delay between CS assertion and the start of the transaction in seconds.
     /// register for the output pin.
-    pub fn cs_delay(mut self, delay: f32) -> Self {
-        self.cs_delay = delay;
-        self
-    }
-
+    pub cs_delay: f32,
     /// CS pin is automatically managed by the SPI peripheral.
     ///
     /// # Note
@@ -99,25 +67,33 @@ impl Config {
     ///
     /// If CSn should be de-asserted between each data transfer, use `suspend_when_inactive()` as
     /// well.
-    pub fn manage_cs(mut self) -> Self {
-        self.managed_cs = true;
-        self
-    }
-
+    ///
+    pub managed_cs: bool,
     /// Suspend a transaction automatically if data is not available in the FIFO.
     ///
     /// # Note
     /// This will de-assert CSn when no data is available for transmission and hardware is managing
     /// the CSn pin.
-    pub fn suspend_when_inactive(mut self) -> Self {
-        self.suspend_when_inactive = true;
-        self
-    }
-
+    pub suspend_when_inactive: bool,
     /// Select the communication mode of the SPI bus.
-    pub fn communication_mode(mut self, mode: CommunicationMode) -> Self {
-        self.communication_mode = mode;
-        self
+    pub communication_mode: CommunicationMode,
+}
+
+#[cfg(feature = "h7")]
+impl Config {
+    /// Create a default configuration for the SPI interface.
+    ///
+    /// Arguments:
+    /// * `mode` - The SPI mode to configure.
+    pub fn new(mode: Mode) -> Self {
+        SpiConfig {
+            mode,
+            swap_miso_mosi: false,
+            cs_delay: 0.0,
+            managed_cs: false,
+            suspend_when_inactive: false,
+            communication_mode: CommunicationMode::FullDuplex,
+        }
     }
 }
 
@@ -131,6 +107,7 @@ impl From<Mode> for Config {
 /// SPI peripheral operating in full duplex master mode
 pub struct Spi<S> {
     regs: S,
+    device: SpiDevice,
 }
 
 impl<S> Spi<S>
@@ -320,16 +297,25 @@ where
                 });
             }
         }
-        Spi { regs }
+        Spi { regs, device }
     }
 
     #[cfg(not(feature = "h7"))]
     /// Change the baud rate of the SPI
     pub fn reclock<F, C: ClockCfg>(&mut self, freq: u32, clocks: C) {
         self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+
+        let fclk = match self.device {
+            SpiDevice::One => clocks.apb2(),
+            _ => clocks.apb1(),
+        };
+
+        let br = Self::compute_baud_rate(fclk, freq);
+
         self.regs.cr1.modify(|_, w| {
-            // todo: Set this back up.
-            // unsafe {w.br().bits(Self::compute_baud_rate(clocks.[<apb $apb _timer>](), freq));}
+            unsafe {
+                w.br().bits(br);
+            }
             w.spe().set_bit()
         });
     }
@@ -381,20 +367,20 @@ where
                 });
             } else {
                 return Err(if sr.ovr().bit_is_set() {
-                nb::Error::Other(Error::Overrun)
-            } else if sr.modf().bit_is_set() {
-                nb::Error::Other(Error::ModeFault)
-            } else if sr.crcerr().bit_is_set() {
-                nb::Error::Other(Error::Crc)
-            } else if sr.rxne().bit_is_set() {
-                // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
-                // reading a half-word)
-                return Ok(unsafe {
-                    ptr::read_volatile(&self.regs.dr as *const _ as *const u8)
+                    nb::Error::Other(Error::Overrun)
+                } else if sr.modf().bit_is_set() {
+                    nb::Error::Other(Error::ModeFault)
+                } else if sr.crcerr().bit_is_set() {
+                    nb::Error::Other(Error::Crc)
+                } else if sr.rxne().bit_is_set() {
+                    // NOTE(read_volatile) read only 1 byte (the svd2rust API only allows
+                    // reading a half-word)
+                    return Ok(unsafe {
+                        ptr::read_volatile(&self.regs.dr as *const _ as *const u8)
+                    });
+                } else {
+                    nb::Error::WouldBlock
                 });
-            } else {
-                nb::Error::WouldBlock
-            });
             }
         }
     }

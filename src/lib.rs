@@ -295,7 +295,7 @@ pub mod timer;
 cfg_if::cfg_if! {
     if #[cfg(all(
         feature = "usb",
-        not(any(feature = "f301", "f3x4", feature = "l4x1", feature = "l4x5", feature = "l4x6", feature = "g4", feature = "h7"))
+        not(any(feature = "f301", feature = "f3x4", feature = "l4x1", feature = "l4x5", feature = "l4x6", feature = "g4", feature = "h7"))
     ))] {
         pub mod usb;
     } else if #[cfg(all(feature = "h7", feature = "usbotg"))] {
