@@ -132,7 +132,8 @@ h753v = ["stm32h7/stm32h753v", "h7"]
 h7b3 = ["stm32h7/stm32h7b3", "h7"]
 
 usb = ["stm32-usbd"]
-usbotg = ["synopsys-usb-otg"]
+usbotg_fs = ["synopsys-usb-otg/fs"]
+usbotg_hs = ["synopsys-usb-otg/hs"]
 can = ["bxcan"]
 
 # These features are used to featured gate sections of code that apply

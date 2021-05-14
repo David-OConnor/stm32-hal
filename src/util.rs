@@ -47,6 +47,10 @@ macro_rules! rcc_en_reset {
                 $rcc.ahbenr.modify(|_, w| w.[<$periph en>]().set_bit());
                 $rcc.ahbrstr.modify(|_, w| w.[<$periph rst>]().set_bit());
                 $rcc.ahbrstr.modify(|_, w| w.[<$periph rst>]().clear_bit());
+            } else if #[cfg(feature = "g0")] {
+                $rcc.ahbenr.modify(|_, w| w.[<$periph en>]().set_bit());
+                $rcc.ahbrstr.modify(|_, w| w.[<$periph rst>]().set_bit());
+                $rcc.ahbrstr.modify(|_, w| w.[<$periph rst>]().clear_bit());
             } else {
                 $rcc.ahb1enr.modify(|_, w| w.[<$periph en>]().set_bit());
                 $rcc.ahb1rstr.modify(|_, w| w.[<$periph rst>]().set_bit());

@@ -13,7 +13,12 @@ use crate::{
 };
 use core::ops::Deref;
 
-#[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
+#[cfg(feature = "g0")]
+use crate::pac::dma as dma_p;
+#[cfg(not(feature = "g0"))]
+use crate::pac::dma1 as dma_p;
+
+#[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
 use crate::dma::{self, Dma};
 
 use embedded_hal::{
@@ -357,7 +362,7 @@ where
     /// Enable use of DMA transmission for U[s]ART: (L44 RM, section 38.5.15)
     pub fn enable_dma<D>(&mut self, dma: &mut Dma<D>)
     where
-        D: Deref<Target = pac::dma1::RegisterBlock>,
+        D: Deref<Target = dma_p::RegisterBlock>,
     {
         // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
         // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
@@ -387,9 +392,14 @@ where
 
     #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
     /// Enable use of DMA transmission for U[s]ART: (L44 RM, section 38.5.15)
-    pub fn enable_dma<D>(&mut self, dma: &mut D, chan_tx: dma::DmaChannel, chan_rx: dma::DmaChannel, mux: &mut pac::DMAMUX)
-    where
-        D: Deref<Target = pac::dma1::RegisterBlock>,
+    pub fn enable_dma<D>(
+        &mut self,
+        dma: &mut Dma<D>,
+        chan_tx: dma::DmaChannel,
+        chan_rx: dma::DmaChannel,
+        mux: &mut pac::DMAMUX,
+    ) where
+        D: Deref<Target = dma_p::RegisterBlock>,
     {
         // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
         // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
@@ -402,16 +412,25 @@ where
         // See G4 RM, Table 91.
         match self.device {
             UsartDevice::One => {
-                dma.mux(chan_tx, dma::MuxInput::Usart1Tx, mux); // Tx
-                dma.mux(chan_rx, dma::MuxInput::Usart1Rx, mux); // Rx
+                dma.mux(chan_tx, dma::MuxInput::Usart1Tx as u8, mux); // Tx
+                dma.mux(chan_rx, dma::MuxInput::Usart1Rx as u8, mux); // Rx
             }
             UsartDevice::Two => {
-                dma.mux(chan_tx, dma::MuxInput::Usart2Tx, mux);
-                dma.mux(chan_rx, dma::MuxInput::Usart2Rx, mux);
+                dma.mux(chan_tx, dma::MuxInput::Usart2Tx as u8, mux);
+                dma.mux(chan_rx, dma::MuxInput::Usart2Rx as u8, mux);
             }
+            #[cfg(not(any(
+                feature = "f401",
+                feature = "f410",
+                feature = "f411",
+                feature = "f412",
+                feature = "f413",
+                feature = "l4x1",
+                feature = "g0"
+            )))]
             UsartDevice::Three => {
-                dma.mux(chan_tx, dma::MuxInput::Usart3Tx, mux);
-                dma.mux(chan_rx, dma::MuxInput::Usart3Rx, mux);
+                dma.mux(chan_tx, dma::MuxInput::Usart3Tx as u8, mux);
+                dma.mux(chan_rx, dma::MuxInput::Usart3Rx as u8, mux);
             }
         };
 
@@ -422,7 +441,7 @@ where
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
     pub fn write_dma<D>(&mut self, data: &[u8], dma: &mut Dma<D>)
     where
-        D: Deref<Target = pac::dma1::RegisterBlock>,
+        D: Deref<Target = dma_p::RegisterBlock>,
     {
         // To map a DMA channel for USART transmission, use
         // the following procedure (x denotes the channel number):
@@ -499,7 +518,7 @@ where
     /// Receive data using DMA. (L44 RM, section 38.5.15)
     pub fn read_dma<D>(&mut self, buf: &[u8], dma: &mut Dma<D>)
     where
-        D: Deref<Target = pac::dma1::RegisterBlock>,
+        D: Deref<Target = dma_p::RegisterBlock>,
     {
         // To map a DMA channel for USART reception, use
         // the following procedure:

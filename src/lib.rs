@@ -243,7 +243,7 @@ pub mod dac;
 // todo: F3, G0 missing many DMA registers like CCR? H7 DMA layout is different.
 // todo: F4 needs some mods. So, only working on L4 and G4.
 // todo: L5 has a PAC bug on CCR registers past 1.
-#[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
+#[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
 pub mod dma;
 
 pub mod delay;
@@ -295,10 +295,10 @@ pub mod timer;
 cfg_if::cfg_if! {
     if #[cfg(all(
         feature = "usb",
-        not(any(feature = "l4x1", feature = "l4x5", feature = "l4x6", feature = "g4", feature = "h7"))
+        not(any(feature = "f301", "f3x4", feature = "l4x1", feature = "l4x5", feature = "l4x6", feature = "g4", feature = "h7"))
     ))] {
         pub mod usb;
-    } else if #[cfg(all(feature ="h7", feature = "usb"))] {
+    } else if #[cfg(all(feature = "h7", feature = "usbotg"))] {
         pub mod usb_otg as usb;
     }
 }

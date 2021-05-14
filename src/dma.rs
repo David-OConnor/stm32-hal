@@ -7,6 +7,13 @@ use crate::{
     rcc_en_reset,
 };
 
+#[cfg(feature = "g0")]
+use crate::pac::dma;
+#[cfg(not(feature = "g0"))]
+use crate::pac::dma1 as dma;
+
+use cfg_if::cfg_if;
+
 // todo: Several sections of this are only correct for DMA1.
 
 #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
@@ -80,7 +87,10 @@ pub enum DmaChannel {
     C3,
     C4,
     C5,
+    // todo: Some G0 variants have channels 6 and 7 and DMA1. (And up to 5 channels on DMA2)
+    #[cfg(not(feature = "g0"))]
     C6,
+    #[cfg(not(feature = "g0"))]
     C7,
     // todo: Which else have 8? Also, note that some have diff amoutns on dam1 vs 2.
     #[cfg(any(feature = "l5", feature = "g4"))]
@@ -175,16 +185,21 @@ pub struct Dma<D> {
 }
 
 impl<D> Dma<D>
-    where
-        D: Deref<Target = pac::dma1::RegisterBlock>,
+where
+    D: Deref<Target = dma::RegisterBlock>,
 {
     pub fn new(regs: D, rcc: &mut RCC) -> Self {
         // todo: Enable RCC for DMA 2 etc!
 
-        #[cfg(not(feature = "f3"))]
-        rcc_en_reset!(ahb1, dma1, rcc);
-        #[cfg(feature = "f3")]
-            rcc.ahbenr.modify(|_, w| w.dma1en().set_bit()); // no dmarst on F3.
+        cfg_if! {
+            if #[cfg(feature = "f3")] {
+                rcc.ahbenr.modify(|_, w| w.dma1en().set_bit()); // no dmarst on F3.
+            } else if #[cfg(feature = "g0")] {
+                rcc_en_reset!(ahb1, dma, rcc);
+            } else {
+                rcc_en_reset!(ahb1, dma1, rcc);
+            }
+        }
 
         Self { regs }
     }
@@ -216,60 +231,80 @@ impl<D> Dma<D>
         unsafe {
             match channel {
                 DmaChannel::C1 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cpar = &self.regs.cpar1;
-                    #[cfg(feature = "f3")]
-                        let cpar = &self.regs.ch1.par;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cpar = &self.regs.ch1.par;
+                        } else {
+                            let cpar = &self.regs.cpar1;
+                        }
+                    }
                     cpar.write(|w| w.bits(periph_reg));
                 }
                 DmaChannel::C2 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cpar = &self.regs.cpar2;
-                    #[cfg(feature = "f3")]
-                        let cpar = &self.regs.ch2.par;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cpar = &self.regs.ch2.par;
+                        } else {
+                            let cpar = &self.regs.cpar2;
+                        }
+                    }
                     cpar.write(|w| w.bits(periph_reg));
                 }
                 DmaChannel::C3 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cpar = &self.regs.cpar3;
-                    #[cfg(feature = "f3")]
-                        let cpar = &self.regs.ch3.par;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cpar = &self.regs.ch3.par;
+                        } else {
+                            let cpar = &self.regs.cpar3;
+                        }
+                    }
                     cpar.write(|w| w.bits(periph_reg));
                 }
                 DmaChannel::C4 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cpar = &self.regs.cpar4;
-                    #[cfg(feature = "f3")]
-                        let cpar = &self.regs.ch4.par;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cpar = &self.regs.ch4.par;
+                        } else {
+                            let cpar = &self.regs.cpar4;
+                        }
+                    }
                     cpar.write(|w| w.bits(periph_reg));
                 }
                 DmaChannel::C5 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cpar = &self.regs.cpar5;
-                    #[cfg(feature = "f3")]
-                        let cpar = &self.regs.ch5.par;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cpar = &self.regs.ch5.par;
+                        } else {
+                            let cpar = &self.regs.cpar5;
+                        }
+                    }
                     cpar.write(|w| w.bits(periph_reg));
                 }
+                #[cfg(not(feature = "g0"))]
                 DmaChannel::C6 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cpar = &self.regs.cpar6;
-                    #[cfg(feature = "f3")]
-                        let cpar = &self.regs.ch6.par;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cpar = &self.regs.ch6.par;
+                        } else {
+                            let cpar = &self.regs.cpar6;
+                        }
+                    }
                     cpar.write(|w| w.bits(periph_reg));
                 }
+                #[cfg(not(feature = "g0"))]
                 DmaChannel::C7 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cpar = &self.regs.cpar7;
-                    #[cfg(feature = "f3")]
-                        let cpar = &self.regs.ch7.par;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cpar = &self.regs.ch7.par;
+                        } else {
+                            let cpar = &self.regs.cpar7;
+                        }
+                    }
                     cpar.write(|w| w.bits(periph_reg));
                 }
                 #[cfg(any(feature = "l5", feature = "g4"))]
                 DmaChannel::C8 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cpar = &self.regs.cpar8;
-                    #[cfg(feature = "f3")]
-                        let cpar = &self.regs.ch8.par;
+                    let cpar = &self.regs.cpar8;
                     cpar.write(|w| w.bits(periph_reg));
                 }
             }
@@ -281,60 +316,80 @@ impl<D> Dma<D>
         unsafe {
             match channel {
                 DmaChannel::C1 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cmar = &self.regs.cmar1;
-                    #[cfg(feature = "f3")]
-                        let cmar = &self.regs.ch1.mar;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cmar = &self.regs.ch1.mar;
+                        } else {
+                            let cmar = &self.regs.cmar1;
+                        }
+                    }
                     cmar.write(|w| w.bits(mem_addr));
                 }
                 DmaChannel::C2 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cmar = &self.regs.cmar2;
-                    #[cfg(feature = "f3")]
-                        let cmar = &self.regs.ch2.mar;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cmar = &self.regs.ch2.mar;
+                        } else {
+                            let cmar = &self.regs.cmar2;
+                        }
+                    }
                     cmar.write(|w| w.bits(mem_addr));
                 }
                 DmaChannel::C3 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cmar = &self.regs.cmar3;
-                    #[cfg(feature = "f3")]
-                        let cmar = &self.regs.ch3.mar;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cmar = &self.regs.ch3.mar;
+                        } else {
+                            let cmar = &self.regs.cmar3;
+                        }
+                    }
                     cmar.write(|w| w.bits(mem_addr));
                 }
                 DmaChannel::C4 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cmar = &self.regs.cmar4;
-                    #[cfg(feature = "f3")]
-                        let cmar = &self.regs.ch4.mar;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cmar = &self.regs.ch4.mar;
+                        } else {
+                            let cmar = &self.regs.cmar4;
+                        }
+                    }
                     cmar.write(|w| w.bits(mem_addr));
                 }
                 DmaChannel::C5 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cmar = &self.regs.cmar5;
-                    #[cfg(feature = "f3")]
-                        let cmar = &self.regs.ch5.mar;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cmar = &self.regs.ch5.mar;
+                        } else {
+                            let cmar = &self.regs.cmar5;
+                        }
+                    }
                     cmar.write(|w| w.bits(mem_addr));
                 }
+                #[cfg(not(feature = "g0"))]
                 DmaChannel::C6 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cmar = &self.regs.cmar6;
-                    #[cfg(feature = "f3")]
-                        let cmar = &self.regs.ch6.mar;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cmar = &self.regs.ch6.mar;
+                        } else {
+                            let cmar = &self.regs.cmar6;
+                        }
+                    }
                     cmar.write(|w| w.bits(mem_addr));
                 }
+                #[cfg(not(feature = "g0"))]
                 DmaChannel::C7 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cmar = &self.regs.cmar7;
-                    #[cfg(feature = "f3")]
-                        let cmar = &self.regs.ch7.mar;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cmar = &self.regs.ch7mar;
+                        } else {
+                            let cmar = &self.regs.cmar7;
+                        }
+                    }
                     cmar.write(|w| w.bits(mem_addr));
                 }
                 #[cfg(any(feature = "l5", feature = "g4"))]
                 DmaChannel::C8 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cmar = &self.regs.cmar8;
-                    #[cfg(feature = "f3")]
-                        let cmar = &self.regs.ch8.mar;
+                    let cmar = &self.regs.cmar8;
                     cmar.write(|w| w.bits(mem_addr));
                 }
             }
@@ -345,60 +400,80 @@ impl<D> Dma<D>
         unsafe {
             match channel {
                 DmaChannel::C1 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cndtr = &self.regs.cndtr1;
-                    #[cfg(feature = "f3")]
-                        let cndtr = &self.regs.ch1.ndtr;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cndtr = &self.regs.ch1.ndtr;
+                        } else {
+                            let cndtr = &self.regs.cndtr1;
+                        }
+                    }
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
                 DmaChannel::C2 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cndtr = &self.regs.cndtr2;
-                    #[cfg(feature = "f3")]
-                        let cndtr = &self.regs.ch2.ndtr;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cndtr = &self.regs.ch2.ndtr;
+                        } else {
+                            let cndtr = &self.regs.cndtr2;
+                        }
+                    }
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
                 DmaChannel::C3 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cndtr = &self.regs.cndtr3;
-                    #[cfg(feature = "f3")]
-                        let cndtr = &self.regs.ch3.ndtr;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cndtr = &self.regs.ch3.ndtr;
+                        } else {
+                            let cndtr = &self.regs.cndtr3;
+                        }
+                    }
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
                 DmaChannel::C4 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cndtr = &self.regs.cndtr4;
-                    #[cfg(feature = "f3")]
-                        let cndtr = &self.regs.ch4.ndtr;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cndtr = &self.regs.ch4.ndtr;
+                        } else {
+                            let cndtr = &self.regs.cndtr4;
+                        }
+                    }
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
                 DmaChannel::C5 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cndtr = &self.regs.cndtr5;
-                    #[cfg(feature = "f3")]
-                        let cndtr = &self.regs.ch5.ndtr;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cndtr = &self.regs.ch5.ndtr;
+                        } else {
+                            let cndtr = &self.regs.cndtr5;
+                        }
+                    }
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
+                #[cfg(not(feature = "g0"))]
                 DmaChannel::C6 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cndtr = &self.regs.cndtr6;
-                    #[cfg(feature = "f3")]
-                        let cndtr = &self.regs.ch6.ndtr;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cndtr = &self.regs.ch6.ndtr;
+                        } else {
+                            let cndtr = &self.regs.cndtr6;
+                        }
+                    }
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
+                #[cfg(not(feature = "g0"))]
                 DmaChannel::C7 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cndtr = &self.regs.cndtr7;
-                    #[cfg(feature = "f3")]
-                        let cndtr = &self.regs.ch7.ndtr;
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            let cndtr = &self.regs.ch7.ndtr;
+                        } else {
+                            let cndtr = &self.regs.cndtr7;
+                        }
+                    }
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
                 #[cfg(any(feature = "l5", feature = "g4"))]
                 DmaChannel::C8 => {
-                    #[cfg(not(feature = "f3"))]
-                        let cndtr = &self.regs.cndtr8;
-                    #[cfg(feature = "f3")]
-                        let cndtr = &self.regs.ch8.ndtr;
+                    let cndtr = &self.regs.cndtr8;
                     cndtr.write(|w| w.ndt().bits(num_data));
                 }
             }
@@ -431,10 +506,13 @@ impl<D> Dma<D>
 
         match channel {
             DmaChannel::C1 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr1;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch1.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch1.cr;
+                    } else {
+                        let ccr = &self.regs.ccr1;
+                    }
+                }
 
                 set_ccr!(
                     ccr,
@@ -448,10 +526,13 @@ impl<D> Dma<D>
                 );
             }
             DmaChannel::C2 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr2;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch2.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch2.cr;
+                    } else {
+                        let ccr = &self.regs.ccr2;
+                    }
+                }
 
                 set_ccr!(
                     ccr,
@@ -465,10 +546,13 @@ impl<D> Dma<D>
                 );
             }
             DmaChannel::C3 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr3;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch3.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch3.cr;
+                    } else {
+                        let ccr = &self.regs.ccr3;
+                    }
+                }
 
                 set_ccr!(
                     ccr,
@@ -482,10 +566,13 @@ impl<D> Dma<D>
                 );
             }
             DmaChannel::C4 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr4;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch4.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch4.cr;
+                    } else {
+                        let ccr = &self.regs.ccr4;
+                    }
+                }
 
                 set_ccr!(
                     ccr,
@@ -499,10 +586,13 @@ impl<D> Dma<D>
                 );
             }
             DmaChannel::C5 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr5;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch5.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch5.cr;
+                    } else {
+                        let ccr = &self.regs.ccr5;
+                    }
+                }
 
                 set_ccr!(
                     ccr,
@@ -515,11 +605,15 @@ impl<D> Dma<D>
                     mem_size
                 );
             }
+            #[cfg(not(feature = "g0"))]
             DmaChannel::C6 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr6;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch6.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch6.cr;
+                    } else {
+                        let ccr = &self.regs.ccr6;
+                    }
+                }
 
                 set_ccr!(
                     ccr,
@@ -532,11 +626,15 @@ impl<D> Dma<D>
                     mem_size
                 );
             }
+            #[cfg(not(feature = "g0"))]
             DmaChannel::C7 => {
-                #[cfg(not(feature = "f3"))]
-                    let mut ccr = &self.regs.ccr7;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch7.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch7.cr;
+                    } else {
+                        let ccr = &self.regs.ccr7;
+                    }
+                }
 
                 set_ccr!(
                     ccr,
@@ -551,10 +649,7 @@ impl<D> Dma<D>
             }
             #[cfg(any(feature = "l5", feature = "g4"))]
             DmaChannel::C8 => {
-                #[cfg(not(feature = "f3"))]
-                    let mut ccr = &self.regs.ccr8;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch8.cr;
+                let mut ccr = &self.regs.ccr8;
 
                 set_ccr!(
                     ccr,
@@ -585,60 +680,80 @@ impl<D> Dma<D>
 
         match channel {
             DmaChannel::C1 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr1;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch1.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch1.cr;
+                    } else {
+                        let ccr = &self.regs.ccr1;
+                    }
+                }
                 ccr.modify(|_, w| w.en().clear_bit())
             }
             DmaChannel::C2 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr2;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch2.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch2.cr;
+                    } else {
+                        let ccr = &self.regs.ccr2;
+                    }
+                }
                 ccr.modify(|_, w| w.en().clear_bit())
             }
             DmaChannel::C3 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr3;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch3.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch3.cr;
+                    } else {
+                        let ccr = &self.regs.ccr3;
+                    }
+                }
                 ccr.modify(|_, w| w.en().clear_bit())
             }
             DmaChannel::C4 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr4;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch4.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch4.cr;
+                    } else {
+                        let ccr = &self.regs.ccr4;
+                    }
+                }
                 ccr.modify(|_, w| w.en().clear_bit())
             }
             DmaChannel::C5 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr5;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch5.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch5.cr;
+                    } else {
+                        let ccr = &self.regs.ccr5;
+                    }
+                }
                 ccr.modify(|_, w| w.en().clear_bit())
             }
+            #[cfg(not(feature = "g0"))]
             DmaChannel::C6 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr6;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch6.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch6.cr;
+                    } else {
+                        let ccr = &self.regs.ccr6;
+                    }
+                }
                 ccr.modify(|_, w| w.en().clear_bit())
             }
+            #[cfg(not(feature = "g0"))]
             DmaChannel::C7 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr7;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch7.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch7.cr;
+                    } else {
+                        let ccr = &self.regs.ccr7;
+                    }
+                }
                 ccr.modify(|_, w| w.en().clear_bit())
             }
             #[cfg(any(feature = "l5", feature = "g4"))]
             DmaChannel::C8 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr8;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch8.cr;
+                let ccr = &self.regs.ccr8;
                 ccr.modify(|_, w| w.en().clear_bit())
             }
         };
@@ -674,16 +789,29 @@ impl<D> Dma<D>
         // for different families. We're keeping it as a separate function instead
         // of feature-gating within the same function so the name can be recognizable
         // from the RM etc.
-        match channel {
-            DmaChannel::C1 => mux.c1cr.dmareq_id().bits(selection),
-            DmaChannel::C2 => mux.c2cr.dmareq_id().bits(selection),
-            DmaChannel::C3 => mux.c3cr.dmareq_id().bits(selection),
-            DmaChannel::C4 => mux.c4cr.dmareq_id().bits(selection),
-            DmaChannel::C5 => mux.c5cr.dmareq_id().bits(selection),
-            DmaChannel::C6 => mux.c6cr.dmareq_id().bits(selection),
-            DmaChannel::C7 => mux.c7cr.dmareq_id().bits(selection),
-            #[cfg(any(feature = "l5", feature = "g4"))]
-            DmaChannel::C8 => mux.c8cr.dmareq_id().bits(selection),
+        unsafe {
+            #[cfg(not(any(feature = "g070", feature = "g071", feature = "g081")))]
+            match channel {
+                DmaChannel::C1 => mux.c1cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                DmaChannel::C2 => mux.c2cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                DmaChannel::C3 => mux.c3cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                DmaChannel::C4 => mux.c4cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                DmaChannel::C5 => mux.c5cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                #[cfg(not(feature = "g0"))]
+                DmaChannel::C6 => mux.c6cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                #[cfg(not(feature = "g0"))]
+                DmaChannel::C7 => mux.c7cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                #[cfg(any(feature = "l5", feature = "g4"))]
+                DmaChannel::C8 => mux.c8cr.modify(|_, w| w.dmareq_id().bits(selection)),
+            }
+            #[cfg(any(feature = "g070", feature = "g071", feature = "g081"))]
+            match channel {
+                DmaChannel::C1 => mux.dmamux_c1cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                DmaChannel::C2 => mux.dmamux_c2cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                DmaChannel::C3 => mux.dmamux_c3cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                DmaChannel::C4 => mux.dmamux_c4cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                DmaChannel::C5 => mux.dmamux_c5cr.modify(|_, w| w.dmareq_id().bits(selection)),
+            }
         }
     }
 
@@ -696,10 +824,13 @@ impl<D> Dma<D>
 
         match channel {
             DmaChannel::C1 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr1;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch1.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch1.cr;
+                    } else {
+                        let ccr = &self.regs.ccr1;
+                    }
+                }
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {
@@ -718,10 +849,13 @@ impl<D> Dma<D>
                 }
             }
             DmaChannel::C2 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr2;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch2.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch2.cr;
+                    } else {
+                        let ccr = &self.regs.ccr2;
+                    }
+                }
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {
@@ -740,10 +874,13 @@ impl<D> Dma<D>
                 }
             }
             DmaChannel::C3 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr3;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch3.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch3.cr;
+                    } else {
+                        let ccr = &self.regs.ccr3;
+                    }
+                }
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {
@@ -762,10 +899,13 @@ impl<D> Dma<D>
                 }
             }
             DmaChannel::C4 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr4;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch4.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch4.cr;
+                    } else {
+                        let ccr = &self.regs.ccr4;
+                    }
+                }
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {
@@ -784,10 +924,13 @@ impl<D> Dma<D>
                 }
             }
             DmaChannel::C5 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr5;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch5.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch5.cr;
+                    } else {
+                        let ccr = &self.regs.ccr5;
+                    }
+                }
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {
@@ -805,11 +948,40 @@ impl<D> Dma<D>
                     while ccr.read().en().bit_is_clear() {}
                 }
             }
+            #[cfg(not(feature = "g0"))]
             DmaChannel::C6 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr6;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch6.cr;
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch6.cr;
+                    } else {
+                        let ccr = &self.regs.ccr6;
+                    }
+                }
+                let originally_enabled = ccr.read().en().bit_is_set();
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().clear_bit());
+                    while ccr.read().en().bit_is_set() {}
+                }
+                match interrupt_type {
+                    DmaInterrupt::TransferError => ccr.modify(|_, w| w.teie().set_bit()),
+                    DmaInterrupt::HalfTransfer => ccr.modify(|_, w| w.htie().set_bit()),
+                    DmaInterrupt::TransferComplete => ccr.modify(|_, w| w.tcie().set_bit()),
+                }
+
+                if originally_enabled {
+                    ccr.modify(|_, w| w.en().set_bit());
+                    while ccr.read().en().bit_is_clear() {}
+                }
+            }
+            #[cfg(not(feature = "g0"))]
+            DmaChannel::C7 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "f3", feature = "g0"))] {
+                        let ccr = &self.regs.ch7.cr;
+                    } else {
+                        let ccr = &self.regs.ccr7;
+                    }
+                }
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {
@@ -827,11 +999,9 @@ impl<D> Dma<D>
                     while ccr.read().en().bit_is_clear() {}
                 }
             }
-            DmaChannel::C7 => {
-                #[cfg(not(feature = "f3"))]
-                    let ccr = &self.regs.ccr7;
-                #[cfg(feature = "f3")]
-                    let ccr = &self.regs.ch7.cr;
+            #[cfg(any(feature = "l5", feature = "g4"))]
+            DmaChannel::C8 => {
+                let ccr = &self.regs.ccr8;
 
                 let originally_enabled = ccr.read().en().bit_is_set();
                 if originally_enabled {
