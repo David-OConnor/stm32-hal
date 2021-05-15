@@ -18,7 +18,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, Dma};
+use crate::dma::{self, Dma, ChannelCfg};
 
 // todo: non-static buffers?
 use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
@@ -502,18 +502,15 @@ where
         #[cfg(not(feature = "h7"))]
         let periph_addr = &self.regs.dr as *const _ as u32;
 
+        // todo: Pri and Circular as args?
+
         dma.cfg_channel(
             channel,
             periph_addr,
             ptr as u32,
             len as u16, // (x2 per one of the examples??)
-            dma::Priority::Medium, // todo: Pass pri as an arg?
             dma::Direction::ReadFromMem,
-            dma::Circular::Disabled, // todo?
-            dma::IncrMode::Disabled,
-            dma::IncrMode::Enabled,
-            dma::DataSize::S8,
-            dma::DataSize::S8,
+            ChannelCfg::default(),
         );
     }
 
@@ -543,6 +540,8 @@ where
             ),
         };
 
+        // todo: Pri and Circular as args?
+
         #[cfg(feature = "h7")]
         let periph_addr = &self.regs.rxdr as *const _ as u32;
         #[cfg(not(feature = "h7"))]
@@ -553,14 +552,8 @@ where
             periph_addr,
             ptr as u32,
             len as u16, // (x2 per one of the examples??)
-            dma::Priority::Medium, // todo: Pass pri as an arg?
             dma::Direction::ReadFromPeriph,
-            dma::Circular::Disabled, // todo?
-
-            dma::IncrMode::Disabled,
-            dma::IncrMode::Enabled,
-            dma::DataSize::S8,
-            dma::DataSize::S8,
+            ChannelCfg::default(),
         );
     }
 }

@@ -19,7 +19,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, Dma};
+use crate::dma::{self, Dma, ChannelCfg};
 
 // todo: non-static buffers?
 use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
@@ -472,6 +472,8 @@ where
             UsartDevice::Three => dma::DmaChannel::C2,
         };
 
+        // todo: Pri and Circular as args?
+
         dma.cfg_channel(
             channel,
             // 1. Write the USART_TDR register address in the DMA control register to configure it as
@@ -484,15 +486,10 @@ where
             ptr as u32,
             // 3. Configure the total number of bytes to be transferred to the DMA control register.
             len as u16, // (x2 per one of the examples??)
-            // 4. Configure the channel priority in the DMA register
-            dma::Priority::Medium, // todo: Pass pri as an arg?
             dma::Direction::ReadFromMem,
-            dma::Circular::Disabled, // todo?
-            // Increment the buffer address, not the peripheral address.
-            dma::IncrMode::Disabled,
-            dma::IncrMode::Enabled,
-            dma::DataSize::S8, // todo: S16 for 9-bit support?
-            dma::DataSize::S8, // todo: S16 for 9-bit support?
+            // 4. Configure the channel priority in the DMA control register
+            // (Handled by `ChannelCfg::default())`
+            ChannelCfg::default(),
         );
 
         // 5. Configure DMA interrupt generation after half/ full transfer as required by the
@@ -547,6 +544,8 @@ where
             UsartDevice::Three => dma::DmaChannel::C3,
         };
 
+        // todo: Pri and Circular as args?
+
         dma.cfg_channel(
             channel,
             // 1. Write the USART_RDR register address in the DMA control register to configure it as
@@ -560,15 +559,10 @@ where
             // 3. Configure the total number of bytes to be transferred to the DMA control register.
             // (buf.len() * 2) as u16, // todo: Why x2?
             len as u16, // (x2 per one of the examples??)
-            // 4. Configure the channel priority in the DMA control register
-            dma::Priority::Medium, // todo: Pass pri as an arg?
             dma::Direction::ReadFromPeriph,
-            dma::Circular::Disabled, // todo?
-            // Increment the buffer address, not the peripheral address.
-            dma::IncrMode::Disabled,
-            dma::IncrMode::Enabled,
-            dma::DataSize::S8, // todo: S16 for 9-bit support?
-            dma::DataSize::S8, // todo: S16 for 9-bit support?
+            // 4. Configure the channel priority in the DMA control register
+            // (Handled by `ChannelCfg::default())`
+            ChannelCfg::default(),
         );
 
         // 5. Configure interrupt generation after half/ full transfer as required by the application.
