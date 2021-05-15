@@ -37,7 +37,7 @@ use stm32_hal2::{
     pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
     usart::{Usart, UsartDevice, UsartInterrupt, UsartConfig},
-    spi::{self, Spi, SpiDevice},
+    spi::{self, Spi, SpiConfig, SpiDevice},
     timer::{Event::TimeOut, Timer},
 };
 
@@ -118,16 +118,19 @@ fn main() -> ! {
     // Configure DMA, to be used by peripherals.
     let mut dma = Dma::new(&mut dp.DMA1, &mut dp.RCC);
 
-    let spi_mode = Mode {
-        polarity: Polarity::IdleLow,
-        phase: Phase::CaptureOnFirstTransition,
+    let spi_cfg = SpiConfig {
+        mode: Mode {
+            polarity: Polarity::IdleLow,
+            phase: Phase::CaptureOnFirstTransition,
+        },
+        comm_mode: SpiCommMode::FullDuplex,
     };
 
     // Set up an SPI peripheral, running at 4Mhz, in SPI mode 0.
     let spi = Spi::new(
         dp.SPI1,
         SpiDevice::One,
-        spi_mode,
+        spi_cfg,
         4_000_000,
         &clock_cfg,
         &mut dp.RCC,

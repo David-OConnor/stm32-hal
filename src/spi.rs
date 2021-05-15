@@ -18,10 +18,10 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, Dma, ChannelCfg};
+use crate::dma::{self, ChannelCfg, Dma};
 
 // todo: non-static buffers?
-use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
+use embedded_dma::{ReadBuffer, StaticReadBuffer, StaticWriteBuffer, WriteBuffer};
 
 use cfg_if::cfg_if;
 
@@ -48,6 +48,14 @@ pub enum SpiDevice {
     Two,
     #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
     Three,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum SpiCommMode {
+    FullDuplex,
+    HalfDuplex,
+    TransmitOnly,
+    ReceiveOnly,
 }
 
 #[cfg(feature = "h7")]
@@ -108,17 +116,20 @@ impl Config {
     }
 }
 
-#[cfg(feature = "h7")]
-impl From<Mode> for Config {
-    fn from(mode: Mode) -> Self {
-        Self::new(mode)
-    }
+// todo: See if you can combine config for H7 and non
+
+pub struct SpiConfig {
+    pub mode: Mode,
+    pub comm_mode: SpiCommMode,
+    // todo: Adopt other settinsg? Ie see H7 settings.
+    // todo: Impl default if needed.
 }
 
 /// SPI peripheral operating in full duplex master mode
 pub struct Spi<S> {
     regs: S,
     device: SpiDevice,
+    cfg: SpiConfig,
 }
 
 impl<S> Spi<S>
@@ -129,7 +140,7 @@ where
     pub fn new<C: ClockCfg>(
         regs: S,
         device: SpiDevice,
-        mode: Mode,
+        cfg: SpiConfig,
         freq: u32,
         clocks: &C,
         rcc: &mut RCC,
@@ -214,13 +225,6 @@ where
                     }
                 };
 
-                // The calculated cycle delay may not be more than 4 bits wide for the
-                // configuration register.
-                let communication_mode = match config.communication_mode {
-                    CommunicationMode::Transmitter => COMM::TRANSMITTER,
-                    CommunicationMode::Receiver => COMM::RECEIVER,
-                    CommunicationMode::FullDuplex => COMM::FULLDUPLEX,
-                };
 
                 // mstr: master configuration
                 // lsbfrst: MSB first
@@ -289,11 +293,12 @@ where
                     // relationships between the data transfer and the serial clock (CPHA must be
                     // cleared in NSSP mode). (Note: 2 - except the case when CRC is enabled at TI
                     // mode).
-                    w.cpol().bit(mode.polarity == Polarity::IdleHigh);
-                    w.cpha().bit(mode.phase == Phase::CaptureOnSecondTransition);
+                    w.cpol().bit(cfg.mode.polarity == Polarity::IdleHigh);
+                    w.cpha().bit(cfg.mode.phase == Phase::CaptureOnSecondTransition);
                     // c) Select simplex or half-duplex mode by configuring RXONLY or BIDIMODE and
                     // BIDIOE (RXONLY and BIDIMODE can't be set at the same time).
-                    // (TODO: absent from L4X impl.)
+                    w.bidimode().bit(cfg.comm_mode == SpiCommMode::HalfDuplex);
+                    w.rxonly().bit(cfg.comm_mode == SpiCommMode::ReceiveOnly);
                     // d) Configure the LSBFIRST bit to define the frame format (Note: 2).
                     w.lsbfirst().clear_bit();
                     // e) Configure the CRCL and CRCEN bits if CRC is needed (while SCK clock signal is
@@ -305,7 +310,6 @@ where
                     // g) Configure the MSTR bit (in multimaster NSS configuration, avoid conflict state on
                     // NSS if master is configured to prevent MODF error).
                     w.mstr().set_bit();
-                    w.bidimode().clear_bit(); // todo?
                     w.spe().set_bit() // Enable SPI
                 });
 
@@ -340,7 +344,7 @@ where
                 // DMA registers if the DMA streams are used.
             }
         }
-        Spi { regs, device }
+        Spi { regs, device, cfg }
     }
 
     #[cfg(not(feature = "h7"))]
@@ -463,16 +467,15 @@ where
                 dma.mux(chan_rx, dma::MuxInput::Spi3Rx as u8, mux);
             }
         };
-
         // Note that we need neither channel select, nor multiplex for F3.
     }
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA
-    pub fn write_dma<D, B>(&mut self, mut buf: B, dma: &mut Dma<D>)
+    pub fn write_dma<D, B>(&mut self, mut buf: &mut B, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
-        B: StaticWriteBuffer,
+        B: WriteBuffer,
     {
         let (ptr, len) = unsafe { buf.write_buffer() };
 
@@ -498,7 +501,7 @@ where
         };
 
         #[cfg(feature = "h7")]
-        let periph_addr = &self.regs.rxdr as *const _ as u32;
+        let periph_addr = &self.regs.txdr as *const _ as u32;
         #[cfg(not(feature = "h7"))]
         let periph_addr = &self.regs.dr as *const _ as u32;
 
@@ -508,7 +511,8 @@ where
             channel,
             periph_addr,
             ptr as u32,
-            len as u16, // (x2 per one of the examples??)
+            // len as u16, // (x2 per one of the examples??)
+            len as u16 * 2, // (x2 per one of the examples??)
             dma::Direction::ReadFromMem,
             ChannelCfg::default(),
         );
@@ -516,9 +520,9 @@ where
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. See L44 RM, section 40.4.9: Communication using DMA
-    pub fn read_dma<D, B>(&mut self, buf: B, dma: &mut Dma<D>)
+    pub fn read_dma<D, B>(&mut self, buf: &B, dma: &mut Dma<D>)
     where
-        B: StaticReadBuffer,
+        B: ReadBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         let (ptr, len) = unsafe { buf.read_buffer() };

@@ -19,10 +19,10 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, Dma, ChannelCfg};
+use crate::dma::{self, ChannelCfg, Dma};
 
 // todo: non-static buffers?
-use embedded_dma::{StaticReadBuffer, StaticWriteBuffer};
+use embedded_dma::{ReadBuffer, StaticReadBuffer, StaticWriteBuffer, WriteBuffer};
 
 use embedded_hal::{
     blocking,
@@ -442,7 +442,7 @@ where
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
-    pub fn write_dma<D, B>(&mut self, mut buf: B, dma: &mut Dma<D>)
+    pub fn write_dma<D, B>(&mut self, mut buf: &mut B, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
         B: StaticWriteBuffer,
@@ -516,7 +516,7 @@ where
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. (L44 RM, section 38.5.15)
-    pub fn read_dma<D, B>(&mut self, buf: B, dma: &mut Dma<D>)
+    pub fn read_dma<D, B>(&mut self, buf: &B, dma: &mut Dma<D>)
     where
         B: StaticReadBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,

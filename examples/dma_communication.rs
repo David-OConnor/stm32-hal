@@ -16,16 +16,14 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     adc::{Adc, AdcChannel, Align, CkMode, InputType, OperationMode},
-    dma::{Dma, DmaChannel},
     clocks::Clocks,
+    dma::{Dma, DmaChannel},
     gpio::{AltFn, Edge, GpioA, GpioAPin, GpioB, GpioBPin, PinMode, PinNum},
-    low_power,
-    pac,
-    usart::{Usart, UsartDevice, UsartInterrupt, UsartConfig},
-    spi::{self, Spi, SpiDevice},
+    low_power, pac,
     prelude::*,
+    spi::{self, Spi, SpiDevice},
+    usart::{Usart, UsartConfig, UsartDevice, UsartInterrupt},
 };
-
 
 #[entry]
 fn main() -> ! {
@@ -44,7 +42,7 @@ fn main() -> ! {
     let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
 
-        // Configure DMA, to be used by peripherals.
+    // Configure DMA, to be used by peripherals.
     let mut dma = Dma::new(&mut dp.DMA1, &mut dp.RCC);
 
     let spi_mode = Mode {
@@ -79,7 +77,6 @@ fn main() -> ! {
         &mut dp.RCC,
     );
 
-
     // Unmask interrupt lines associated with the input pins we've configured interrupts
     // for in `setup_pins`.
     unsafe {
@@ -88,7 +85,6 @@ fn main() -> ! {
 
     loop {
         uart.write_dma(buff, &mut dma)
-
 
         // low_power::sleep_now(&mut SCB);
     }

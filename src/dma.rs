@@ -200,7 +200,7 @@ macro_rules! enable_interrupt {
             $ccr.modify(|_, w| w.en().set_bit());
             while $ccr.read().en().bit_is_clear() {}
         }
-    }
+    };
 }
 
 /// This struct is used to pass common (non-peripheral and non-use-specific) data when configuring
@@ -217,25 +217,24 @@ pub struct ChannelCfg {
 impl Default for ChannelCfg {
     fn default() -> Self {
         Self {
-            priority: Priority::Medium, // todo: Pass pri as an arg?
+            priority: Priority::Medium,   // todo: Pass pri as an arg?
             circular: Circular::Disabled, // todo?
             // Increment the buffer address, not the peripheral address.
             periph_incr: IncrMode::Disabled,
             mem_incr: IncrMode::Enabled,
             periph_size: DataSize::S8, // todo: S16 for 9-bit support?
-            mem_size: DataSize::S8, // todo: S16 for 9-bit support?
+            mem_size: DataSize::S8,    // todo: S16 for 9-bit support?
         }
     }
 }
-
 
 pub struct Dma<D> {
     regs: D,
 }
 
 impl<D> Dma<D>
-    where
-        D: Deref<Target = dma::RegisterBlock>,
+where
+    D: Deref<Target = dma::RegisterBlock>,
 {
     pub fn new(regs: D, rcc: &mut RCC) -> Self {
         // todo: Enable RCC for DMA 2 etc!
