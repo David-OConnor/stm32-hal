@@ -54,38 +54,7 @@ fn main() -> ! {
         &mut dp.RCC,
     );
 
-    adc.enable_interrupt(AdcInterrupt::EndOfSequence);
-
-    // Set up DMA, for nonblocking (generally faster) conversion transfers:
-    let mut dma = Dma::new(&mut dp.DMA1, &dp.RCC);
-
-    let mut dma_buf = DmaWriteBuf { buf: &[0_u16; 1] };
-
-    // Begin a DMA transfer. Note that the `DmaChannel` we pass here is only used on
-    // MCUs that use `DMAMUX`, eg L5, G0, and G4. For those, you need to run `mux`, to
-    // set the channel: `dma::mux(DmaChannel::C1, MuxInput::Adc1, &mut dp.DMAMUX);
-    badc.read_dma(&mut buf, chan_num, DmaChannel::C1, &mut dma);
-
-    // Wait for the transfer to complete. Ie by reading in the channel's transfer-complete interrupt,
-    // which is enabled by the `read_dma` command.  For this example, we block until ready
-    while !dma.transfer_is_complete(DmaChannel::C1) {}
-    dma.stop(DmaChannel::C1);
-
-    defmt::info!("Reading: {:?}", &dma_buf.buf);
-
-    // Alternatively, we can take readings without DMA:
-
-    // Take a OneShot reading from channel 3. (Note that the Embedded HAL trait is also available,
-    // for use in embedded drivers). Channels for EH usage are included: `stm32hal2::adc::AdcChannel::C3`
-    let reading = adc.read(chan_num);
-
-    // Or, start reading in continuous mode, reading a single channel
-    adc.start_conversion(&[chan_num], OperationMode::Continuous);
-
-    // Or, set up multiple channels in a sequence:
-    adc.start_conversion([1, 2, 3], OperationMode::Continuous);
-    // Read from the ADC's latest (continuously-running) conversion:
-    let reading = adc.read_result();
+    // 1: Confiuration options:
 
     // Set a channel to a specific position in a sequence:
     adc.set_sequence(1, 2); // Set channel 1 to be the second position in the sequence.
@@ -105,6 +74,40 @@ fn main() -> ! {
 
     // Set left align mode:
     adc.set_align(Align::Left);
+
+    adc.enable_interrupt(AdcInterrupt::EndOfSequence);
+
+    // 2: Set up DMA, for nonblocking (generally faster) conversion transfers:
+    let mut dma = Dma::new(&mut dp.DMA1, &dp.RCC);
+
+    let mut dma_buf = DmaWriteBuf { buf: &[0_u16; 1] };
+
+    // Begin a DMA transfer. Note that the `DmaChannel` we pass here is only used on
+    // MCUs that use `DMAMUX`, eg L5, G0, and G4. For those, you need to run `mux`, to
+    // set the channel: `dma::mux(DmaChannel::C1, MuxInput::Adc1, &mut dp.DMAMUX);
+    badc.read_dma(&mut buf, chan_num, DmaChannel::C1, &mut dma);
+
+    // Wait for the transfer to complete. Ie by reading in the channel's transfer-complete interrupt,
+    // which is enabled by the `read_dma` command.  For this example, we block until ready
+    while !dma.transfer_is_complete(DmaChannel::C1) {}
+    dma.stop(DmaChannel::C1);
+
+    defmt::info!("Reading: {:?}", &dma_buf.buf);
+
+    // 3: Alternatively, we can take readings without DMA. This provides a simpler, memory-safe API,
+    // and is compatible with the `embedded_hal::adc::OneShot trait.
+
+    // Take a OneShot reading from channel 3. (Note that the Embedded HAL trait is also available,
+    // for use in embedded drivers). Channels for EH usage are included: `stm32hal2::adc::AdcChannel::C3`
+    let reading = adc.read(chan_num);
+
+    // Or, start reading in continuous mode, reading a single channel
+    adc.start_conversion(&[chan_num], OperationMode::Continuous);
+
+    // Or, set up multiple channels in a sequence:
+    adc.start_conversion([1, 2, 3], OperationMode::Continuous);
+    // Read from the ADC's latest (continuously-running) conversion:
+    let reading = adc.read_result();
 
     loop {
         low_power::sleep_now(&mut SCB);
