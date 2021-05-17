@@ -123,7 +123,7 @@ fn main() -> ! {
             polarity: Polarity::IdleLow,
             phase: Phase::CaptureOnFirstTransition,
         },
-        comm_mode: SpiCommMode::FullDuplex,
+        ..Default::default()
     };
 
     // Set up an SPI peripheral, running at 4Mhz, in SPI mode 0.

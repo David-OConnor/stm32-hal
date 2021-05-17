@@ -19,7 +19,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, ChannelCfg, Dma};
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 // todo: non-static buffers?
 use embedded_dma::{ReadBuffer, StaticReadBuffer, StaticWriteBuffer, WriteBuffer};
@@ -374,89 +374,42 @@ where
         self.regs.cr3.modify(|_, w| w.dmat().set_bit());
         self.regs.cr3.modify(|_, w| w.dmar().set_bit());
 
-        // todo: These are only valid for DMA1!
-        #[cfg(feature = "l4")]
-        match self.device {
-            UsartDevice::One => {
-                dma.channel_select(dma::DmaChannel::C4, 0b010); // Tx
-                dma.channel_select(dma::DmaChannel::C5, 0b010); // Rx
-            }
-            UsartDevice::Two => {
-                dma.channel_select(dma::DmaChannel::C7, 0b010);
-                dma.channel_select(dma::DmaChannel::C6, 0b010);
-            }
-            UsartDevice::Three => {
-                dma.channel_select(dma::DmaChannel::C2, 0b010);
-                dma.channel_select(dma::DmaChannel::C3, 0b010);
-            }
-        };
-        // Note that we need neither channel select, nor multiplex for F3.
-    }
-
-    #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
-    /// Enable use of DMA transmission for U[s]ART: (L44 RM, section 38.5.15)
-    pub fn enable_dma<D>(
-        &mut self,
-        dma: &mut Dma<D>,
-        chan_tx: dma::DmaChannel,
-        chan_rx: dma::DmaChannel,
-        mux: &mut pac::DMAMUX,
-    ) where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
-        // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
-        // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
-        // Section 11: Direct memory access controller (DMA) on page 295) to the USART_TDR
-        // register whenever the TXE bit is set."
-
-        self.regs.cr3.modify(|_, w| w.dmat().set_bit());
-
-        #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
-        // See G4 RM, Table 91.
-        match self.device {
-            UsartDevice::One => {
-                dma.mux(chan_tx, dma::MuxInput::Usart1Tx as u8, mux); // Tx
-                dma.mux(chan_rx, dma::MuxInput::Usart1Rx as u8, mux); // Rx
-            }
-            UsartDevice::Two => {
-                dma.mux(chan_tx, dma::MuxInput::Usart2Tx as u8, mux);
-                dma.mux(chan_rx, dma::MuxInput::Usart2Rx as u8, mux);
-            }
-            #[cfg(not(any(
-                feature = "f401",
-                feature = "f410",
-                feature = "f411",
-                feature = "f412",
-                feature = "f413",
-                feature = "l4x1",
-                feature = "g0"
-            )))]
-            UsartDevice::Three => {
-                dma.mux(chan_tx, dma::MuxInput::Usart3Tx as u8, mux);
-                dma.mux(chan_rx, dma::MuxInput::Usart3Rx as u8, mux);
-            }
-        };
 
         // Note that we need neither channel select, nor multiplex for F3.
     }
+
+
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
-    pub fn write_dma<D, B>(&mut self, mut buf: &mut B, dma: &mut Dma<D>)
+    /// Note that the `channel` argument is only used on F3 and L4.
+    pub fn write_dma<D, B>(&mut self, mut buf: &mut B, channel: DmaChannel, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
         B: StaticWriteBuffer,
     {
         let (ptr, len) = unsafe { buf.write_buffer() };
 
+        // todo: These are only valid for DMA1!
+        #[cfg(feature = "l4")]
+        match self.device {
+            UsartDevice::One => {
+                dma.channel_select(dma::DmaChannel::C4, 0b010); // Tx
+            }
+            UsartDevice::Two => {
+                dma.channel_select(dma::DmaChannel::C7, 0b010);
+            }
+            UsartDevice::Three => {
+                dma.channel_select(dma::DmaChannel::C2, 0b010);
+            }
+        };
+
         // To map a DMA channel for USART transmission, use
         // the following procedure (x denotes the channel number):
 
         // todo: This channel selection is confirmed for L4 only - check other families
         // todo DMA channel mapping
-
-        // todo: Does this work with Muxing?
-        // todo: Make these configurable with muxing on supported families.
+        #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
             UsartDevice::One => dma::DmaChannel::C4,
             UsartDevice::Two => dma::DmaChannel::C7,
@@ -489,13 +442,12 @@ where
             dma::Direction::ReadFromMem,
             // 4. Configure the channel priority in the DMA control register
             // (Handled by `ChannelCfg::default())`
-            ChannelCfg::default(),
+            Default::default(),
         );
 
         // 5. Configure DMA interrupt generation after half/ full transfer as required by the
         // application.
-        // todo (Let the user call `dma.setup_interrupt()`? But that requires they know
-        // todo which channel of DMA usart tx is on.
+        // (Handled in `cfg_channel`)
 
         // 6. Clear the TC flag in the USART_ISR register by setting the TCCF bit in the
         // USART_ICR register.
@@ -504,7 +456,7 @@ where
         // 7. Activate the channel in the DMA register.
         // When the number of data transfers programmed in the DMA Controller is reached, the DMA
         // controller generates an interrupt on the DMA channel interrupt vector.
-        // (Handled in above fn call)
+        // (Handled in `cfg_channel`)
 
         // In transmission mode, once the DMA has written all the data to be transmitted (the TCIF flag
         // is set in the DMA_ISR register), the TC flag can be monitored to make sure that the USART
@@ -516,19 +468,28 @@ where
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. (L44 RM, section 38.5.15)
-    pub fn read_dma<D, B>(&mut self, buf: &B, dma: &mut Dma<D>)
+    /// Note that the `channel` argument is only used on F3 and L4.
+    pub fn read_dma<D, B>(&mut self, buf: &B, channel: DmaChannel, dma: &mut Dma<D>)
     where
         B: StaticReadBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         let (ptr, len) = unsafe { buf.read_buffer() };
 
-        // To map a DMA channel for USART reception, use
-        // the following procedure:
+        #[cfg(feature = "l4")]
+        match self.device {
+            UsartDevice::One => {
+                dma.channel_select(dma::DmaChannel::C5, 0b010); // Rx
+            }
+            UsartDevice::Two => {
+                dma.channel_select(dma::DmaChannel::C6, 0b010);
+            }
+            UsartDevice::Three => {
+                dma.channel_select(dma::DmaChannel::C3, 0b010);
+            }
+        };
 
-        // todo: Make these configurable with muxing on supported families.
-        // todo: This channel selection is confirmed for L4 only - check other families
-        // todo DMA channel mapping
+        #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
             UsartDevice::One => dma::DmaChannel::C5,
             UsartDevice::Two => dma::DmaChannel::C6,
@@ -557,11 +518,8 @@ where
             // RXNE event.
             ptr as u32,
             // 3. Configure the total number of bytes to be transferred to the DMA control register.
-            // (buf.len() * 2) as u16, // todo: Why x2?
-            len as u16, // (x2 per one of the examples??)
+            len as u16,
             dma::Direction::ReadFromPeriph,
-            // 4. Configure the channel priority in the DMA control register
-            // (Handled by `ChannelCfg::default())`
             ChannelCfg::default(),
         );
 

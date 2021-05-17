@@ -121,10 +121,25 @@ pub enum OperationMode {
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 /// ADC Clock mode
+/// (L44 RM, Section 16.4.3) The input clock is the same for the three ADCs and can be selected between two different
+/// clock sources (see Figure 40: ADC clock scheme):
+/// 1. The ADC clock can be a specific clock source. It can be derived from the following
+/// clock sources:
+/// – The system clock
+/// – PLLSAI1 (single ADC implementation)
+/// Refer to RCC Section for more information on how to generate ADC dedicated clock.
+/// To select this scheme, bits CKMODE[1:0] of the ADCx_CCR register must be reset.
+/// 2. The ADC clock can be derived from the AHB clock of the ADC bus interface, divided by
+/// a programmable factor (1, 2 or 4). In this mode, a programmable divider factor can be
+/// selected (/1, 2 or 4 according to bits CKMODE[1:0]).
+/// To select this scheme, bits CKMODE[1:0] of the ADCx_CCR register must be different
+/// from “00”.
 pub enum ClockMode {
     // Use Kernel Clock adc_ker_ck_input divided by PRESC. Asynchronous to AHB clock
-    // ASYNC = 0b00,
-    /// Use AHB clock rcc_hclk3. In this case rcc_hclk must equal sys_d1cpre_ck
+    Async = 0b00,
+    /// Use AHB clock rcc_hclk3.
+    /// "For option 2), a prescaling factor of 1 (CKMODE[1:0]=01) can be used only if the AHB
+    /// prescaler is set to 1 (HPRE[3:0] = 0xxx in RCC_CFGR register)."
     SyncDiv1 = 0b01,
     /// Use AHB clock rcc_hclk3 divided by 2
     SyncDiv2 = 0b10,
@@ -227,6 +242,7 @@ macro_rules! hal {
                     // and 4 ADC clock cycle after the ADCAL
                     // bit is cleared by hardware."
                     let adc_per_cpu_cycles = match result.ckmode {
+                        ClockMode::Async => unimplemented!(),
                         ClockMode::SyncDiv1 => 1,
                         ClockMode::SyncDiv2 => 2,
                         ClockMode::SyncDiv4 => 4,
@@ -242,9 +258,6 @@ macro_rules! hal {
 
             /// Enable the ADC clock, and set the clock mode.
             fn enable_clock(&self, common_regs: &mut pac::$ADC_COMMON, rcc: &mut RCC) {
-                 // `common_regs` is the same as `self.regs` for non-f3. On f3, it's a diff block,
-                 // eg `adc12`.
-                 // todo: Macros instead of AdcNum? More consistent with other modules. Not sure which is more apt.
                 paste! {
                     cfg_if! {
                         if #[cfg(any(feature = "f3", feature = "h7"))] {
@@ -256,19 +269,12 @@ macro_rules! hal {
                             rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
                         } else if #[cfg(any(feature = "g4"))] {
                             rcc_en_reset!(ahb2, [<adc $rcc_num>], rcc);
-                        } else {  // ie L4, L5 etc.
+                        } else {  // ie L4, L5, G0(?)
                             rcc_en_reset!(ahb2, adc, rcc);
                         }
                     }
                 }
-
-                cfg_if! {
-                    if #[cfg(any(feature = "g4", feature = "h7"))] {  // todo why can't we find ccr?
-                        common_regs.ccr.modify(|_, w| unsafe { w.ckmode().bits(self.ckmode as u8) });
-                    } else {
-                        common_regs.ccr.modify(|_, w| unsafe { w.ckmode().bits(self.ckmode as u8) });
-                    }
-                }
+                common_regs.ccr.modify(|_, w| unsafe { w.ckmode().bits(self.ckmode as u8) });
 
             }
 
@@ -543,44 +549,20 @@ macro_rules! hal {
                     self.disable();
                 }
 
-                // todo: Figure out how you do the bit shift math here; we don't have individual fields.
-                // difsel!(self.regs, channel, input_type);
-                // self.regs.difsel.write(|w| w.difsel_1_15r().bits(input_type as u8));
+                // Note that we don't use the `difsel` PAC accessor here; not required,
+                // and would require some feature gating due to differences in field names among some
+                // variants. Would also requires shifting `channel` by 1 more.
+                let val = self.regs.difsel.read().bits();
+                self.regs.difsel.write(|w| unsafe { w.bits(
+                    val | ((input_type as u32) << channel)
+                )});
 
                 if was_enabled {
                     self.enable();
                 }
             }
 
-            /// Start a conversion: Either a single measurement, or continuous conversions.
-            /// See L4 RM 16.4.15 for details.
-            pub fn start_conversion(&mut self, chan: u8, mode: OperationMode) {
-                // Set continuous or differential mode.
-                self.regs.cfgr.modify(|_, w| w.cont().bit(mode as u8 != 0));
-                self.select_channel(chan);
-
-                // L4 RM: In Single conversion mode, the ADC performs once all the conversions of the channels.
-                // This mode is started with the CONT bit at 0 by either:
-                // • Setting the ADSTART bit in the ADC_CR register (for a regular channel)
-                // • Setting the JADSTART bit in the ADC_CR register (for an injected channel)
-                // • External hardware trigger event (for a regular or injected channel)
-                // (Here, we assume a regular channel)
-                self.regs.cr.modify(|_, w| w.adstart().set_bit());  // Start
-
-                // After the regular sequence is complete, after each conversion is complete,
-                // the EOC (end of regular conversion) flag is set.
-                // After the regular sequence is complete: The EOS (end of regular sequence) flag is set.
-                // (We're ignoring eoc, since this module doesn't currently support sequences)
-                while self.regs.isr.read().eos().bit_is_clear() {}  // wait until complete.
-            }
-
-            /// Read data from a conversion. In OneShot mode, this will generally be run right
-            /// after `start_conversion`.
-            pub fn read_result(&mut self) -> u16 {
-                self.regs.dr.read().bits() as u16
-            }
-
-            /// Select the channel to sample. Note that this register allows setting a sequence,
+                        /// Select the channel to sample. Note that this register allows setting a sequence,
             /// but for now, we only support converting one channel at a time.
             /// (Single-ended or differential, but not a sequence.)
             fn select_channel(&self, chan: u8) {
@@ -618,6 +600,35 @@ macro_rules! hal {
                         _ => unreachable!(),
                     };
                 }
+            }
+
+            /// Start a conversion: Either a single measurement, or continuous conversions.
+            /// See L4 RM 16.4.15 for details.
+            pub fn start_conversion(&mut self, chan: u8, mode: OperationMode) {
+                // Set continuous or differential mode.
+                self.regs.cfgr.modify(|_, w| w.cont().bit(mode as u8 != 0));
+                self.select_channel(chan);
+
+                // L4 RM: In Single conversion mode, the ADC performs once all the conversions of the channels.
+                // This mode is started with the CONT bit at 0 by either:
+                // • Setting the ADSTART bit in the ADC_CR register (for a regular channel)
+                // • Setting the JADSTART bit in the ADC_CR register (for an injected channel)
+                // • External hardware trigger event (for a regular or injected channel)
+                // (Here, we assume a regular channel)
+                self.regs.cr.modify(|_, w| w.adstart().set_bit());  // Start
+
+                // After the regular sequence is complete, after each conversion is complete,
+                // the EOC (end of regular conversion) flag is set.
+                // After the regular sequence is complete: The EOS (end of regular sequence) flag is set.
+                // (We're ignoring eoc, since this module doesn't currently support sequences)
+                while self.regs.isr.read().eos().bit_is_clear() {}  // wait until complete.
+            }
+
+            /// Read data from a conversion. In OneShot mode, this will generally be run right
+            /// after `start_conversion`.
+            pub fn read_result(&mut self) -> u16 {
+                // todo: read_volatile to be more efficient due to only reading 16 bits?
+                self.regs.dr.read().bits() as u16
             }
 
             /// Take a single reading, in OneShot mode

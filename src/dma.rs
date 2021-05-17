@@ -1,6 +1,7 @@
-//! Direct Memory Access
+//! Direct Memory Access (DMA). This module handles initialization, and transfer
+//! configuration for DMA. The `Dma::cfg_channel` method is called by modules that use DMA.
 
-use core::ops::Deref;
+use core::{ops::Deref, sync::atomic};
 
 use crate::{
     pac::{self, RCC},
@@ -12,7 +13,7 @@ use crate::pac::dma;
 #[cfg(not(feature = "g0"))]
 use crate::pac::dma1 as dma;
 
-// use embedded_dma::StaticWriteBuffer;
+use embedded_dma::{ReadBuffer, WriteBuffer};
 
 use cfg_if::cfg_if;
 
@@ -21,7 +22,7 @@ use cfg_if::cfg_if;
 #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
 #[repr(u8)]
 /// See G4, Table 91: DMAMUX: Assignment of multiplexer inputs to resources.
-pub(crate) enum MuxInput {
+pub enum MuxInput {
     // todo: This (on G4) goes up to 115. For now, just implement things we're likely
     // todo to use in this HAL. Make sure this is compatible beyond G4.
     Adc1 = 5,
@@ -104,7 +105,9 @@ pub enum DmaChannel {
 /// Set in CCR.
 /// Can only be set when channel is disabled.
 pub enum Direction {
+    /// DIR = 0 defines typically a peripheral-to-memory transfer
     ReadFromPeriph = 0,
+    /// DIR = 1 defines typically a memory-to-peripheral transfer.
     ReadFromMem = 1,
 }
 
@@ -175,7 +178,7 @@ macro_rules! set_ccr {
             w.psize().bits($periph_size as u8);
             w.msize().bits($mem_size as u8);
             // – the interrupt enable at half and/or full transfer and/or transfer error
-            // (We handle this using the `enable_interrupt` method below.)
+            w.tcie().set_bit();
             // (See `Step 5` above.)
             w.en().set_bit()
         });
@@ -252,7 +255,8 @@ where
         Self { regs }
     }
 
-    /// Configure a DMA channel. See L4 RM 0394, section 11.4.4
+    /// Configure a DMA channel. See L4 RM 0394, section 11.4.4. Sets the Transfer Complete
+    /// interrupt.
     pub fn cfg_channel(
         &mut self,
         channel: DmaChannel,
@@ -422,7 +426,7 @@ where
                 DmaChannel::C7 => {
                     cfg_if! {
                         if #[cfg(any(feature = "f3", feature = "g0"))] {
-                            let cmar = &self.regs.ch7mar;
+                            let cmar = &self.regs.ch7.mar;
                         } else {
                             let cmar = &self.regs.cmar7;
                         }
@@ -545,6 +549,12 @@ where
         // (See remainder of steps in `set_ccr()!` macro.
 
         // todo: Let user set mem2mem mode?
+
+        // See the [Embedonomicon section on DMA](https://docs.rust-embedded.org/embedonomicon/dma.html)
+        // for info on why we use `compiler_fence` here:
+        // "We use Ordering::Release to prevent all preceding memory operations from being moved
+        // after [starting DMA], which performs a volatile write."
+        atomic::compiler_fence(atomic::Ordering::Release);
 
         match channel {
             DmaChannel::C1 => {
@@ -687,13 +697,13 @@ where
                 let mut ccr = &self.regs.ccr8;
                 set_ccr!(
                     ccr,
-                    priority,
+                    cfg.priority,
                     direction,
-                    circular,
-                    periph_incr,
-                    mem_incr,
-                    periph_size,
-                    mem_size
+                    cfg.circular,
+                    cfg.periph_incr,
+                    cfg.mem_incr,
+                    cfg.periph_size,
+                    cfg.mem_size
                 );
             }
         }
@@ -705,12 +715,7 @@ where
         // transfer. The DMA controller is not able to resume an aborted active channel with a possible
         // suspended bus transfer.
         // To correctly stop and disable a channel, the software clears the EN bit of the DMA_CCRx
-        // register. The software secures that no pending request from the peripheral is served by the
-        // DMA controller before the transfer completion. The software waits for the transfer complete
-        // or transfer error interrupt.
-        // When a channel transfer error occurs, the EN bit of the DMA_CCRx register is cleared by
-        // hardware. This EN bit can not be set again by software to re-activate the channel x, until the
-        // TEIFx bit of the DMA_ISR register is set
+        // register.
 
         match channel {
             DmaChannel::C1 => {
@@ -792,7 +797,18 @@ where
             }
         };
 
-        // todo: Check for no pending request and transfer complete/error
+        // The software secures that no pending request from the peripheral is served by the
+        // DMA controller before the transfer completion.
+        // todo?
+
+        // The software waits for the transfer complete or transfer error interrupt.
+        // (Handed by calling code))
+
+        // (todo: set ifcr.cficx bit to clear all interrupts?)
+
+        // When a channel transfer error occurs, the EN bit of the DMA_CCRx register is cleared by
+        // hardware. This EN bit can not be set again by software to re-activate the channel x, until the
+        // TEIFx bit of the DMA_ISR register is set
     }
 
     #[cfg(feature = "l4")] // Only on L4
@@ -803,6 +819,9 @@ where
             // Alternatively, we could use an enum
             panic!("CSEL must be 0 - 7")
         }
+
+        // todo: Allow selecting channels in pairs to save a write.
+
         match channel {
             DmaChannel::C1 => self.regs.cselr.modify(|_, w| w.c1s().bits(selection)),
             DmaChannel::C2 => self.regs.cselr.modify(|_, w| w.c2s().bits(selection)),
@@ -816,7 +835,7 @@ where
 
     #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
     /// Configure a specific DMA channel to work with a specific peripheral.
-    pub fn mux(&mut self, channel: DmaChannel, selection: u8, mux: &pac::DMAMUX) {
+    pub fn mux(&mut self, channel: DmaChannel, input: MuxInput, mux: &pac::DMAMUX) {
         // Note: This is similar in API and purpose to `channel_select` above,
         // for different families. We're keeping it as a separate function instead
         // of feature-gating within the same function so the name can be recognizable
@@ -824,25 +843,25 @@ where
         unsafe {
             #[cfg(not(any(feature = "g070", feature = "g071", feature = "g081")))]
             match channel {
-                DmaChannel::C1 => mux.c1cr.modify(|_, w| w.dmareq_id().bits(selection)),
-                DmaChannel::C2 => mux.c2cr.modify(|_, w| w.dmareq_id().bits(selection)),
-                DmaChannel::C3 => mux.c3cr.modify(|_, w| w.dmareq_id().bits(selection)),
-                DmaChannel::C4 => mux.c4cr.modify(|_, w| w.dmareq_id().bits(selection)),
-                DmaChannel::C5 => mux.c5cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                DmaChannel::C1 => mux.c1cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+                DmaChannel::C2 => mux.c2cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+                DmaChannel::C3 => mux.c3cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+                DmaChannel::C4 => mux.c4cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+                DmaChannel::C5 => mux.c5cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
                 #[cfg(not(feature = "g0"))]
-                DmaChannel::C6 => mux.c6cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                DmaChannel::C6 => mux.c6cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
                 #[cfg(not(feature = "g0"))]
-                DmaChannel::C7 => mux.c7cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                DmaChannel::C7 => mux.c7cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
                 #[cfg(any(feature = "l5", feature = "g4"))]
-                DmaChannel::C8 => mux.c8cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                DmaChannel::C8 => mux.c8cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
             }
             #[cfg(any(feature = "g070", feature = "g071", feature = "g081"))]
             match channel {
-                DmaChannel::C1 => mux.dmamux_c1cr.modify(|_, w| w.dmareq_id().bits(selection)),
-                DmaChannel::C2 => mux.dmamux_c2cr.modify(|_, w| w.dmareq_id().bits(selection)),
-                DmaChannel::C3 => mux.dmamux_c3cr.modify(|_, w| w.dmareq_id().bits(selection)),
-                DmaChannel::C4 => mux.dmamux_c4cr.modify(|_, w| w.dmareq_id().bits(selection)),
-                DmaChannel::C5 => mux.dmamux_c5cr.modify(|_, w| w.dmareq_id().bits(selection)),
+                DmaChannel::C1 => mux.dmamux_c1cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+                DmaChannel::C2 => mux.dmamux_c2cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+                DmaChannel::C3 => mux.dmamux_c3cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+                DmaChannel::C4 => mux.dmamux_c4cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+                DmaChannel::C5 => mux.dmamux_c5cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
             }
         }
     }
@@ -932,51 +951,205 @@ where
     }
 
     pub fn clear_interrupt(&mut self, channel: DmaChannel, interrupt_type: DmaInterrupt) {
-        // todo: CGIFx for global interrupt flag clear. What is that? Should we impl?
-        match channel {
-            DmaChannel::C1 => match interrupt_type {
-                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif1().set_bit()),
-                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif1().set_bit()),
-                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif1().set_bit()),
-            },
-            DmaChannel::C2 => match interrupt_type {
-                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif2().set_bit()),
-                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif2().set_bit()),
-                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif2().set_bit()),
-            },
-            DmaChannel::C3 => match interrupt_type {
-                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif3().set_bit()),
-                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif3().set_bit()),
-                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif3().set_bit()),
-            },
-            DmaChannel::C4 => match interrupt_type {
-                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif4().set_bit()),
-                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif4().set_bit()),
-                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif4().set_bit()),
-            },
-            DmaChannel::C5 => match interrupt_type {
-                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif5().set_bit()),
-                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif5().set_bit()),
-                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif5().set_bit()),
-            },
-            #[cfg(not(feature = "g0"))]
-            DmaChannel::C6 => match interrupt_type {
-                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif6().set_bit()),
-                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif6().set_bit()),
-                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif6().set_bit()),
-            },
-            #[cfg(not(feature = "g0"))]
-            DmaChannel::C7 => match interrupt_type {
-                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif7().set_bit()),
-                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif7().set_bit()),
-                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif7().set_bit()),
-            },
-            #[cfg(any(feature = "l5", feature = "g4"))]
-            DmaChannel::C8 => match interrupt_type {
-                DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif8().set_bit()),
-                DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif8().set_bit()),
-                DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif8().set_bit()),
-            },
+        cfg_if! {
+            if #[cfg(feature = "g4")] {
+                match channel {
+                    DmaChannel::C1 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.teif1().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.htif1().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.tcif1().set_bit()),
+                    }
+                    DmaChannel::C2 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.teif2().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.htif2().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.tcif2().set_bit()),
+                    }
+                    DmaChannel::C3 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.teif3().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.htif3().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.tcif3().set_bit()),
+                    }
+                    DmaChannel::C4 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.teif4().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.htif4().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.tcif4().set_bit()),
+                    }
+                    DmaChannel::C5 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.teif5().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.htif5().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.tcif5().set_bit()),
+                    }
+                    DmaChannel::C6 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.teif6().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.htif6().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.tcif6().set_bit()),
+                    }
+                    DmaChannel::C7 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.teif7().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.htif7().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.tcif7().set_bit()),
+                    }
+                    DmaChannel::C8 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.teif8().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.htif8().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.tcif8().set_bit()),
+                    }
+                }
+            } else {
+                match channel {
+                    DmaChannel::C1 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif1().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif1().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif1().set_bit()),
+                    }
+                    DmaChannel::C2 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif2().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif2().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif2().set_bit()),
+                    }
+                    DmaChannel::C3 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif3().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif3().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif3().set_bit()),
+                    }
+                    DmaChannel::C4 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif4().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif4().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif4().set_bit()),
+                    }
+                    DmaChannel::C5 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif5().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif5().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif5().set_bit()),
+                    }
+                    #[cfg(not(feature = "g0"))]
+                    DmaChannel::C6 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif6().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif6().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif6().set_bit()),
+                    }
+                    #[cfg(not(feature = "g0"))]
+                    DmaChannel::C7 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif7().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif7().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif7().set_bit()),
+                    }
+                    #[cfg(any(feature = "l5", feature = "g4"))]
+                    DmaChannel::C8 => match interrupt_type {
+                        DmaInterrupt::TransferError => self.regs.ifcr.write(|w| w.cteif8().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.ifcr.write(|w| w.chtif8().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.ifcr.write(|w| w.ctcif8().set_bit()),
+                    }
+                }
+            }
         }
     }
 }
+
+// todo: Remove the static reqs once you get thi sworking.
+// todo: If you end up using these, move to util.
+// todo: Set up a global flag to figure out if this is in use to prevent concurrent SPI
+// todo activity while in use??
+// todo: Impl Drop for DmaWriteBuf, where it stops the transfer.
+pub struct DmaWriteBuf<'a> {
+    // pub buf: &'static [u8]
+    pub buf: &'a [u8], // pub channel: DmaChannel,
+}
+
+// unsafe impl StaticWriteBuffer for DmaWriteBuf {
+//     type Word = u8;
+//
+//     unsafe fn static_write_buffer(&mut self) -> (*mut Self::Word, usize) {
+//         (self.buf[0].as_ptr(), self.buf.len())
+//     }
+// }
+
+unsafe impl<'a> WriteBuffer for DmaWriteBuf<'a> {
+    type Word = u8;
+
+    unsafe fn write_buffer(&mut self) -> (*mut Self::Word, usize) {
+        // (self.buf[0].as_ptr(), self.buf.len())
+        (self.buf[0] as *mut u8, self.buf.len())
+    }
+}
+
+impl Drop for DmaWriteBuf<'_> {
+    // todo: Hardcoded for DMA1 and Chan 3.
+    // todo: Does this stop all transfers in progress?
+    fn drop(&mut self) {
+        unsafe {
+            cfg_if! {
+                if #[cfg(feature = "g4")] {
+                    (*pac::DMA1::ptr()).ifcr.write(|w| w.gif2().clear_bit());
+                } else if #[cfg(feature = "g0")] {
+                    (*pac::DMA::ptr()).ifcr.write(|w| w.cgif2().clear_bit());
+                } else {
+                    (*pac::DMA1::ptr()).ifcr.write(|w| w.cgif2().clear_bit());
+                }
+            }
+            cfg_if! {
+                if #[cfg(feature = "f3")] {
+                    (*pac::DMA1::ptr()).ch2.cr.modify(|_, w| w.en().clear_bit());
+                } else if #[cfg(feature = "g0")] {
+                    (*pac::DMA::ptr()).ch2.cr.modify(|_, w| w.en().clear_bit());
+                } else {
+                    (*pac::DMA1::ptr()).ccr2.modify(|_, w| w.en().clear_bit());
+                }
+            }
+        }
+    }
+}
+
+pub struct DmaReadBuf<'a> {
+    // pub buf: &'static [u8]
+    pub buf: &'a [u8],
+}
+
+// unsafe impl StaticReadBuffer for DmaReadBuf {
+//     type Word = u8;
+//
+//     unsafe fn static_write_buffer(&self) -> (*const Self::Word, usize) {
+//         (self.buf[0].as_ptr(), self.buf.len())
+//     }
+// }
+
+unsafe impl<'a> ReadBuffer for DmaReadBuf<'a> {
+    type Word = u8;
+
+    unsafe fn read_buffer(&self) -> (*const Self::Word, usize) {
+        // (self.buf[0].as_ptr(), self.buf.len())
+        (&self.buf[0] as *const u8, self.buf.len())
+    }
+}
+
+impl Drop for DmaReadBuf<'_> {
+    // todo: Hardcoded for DMA1 and Chan 2.
+    // todo: Does this stop all transfers in progress?
+
+    // todo: DRY with impl in DmaWriteBuf above.
+    fn drop(&mut self) {
+        unsafe {
+            // Global interrupt clear flag for this channel.
+            cfg_if! {
+                if #[cfg(feature = "g4")] {
+                    (*pac::DMA1::ptr()).ifcr.write(|w| w.gif2().clear_bit());
+                } else if #[cfg(feature = "g0")] {
+                    (*pac::DMA::ptr()).ifcr.write(|w| w.cgif2().clear_bit());
+                } else {
+                    (*pac::DMA1::ptr()).ifcr.write(|w| w.cgif2().clear_bit());
+                }
+            }
+            cfg_if! {
+                if #[cfg(feature = "f3")] {
+                    (*pac::DMA1::ptr()).ch2.cr.modify(|_, w| w.en().clear_bit());
+                } else if #[cfg(feature = "g0")] {
+                    (*pac::DMA::ptr()).ch2.cr.modify(|_, w| w.en().clear_bit());
+                } else {
+                    (*pac::DMA1::ptr()).ccr2.modify(|_, w| w.en().clear_bit());
+                }
+            }
+        }
+    }
+}
+
+// todo: DMAMux fn.

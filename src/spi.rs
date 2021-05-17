@@ -1,7 +1,5 @@
 //! Serial Peripheral Interface (SPI) bus. Implements traits from `embedded-hal`.
 
-// Based on `stm32l4xx-hal` and `stm32h7xx-hal`.
-
 use core::{ops::Deref, ptr};
 
 use embedded_hal::spi::{FullDuplex, Mode, Phase, Polarity};
@@ -18,14 +16,12 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, ChannelCfg, Dma};
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 // todo: non-static buffers?
 use embedded_dma::{ReadBuffer, StaticReadBuffer, StaticWriteBuffer, WriteBuffer};
 
 use cfg_if::cfg_if;
-
-// todo: More config options and enums?
 
 // todo: Don't make EH the default API.
 
@@ -51,78 +47,59 @@ pub enum SpiDevice {
 }
 
 #[derive(Clone, Copy, PartialEq)]
+/// Select the communication mode between.
 pub enum SpiCommMode {
     FullDuplex,
     HalfDuplex,
+    /// Simplex Transmit only. (Cfg same as Full Duplex, but ignores input)
     TransmitOnly,
+    /// Simplex Receive only.
     ReceiveOnly,
 }
 
-#[cfg(feature = "h7")]
-#[derive(Copy, Clone)]
-pub struct SpiConfig {
-    pub mode: Mode,
-    /// Specify that the SPI MISO/MOSI lines are swapped.
-    ///
-    /// Note:
-    /// * This function updates the HAL peripheral to treat the pin provided in the MISO parameter
-    /// as the MOSI pin and the pin provided in the MOSI parameter as the MISO pin.
-    pub swap_miso_mosi: bool,
-    /// Specify a delay between CS assertion and the beginning of the SPI transaction.
-    ///
-    /// Note:
-    /// * This function introduces a delay on SCK from the initiation of the transaction. The delay
-    /// is specified as a number of SCK cycles, so the actual delay may vary.
-    ///
-    /// Arguments:
-    /// * `delay` - The delay between CS assertion and the start of the transaction in seconds.
-    /// register for the output pin.
-    pub cs_delay: f32,
-    /// CS pin is automatically managed by the SPI peripheral.
-    ///
-    /// # Note
-    /// SPI is configured in "endless transaction" mode, which means that the SPI CSn pin will
-    /// assert when the first data is sent and will not de-assert.
-    ///
-    /// If CSn should be de-asserted between each data transfer, use `suspend_when_inactive()` as
-    /// well.
-    ///
-    pub managed_cs: bool,
-    /// Suspend a transaction automatically if data is not available in the FIFO.
-    ///
-    /// # Note
-    /// This will de-assert CSn when no data is available for transmission and hardware is managing
-    /// the CSn pin.
-    pub suspend_when_inactive: bool,
-    /// Select the communication mode of the SPI bus.
-    pub communication_mode: CommunicationMode,
+#[derive(Clone, Copy, PartialEq)]
+/// Used for managing NSS / CS pin.
+pub enum SlaveSelect {
+    ///  In this configuration, slave select information
+    /// is driven internally by the SSI bit value in register SPIx_CR1. The external NSS pin is
+    /// free for other application uses.
+    Software,
+    /// This configuration is only used when the
+    /// MCU is set as master. The NSS pin is managed by the hardware. The NSS signal
+    /// is driven low as soon as the SPI is enabled in master mode (SPE=1), and is kept
+    /// low until the SPI is disabled (SPE =0). A pulse can be generated between
+    /// continuous communications if NSS pulse mode is activated (NSSP=1). The SPI
+    /// cannot work in multimaster configuration with this NSS setting.
+    HardwareOutEnable,
+    /// If the microcontroller is acting as the
+    /// master on the bus, this configuration allows multimaster capability. If the NSS pin
+    /// is pulled low in this mode, the SPI enters master mode fault state and the device is
+    /// automatically reconfigured in slave mode. In slave mode, the NSS pin works as a
+    /// standard “chip select” input and the slave is selected while NSS line is at low level.
+    HardwareOutDisable,
 }
-
-#[cfg(feature = "h7")]
-impl Config {
-    /// Create a default configuration for the SPI interface.
-    ///
-    /// Arguments:
-    /// * `mode` - The SPI mode to configure.
-    pub fn new(mode: Mode) -> Self {
-        SpiConfig {
-            mode,
-            swap_miso_mosi: false,
-            cs_delay: 0.0,
-            managed_cs: false,
-            suspend_when_inactive: false,
-            communication_mode: CommunicationMode::FullDuplex,
-        }
-    }
-}
-
-// todo: See if you can combine config for H7 and non
 
 pub struct SpiConfig {
     pub mode: Mode,
     pub comm_mode: SpiCommMode,
-    // todo: Adopt other settinsg? Ie see H7 settings.
-    // todo: Impl default if needed.
+    pub slave_select: SlaveSelect,
+    // pub cs_delay: f32,
+    // pub swap_miso_mosi: bool,
+    // pub suspend_when_inactive: bool,
+}
+
+impl Default for SpiConfig {
+    fn default() -> Self {
+        Self {
+            mode: Mode {
+                // todo: What's a good default mode? Mode 1?
+                polarity: Polarity::IdleHigh,
+                phase: Phase::CaptureOnFirstTransition,
+            },
+            comm_mode: SpiCommMode::FullDuplex,
+            slave_select: SlaveSelect::Software,
+        }
+    }
 }
 
 /// SPI peripheral operating in full duplex master mode
@@ -265,17 +242,6 @@ where
 
                 let br = Self::compute_baud_rate(fclk, freq);
 
-                // CPHA: phase
-                // CPOL: polarity
-                // MSTR: master mode
-                // BR: 1 MHz
-                // SPE: SPI disabled
-                // LSBFIRST: MSB first
-                // SSM: enable software slave management (NSS pin free for other uses)
-                // SSI: set nss high = master mode
-                // CRCEN: hardware CRC calculation disabled
-                // BIDIMODE: 2 line unidirectional (full duplex)
-
                 // L44 RM, section 40.4.7: Configuration of SPI
                 // The configuration procedure is almost the same for master and slave. For specific mode
                 // setups, follow the dedicated sections. When a standard communication is to be initialized,
@@ -285,7 +251,6 @@ where
                 // (Handled in GPIO modules and user code)
 
                 // 2. Write to the SPI_CR1 register:
-                // todo: Should more of these be configurable vice hard set?)
                 regs.cr1.modify(|_, w| unsafe {
                     // a) Configure the serial clock baud rate using the BR[2:0] bits (Note: 4)
                     w.br().bits(br);
@@ -305,22 +270,17 @@ where
                     // at idle state).
                     w.crcen().clear_bit();
                     // f) Configure SSM and SSI (Notes: 2 & 3).
-                    w.ssi().set_bit();
-                    w.ssm().set_bit();
+                    w.ssm().bit(cfg.slave_select == SlaveSelect::Software);
+                    w.ssi().set_bit(); // todo?
                     // g) Configure the MSTR bit (in multimaster NSS configuration, avoid conflict state on
                     // NSS if master is configured to prevent MODF error).
                     w.mstr().set_bit();
                     w.spe().set_bit() // Enable SPI
                 });
 
-                // FRXTH: RXNE event is generated if the FIFO level is greater than or equal to
-                //        8-bit
-                // DS: 8-bit data size
-                // SSOE: Slave Select output disabled
-
                 // 3. Write to SPI_CR2 register:
                 #[cfg(feature = "f4")]
-                regs.cr2.modify(|_, w| w.ssoe().clear_bit());
+                w.ssoe().bit(cfg.slave_select == SlaveSelect::HardwareOutEnable);
 
                 #[cfg(not(feature = "f4"))]
                 regs.cr2
@@ -328,7 +288,7 @@ where
                         // a) Configure the DS[3:0] bits to select the data length for the transfer.
                         w.ds().bits(0b111);
                         // b) Configure SSOE (Notes: 1 & 2 & 3).
-                        w.ssoe().clear_bit();
+                        w.ssoe().bit(cfg.slave_select == SlaveSelect::HardwareOutEnable);
                         // e) Configure the FRXTH bit. The RXFIFO threshold must be aligned to the read
                         // access size for the SPIx_DR register.
                         w.frxth().set_bit()
@@ -343,11 +303,14 @@ where
                 // 5. Write proper DMA registers: Configure DMA streams dedicated for SPI Tx and Rx in
                 // DMA registers if the DMA streams are used.
             }
+
+            // todo: It sounds like you should enable and disable spi during writes, not on init!
+            // todo: This lets you use hardware CS management, and seems to be teh way the RM
+            // todo steers you towards regardless.
         }
         Spi { regs, device, cfg }
     }
 
-    #[cfg(not(feature = "h7"))]
     /// Change the baud rate of the SPI
     pub fn reclock<F, C: ClockCfg>(&mut self, freq: u32, clocks: C) {
         self.regs.cr1.modify(|_, w| w.spe().clear_bit());
@@ -381,30 +344,78 @@ where
         }
     }
 
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    /// Enable use of DMA transmission for U[s]ART: (L44 RM, section 38.5.15)
-    pub fn enable_dma<D>(&mut self, dma: &mut Dma<D>)
+    /// L44 RM, section 40.4.9: "Procedure for disabling the SPI"
+    /// When SPI is disabled, it is mandatory to follow the disable procedures described in this
+    /// paragraph. It is important to do this before the system enters a low-power mode when the
+    /// peripheral clock is stopped. Ongoing transactions can be corrupted in this case. In some
+    /// modes the disable procedure is the only way to stop continuous communication running.
+    pub fn disable(&mut self) {
+        // The correct disable procedure is (except when receive only mode is used):
+        // 1. Wait until FTLVL[1:0] = 00 (no more data to transmit).
+        while self.regs.sr.read().ftlvl().bits() != 0 {}
+        // 2. Wait until BSY=0 (the last data frame is processed).
+        while self.regs.sr.read().ftlvl().bits() != 0 {}
+        // 3. Disable the SPI (SPE=0).
+        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+        // 4. Read data until FRLVL[1:0] = 00 (read all the received data).
+        while self.regs.sr.read().frlvl().bits() != 0 {
+            // is `read_volatile` more efficient here?
+            self.regs.dr.read();
+        }
+    }
+
+    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
+    /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
+    /// Note that the `channel` argument has no effect on F3 and L4.
+    pub fn write_dma<D, B>(&mut self, mut buf: &mut B, channel: DmaChannel, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
+        B: WriteBuffer,
     {
-        // (see comments in below variant of this fn.)
-        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
-        self.regs.cr2.modify(|_, w| w.rxdmaen().set_bit());
-        self.regs.cr2.modify(|_, w| w.txdmaen().set_bit());
-        self.regs.cr1.modify(|_, w| w.spe().set_bit());
+        // Static write and read buffers?
+        let (ptr, len) = unsafe { buf.write_buffer() };
 
-        // todo: These are only valid for DMA1!
+        // todo: Pri and Circular as args?
+
+        // todo: Include muxing for G and L5? Or handle that s
+
+        // A DMA access is requested when the TXE or RXNE enable bit in the SPIx_CR2 register is
+        // set. Separate requests must be issued to the Tx and Rx buffers.
+        // In transmission, a DMA request is issued each time TXE is set to 1. The DMA then
+        // writes to the SPIx_DR register.
+
+        // When starting communication using DMA, to prevent DMA channel management raising
+        // error events, these steps must be followed in order:
+        //
+        // 1. Enable DMA Rx buffer in the RXDMAEN bit in the SPI_CR2 register, if DMA Rx is
+        // used.
+        // (N/A)
+
+        // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
+        #[cfg(any(feature = "f3", feature = "l4"))]
+        let channel = match self.device {
+            SpiDevice::One => DmaChannel::C3,
+            #[cfg(not(feature = "f3x4"))]
+            SpiDevice::Two => DmaChannel::C5,
+            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
+            SpiDevice::Three => panic!(
+                "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
+                or PR on Github."
+            ),
+        };
+
         #[cfg(feature = "l4")]
         match self.device {
             SpiDevice::One => {
-                dma.channel_select(dma::DmaChannel::C3, 0b001); // Tx
-                dma.channel_select(dma::DmaChannel::C2, 0b001); // Rx
+                dma.channel_select(DmaChannel::C3, 0b001); // Tx
+                                                           // dma.channel_select(DmaChannel::C2, 0b001); // Rx
             }
             #[cfg(not(feature = "f3x4"))]
             SpiDevice::Two => {
-                dma.channel_select(dma::DmaChannel::C5, 0b001);
-                dma.channel_select(dma::DmaChannel::C4, 0b001);
+                dma.channel_select(DmaChannel::C5, 0b001);
+                // dma.channel_select(DmaChannel::C4, 0b001);
             }
+            // todo: Allow selecting channels in pairs to save a write.
             #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
             SpiDevice::Three => {
                 panic!(
@@ -413,130 +424,46 @@ where
                 )
             }
         };
-        // Note that we need neither channel select, nor multiplex for F3.
-    }
-
-    #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
-    /// Enable use of DMA transmission for U[s]ART: (L44 RM, section 38.5.15)
-    pub fn enable_dma<D>(
-        &mut self,
-        dma: &mut Dma<D>,
-        chan_tx: dma::DmaChannel,
-        chan_rx: dma::DmaChannel,
-        mux: &mut pac::DMAMUX,
-    ) where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
-        // RM:
-        // When starting communication using DMA, to prevent DMA channel management raising
-        // error events, these steps must be followed in order:
-
-        // todo: Is disabling spi here required? Implied by "followed in order" above?
-        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
-
-        // 1. Enable DMA Rx buffer in the RXDMAEN bit in the SPI_CR2 register, if DMA Rx is
-        // used.
-        self.regs.cr2.modify(|_, w| w.rxdmaen().set_bit());
-        // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
-        // todo?
-        // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
-        self.regs.cr2.modify(|_, w| w.txdmaen().set_bit());
-        // 4. Enable the SPI by setting the SPE bit.
-        self.regs.cr1.modify(|_, w| w.spe().set_bit());
-
-        // todo: `disable_dma` or `stop_dma` function!
-        // To close communication it is mandatory to follow these steps in order:
-        // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
-        // 2. Disable the SPI by following the SPI disable procedure.
-        // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
-        // SPI_CR2 register, if DMA Tx and/or DMA Rx are used
-
-        #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
-        // See G4 RM, Table 91.
-        match self.device {
-            SpiDevice::One => {
-                dma.mux(chan_tx, dma::MuxInput::Spi1Tx as u8, mux); // Tx
-                dma.mux(chan_rx, dma::MuxInput::Spi1Rx as u8, mux); // Rx
-            }
-            SpiDevice::Two => {
-                dma.mux(chan_tx, dma::MuxInput::Spi2Tx as u8, mux);
-                dma.mux(chan_rx, dma::MuxInput::Spi2Rx as u8, mux);
-            }
-            SpiDevice::Three => {
-                dma.mux(chan_tx, dma::MuxInput::Spi3Tx as u8, mux);
-                dma.mux(chan_rx, dma::MuxInput::Spi3Rx as u8, mux);
-            }
-        };
-        // Note that we need neither channel select, nor multiplex for F3.
-    }
-
-    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
-    /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA
-    pub fn write_dma<D, B>(&mut self, mut buf: &mut B, dma: &mut Dma<D>)
-    where
-        D: Deref<Target = dma_p::RegisterBlock>,
-        B: WriteBuffer,
-    {
-        let (ptr, len) = unsafe { buf.write_buffer() };
-
-        // A DMA access is requested when the TXE or RXNE enable bit in the SPIx_CR2 register is
-        // set. Separate requests must be issued to the Tx and Rx buffers.
-        // In transmission, a DMA request is issued each time TXE is set to 1. The DMA then
-        // writes to the SPIx_DR register.
-
-        // todo: This channel selection is confirmed for L4 only - check other families
-        // todo DMA channel mapping
-
-        // todo: Does this work with Muxing?
-        // todo: Make these configurable with muxing on supported families.
-        let channel = match self.device {
-            SpiDevice::One => dma::DmaChannel::C3,
-            #[cfg(not(feature = "f3x4"))]
-            SpiDevice::Two => dma::DmaChannel::C5,
-            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
-            SpiDevice::Three => panic!(
-                "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
-                or PR on Github."
-            ),
-        };
 
         #[cfg(feature = "h7")]
         let periph_addr = &self.regs.txdr as *const _ as u32;
         #[cfg(not(feature = "h7"))]
         let periph_addr = &self.regs.dr as *const _ as u32;
 
-        // todo: Pri and Circular as args?
-
         dma.cfg_channel(
             channel,
             periph_addr,
             ptr as u32,
-            // len as u16, // (x2 per one of the examples??)
-            len as u16 * 2, // (x2 per one of the examples??)
+            len as u16,
             dma::Direction::ReadFromMem,
             ChannelCfg::default(),
         );
+
+        // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
+        self.regs.cr2.modify(|_, w| w.txdmaen().set_bit());
+
+        // 4. Enable the SPI by setting the SPE bit.
+        self.regs.cr1.modify(|_, w| w.spe().set_bit());
+        // (todo: Should be already set. Should we disable it at the top of this fn just in case?)
     }
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
-    /// Receive data using DMA. See L44 RM, section 40.4.9: Communication using DMA
-    pub fn read_dma<D, B>(&mut self, buf: &B, dma: &mut Dma<D>)
+    /// Receive data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
+    /// Note taht the `channel` argument has no effect on F3 and L4.
+    pub fn read_dma<D, B>(&mut self, buf: &B, channel: DmaChannel, dma: &mut Dma<D>)
     where
         B: ReadBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         let (ptr, len) = unsafe { buf.read_buffer() };
 
-        // In reception, a DMA request is issued each time RXNE is set to 1. The DMA then reads
-        // the SPIx_DR register.
+        self.regs.cr2.modify(|_, w| w.rxdmaen().set_bit());
 
-        // todo: Make these configurable with muxing on supported families.
-        // todo: This channel selection is confirmed for L4 only - check other families
-        // todo DMA channel mapping
+        #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
-            SpiDevice::One => dma::DmaChannel::C2,
+            SpiDevice::One => DmaChannel::C2,
             #[cfg(not(feature = "f3x4"))]
-            SpiDevice::Two => dma::DmaChannel::C4,
+            SpiDevice::Two => DmaChannel::C4,
             #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
             SpiDevice::Three => panic!(
                 "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
@@ -544,7 +471,26 @@ where
             ),
         };
 
-        // todo: Pri and Circular as args?
+        #[cfg(feature = "l4")]
+        match self.device {
+            SpiDevice::One => {
+                // dma.channel_select(DmaChannel::C3, 0b001); // Tx
+                dma.channel_select(DmaChannel::C2, 0b001); // Rx
+            }
+            #[cfg(not(feature = "f3x4"))]
+            SpiDevice::Two => {
+                // dma.channel_select(DmaChannel::C5, 0b001);
+                dma.channel_select(DmaChannel::C4, 0b001);
+            }
+            // todo: Allow selecting channels in pairs to save a write.
+            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
+            SpiDevice::Three => {
+                panic!(
+                    "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
+                or PR on Github."
+                )
+            }
+        };
 
         #[cfg(feature = "h7")]
         let periph_addr = &self.regs.rxdr as *const _ as u32;
@@ -555,10 +501,32 @@ where
             channel,
             periph_addr,
             ptr as u32,
-            len as u16, // (x2 per one of the examples??)
+            len as u16,
             dma::Direction::ReadFromPeriph,
             ChannelCfg::default(),
         );
+
+        self.regs.cr1.modify(|_, w| w.spe().set_bit());
+
+        // todo: Set rxne or something to start?
+    }
+
+    /// Stop a DMA transfer. Run this after each transfer (?) Mandatory(?)
+    pub fn stop_dma<D>(&mut self, channel: DmaChannel, dma: &mut Dma<D>)
+    where
+        D: Deref<Target = dma_p::RegisterBlock>,
+    {
+        // (RM:) To close communication it is mandatory to follow these steps in order:
+        // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
+        dma.stop(channel);
+        // 2. Disable the SPI by following the SPI disable procedure.
+        // self.disable(); // todo?
+        // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
+        // SPI_CR2 register, if DMA Tx and/or DMA Rx are used.
+        self.regs.cr2.modify(|_, w| {
+            w.txdmaen().clear_bit();
+            w.rxdmaen().clear_bit()
+        })
     }
 }
 
