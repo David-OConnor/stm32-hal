@@ -596,12 +596,33 @@ macro_rules! hal {
                 }
             }
 
-            /// Select the channel to sample. Note that this register allows setting a sequence,
-            /// but for now, we only support converting one channel at a time.
-            /// (Single-ended or differential, but not a sequence.)
-            fn select_channel(&self, chan: u8) {
+            /// Select the channel to sample.
+            pub fn select_channel(&mut self, chan: u8) {
                 // Channel as u8 is the ADC channel to use.
                 self.regs.sqr1.modify(|_, w| unsafe { w.sq1().bits(chan) });
+            }
+
+            /// Select a sequence to sample, by inputting a single channel and position.
+            pub fn set_sequence(&mut self, chan: u8, position: u8) {
+                match position {
+                    1 => self.regs.sqr1.modify(|_, w| unsafe { w.sq1().bits(chan) }),
+                    2 => self.regs.sqr1.modify(|_, w| unsafe { w.sq2().bits(chan) }),
+                    3 => self.regs.sqr1.modify(|_, w| unsafe { w.sq3().bits(chan) }),
+                    4 => self.regs.sqr1.modify(|_, w| unsafe { w.sq4().bits(chan) }),
+                    5 => self.regs.sqr2.modify(|_, w| unsafe { w.sq5().bits(chan) }),
+                    6 => self.regs.sqr2.modify(|_, w| unsafe { w.sq6().bits(chan) }),
+                    7 => self.regs.sqr2.modify(|_, w| unsafe { w.sq7().bits(chan) }),
+                    8 => self.regs.sqr2.modify(|_, w| unsafe { w.sq8().bits(chan) }),
+                    9 => self.regs.sqr2.modify(|_, w| unsafe { w.sq9().bits(chan) }),
+                    10 => self.regs.sqr3.modify(|_, w| unsafe { w.sq10().bits(chan) }),
+                    11 => self.regs.sqr3.modify(|_, w| unsafe { w.sq11().bits(chan) }),
+                    12 => self.regs.sqr3.modify(|_, w| unsafe { w.sq12().bits(chan) }),
+                    13 => self.regs.sqr3.modify(|_, w| unsafe { w.sq13().bits(chan) }),
+                    14 => self.regs.sqr3.modify(|_, w| unsafe { w.sq14().bits(chan) }),
+                    15 => self.regs.sqr4.modify(|_, w| unsafe { w.sq15().bits(chan) }),
+                    16 => self.regs.sqr4.modify(|_, w| unsafe { w.sq16().bits(chan) }),
+                    _ => panic!("Sequence out of bounds. Only 16 positions are available."),
+                }
             }
 
             /// Select the sample time for a given channel.
@@ -671,7 +692,8 @@ macro_rules! hal {
                 self.read_result()
             }
 
-            /// Take a one shot reading, using DMA. See L44 RM, 16.4.27: "DMA one shot mode"
+            /// Take a one shot reading, using DMA. See L44 RM, 16.4.27: "DMA one shot mode".
+            /// Note that the `channel` argument is only used on F3 and L4.
             pub fn read_dma<D, B>(&mut self, buf: &B, adc_channel: u8, dma_channel: DmaChannel, dma: &mut Dma<D>)
             where
                 B: ReadBuffer,
@@ -705,7 +727,12 @@ macro_rules! hal {
                     _ => unimplemented!(),
                 }
 
-                self.start_conversion(adc_channel, OperationMode::OneShot);
+                // do a conversion
+                self.select_channel(adc_channel);
+
+                // todo: Support sequences.
+
+                self.regs.cr.modify(|_, w| w.adstart().set_bit());  // Start
 
                 // Since converted channel values are stored into a unique data register, it is useful to use
                 // DMA for conversion of more than one channel. This avoids the loss of the data already
@@ -748,7 +775,7 @@ macro_rules! hal {
                     &self.regs.dr as *const _ as u32,
                     ptr as u32,
                     len as u16,
-                    dma::Direction::ReadFromMem,
+                    dma::Direction::ReadFromPeriph,
                     Default::default(),
                 );
             }

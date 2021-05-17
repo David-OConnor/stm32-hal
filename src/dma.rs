@@ -157,6 +157,7 @@ macro_rules! set_ccr {
         // "The register fields/bits MEM2MEM, PL[1:0], MSIZE[1:0], PSIZE[1:0], MINC, PINC, and DIR
         // are read-only when EN = 1"
         $ccr.modify(|_, w| w.en().clear_bit());
+        while $ccr.read().en().bit_is_set() {}
 
         if let Circular::Enabled = $circular {
             $ccr.modify(|_, w| w.mem2mem().clear_bit());
@@ -266,9 +267,6 @@ where
         direction: Direction,
         cfg: ChannelCfg,
     ) {
-        // todo: Consider a config struct you can impl default with, instead
-        // todo of all these args. Or maybe 2 configs: One for read, the other for write.
-
         // The following sequence is needed to configure a DMA channel x:
         // 1. Set the peripheral register address in the DMA_CPARx register.
         // The data is moved from/to this address to/from the memory after the peripheral event,
