@@ -318,6 +318,13 @@ macro_rules! hal {
 
                 self.regs.cfgr.modify(|_, w| w
                     .cont().clear_bit()  // single conversion mode.
+                    // RM:
+                    // • OVRMOD=0: The overrun event preserves the data register from being overrun: the
+                    // old data is maintained and the new conversion is discarded and lost. If OVR remains at
+                    // 1, any further conversions will occur but the result data will be also discarded.
+                    // • OVRMOD=1: The data register is overwritten with the last conversion result and the
+                    // previous unread data is lost. If OVR remains at 1, any further conversions will operate
+                    // normally and the ADC_DR register will always contain the latest converted data.
                     .ovrmod().clear_bit()  // preserve DR data
                 );
 
@@ -596,12 +603,6 @@ macro_rules! hal {
                 }
             }
 
-            /// Select the channel to sample.
-            pub fn select_channel(&mut self, chan: u8) {
-                // Channel as u8 is the ADC channel to use.
-                self.regs.sqr1.modify(|_, w| unsafe { w.sq1().bits(chan) });
-            }
-
             /// Select a sequence to sample, by inputting a single channel and position.
             pub fn set_sequence(&mut self, chan: u8, position: u8) {
                 match position {
@@ -659,10 +660,13 @@ macro_rules! hal {
 
             /// Start a conversion: Either a single measurement, or continuous conversions.
             /// See L4 RM 16.4.15 for details.
-            pub fn start_conversion(&mut self, chan: u8, mode: OperationMode) {
+            pub fn start_conversion(&mut self, sequence: &[u8], mode: OperationMode) {
                 // Set continuous or differential mode.
                 self.regs.cfgr.modify(|_, w| w.cont().bit(mode as u8 != 0));
-                self.select_channel(chan);
+                // todo: You should call this elsewhere, once, to prevent unneded reg writes.
+                for (i, channel) in sequence.iter().enumerate() {
+                    self.set_sequence(*channel, i as u8 + 1); // + 1, since sequences start at 1.
+                }
 
                 // L4 RM: In Single conversion mode, the ADC performs once all the conversions of the channels.
                 // This mode is started with the CONT bit at 0 by either:
@@ -688,19 +692,19 @@ macro_rules! hal {
 
             /// Take a single reading, in OneShot mode
             pub fn read(&mut self, channel: u8) -> u16 {
-                self.start_conversion(channel, OperationMode::OneShot);
+                self.start_conversion(&[channel], OperationMode::OneShot);
                 self.read_result()
             }
 
             /// Take a one shot reading, using DMA. See L44 RM, 16.4.27: "DMA one shot mode".
             /// Note that the `channel` argument is only used on F3 and L4.
-            pub fn read_dma<D, B>(&mut self, buf: &B, adc_channel: u8, dma_channel: DmaChannel, dma: &mut Dma<D>)
+            pub fn read_dma<D, B>(&mut self, buf: &mut B, adc_channel: u8, dma_channel: DmaChannel, dma: &mut Dma<D>)
             where
-                B: ReadBuffer,
+                B: WriteBuffer,
                 D: Deref<Target = dma_p::RegisterBlock>,
             {
 
-                let (ptr, len) = unsafe { buf.read_buffer() };
+                let (ptr, len) = unsafe { buf.write_buffer() };
                 // The software is allowed to write (dmaen and dmacfg) only when ADSTART=0 and JADSTART=0 (which
                 // ensures that no conversion is ongoing)
                 // Todo: Should these settings be handled in `init`?
@@ -727,9 +731,7 @@ macro_rules! hal {
                     _ => unimplemented!(),
                 }
 
-                // do a conversion
-                self.select_channel(adc_channel);
-
+                self.set_sequence(adc_channel, 1);
                 // todo: Support sequences.
 
                 self.regs.cr.modify(|_, w| w.adstart().set_bit());  // Start
@@ -776,6 +778,8 @@ macro_rules! hal {
                     ptr as u32,
                     len as u16,
                     dma::Direction::ReadFromPeriph,
+                    dma::DataSize::S16,
+                    dma::DataSize::S16,
                     Default::default(),
                 );
             }

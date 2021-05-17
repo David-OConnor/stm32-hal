@@ -214,8 +214,6 @@ pub struct ChannelCfg {
     circular: Circular,
     periph_incr: IncrMode,
     mem_incr: IncrMode,
-    periph_size: DataSize,
-    mem_size: DataSize,
 }
 
 impl Default for ChannelCfg {
@@ -226,8 +224,6 @@ impl Default for ChannelCfg {
             // Increment the buffer address, not the peripheral address.
             periph_incr: IncrMode::Disabled,
             mem_incr: IncrMode::Enabled,
-            periph_size: DataSize::S8, // todo: S16 for 9-bit support?
-            mem_size: DataSize::S8,    // todo: S16 for 9-bit support?
         }
     }
 }
@@ -265,6 +261,8 @@ where
         mem_addr: u32,
         num_data: u16,
         direction: Direction,
+        periph_size: DataSize,
+        mem_size: DataSize,
         cfg: ChannelCfg,
     ) {
         // The following sequence is needed to configure a DMA channel x:
@@ -570,8 +568,8 @@ where
                     cfg.circular,
                     cfg.periph_incr,
                     cfg.mem_incr,
-                    cfg.periph_size,
-                    cfg.mem_size
+                    periph_size,
+                    mem_size
                 );
             }
             DmaChannel::C2 => {
@@ -589,8 +587,8 @@ where
                     cfg.circular,
                     cfg.periph_incr,
                     cfg.mem_incr,
-                    cfg.periph_size,
-                    cfg.mem_size
+                    periph_size,
+                    mem_size
                 );
             }
             DmaChannel::C3 => {
@@ -608,8 +606,8 @@ where
                     cfg.circular,
                     cfg.periph_incr,
                     cfg.mem_incr,
-                    cfg.periph_size,
-                    cfg.mem_size
+                    periph_size,
+                    mem_size
                 );
             }
             DmaChannel::C4 => {
@@ -627,8 +625,8 @@ where
                     cfg.circular,
                     cfg.periph_incr,
                     cfg.mem_incr,
-                    cfg.periph_size,
-                    cfg.mem_size
+                    periph_size,
+                    mem_size
                 );
             }
             DmaChannel::C5 => {
@@ -646,8 +644,8 @@ where
                     cfg.circular,
                     cfg.periph_incr,
                     cfg.mem_incr,
-                    cfg.periph_size,
-                    cfg.mem_size
+                    periph_size,
+                    mem_size
                 );
             }
             #[cfg(not(feature = "g0"))]
@@ -666,8 +664,8 @@ where
                     cfg.circular,
                     cfg.periph_incr,
                     cfg.mem_incr,
-                    cfg.periph_size,
-                    cfg.mem_size
+                    periph_size,
+                    mem_size
                 );
             }
             #[cfg(not(feature = "g0"))]
@@ -686,8 +684,8 @@ where
                     cfg.circular,
                     cfg.periph_incr,
                     cfg.mem_incr,
-                    cfg.periph_size,
-                    cfg.mem_size
+                    periph_size,
+                    mem_size
                 );
             }
             #[cfg(any(feature = "l5", feature = "g4"))]
@@ -700,8 +698,8 @@ where
                     cfg.circular,
                     cfg.periph_incr,
                     cfg.mem_incr,
-                    cfg.periph_size,
-                    cfg.mem_size
+                    periph_size,
+                    mem_size
                 );
             }
         }
@@ -809,6 +807,23 @@ where
         // TEIFx bit of the DMA_ISR register is set
     }
 
+    pub fn transfer_is_complete(&mut self, channel: DmaChannel) -> bool {
+        let isr_val = self.regs.isr.read();
+        match channel {
+            DmaChannel::C1 => isr_val.tcif1().bit_is_set(),
+            DmaChannel::C2 => isr_val.tcif2().bit_is_set(),
+            DmaChannel::C3 => isr_val.tcif3().bit_is_set(),
+            DmaChannel::C4 => isr_val.tcif4().bit_is_set(),
+            DmaChannel::C5 => isr_val.tcif5().bit_is_set(),
+            #[cfg(not(feature = "g0"))]
+            DmaChannel::C6 => isr_val.tcif6().bit_is_set(),
+            #[cfg(not(feature = "g0"))]
+            DmaChannel::C7 => isr_val.tcif7().bit_is_set(),
+            #[cfg(any(feature = "l5", feature = "g4"))]
+            DmaChannel::C8 => isr_val.tcif8().bit_is_set(),
+        }
+    }
+
     #[cfg(feature = "l4")] // Only on L4
     /// Select which peripheral on a given channel we're using.
     /// See L44 RM, Table 41.
@@ -831,7 +846,8 @@ where
         }
     }
 
-    /// Enable a specific type of interrupt.
+    /// Enable a specific type of interrupt. Note that the `TransferComplete` interrupt
+    /// is enabled automatically, by the `cfg_channel` method.
     pub fn enable_interrupt(&mut self, channel: DmaChannel, interrupt_type: DmaInterrupt) {
         // Can only be set when the channel is disabled.
         match channel {
@@ -1016,29 +1032,32 @@ where
 // todo: Set up a global flag to figure out if this is in use to prevent concurrent SPI
 // todo activity while in use??
 // todo: Impl Drop for DmaWriteBuf, where it stops the transfer.
-pub struct DmaWriteBuf<'a> {
+pub struct DmaWriteBuf<'a, T> {
     // pub buf: &'static [u8]
-    pub buf: &'a [u8], // pub channel: DmaChannel,
+    pub buf: &'a mut [T], // pub channel: DmaChannel,
+
+                          // #[repr(align(4))]
+                          // struct Aligned<T: ?Sized>(T);
+                          //s tatic mut BUF: Aligned<[u16; 8]> = Aligned([0; 8]);
 }
 
 // unsafe impl StaticWriteBuffer for DmaWriteBuf {
 //     type Word = u8;
 //
 //     unsafe fn static_write_buffer(&mut self) -> (*mut Self::Word, usize) {
-//         (self.buf[0].as_ptr(), self.buf.len())
+//         (self.buf.as_mut_ptr(), self.buf.len())
 //     }
 // }
 
-unsafe impl<'a> WriteBuffer for DmaWriteBuf<'a> {
-    type Word = u8;
+unsafe impl<'a, T> WriteBuffer for DmaWriteBuf<'a, T> {
+    type Word = T;
 
     unsafe fn write_buffer(&mut self) -> (*mut Self::Word, usize) {
-        // (self.buf[0].as_ptr(), self.buf.len())
-        (self.buf[0] as *mut u8, self.buf.len())
+        (self.buf.as_mut_ptr(), self.buf.len())
     }
 }
 
-impl Drop for DmaWriteBuf<'_> {
+impl<T> Drop for DmaWriteBuf<'_, T> {
     // todo: Hardcoded for DMA1 and Chan 3.
     // todo: Does this stop all transfers in progress?
     fn drop(&mut self) {
@@ -1046,6 +1065,7 @@ impl Drop for DmaWriteBuf<'_> {
             cfg_if! {
                 if #[cfg(feature = "g4")] {
                     (*pac::DMA1::ptr()).ifcr.write(|w| w.gif2().clear_bit());
+                } else if #[cfg(feature = "g0")] {
                 } else if #[cfg(feature = "g0")] {
                     (*pac::DMA::ptr()).ifcr.write(|w| w.cgif2().clear_bit());
                 } else {
@@ -1065,29 +1085,28 @@ impl Drop for DmaWriteBuf<'_> {
     }
 }
 
-pub struct DmaReadBuf<'a> {
+pub struct DmaReadBuf<'a, T> {
     // pub buf: &'static [u8]
-    pub buf: &'a [u8],
+    pub buf: &'a [T],
 }
 
 // unsafe impl StaticReadBuffer for DmaReadBuf {
 //     type Word = u8;
 //
 //     unsafe fn static_write_buffer(&self) -> (*const Self::Word, usize) {
-//         (self.buf[0].as_ptr(), self.buf.len())
+//         (self.buf[.as_ptr(), self.buf.len())
 //     }
 // }
 
-unsafe impl<'a> ReadBuffer for DmaReadBuf<'a> {
-    type Word = u8;
+unsafe impl<'a, T> ReadBuffer for DmaReadBuf<'a, T> {
+    type Word = T;
 
     unsafe fn read_buffer(&self) -> (*const Self::Word, usize) {
-        // (self.buf[0].as_ptr(), self.buf.len())
-        (&self.buf[0] as *const u8, self.buf.len())
+        (self.buf.as_ptr(), self.buf.len())
     }
 }
 
-impl Drop for DmaReadBuf<'_> {
+impl<T> Drop for DmaReadBuf<'_, T> {
     // todo: Hardcoded for DMA1 and Chan 2.
     // todo: Does this stop all transfers in progress?
 

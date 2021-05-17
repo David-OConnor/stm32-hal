@@ -380,12 +380,12 @@ where
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub fn write_dma<D, B>(&mut self, mut buf: &mut B, channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn write_dma<D, B>(&mut self, mut buf: &B, channel: DmaChannel, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
-        B: StaticWriteBuffer,
+        B: ReadBuffer,
     {
-        let (ptr, len) = unsafe { buf.write_buffer() };
+        let (ptr, len) = unsafe { buf.read_buffer() };
 
         // todo: These are only valid for DMA1!
         #[cfg(feature = "l4")]
@@ -435,10 +435,12 @@ where
             // after each TXE event.
             ptr as u32,
             // 3. Configure the total number of bytes to be transferred to the DMA control register.
-            len as u16, // (x2 per one of the examples??)
+            len as u16,
             dma::Direction::ReadFromMem,
             // 4. Configure the channel priority in the DMA control register
             // (Handled by `ChannelCfg::default())`
+            dma::DataSize::S8,
+            dma::DataSize::S8,
             Default::default(),
         );
 
@@ -466,12 +468,12 @@ where
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub fn read_dma<D, B>(&mut self, buf: &B, channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn read_dma<D, B>(&mut self, buf: &mut B, channel: DmaChannel, dma: &mut Dma<D>)
     where
-        B: StaticReadBuffer,
+        B: WriteBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
-        let (ptr, len) = unsafe { buf.read_buffer() };
+        let (ptr, len) = unsafe { buf.write_buffer() };
 
         #[cfg(feature = "l4")]
         match self.device {
@@ -517,6 +519,8 @@ where
             // 3. Configure the total number of bytes to be transferred to the DMA control register.
             len as u16,
             dma::Direction::ReadFromPeriph,
+            dma::DataSize::S8,
+            dma::DataSize::S8,
             Default::default(),
         );
 

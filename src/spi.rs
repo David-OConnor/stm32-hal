@@ -370,13 +370,13 @@ where
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note that the `channel` argument has no effect on F3 and L4.
-    pub fn write_dma<D, B>(&mut self, mut buf: &mut B, channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn write_dma<D, B>(&mut self, mut buf: &B, channel: DmaChannel, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
-        B: WriteBuffer,
+        B: ReadBuffer,
     {
         // Static write and read buffers?
-        let (ptr, len) = unsafe { buf.write_buffer() };
+        let (ptr, len) = unsafe { buf.read_buffer() };
 
         // todo: Pri and Circular as args?
 
@@ -439,6 +439,8 @@ where
             ptr as u32,
             len as u16,
             dma::Direction::ReadFromMem,
+            dma::DataSize::S8,
+            dma::DataSize::S8,
             Default::default(),
         );
 
@@ -453,12 +455,12 @@ where
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note taht the `channel` argument has no effect on F3 and L4.
-    pub fn read_dma<D, B>(&mut self, buf: &B, channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn read_dma<D, B>(&mut self, buf: &mut B, channel: DmaChannel, dma: &mut Dma<D>)
     where
-        B: ReadBuffer,
+        B: WriteBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
-        let (ptr, len) = unsafe { buf.read_buffer() };
+        let (ptr, len) = unsafe { buf.write_buffer() };
 
         self.regs.cr2.modify(|_, w| w.rxdmaen().set_bit());
 
@@ -501,6 +503,8 @@ where
             ptr as u32,
             len as u16,
             dma::Direction::ReadFromPeriph,
+            dma::DataSize::S8,
+            dma::DataSize::S8,
             Default::default(),
         );
 
