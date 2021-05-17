@@ -13,9 +13,10 @@ use cortex_m::{
 use cortex_m_rt::entry;
 
 use stm32_hal2::{
-    adc::{Adc, AdcChannel, Align, ClockMode, InputType, OperationMode},
+    adc::{Adc, AdcDevice, AdcChannel, AdcInterrupt, Align, ClockMode, InputType, OperationMode},
     clocks::Clocks,
     delay::Delay,
+    dma::{self, Dma, DmaChannel, DmaInterrupt, DmaReadBuf, DmaWriteBuf},
     gpio::{Edge, PinMode, PinNum},
     low_power, pac,
 };
@@ -46,11 +47,14 @@ fn main() -> ! {
 
     let mut adc = Adc::new_adc1(
         dp.ADC1,
+        AdcDevice::One,
         &mut dp.ADC_COMMON,
         ClockMode::default(),
         &clock_cfg,
         &mut dp.RCC,
     );
+
+    adc.enable_interrupt(AdcInterrupt::EndOfSequence);
 
     // Take a OneShot reading from channel 3. (Note that the Embedded HAL trait is also available,
     // for use in embedded drivers). Channels for EH usage are included: `stm32hal2::adc::AdcChannel::C3`
@@ -60,6 +64,14 @@ fn main() -> ! {
     adc.start_conversion(chan_num, OperationMode::Continuous);
     // Read from the ADC's latest (continuously-running) conversion:
     let reading = adc.read_result();
+
+    // If you wish to use DMA to hand conversions and sequences:
+    let mut dma = Dma::new(&mut dp.DMA1, &clock_cfg);
+    let mut dma_buf = DmaReadBuf { buf: &[0_u8; 1] };
+
+    // If on MCUs that support MUXING, like L5 and G, choose the appropriate channel:
+    // dma::mux(DmaChannel::C1, MuxInput::Adc1, &mut dp.DMAMUX);
+    adc.read_dma(&buf, DmaChannel::C1, &mut dma);
 
     // Set up differential mode:
     adc.set_input_type(chan_num, InputType::Differential);

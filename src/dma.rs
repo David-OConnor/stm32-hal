@@ -833,39 +833,6 @@ where
         }
     }
 
-    #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
-    /// Configure a specific DMA channel to work with a specific peripheral.
-    pub fn mux(&mut self, channel: DmaChannel, input: MuxInput, mux: &pac::DMAMUX) {
-        // Note: This is similar in API and purpose to `channel_select` above,
-        // for different families. We're keeping it as a separate function instead
-        // of feature-gating within the same function so the name can be recognizable
-        // from the RM etc.
-        unsafe {
-            #[cfg(not(any(feature = "g070", feature = "g071", feature = "g081")))]
-            match channel {
-                DmaChannel::C1 => mux.c1cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                DmaChannel::C2 => mux.c2cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                DmaChannel::C3 => mux.c3cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                DmaChannel::C4 => mux.c4cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                DmaChannel::C5 => mux.c5cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                #[cfg(not(feature = "g0"))]
-                DmaChannel::C6 => mux.c6cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                #[cfg(not(feature = "g0"))]
-                DmaChannel::C7 => mux.c7cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                #[cfg(any(feature = "l5", feature = "g4"))]
-                DmaChannel::C8 => mux.c8cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-            }
-            #[cfg(any(feature = "g070", feature = "g071", feature = "g081"))]
-            match channel {
-                DmaChannel::C1 => mux.dmamux_c1cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                DmaChannel::C2 => mux.dmamux_c2cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                DmaChannel::C3 => mux.dmamux_c3cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                DmaChannel::C4 => mux.dmamux_c4cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                DmaChannel::C5 => mux.dmamux_c5cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-            }
-        }
-    }
-
     /// Enable a specific type of interrupt.
     pub fn enable_interrupt(&mut self, channel: DmaChannel, interrupt_type: DmaInterrupt) {
         // Can only be set when the channel is disabled.
@@ -1152,4 +1119,45 @@ impl Drop for DmaReadBuf<'_> {
     }
 }
 
-// todo: DMAMux fn.
+#[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
+/// Configure a specific DMA channel to work with a specific peripheral.
+pub fn mux(channel: DmaChannel, input: MuxInput, mux: &pac::DMAMUX) {
+    // Note: This is similar in API and purpose to `channel_select` above,
+    // for different families. We're keeping it as a separate function instead
+    // of feature-gating within the same function so the name can be recognizable
+    // from the RM etc.
+    unsafe {
+        #[cfg(not(any(feature = "g070", feature = "g071", feature = "g081")))]
+        match channel {
+            DmaChannel::C1 => mux.c1cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C2 => mux.c2cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C3 => mux.c3cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C4 => mux.c4cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C5 => mux.c5cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            #[cfg(not(feature = "g0"))]
+            DmaChannel::C6 => mux.c6cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            #[cfg(not(feature = "g0"))]
+            DmaChannel::C7 => mux.c7cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            #[cfg(any(feature = "l5", feature = "g4"))]
+            DmaChannel::C8 => mux.c8cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+        }
+        #[cfg(any(feature = "g070", feature = "g071", feature = "g081"))]
+        match channel {
+            DmaChannel::C1 => mux
+                .dmamux_c1cr
+                .modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C2 => mux
+                .dmamux_c2cr
+                .modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C3 => mux
+                .dmamux_c3cr
+                .modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C4 => mux
+                .dmamux_c4cr
+                .modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C5 => mux
+                .dmamux_c5cr
+                .modify(|_, w| w.dmareq_id().bits(input as u8)),
+        }
+    }
+}

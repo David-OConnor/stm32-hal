@@ -25,10 +25,10 @@ use embedded_hal::spi::{Phase, Polarity, Mode};
 // less here.
 use stm32_hal2::{
     self,
-    adc::{self, Adc, AdcChannel},
+    adc::{self, Adc, AdcChannel, AdcDevice},
     clocks::Clocks,
     dac::{Dac, DacChannel, DacBits},
-    dma::Dma,
+    dma::{Dma, DmaChannel, DmaInterrupt, DmaReadBuf, DmaWriteBuf},
     delay::Delay,
     flash::Flash,
     gpio::{GpioA, GpioB, Edge, PinNum, PinMode, OutputType, AltFn, Pull},
@@ -167,6 +167,7 @@ fn main() -> ! {
 
     let mut adc = Adc::new_adc1(
         dp.ADC1,
+        AdcDevice::One,
         &mut dp.ADC_COMMON,
         adc::ClockMode::default(),
         &clock_cfg,

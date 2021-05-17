@@ -15,7 +15,7 @@ use core::ops::Deref;
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
-#[cfg(not(feature = "g0"))]
+#[cfg(any(feature = "f3", feature = "l4", feature = "g0", feature = "g4"))]
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
@@ -374,11 +374,8 @@ where
         self.regs.cr3.modify(|_, w| w.dmat().set_bit());
         self.regs.cr3.modify(|_, w| w.dmar().set_bit());
 
-
         // Note that we need neither channel select, nor multiplex for F3.
     }
-
-
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
@@ -520,7 +517,7 @@ where
             // 3. Configure the total number of bytes to be transferred to the DMA control register.
             len as u16,
             dma::Direction::ReadFromPeriph,
-            ChannelCfg::default(),
+            Default::default(),
         );
 
         // 5. Configure interrupt generation after half/ full transfer as required by the application.

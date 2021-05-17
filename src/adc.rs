@@ -3,6 +3,8 @@
 use cortex_m::asm;
 use embedded_hal::adc::{Channel, OneShot};
 
+use core::ops::Deref;
+
 use crate::{
     pac::{self, RCC},
     rcc_en_reset,
@@ -11,6 +13,17 @@ use crate::{
 
 use cfg_if::cfg_if;
 use paste::paste;
+
+#[cfg(feature = "g0")]
+use crate::pac::dma as dma_p;
+#[cfg(any(feature = "f3", feature = "l4", feature = "g0", feature = "g4"))]
+use crate::pac::dma1 as dma_p;
+
+#[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+
+// todo: non-static buffers?
+use embedded_dma::{ReadBuffer, StaticReadBuffer, StaticWriteBuffer, WriteBuffer};
 
 const MAX_ADVREGEN_STARTUP_US: u32 = 10;
 
@@ -40,21 +53,39 @@ pub mod AdcChannel {
     pub struct C19;
     pub struct C20;
 }
-//
-// #[derive(Clone, Copy)]
-// enum AdcNum {
-//     One,
-//     Two,
-//     Three,
-//     Four,
-//     #[cfg(feature = "g4")]
-//     Five,
-// }
+
+#[derive(Clone, Copy)]
+pub enum AdcDevice {
+    One,
+    Two,
+    Three,
+    Four,
+    #[cfg(feature = "g4")]
+    Five,
+}
+
+#[derive(Copy, Clone)]
+#[repr(u8)]
+/// See L44 RM, section 16.5: ADC interrupts
+pub enum AdcInterrupt {
+    Ready,
+    EndOfConversion,
+    EnfOfSequence,
+    EndofConversionInjected,
+    EndOfSequenceInjected,
+    Watchdog1,
+    Watchdog2,
+    Watchdog3,
+    EndOfSamplingPhase,
+    Overrun,
+    InjectedOverflow,
+}
 
 /// Analog to Digital converter peripheral
 pub struct Adc<ADC> {
     /// ADC Register
     regs: ADC,
+    device: AdcDevice,
     ckmode: ClockMode,
     operation_mode: OperationMode,
     // Most families use u8 values for calibration, but H7 uses u16.
@@ -217,6 +248,7 @@ macro_rules! hal {
                 ///
                 pub fn [<new_ $adc>]<C: ClockCfg>(
                     regs: pac::$ADC,
+                    device: AdcDevice,
                     adc_common : &mut pac::$ADC_COMMON,
                     ckmode: ClockMode,
                     clocks: &C,
@@ -224,6 +256,7 @@ macro_rules! hal {
                 ) -> Self {
                     let mut result = Self {
                         regs,
+                        device,
                         ckmode,
                         operation_mode: OperationMode::OneShot,
                         cal_single_ended: None,
@@ -366,9 +399,10 @@ macro_rules! hal {
                     self.regs.cr.modify(|_, w| {
                         w.adstp().set_bit();
                         w.jadstp().set_bit()
-                    })
+                    });
+
+                    while self.regs.cr.read().adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set() {}
                 }
-                while self.regs.cr.read().adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set() {}
             }
 
             /// Check if the ADC is enabled.
@@ -562,7 +596,7 @@ macro_rules! hal {
                 }
             }
 
-                        /// Select the channel to sample. Note that this register allows setting a sequence,
+            /// Select the channel to sample. Note that this register allows setting a sequence,
             /// but for now, we only support converting one channel at a time.
             /// (Single-ended or differential, but not a sequence.)
             fn select_channel(&self, chan: u8) {
@@ -635,6 +669,136 @@ macro_rules! hal {
             pub fn read(&mut self, channel: u8) -> u16 {
                 self.start_conversion(channel, OperationMode::OneShot);
                 self.read_result()
+            }
+
+            /// Take a one shot reading, using DMA. See L44 RM, 16.4.27: "DMA one shot mode"
+            pub fn read_dma<D, B>(&mut self, buf: &B, adc_channel: u8, dma_channel: DmaChannel, dma: &mut Dma<D>)
+            where
+                B: ReadBuffer,
+                D: Deref<Target = dma_p::RegisterBlock>,
+            {
+
+                let (ptr, len) = unsafe { buf.read_buffer() };
+                // The software is allowed to write (dmaen and dmacfg) only when ADSTART=0 and JADSTART=0 (which
+                // ensures that no conversion is ongoing)
+                // Todo: Should these settings be handled in `init`?
+                self.stop_conversions();
+                self.regs.cfgr.modify(|_, w| {
+                    w.dmacfg().clear_bit(); // (one shot mode)  todo: Circular mode option; dmacfg=1.
+                    w.dmaen().set_bit()
+                });
+
+                // L44 RM, Table 41. "DMA1 requests for each channel
+                // todo: DMA2 support.
+                #[cfg(any(feature = "f3", feature = "l4"))]
+                let channel = match self.device {
+                    AdcDevice::One => DmaChannel::C1,
+                    AdcDevice::Two => DmaChannel::C2,
+                    _ => panic!("DMA on ADC beyond 2 is not supported. If it is for your MCU, please submit an issue \
+                or PR on Github.")
+                };
+
+                #[cfg(feature = "l4")]
+                match self.device {
+                    AdcDevice::One => dma.channel_select(DmaChannel::C1, 0),
+                    AdcDevice::Two => dma.channel_select(DmaChannel::C2, 0),
+                    _ => unimplemented!(),
+                }
+
+                self.start_conversion(adc_channel, OperationMode::OneShot);
+
+                // Since converted channel values are stored into a unique data register, it is useful to use
+                // DMA for conversion of more than one channel. This avoids the loss of the data already
+                // stored in the ADC_DR register.
+                // When the DMA mode is enabled (DMAEN bit set to 1 in the ADC_CFGR register in single
+                // ADC mode or MDMA different from 0b00 in dual ADC mode), a DMA request is generated
+                // after each conversion of a channel. This allows the transfer of the converted data from the
+                // ADC_DR register to the destination location selected by the software.
+                // Despite this, if an overrun occurs (OVR=1) because the DMA could not serve the DMA
+                // transfer request in time, the ADC stops generating DMA requests and the data
+                // corresponding to the new conversion is not transferred by the DMA. Which means that all
+                // the data transferred to the RAM can be considered as valid.
+                // Depending on the configuration of OVRMOD bit, the data is either preserved or overwritten
+                // (refer to Section : ADC overrun (OVR, OVRMOD)).
+                // The DMA transfer requests are blocked until the software clears the OVR bit.
+                // Two different DMA modes are proposed depending on the application use and are
+                // configured with bit DMACFG of the ADC_CFGR register in single ADC mode, or with bit
+                // DMACFG of the ADC_CCR register in dual ADC mode:
+                // • DMA one shot mode (DMACFG=0).
+                // This mode is suitable when the DMA is programmed to transfer a fixed number of data.
+                // • DMA circular mode (DMACFG=1)
+                // This mode is suitable when programming the DMA in circular mode.
+
+
+                // In [DMA one shot mode], the ADC generates a DMA transfer request each time a new conversion data
+                // is available and stops generating DMA requests once the DMA has reached the last DMA
+                // transfer (when DMA_EOT interrupt occurs - refer to DMA paragraph) even if a conversion
+                // has been started again.
+                // When the DMA transfer is complete (all the transfers configured in the DMA controller have
+                // been done):
+                // • The content of the ADC data register is frozen.
+                // • Any ongoing conversion is aborted with partial result discarded.
+                // • No new DMA request is issued to the DMA controller. This avoids generating an
+                // overrun error if there are still conversions which are started.
+                // • Scan sequence is stopped and reset.
+                // • The DMA is stopped.
+
+                dma.cfg_channel(
+                    dma_channel,
+                    &self.regs.dr as *const _ as u32,
+                    ptr as u32,
+                    len as u16,
+                    dma::Direction::ReadFromMem,
+                    Default::default(),
+                );
+            }
+
+            /// Enable a specific type of ADC interrupt.
+            pub fn enable_interrupt(&mut self, interrupt: AdcInterrupt) {
+                match interrupt {
+                    AdcInterrupt::Ready => self.regs.ier.modify(|_, w| w.adrdyie().set_bit()),
+                    AdcInterrupt::EndOfConversion => self.regs.ier.modify(|_, w| w.eocie().set_bit()),
+                    AdcInterrupt::EnfOfSequence => self.regs.ier.modify(|_, w| w.eosie().set_bit()),
+                    AdcInterrupt::EndofConversionInjected => self.regs.ier.modify(|_, w| w.jeocie().set_bit()),
+                    AdcInterrupt::EndOfSequenceInjected => self.regs.ier.modify(|_, w| w.jeosie().set_bit()),
+                    AdcInterrupt::Watchdog1 => self.regs.ier.modify(|_, w| w.awd1ie().set_bit()),
+                    AdcInterrupt::Watchdog2 => self.regs.ier.modify(|_, w| w.awd2ie().set_bit()),
+                    AdcInterrupt::Watchdog3 => self.regs.ier.modify(|_, w| w.awd3ie().set_bit()),
+                    AdcInterrupt::EndOfSamplingPhase => self.regs.ier.modify(|_, w| w.eosmpie().set_bit()),
+                    AdcInterrupt::Overrun => self.regs.ier.modify(|_, w| w.ovrie().set_bit()),
+                    AdcInterrupt::InjectedOverflow => self.regs.ier.modify(|_, w| w.jqovfie().set_bit()),
+                }
+            }
+
+            /// Clear an interrupt flag of the specified type. Consider running this in the
+            /// corresponding ISR.
+            pub fn clear_interrupt(&mut self, interrupt: AdcInterrupt) {
+                match interrupt {
+                    AdcInterrupt::Ready => self.regs.isr.modify(|_, w| w.adrdy().set_bit()),
+                    AdcInterrupt::EndOfConversion => self.regs.isr.modify(|_, w| w.eoc().set_bit()),
+                    AdcInterrupt::EnfOfSequence => self.regs.isr.modify(|_, w| w.eos().set_bit()),
+                    AdcInterrupt::EndofConversionInjected => self.regs.isr.modify(|_, w| w.jeoc().set_bit()),
+                    AdcInterrupt::EndOfSequenceInjected => self.regs.isr.modify(|_, w| w.jeos().set_bit()),
+                    AdcInterrupt::Watchdog1 => self.regs.isr.modify(|_, w| w.awd1().set_bit()),
+                    AdcInterrupt::Watchdog2 => self.regs.isr.modify(|_, w| w.awd2().set_bit()),
+                    AdcInterrupt::Watchdog3 => self.regs.isr.modify(|_, w| w.awd3().set_bit()),
+                    AdcInterrupt::EndOfSamplingPhase => self.regs.isr.modify(|_, w| w.eosmp().set_bit()),
+                    AdcInterrupt::Overrun => self.regs.isr.modify(|_, w| w.ovr().set_bit()),
+                    AdcInterrupt::InjectedOverflow => self.regs.isr.modify(|_, w| w.jqovf().set_bit()),
+                }
+                // match interrupt {
+                //     AdcInterrupt::Ready => self.regs.icr.write(|_w| w.adrdy().set_bit()),
+                //     AdcInterrupt::EndOfConversion => self.regs.icr.write(|w| w.eoc().set_bit()),
+                //     AdcInterrupt::EnfOfSequence => self.regs.icr.write(|_w| w.eos().set_bit()),
+                //     AdcInterrupt::EndofConversionInjected => self.regs.icr.write(|_w| w.jeoc().set_bit()),
+                //     AdcInterrupt::EndOfSequenceInjected => self.regs.icr.write(|_w| w.jeos().set_bit()),
+                //     AdcInterrupt::Watchdog1 => self.regs.icr.write(|_w| w.awd1().set_bit()),
+                //     AdcInterrupt::Watchdog2 => self.regs.icr.write(|_w| w.awd2().set_bit()),
+                //     AdcInterrupt::Watchdog3 => self.regs.icr.write(|_w| w.awd3().set_bit()),
+                //     AdcInterrupt::EndOfSamplingPhase => self.regs.icr.write(|_w| w.eosmp().set_bit()),
+                //     AdcInterrupt::Overrun => self.regs.icr.write(|_w| w.ovr().set_bit()),
+                //     AdcInterrupt::InjectedOverflow => self.regs.icr.write(|_w| w.jqovf().set_bit()),
+                // }
             }
         }
 

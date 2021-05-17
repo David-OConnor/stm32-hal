@@ -12,7 +12,7 @@ use crate::{
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
-#[cfg(not(feature = "g0"))]
+#[cfg(any(feature = "f3", feature = "l4", feature = "g0", feature = "g4"))]
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
@@ -280,7 +280,7 @@ where
 
                 // 3. Write to SPI_CR2 register:
                 #[cfg(feature = "f4")]
-                w.ssoe().bit(cfg.slave_select == SlaveSelect::HardwareOutEnable);
+                regs.cr2.modify(|_, w| w.ssoe().bit(cfg.slave_select == SlaveSelect::HardwareOutEnable));
 
                 #[cfg(not(feature = "f4"))]
                 regs.cr2
@@ -352,12 +352,15 @@ where
     pub fn disable(&mut self) {
         // The correct disable procedure is (except when receive only mode is used):
         // 1. Wait until FTLVL[1:0] = 00 (no more data to transmit).
+        #[cfg(not(feature = "f4"))]
         while self.regs.sr.read().ftlvl().bits() != 0 {}
         // 2. Wait until BSY=0 (the last data frame is processed).
+        #[cfg(not(feature = "f4"))]
         while self.regs.sr.read().ftlvl().bits() != 0 {}
         // 3. Disable the SPI (SPE=0).
         self.regs.cr1.modify(|_, w| w.spe().clear_bit());
         // 4. Read data until FRLVL[1:0] = 00 (read all the received data).
+        #[cfg(not(feature = "f4"))]
         while self.regs.sr.read().frlvl().bits() != 0 {
             // is `read_volatile` more efficient here?
             self.regs.dr.read();
@@ -436,7 +439,7 @@ where
             ptr as u32,
             len as u16,
             dma::Direction::ReadFromMem,
-            ChannelCfg::default(),
+            Default::default(),
         );
 
         // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
@@ -465,7 +468,7 @@ where
             #[cfg(not(feature = "f3x4"))]
             SpiDevice::Two => DmaChannel::C4,
             #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
-            SpiDevice::Three => panic!(
+            _ => panic!(
                 "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
                 or PR on Github."
             ),
@@ -484,12 +487,7 @@ where
             }
             // todo: Allow selecting channels in pairs to save a write.
             #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
-            SpiDevice::Three => {
-                panic!(
-                    "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
-                or PR on Github."
-                )
-            }
+            _ => unimplemented!(),
         };
 
         #[cfg(feature = "h7")]
@@ -503,7 +501,7 @@ where
             ptr as u32,
             len as u16,
             dma::Direction::ReadFromPeriph,
-            ChannelCfg::default(),
+            Default::default(),
         );
 
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
@@ -511,6 +509,7 @@ where
         // todo: Set rxne or something to start?
     }
 
+    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Stop a DMA transfer. Run this after each transfer (?) Mandatory(?)
     pub fn stop_dma<D>(&mut self, channel: DmaChannel, dma: &mut Dma<D>)
     where
