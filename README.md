@@ -20,6 +20,9 @@ minimal code change.
 practical uses. The freedom to choose the right MCU for each project, without 
 changing code bases.
 
+Both DMA (Direct Memory Access) and non-DMA APIs and examples are provided. DMA APIs provide faster and more efficient
+operations, while non-DMA APIs are simpler, and are compatible with `embedded-hal`.
+
 ## Getting started
 Review the [syntax overview example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/syntax_overview)
 for example uses of many of this library's features. Copy and paste its whole folder (It's set up
@@ -70,13 +73,9 @@ fn main() -> ! {
 
 The library is influenced by the `stm32fyxx` HALs, and several of the modules here are modified 
 versions of those. There are some areas where design philosophy is different. For example: GPIO 
-type-checking, level-of-abstraction from registers/PAC, role of EH traits in the API, 
+type-checking, level-of-abstraction from registers/PAC, role of DMA, role of `embedded-hal` traits in the API, 
 feature parity among STM32 families, and clock config.
     
-Most peripheral modules are independent: The only dependency they have within this library
-is the `ClockCfg` trait, which we may move to a standalone crate later. This makes
-it easy to interchange them with other projects.
-
 The Rust docs page is built for STM32L4x3, and some aspects are not accurate for other
 variants. We currently don't have a good solution to this problem, and may
 self-host docs in the future.
@@ -193,8 +192,9 @@ where
 ## Errata
 
 - SAI, SDIO, ethernet unimplemented
-- DMA only implemented for USART and SPI, ADC, and only on F3, L4, G0, and G4
-- The DMA 2 peripheral is unimplemented
+- DMA only implemented on F3, L4, G0, and G4
+- The DMA2 peripheral is unimplemented
+- DMA circular buffers unimplemented
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
 - USB is missing for some families
 - USART synchronous mode, and auto-baud-rate detection unimplemented

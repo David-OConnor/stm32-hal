@@ -13,6 +13,16 @@ use crate::{
     traits::ClockCfg,
 };
 
+#[cfg(feature = "g0")]
+use crate::pac::dma as dma_p;
+#[cfg(any(feature = "f3", feature = "l4", feature = "g0", feature = "g4"))]
+use crate::pac::dma1 as dma_p;
+
+#[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+
+use embedded_dma::{ReadBuffer, WriteBuffer};
+
 /// I2C error
 #[non_exhaustive]
 #[derive(Debug)]
@@ -30,6 +40,14 @@ pub enum Error {
     // Alert, // SMBUS mode only
 }
 
+// #[derive(Clone, Copy)]
+// #[repr(u8)]
+// /// Set master or slave mode.
+// pub enum I2cMode {
+//     Master = 0,
+//     Slave = 1,
+// }
+
 #[derive(Clone, Copy)]
 pub enum I2cDevice {
     One,
@@ -40,7 +58,9 @@ pub enum I2cDevice {
 
 /// I2C peripheral operating in master mode
 pub struct I2c<I2C> {
-    i2c: I2C,
+    regs: I2C,
+    device: I2cDevice,
+    // mode: I2cMode,
 }
 
 impl<I> I2c<I>
@@ -49,7 +69,7 @@ where
 {
     /// Configures the I2C peripheral. `freq` is in Hz. Doesn't check pin config.
     pub fn new<C: ClockCfg>(
-        i2c: I,
+        regs: I,
         device: I2cDevice,
         freq: u32,
         clocks: &C,
@@ -70,7 +90,7 @@ where
 
         assert!(freq <= 1_000_000);
         // Make sure the I2C unit is disabled so we can configure it
-        i2c.cr1.modify(|_, w| w.pe().clear_bit());
+        regs.cr1.modify(|_, w| w.pe().clear_bit());
 
         // TODO review compliance with the timing requirements of I2C
         // t_I2CCLK = 1 / PCLK1
@@ -129,64 +149,191 @@ where
         let scll = u8(scll).unwrap();
 
         // Configure for "fast mode" (400 KHz)
-        i2c.timingr.write(|w| unsafe {
-            w.presc()
-                .bits(presc)
-                .scll()
-                .bits(scll)
-                .sclh()
-                .bits(sclh)
-                .sdadel()
-                .bits(sdadel)
-                .scldel()
-                .bits(scldel)
+        // RM: Before enabling the peripheral, the I2C master clock must be configured by setting the
+        // SCLH and SCLL bits in the I2C_TIMINGR register.
+        regs.timingr.write(|w| unsafe {
+            w.presc().bits(presc);
+            w.scll().bits(scll);
+            w.sclh().bits(sclh);
+            w.sdadel().bits(sdadel);
+            w.scldel().bits(scldel)
         });
 
         // Enable the peripheral
-        i2c.cr1.write(|w| w.pe().set_bit());
+        regs.cr1.write(|w| w.pe().set_bit());
 
-        I2c { i2c }
+        I2c { regs, device }
     }
 
-    /// Frees the I2C peripheral
-    pub fn free(self) -> I {
-        self.i2c
+    /// Helper function to prevent repetition between `write`, and `write_read`.
+    fn set_cr2_write(&mut self, addr: u8, bytes: &[u8]) {
+        // L44 RM: "Master communication initialization (address phase)
+        // In order to initiate the communication, the user must program the following parameters for
+        // the addressed slave in the I2C_CR2 register:
+        self.regs.cr2.write(|w| {
+            unsafe {
+                // Addressing mode (7-bit or 10-bit): ADD10
+                w.add10().clear_bit();
+                // Slave address to be sent: SADD[9:0]
+                w.sadd().bits(u16(addr << 1 | 0));
+                // Transfer direction: RD_WRN
+                w.rd_wrn().clear_bit(); // write
+                                        // The number of bytes to be transferred: NBYTES[7:0]. If the number of bytes is equal to
+                                        // or greater than 255 bytes, NBYTES[7:0] must initially be filled with 0xFF.
+                w.nbytes().bits(bytes.len() as u8);
+                w.autoend().clear_bit(); // software end mode
+                                         // The user must then set the START bit in I2C_CR2 register. Changing all the above bits is
+                                         // not allowed when START bit is set.
+                w.start().set_bit()
+            }
+        });
     }
-}
 
-/// Copy+pasted from H7. Called from c+p `busy_wait`
-/// Sequence to flush the TXDR register. This resets the TXIS and TXE
-// flags
-macro_rules! flush_txdr {
-    ($i2c:expr) => {
-        // If a pending TXIS flag is set, write dummy data to TXDR
-        if $i2c.isr.read().txis().bit_is_set() {
-            $i2c.txdr.write(|w| unsafe { w.txdata().bits(0) });
+    /// Read data, using DMA. See L44 RM, 37.4.16: "Transmissino using DMA"
+    /// Note that the `channel` argument is only used on F3 and L4.
+    pub fn write_dma<D, B>(&mut self, buf: &B, channel: DmaChannel, dma: &mut Dma<D>)
+    where
+        B: ReadBuffer,
+        D: Deref<Target = dma_p::RegisterBlock>,
+    {
+        let (ptr, len) = unsafe { buf.read_buffer() };
+
+        // todo: DMA2 support.
+        #[cfg(any(feature = "f3", feature = "l4"))]
+        let channel = match self.device {
+            I2cDevice::One => DmaChannel::C6,
+            I2cDevice::Two => DmaChannel::C4,
+            #[cfg(feature = "h7")]
+            I2cDevice::Three => DmaChannel::C2,
+        };
+
+        #[cfg(feature = "l4")]
+        match self.device {
+            I2cDevice::One => dma.channel_select(DmaChannel::C6, 0b011),
+            I2cDevice::Two => dma.channel_select(DmaChannel::C4, 0b011),
+            #[cfg(feature = "h7")]
+            I2cDevice::Three => dma.channel_select(DmaChannel::C2, 0b011),
         }
 
-        // If TXDR is not flagged as empty, write 1 to flush it
-        if $i2c.isr.read().txe().bit_is_clear() {
-            $i2c.isr.write(|w| w.txe().set_bit());
+        // DMA (Direct Memory Access) can be enabled for transmission by setting the TXDMAEN bit
+        // in the I2C_CR1 register. Data is loaded from an SRAM area configured using the DMA
+        // peripheral (see Section 11: Direct memory access controller (DMA) on page 295) to the
+        // I2C_TXDR register whenever the TXIS bit is set.
+        self.regs.cr1.modify(|_, w| w.txdmaen().set_bit());
+
+        // Only the data are transferred with DMA.
+        // • In master mode: the initialization, the slave address, direction, number of bytes and
+        // START bit are programmed by software (the transmitted slave address cannot be
+        // transferred with DMA). When all data are transferred using DMA, the DMA must be
+        // initialized before setting the START bit. The end of transfer is managed with the
+        // NBYTES counter. Refer to Master transmitter on page 1151.
+        // • In slave mode:
+        // – With NOSTRETCH=0, when all data are transferred using DMA, the DMA must be
+        // initialized before the address match event, or in ADDR interrupt subroutine, before
+        // clearing ADDR.
+        // – With NOSTRETCH=1, the DMA must be initialized before the address match
+        // event.
+        // • For instances supporting SMBus: the PEC transfer is managed with NBYTES counter.
+        // Refer to SMBus Slave transmitter on page 1165 and SMBus Master transmitter on
+        // page 1169.
+        // Note: If DMA is used for transmission, the TXIE bit does not need to be enabled
+
+        dma.cfg_channel(
+            channel,
+            &self.regs.txdr as *const _ as u32,
+            ptr as u32,
+            len as u16,
+            dma::Direction::ReadFromMem,
+            dma::DataSize::S8,
+            dma::DataSize::S8,
+            Default::default(),
+        );
+    }
+
+    /// Read data, using DMA. See L44 RM, 37.4.16: "Reception using DMA"
+    /// Note that the `channel` argument is only used on F3 and L4.
+    pub fn read_dma<D, B>(&mut self, buf: &mut B, channel: DmaChannel, dma: &mut Dma<D>)
+    where
+        B: WriteBuffer,
+        D: Deref<Target = dma_p::RegisterBlock>,
+    {
+        let (ptr, len) = unsafe { buf.write_buffer() };
+
+        // todo: DMA2 support.
+        #[cfg(any(feature = "f3", feature = "l4"))]
+        let channel = match self.device {
+            I2cDevice::One => DmaChannel::C7,
+            I2cDevice::Two => DmaChannel::C5,
+            #[cfg(feature = "h7")]
+            I2cDevice::Three => DmaChannel::C3,
+        };
+
+        #[cfg(feature = "l4")]
+        match self.device {
+            I2cDevice::One => dma.channel_select(DmaChannel::C7, 0b011),
+            I2cDevice::Two => dma.channel_select(DmaChannel::C5, 0b011),
+            #[cfg(feature = "h7")]
+            I2cDevice::Three => dma.channel_select(DmaChannel::C3, 0b011),
         }
-    };
+
+        // DMA (Direct Memory Access) can be enabled for reception by setting the RXDMAEN bit in
+        // the I2C_CR1 register. Data is loaded from the I2C_RXDR register to an SRAM area
+        // configured using the DMA peripheral (refer to Section 11: Direct memory access controller
+        // (DMA) on page 295) whenever the RXNE bit is set. Only the data (including PEC) are
+        // transferred with DMA.
+        self.regs.cr1.modify(|_, w| w.rxdmaen().set_bit());
+
+        // • In master mode, the initialization, the slave address, direction, number of bytes and
+        // START bit are programmed by software. When all data are transferred using DMA, the
+        // DMA must be initialized before setting the START bit. The end of transfer is managed
+        // with the NBYTES counter.
+        // • In slave mode with NOSTRETCH=0, when all data are transferred using DMA, the
+        // DMA must be initialized before the address match event, or in the ADDR interrupt
+        // subroutine, before clearing the ADDR flag.
+        // • If SMBus is supported (see Section 37.3: I2C implementation): the PEC transfer is
+        // managed with the NBYTES counter. Refer to SMBus Slave receiver on page 1167 and
+        // SMBus Master receiver on page 1171.
+        // Note: If DMA is used for reception, the RXIE bit does not need to be enabled
+
+        dma.cfg_channel(
+            channel,
+            &self.regs.rxdr as *const _ as u32,
+            ptr as u32,
+            len as u16,
+            dma::Direction::ReadFromPeriph,
+            dma::DataSize::S8,
+            dma::DataSize::S8,
+            Default::default(),
+        );
+    }
 }
 
 macro_rules! busy_wait {
-    ($i2c:expr, $flag:ident, $variant:ident) => {
+    ($regs:expr, $flag:ident, $variant:ident) => {
         loop {
-            let isr = $i2c.isr.read();
+            let isr = $regs.isr.read();
 
             if isr.$flag().$variant() {
                 break;
             } else if isr.berr().bit_is_set() {
-                $i2c.icr.write(|w| w.berrcf().set_bit());
+                $regs.icr.write(|w| w.berrcf().set_bit());
                 return Err(Error::Bus);
             } else if isr.arlo().bit_is_set() {
-                $i2c.icr.write(|w| w.arlocf().set_bit());
+                $regs.icr.write(|w| w.arlocf().set_bit());
                 return Err(Error::Arbitration);
             } else if isr.nackf().bit_is_set() {
-                $i2c.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
-                flush_txdr!($i2c);
+                $regs.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
+
+                // If a pending TXIS flag is set, write dummy data to TXDR
+                if $regs.isr.read().txis().bit_is_set() {
+                    $regs.txdr.write(|w| unsafe { w.txdata().bits(0) });
+                }
+
+                // If TXDR is not flagged as empty, write 1 to flush it
+                if $regs.isr.read().txe().bit_is_clear() {
+                    $regs.isr.write(|w| w.txe().set_bit());
+                }
+
                 return Err(Error::Nack);
             } else {
                 // try again
@@ -209,43 +356,25 @@ where
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
-        while self.i2c.cr2.read().start().bit_is_set() {}
+        while self.regs.cr2.read().start().bit_is_set() {}
 
-        // Set START and prepare to send `bytes`. The
-        // START bit can be set even if the bus is BUSY or
-        // I2C is in slave mode.
-        self.i2c.cr2.write(|w| {
-            unsafe {
-                w.start()
-                    .set_bit()
-                    .sadd()
-                    .bits(u16(addr << 1 | 0))
-                    .add10()
-                    .clear_bit()
-                    .rd_wrn()
-                    .clear_bit() // write
-                    .nbytes()
-                    .bits(bytes.len() as u8)
-                    .autoend()
-                    .clear_bit() // software end mode
-            }
-        });
+        self.set_cr2_write(addr, bytes);
 
         for byte in bytes {
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte when
             // through)
-            busy_wait!(self.i2c, txis, bit_is_set); // TXDR register is empty
+            busy_wait!(self.regs, txis, bit_is_set); // TXDR register is empty
 
             // Put byte on the wire
-            self.i2c.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
+            self.regs.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
         }
 
         // Wait until the write finishes
-        busy_wait!(self.i2c, tc, bit_is_set); // transfer is complete
+        busy_wait!(self.regs, tc, bit_is_set); // transfer is complete
 
         // Stop
-        self.i2c.cr2.write(|w| w.stop().set_bit());
+        self.regs.cr2.write(|w| w.stop().set_bit());
 
         Ok(())
     }
@@ -264,31 +393,27 @@ where
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
-        while self.i2c.cr2.read().start().bit_is_set() {}
+        while self.regs.cr2.read().start().bit_is_set() {}
 
         // Set START and prepare to receive bytes into
         // `buffer`. The START bit can be set even if the bus
         // is BUSY or I2C is in slave mode.
-        self.i2c.cr2.write(|w| {
+        self.regs.cr2.write(|w| {
             unsafe {
-                w.sadd()
-                    .bits((addr << 1 | 0) as u16)
-                    .rd_wrn()
-                    .set_bit() // read
-                    .nbytes()
-                    .bits(buffer.len() as u8)
-                    .start()
-                    .set_bit()
-                    .autoend()
-                    .set_bit() // automatic end mode
+                w.sadd().bits((addr << 1 | 0) as u16);
+                w.add10().clear_bit();
+                w.rd_wrn().set_bit(); // read
+                w.nbytes().bits(buffer.len() as u8);
+                w.start().set_bit();
+                w.autoend().set_bit() // automatic end mode
             }
         });
 
         for byte in buffer {
             // Wait until we have received something
-            busy_wait!(self.i2c, rxne, bit_is_set);
+            busy_wait!(self.regs, rxne, bit_is_set);
 
-            *byte = self.i2c.rxdr.read().rxdata().bits();
+            *byte = self.regs.rxdr.read().rxdata().bits();
         }
 
         // automatic STOP
@@ -311,64 +436,42 @@ where
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
-        while self.i2c.cr2.read().start().bit_is_set() {}
+        while self.regs.cr2.read().start().bit_is_set() {}
 
-        // Set START and prepare to send `bytes`. The
-        // START bit can be set even if the bus is BUSY or
-        // I2C is in slave mode.
-        self.i2c.cr2.write(|w| {
-            unsafe {
-                w.start()
-                    .set_bit()
-                    .sadd()
-                    .bits(u16(addr << 1 | 0))
-                    .add10()
-                    .clear_bit()
-                    .rd_wrn()
-                    .clear_bit() // write
-                    .nbytes()
-                    .bits(bytes.len() as u8)
-                    .autoend()
-                    .clear_bit() // software end mode
-            }
-        });
+        self.set_cr2_write(addr, bytes);
 
         for byte in bytes {
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte went through)
 
-            busy_wait!(self.i2c, txis, bit_is_set); // TXDR register is empty
+            busy_wait!(self.regs, txis, bit_is_set); // TXDR register is empty
 
             // Put byte on the wire
-            self.i2c.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
+            self.regs.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
         }
 
         // Wait until the write finishes before beginning to read.
-        busy_wait!(self.i2c, tc, bit_is_set); // transfer is complete
+        busy_wait!(self.regs, tc, bit_is_set); // transfer is complete
 
         // reSTART and prepare to receive bytes into `buffer`
-        self.i2c.cr2.write(|w| {
+
+        // The addressing is also different, from in `read`, which may be important.
+        self.regs.cr2.write(|w| {
             unsafe {
-                w.sadd()
-                    .bits(u16(addr << 1 | 1))
-                    .add10()
-                    .clear_bit()
-                    .rd_wrn()
-                    .set_bit() // read mode
-                    .nbytes()
-                    .bits(buffer.len() as u8)
-                    .start()
-                    .set_bit()
-                    .autoend()
-                    .set_bit() // automatic end mode
+                w.sadd().bits(u16(addr << 1 | 1));
+                w.add10().clear_bit();
+                w.rd_wrn().set_bit(); // read mode
+                w.nbytes().bits(buffer.len() as u8);
+                w.autoend().set_bit(); // automatic end mode
+                w.start().set_bit()
             }
         });
 
         for byte in buffer {
             // Wait until we have received something
-            busy_wait!(self.i2c, rxne, bit_is_set);
+            busy_wait!(self.regs, rxne, bit_is_set);
 
-            *byte = self.i2c.rxdr.read().rxdata().bits();
+            *byte = self.regs.rxdr.read().rxdata().bits();
         }
 
         Ok(())

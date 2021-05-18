@@ -59,12 +59,8 @@ fn main() -> ! {
     // Set a channel to a specific position in a sequence:
     adc.set_sequence(1, 2); // Set channel 1 to be the second position in the sequence.
 
-    // Set the length of the sequence to read. (ie number of channels).
+    // Set the length of the sequence to read. (ie number of channels):
     adc.set_sequence_len(2);
-
-    // If on MCUs that support MUXING, like L5 and G, choose the appropriate channel:
-    // dma::mux(DmaChannel::C1, MuxInput::Adc1, &mut dp.DMAMUX);
-    adc.read_dma(&buf, DmaChannel::C1, &mut dma);
 
     // Set up differential mode:
     adc.set_input_type(chan_num, InputType::Differential);
@@ -80,19 +76,25 @@ fn main() -> ! {
     // 2: Set up DMA, for nonblocking (generally faster) conversion transfers:
     let mut dma = Dma::new(&mut dp.DMA1, &dp.RCC);
 
-    let mut dma_buf = DmaWriteBuf { buf: &[0_u16; 1] };
+    let mut dma_buf = DmaWriteBuf {
+        buf: &mut [0_u16; 1],
+    };
 
     // Begin a DMA transfer. Note that the `DmaChannel` we pass here is only used on
     // MCUs that use `DMAMUX`, eg L5, G0, and G4. For those, you need to run `mux`, to
     // set the channel: `dma::mux(DmaChannel::C1, MuxInput::Adc1, &mut dp.DMAMUX);
-    badc.read_dma(&mut buf, chan_num, DmaChannel::C1, &mut dma);
+    adc.read_dma(&mut buf, chan_num, DmaChannel::C1, &mut dma);
 
-    // Wait for the transfer to complete. Ie by reading in the channel's transfer-complete interrupt,
-    // which is enabled by the `read_dma` command.  For this example, we block until ready
+    // Wait for the transfer to complete. Ie by handling the channel's transfer-complete
+    // interrupt in an ISR, which is enabled by the `read_dma` command.
+    // For this example, we block until the flag is set.
     while !dma.transfer_is_complete(DmaChannel::C1) {}
     dma.stop(DmaChannel::C1);
 
-    defmt::info!("Reading: {:?}", &dma_buf.buf);
+    defmt::info!("Reading: {:?}", &dma_buf.buf[0]);
+
+    // Unmask the interrupt line. See the `DMA_CH1` interrupt handler below.
+    unsafe { NVIC::unmask(pac::Interrupt::DMA1_CH1) }
 
     // 3: Alternatively, we can take readings without DMA. This provides a simpler, memory-safe API,
     // and is compatible with the `embedded_hal::adc::OneShot trait.
@@ -104,7 +106,7 @@ fn main() -> ! {
     // Or, start reading in continuous mode, reading a single channel
     adc.start_conversion(&[chan_num], OperationMode::Continuous);
 
-    // Or, set up multiple channels in a sequence:
+    // Or, read multiple channels in a sequence:
     adc.start_conversion([1, 2, 3], OperationMode::Continuous);
     // Read from the ADC's latest (continuously-running) conversion:
     let reading = adc.read_result();
@@ -112,4 +114,15 @@ fn main() -> ! {
     loop {
         low_power::sleep_now(&mut SCB);
     }
+}
+
+#[interrupt]
+/// This interrupt fires when the ADC transfer is complete.
+fn DMA1_CH1() {
+    free(|cs| {
+        unsafe { (*pac::DMA1::ptr()).ifcr.write(|w| w.tcif1().set_bit()) }
+        // Or, if you have access to the Dma peripheral struct:
+        // dma.clear_interrupt(DmaChannel::C1);
+        // dma.stop(DmaChannel::C1);
+    });
 }

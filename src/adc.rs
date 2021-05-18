@@ -22,8 +22,7 @@ use crate::pac::dma1 as dma_p;
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
-// todo: non-static buffers?
-use embedded_dma::{ReadBuffer, StaticReadBuffer, StaticWriteBuffer, WriteBuffer};
+use embedded_dma::WriteBuffer;
 
 const MAX_ADVREGEN_STARTUP_US: u32 = 10;
 
