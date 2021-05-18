@@ -173,7 +173,10 @@ where
                 // Addressing mode (7-bit or 10-bit): ADD10
                 w.add10().clear_bit();
                 // Slave address to be sent: SADD[9:0]
-                w.sadd().bits(u16(addr << 1 | 0));
+                // SADD0: "This bit is don’t care"
+                // SADD[7:1]: "These bits should be written with the 7-bit slave address to be sent"
+                // todo: Why is 1 being set at bit 0 for repeating starts??
+                w.sadd().bits(u16(addr << 1));
                 // Transfer direction: RD_WRN
                 w.rd_wrn().clear_bit(); // write
                                         // The number of bytes to be transferred: NBYTES[7:0]. If the number of bytes is equal to
@@ -189,15 +192,14 @@ where
 
     /// Helper function to prevent repetition between `read`, `write_read`, and `read_dma`.
     fn set_cr2_read(&mut self, addr: u8, len: u8) {
-        // todo: Variant for restart, with diff add
         self.regs.cr2.write(|w| {
             unsafe {
-                w.sadd().bits((addr << 1 | 0) as u16);
                 w.add10().clear_bit();
+                w.sadd().bits(u16(addr << 1));
                 w.rd_wrn().set_bit(); // read
                 w.nbytes().bits(len);
-                w.start().set_bit();
-                w.autoend().set_bit() // automatic end mode
+                w.autoend().set_bit(); // automatic end mode
+                w.start().set_bit()
             }
         });
     }
@@ -209,6 +211,8 @@ where
         B: ReadBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
+        while self.regs.cr2.read().start().bit_is_set() {}
+
         let (ptr, len) = unsafe { data.read_buffer() };
 
         // todo: DMA2 support.
@@ -274,6 +278,8 @@ where
         B: WriteBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
+        while self.regs.cr2.read().start().bit_is_set() {}
+
         let (ptr, len) = unsafe { read_buf.write_buffer() };
 
         // todo: DMA2 support.
@@ -367,19 +373,18 @@ where
 {
     type Error = Error;
 
-    fn write(&mut self, addr: u8, data: &[u8]) -> Result<(), Error> {
-        // C+P from H7 HAL.
+    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        assert!(data.len() < 256 && data.len() > 0);
+        assert!(bytes.len() < 256 && bytes.len() > 0);
 
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
         while self.regs.cr2.read().start().bit_is_set() {}
 
-        self.set_cr2_write(addr, data.len() as u8);
+        self.set_cr2_write(addr, bytes.len() as u8);
 
-        for byte in data {
+        for byte in bytes {
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte when
             // through)
@@ -392,7 +397,8 @@ where
         // Wait until the write finishes
         busy_wait!(self.regs, tc, bit_is_set); // transfer is complete
 
-        // Stop
+        // todo: Why do we explicitly stop here, but use auto stop in
+        // todo `read` and `write_read`? Repeating starts?
         self.regs.cr2.write(|w| w.stop().set_bit());
 
         Ok(())
@@ -405,9 +411,9 @@ where
 {
     type Error = Error;
 
-    fn read(&mut self, addr: u8, read_buf: &mut [u8]) -> Result<(), Error> {
+    fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        assert!(read_buf.len() < 256 && read_buf.len() > 0);
+        assert!(bytes.len() < 256 && bytes.len() > 0);
 
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
@@ -417,17 +423,14 @@ where
         // Set START and prepare to receive bytes into
         // `buffer`. The START bit can be set even if the bus
         // is BUSY or I2C is in slave mode.
-        self.set_cr2_read(addr, read_buf.len() as u8);
+        self.set_cr2_read(addr, bytes.len() as u8);
 
-
-        for byte in read_buf {
+        for byte in bytes {
             // Wait until we have received something
             busy_wait!(self.regs, rxne, bit_is_set);
 
             *byte = self.regs.rxdr.read().rxdata().bits();
         }
-
-        // automatic STOP
 
         Ok(())
     }
@@ -439,19 +442,19 @@ where
 {
     type Error = Error;
 
-    fn write_read(&mut self, addr: u8, data: &[u8], read_buf: &mut [u8]) -> Result<(), Error> {
+    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        assert!(data.len() < 256 && data.len() > 0);
-        assert!(read_buf.len() < 256 && read_buf.len() > 0);
+        assert!(bytes.len() < 256 && bytes.len() > 0);
+        assert!(buffer.len() < 256 && buffer.len() > 0);
 
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
         while self.regs.cr2.read().start().bit_is_set() {}
 
-        self.set_cr2_write(addr, data.len() as u8);
+        self.set_cr2_write(addr, bytes.len() as u8);
 
-        for byte in data {
+        for byte in bytes {
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte went through)
 
@@ -466,19 +469,9 @@ where
 
         // reSTART and prepare to receive bytes into `buffer`
 
-        // The addressing is also different, from in `read`, which may be important.
-        self.regs.cr2.write(|w| {
-            unsafe {
-                w.sadd().bits(u16(addr << 1 | 1));
-                w.add10().clear_bit();
-                w.rd_wrn().set_bit(); // read mode
-                w.nbytes().bits(read_buf.len() as u8);
-                w.autoend().set_bit(); // automatic end mode
-                w.start().set_bit()
-            }
-        });
+        self.set_cr2_read(addr, buffer.len() as u8);
 
-        for byte in read_buf {
+        for byte in buffer {
             // Wait until we have received something
             busy_wait!(self.regs, rxne, bit_is_set);
 
