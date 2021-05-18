@@ -19,7 +19,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel, DmaInput};
 
 use embedded_dma::{ReadBuffer, WriteBuffer};
 
@@ -386,19 +386,6 @@ where
     {
         let (ptr, len) = unsafe { buf.read_buffer() };
 
-        // todo: These are only valid for DMA1!
-        #[cfg(feature = "l4")]
-        match self.device {
-            UsartDevice::One => {
-                dma.channel_select(dma::DmaChannel::C4, 0b010); // Tx
-            }
-            UsartDevice::Two => {
-                dma.channel_select(dma::DmaChannel::C7, 0b010);
-            }
-            UsartDevice::Three => {
-                dma.channel_select(dma::DmaChannel::C2, 0b010);
-            }
-        };
 
         // To map a DMA channel for USART transmission, use
         // the following procedure (x denotes the channel number):
@@ -407,8 +394,8 @@ where
         // todo DMA channel mapping
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
-            UsartDevice::One => dma::DmaChannel::C4,
-            UsartDevice::Two => dma::DmaChannel::C7,
+            UsartDevice::One => DmaInput::Usart1Tx.dma1_channel(),
+            UsartDevice::Two => DmaInput::Usart2Tx.dma1_channel(),
             #[cfg(not(any(
                 feature = "f401",
                 feature = "f410",
@@ -418,8 +405,16 @@ where
                 feature = "l4x1",
                 feature = "g0"
             )))]
-            UsartDevice::Three => dma::DmaChannel::C2,
+            UsartDevice::Three => DmaInput::Usart3Tx.dma1_channel(),
         };
+
+        // todo: These are only valid for DMA1!
+        #[cfg(feature = "l4")]
+        match self.device {
+            UsartDevice::One => dma.channel_select(DmaInput::Usart1Tx),
+            UsartDevice::Two => dma.channel_select(DmaInput::Usart2Tx),
+            UsartDevice::Three => dma.channel_select(DmaInput::Usart3Tx),
+        }
 
         // todo: Pri and Circular as args?
 
@@ -474,23 +469,10 @@ where
     {
         let (ptr, len) = unsafe { buf.write_buffer() };
 
-        #[cfg(feature = "l4")]
-        match self.device {
-            UsartDevice::One => {
-                dma.channel_select(dma::DmaChannel::C5, 0b010); // Rx
-            }
-            UsartDevice::Two => {
-                dma.channel_select(dma::DmaChannel::C6, 0b010);
-            }
-            UsartDevice::Three => {
-                dma.channel_select(dma::DmaChannel::C3, 0b010);
-            }
-        };
-
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
-            UsartDevice::One => dma::DmaChannel::C5,
-            UsartDevice::Two => dma::DmaChannel::C6,
+            UsartDevice::One => DmaInput::Usart1Rx.dma1_channel(),
+            UsartDevice::Two => DmaInput::Usart2Rx.dma1_channel(),
             #[cfg(not(any(
                 feature = "f401",
                 feature = "f410",
@@ -500,8 +482,15 @@ where
                 feature = "l4x1",
                 feature = "g0"
             )))]
-            UsartDevice::Three => dma::DmaChannel::C3,
+            UsartDevice::Three => DmaInput::Usart3Rx.dma1_channel(),
         };
+
+        #[cfg(feature = "l4")]
+        match self.device {
+            UsartDevice::One => dma.channel_select(DmaInput::Usart1Rx),
+            UsartDevice::Two => dma.channel_select(DmaInput::Usart2Rx),
+            UsartDevice::Three => dma.channel_select(DmaInput::Usart3Rx),
+        }
 
         // todo: Pri and Circular as args?
 

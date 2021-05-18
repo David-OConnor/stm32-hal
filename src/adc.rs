@@ -20,7 +20,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel, DmaInput};
 
 use embedded_dma::WriteBuffer;
 
@@ -717,16 +717,16 @@ macro_rules! hal {
                 // todo: DMA2 support.
                 #[cfg(any(feature = "f3", feature = "l4"))]
                 let channel = match self.device {
-                    AdcDevice::One => DmaChannel::C1,
-                    AdcDevice::Two => DmaChannel::C2,
+                    AdcDevice::One => DmaInput::Adc1.dma1_channel(),
+                    AdcDevice::Two => DmaInput::Adc2.dma1_channel(),
                     _ => panic!("DMA on ADC beyond 2 is not supported. If it is for your MCU, please submit an issue \
                 or PR on Github.")
                 };
 
                 #[cfg(feature = "l4")]
                 match self.device {
-                    AdcDevice::One => dma.channel_select(DmaChannel::C1, 0),
-                    AdcDevice::Two => dma.channel_select(DmaChannel::C2, 0),
+                    AdcDevice::One => dma.channel_select(DmaInput::Adc1),
+                    AdcDevice::Two => dma.channel_select(DmaInput::Adc2),
                     _ => unimplemented!(),
                 }
 

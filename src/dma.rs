@@ -19,12 +19,13 @@ use cfg_if::cfg_if;
 
 // todo: Several sections of this are only correct for DMA1.
 
-#[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
+#[derive(Copy, Clone)]
 #[repr(u8)]
-/// See G4, Table 91: DMAMUX: Assignment of multiplexer inputs to resources.
-pub enum MuxInput {
-    // todo: This (on G4) goes up to 115. For now, just implement things we're likely
-    // todo to use in this HAL. Make sure this is compatible beyond G4.
+/// A list of DMA input sources. The integer values represent their DMAMUX register value, on
+/// MCUs that use this. G4 RM, Table 91: DMAMUX: Assignment of multiplexer inputs to resources.
+pub enum DmaInput {
+    // This (on G4) goes up to 115. For now, just implement things we're likely
+    // to use in this HAL. Make sure this is compatible beyond G4.
     Adc1 = 5,
     Dac1Ch1 = 6,
     Dac1Ch2 = 7,
@@ -60,6 +61,94 @@ pub enum MuxInput {
     Adc3 = 37,
     Adc4 = 38,
     Adc5 = 39,
+}
+
+impl DmaInput {
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    /// Select the hard set channel associated with a given input source. See L44 RM, Table 41.
+    pub fn dma1_channel(&self) -> DmaChannel {
+        match self {
+            Self::Adc1 => DmaChannel::C1,
+            // Self::Dac1Ch1 => 6,
+            // Self::Dac1Ch2 => 7,
+            // Self::Tim6Up => 8,
+            // Self::Tim7Up => 9,
+            Self::Spi1Rx => DmaChannel::C2,
+            Self::Spi1Tx => DmaChannel::C3,
+            Self::Spi2Rx => DmaChannel::C4,
+            Self::Spi2Tx => DmaChannel::C5,
+            // Self::Spi3Rx => 14,
+            // Self::Spi3Tx => 15,
+            Self::I2c1Rx => DmaChannel::C7,
+            Self::I2c1Tx => DmaChannel::C6,
+            Self::I2c2Rx => DmaChannel::C5,
+            Self::I2c2Tx => DmaChannel::C4,
+            Self::I2c3Rx => DmaChannel::C3,
+            // Self::I2c3Tx => 21,
+            // Self::I2c4Rx => 22,
+            // Self::I2c4Tx => 23,
+            Self::Usart1Rx => DmaChannel::C5,
+            Self::Usart1Tx => DmaChannel::C4,
+            Self::Usart2Rx => DmaChannel::C6,
+            Self::Usart2Tx => DmaChannel::C7,
+            Self::Usart3Rx => DmaChannel::C3,
+            Self::Usart3Tx => DmaChannel::C2,
+            // Self::Uart4Rx => 30,
+            // Self::Uart4Tx => 31,
+            // Self::Uart5Rx => 32,
+            // Self::Uart5Tx => 33,
+            // Self::Lpuart1Rx => 34,
+            // Self::Lpuart1Tx => 35,
+            Self::Adc2 => DmaChannel::C2,
+            // Self::Adc3 => 37,
+            // Self::Adc4 => 38,
+            // Self::Adc5 => 39,
+            _ => unimplemented!(),
+        }
+    }
+
+    #[cfg(feature = "l4")]
+    /// Find the channel select value for a given DMA input. See L44 RM, Table 41.
+    pub fn dma1_channel_select(&self) -> u8 {
+        match self {
+            Self::Adc1 => 0b000,
+            // Self::Dac1Ch1 => 6,
+            // Self::Dac1Ch2 => 7,
+            // Self::Tim6Up => 8,
+            // Self::Tim7Up => 9,
+            Self::Spi1Rx => 0b001,
+            Self::Spi1Tx => 0b001,
+            Self::Spi2Rx => 0b001,
+            Self::Spi2Tx => 0b001,
+            // Self::Spi3Rx => 14,
+            // Self::Spi3Tx => 15,
+            Self::I2c1Rx => 0b011,
+            Self::I2c1Tx => 0b011,
+            Self::I2c2Rx => 0b011,
+            Self::I2c2Tx => 0b011,
+            Self::I2c3Rx => 0b011,
+            // Self::I2c3Tx => 21,
+            // Self::I2c4Rx => 22,
+            // Self::I2c4Tx => 23,
+            Self::Usart1Rx => 0b010,
+            Self::Usart1Tx => 0b010,
+            Self::Usart2Rx => 0b010,
+            Self::Usart2Tx => 0b010,
+            Self::Usart3Rx => 0b010,
+            Self::Usart3Tx => 0b010,
+            // Self::Uart4Rx => 30,
+            // Self::Uart4Tx => 31,
+            // Self::Uart5Rx => 32,
+            // Self::Uart5Tx => 33,
+            // Self::Lpuart1Rx => 34,
+            // Self::Lpuart1Tx => 35,
+            Self::Adc2 => 0b000,
+            // Self::Adc3 => 37,
+            // Self::Adc4 => 38,
+            // Self::Adc5 => 39,
+            _ => unimplemented!(),
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -233,8 +322,8 @@ pub struct Dma<D> {
 }
 
 impl<D> Dma<D>
-where
-    D: Deref<Target = dma::RegisterBlock>,
+    where
+        D: Deref<Target = dma::RegisterBlock>,
 {
     pub fn new(regs: D, rcc: &mut RCC) -> Self {
         // todo: Enable RCC for DMA 2 etc!
@@ -824,25 +913,20 @@ where
         }
     }
 
-    #[cfg(feature = "l4")] // Only on L4
+    #[cfg(feature = "l4")] // Only required on L4
     /// Select which peripheral on a given channel we're using.
     /// See L44 RM, Table 41.
-    pub fn channel_select(&mut self, channel: DmaChannel, selection: u8) {
-        if selection > 7 {
-            // Alternatively, we could use an enum
-            panic!("CSEL must be 0 - 7")
-        }
-
+    pub fn channel_select(&mut self, input: DmaInput) {
         // todo: Allow selecting channels in pairs to save a write.
-
-        match channel {
-            DmaChannel::C1 => self.regs.cselr.modify(|_, w| w.c1s().bits(selection)),
-            DmaChannel::C2 => self.regs.cselr.modify(|_, w| w.c2s().bits(selection)),
-            DmaChannel::C3 => self.regs.cselr.modify(|_, w| w.c3s().bits(selection)),
-            DmaChannel::C4 => self.regs.cselr.modify(|_, w| w.c4s().bits(selection)),
-            DmaChannel::C5 => self.regs.cselr.modify(|_, w| w.c5s().bits(selection)),
-            DmaChannel::C6 => self.regs.cselr.modify(|_, w| w.c6s().bits(selection)),
-            DmaChannel::C7 => self.regs.cselr.modify(|_, w| w.c7s().bits(selection)),
+        let val = input.dma1_channel_select();
+        match input.dma1_channel() {
+            DmaChannel::C1 => self.regs.cselr.modify(|_, w| w.c1s().bits(val)),
+            DmaChannel::C2 => self.regs.cselr.modify(|_, w| w.c2s().bits(val)),
+            DmaChannel::C3 => self.regs.cselr.modify(|_, w| w.c3s().bits(val)),
+            DmaChannel::C4 => self.regs.cselr.modify(|_, w| w.c4s().bits(val)),
+            DmaChannel::C5 => self.regs.cselr.modify(|_, w| w.c5s().bits(val)),
+            DmaChannel::C6 => self.regs.cselr.modify(|_, w| w.c6s().bits(val)),
+            DmaChannel::C7 => self.regs.cselr.modify(|_, w| w.c7s().bits(val)),
         }
     }
 
@@ -1036,9 +1120,9 @@ pub struct DmaWriteBuf<'a, T> {
     // pub buf: &'static [u8]
     pub buf: &'a mut [T], // pub channel: DmaChannel,
 
-                          // #[repr(align(4))]
-                          // struct Aligned<T: ?Sized>(T);
-                          //s tatic mut BUF: Aligned<[u16; 8]> = Aligned([0; 8]);
+    // #[repr(align(4))]
+    // struct Aligned<T: ?Sized>(T);
+    //s tatic mut BUF: Aligned<[u16; 8]> = Aligned([0; 8]);
 }
 
 // unsafe impl StaticWriteBuffer for DmaWriteBuf {

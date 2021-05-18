@@ -16,7 +16,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel, DmaInput};
 
 use embedded_dma::{ReadBuffer, WriteBuffer};
 
@@ -396,9 +396,9 @@ where
         // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
-            SpiDevice::One => DmaChannel::C3,
+            SpiDevice::One => DmaInput::Spi1Tx.dma1_channel(),
             #[cfg(not(feature = "f3x4"))]
-            SpiDevice::Two => DmaChannel::C5,
+            SpiDevice::Two => DmaInput::Spi2Tx.dma1_channel(),
             #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
             SpiDevice::Three => panic!(
                 "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
@@ -408,23 +408,11 @@ where
 
         #[cfg(feature = "l4")]
         match self.device {
-            SpiDevice::One => {
-                dma.channel_select(DmaChannel::C3, 0b001); // Tx
-                                                           // dma.channel_select(DmaChannel::C2, 0b001); // Rx
-            }
+            SpiDevice::One =>dma.channel_select(DmaInput::Spi1Tx),
             #[cfg(not(feature = "f3x4"))]
-            SpiDevice::Two => {
-                dma.channel_select(DmaChannel::C5, 0b001);
-                // dma.channel_select(DmaChannel::C4, 0b001);
-            }
-            // todo: Allow selecting channels in pairs to save a write.
+            SpiDevice::Two => dma.channel_select(DmaInput::Spi2Tx),
             #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
-            SpiDevice::Three => {
-                panic!(
-                    "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
-                or PR on Github."
-                )
-            }
+            _ => unimplemented!(),
         };
 
         #[cfg(feature = "h7")]
@@ -465,9 +453,9 @@ where
 
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
-            SpiDevice::One => DmaChannel::C2,
+            SpiDevice::One => DmaInput::Spi1Rx.dma1_channel(),
             #[cfg(not(feature = "f3x4"))]
-            SpiDevice::Two => DmaChannel::C4,
+            SpiDevice::Two => DmaInput::Spi2Rx.dma1_channel(),
             #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
             _ => panic!(
                 "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
@@ -477,16 +465,9 @@ where
 
         #[cfg(feature = "l4")]
         match self.device {
-            SpiDevice::One => {
-                // dma.channel_select(DmaChannel::C3, 0b001); // Tx
-                dma.channel_select(DmaChannel::C2, 0b001); // Rx
-            }
+            SpiDevice::One =>dma.channel_select(DmaInput::Spi1Rx),
             #[cfg(not(feature = "f3x4"))]
-            SpiDevice::Two => {
-                // dma.channel_select(DmaChannel::C5, 0b001);
-                dma.channel_select(DmaChannel::C4, 0b001);
-            }
-            // todo: Allow selecting channels in pairs to save a write.
+            SpiDevice::Two => dma.channel_select(DmaInput::Spi2Rx),
             #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
             _ => unimplemented!(),
         };
@@ -522,7 +503,7 @@ where
         // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
         dma.stop(channel);
         // 2. Disable the SPI by following the SPI disable procedure.
-        // self.disable(); // todo?
+        // self.disable();
         // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
         // SPI_CR2 register, if DMA Tx and/or DMA Rx are used.
         self.regs.cr2.modify(|_, w| {

@@ -1,7 +1,5 @@
 //! Inter-Integrated Circuit (I2C) bus. Also supports SMBUS. Implements traits from `embedded-hal`.
 
-// Based on `stm32h7xx-hal`.
-
 use cast::{u16, u8};
 use core::ops::Deref;
 
@@ -19,7 +17,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel, DmaInput};
 
 use embedded_dma::{ReadBuffer, WriteBuffer};
 
@@ -165,8 +163,8 @@ where
         I2c { regs, device }
     }
 
-    /// Helper function to prevent repetition between `write`, and `write_read`.
-    fn set_cr2_write(&mut self, addr: u8, bytes: &[u8]) {
+    /// Helper function to prevent repetition between `write`, `write_read`, and `write_dma`.
+    fn set_cr2_write(&mut self, addr: u8, len: u8) {
         // L44 RM: "Master communication initialization (address phase)
         // In order to initiate the communication, the user must program the following parameters for
         // the addressed slave in the I2C_CR2 register:
@@ -180,7 +178,7 @@ where
                 w.rd_wrn().clear_bit(); // write
                                         // The number of bytes to be transferred: NBYTES[7:0]. If the number of bytes is equal to
                                         // or greater than 255 bytes, NBYTES[7:0] must initially be filled with 0xFF.
-                w.nbytes().bits(bytes.len() as u8);
+                w.nbytes().bits(len);
                 w.autoend().clear_bit(); // software end mode
                                          // The user must then set the START bit in I2C_CR2 register. Changing all the above bits is
                                          // not allowed when START bit is set.
@@ -189,30 +187,45 @@ where
         });
     }
 
+    /// Helper function to prevent repetition between `read`, `write_read`, and `read_dma`.
+    fn set_cr2_read(&mut self, addr: u8, len: u8) {
+        // todo: Variant for restart, with diff add
+        self.regs.cr2.write(|w| {
+            unsafe {
+                w.sadd().bits((addr << 1 | 0) as u16);
+                w.add10().clear_bit();
+                w.rd_wrn().set_bit(); // read
+                w.nbytes().bits(len);
+                w.start().set_bit();
+                w.autoend().set_bit() // automatic end mode
+            }
+        });
+    }
+
     /// Read data, using DMA. See L44 RM, 37.4.16: "Transmissino using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub fn write_dma<D, B>(&mut self, buf: &B, channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn write_dma<D, B>(&mut self, addr: u8, data: &B, channel: DmaChannel, dma: &mut Dma<D>)
     where
         B: ReadBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
-        let (ptr, len) = unsafe { buf.read_buffer() };
+        let (ptr, len) = unsafe { data.read_buffer() };
 
         // todo: DMA2 support.
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
-            I2cDevice::One => DmaChannel::C6,
-            I2cDevice::Two => DmaChannel::C4,
+            I2cDevice::One => DmaInput::I2c1Tx.dma1_channel(),
+            I2cDevice::Two => DmaInput::I2c1Tx.dma1_channel(),
             #[cfg(feature = "h7")]
-            I2cDevice::Three => DmaChannel::C2,
+            I2cDevice::Three => DmaInput::I2c1Tx.dma1_channel(),
         };
 
         #[cfg(feature = "l4")]
         match self.device {
-            I2cDevice::One => dma.channel_select(DmaChannel::C6, 0b011),
-            I2cDevice::Two => dma.channel_select(DmaChannel::C4, 0b011),
+            I2cDevice::One => dma.channel_select(DmaInput::I2c1Tx),
+            I2cDevice::Two => dma.channel_select(DmaInput::I2c2Tx),
             #[cfg(feature = "h7")]
-            I2cDevice::Three => dma.channel_select(DmaChannel::C2, 0b011),
+            I2cDevice::Three => dma.channel_select(DmaInput::I2c3Tx),
         }
 
         // DMA (Direct Memory Access) can be enabled for transmission by setting the TXDMAEN bit
@@ -227,12 +240,16 @@ where
         // transferred with DMA). When all data are transferred using DMA, the DMA must be
         // initialized before setting the START bit. The end of transfer is managed with the
         // NBYTES counter. Refer to Master transmitter on page 1151.
+        // (The steps above are handled in the write this function performs.)
+        self.set_cr2_write(addr, len as u8);
+
         // • In slave mode:
         // – With NOSTRETCH=0, when all data are transferred using DMA, the DMA must be
         // initialized before the address match event, or in ADDR interrupt subroutine, before
         // clearing ADDR.
         // – With NOSTRETCH=1, the DMA must be initialized before the address match
         // event.
+
         // • For instances supporting SMBus: the PEC transfer is managed with NBYTES counter.
         // Refer to SMBus Slave transmitter on page 1165 and SMBus Master transmitter on
         // page 1169.
@@ -252,28 +269,28 @@ where
 
     /// Read data, using DMA. See L44 RM, 37.4.16: "Reception using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub fn read_dma<D, B>(&mut self, buf: &mut B, channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn read_dma<D, B>(&mut self, addr: u8, read_buf: &mut B, channel: DmaChannel, dma: &mut Dma<D>)
     where
         B: WriteBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
-        let (ptr, len) = unsafe { buf.write_buffer() };
+        let (ptr, len) = unsafe { read_buf.write_buffer() };
 
         // todo: DMA2 support.
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
-            I2cDevice::One => DmaChannel::C7,
-            I2cDevice::Two => DmaChannel::C5,
+            I2cDevice::One => DmaInput::I2c1Rx.dma1_channel(),
+            I2cDevice::Two => DmaInput::I2c2Rx.dma1_channel(),
             #[cfg(feature = "h7")]
-            I2cDevice::Three => DmaChannel::C3,
+            I2cDevice::Three => DmaInput::I231Rx.dma1_channel(),
         };
 
         #[cfg(feature = "l4")]
         match self.device {
-            I2cDevice::One => dma.channel_select(DmaChannel::C7, 0b011),
-            I2cDevice::Two => dma.channel_select(DmaChannel::C5, 0b011),
+            I2cDevice::One => dma.channel_select(DmaInput::I2c1Rx),
+            I2cDevice::Two => dma.channel_select(DmaInput::I2c2Rx),
             #[cfg(feature = "h7")]
-            I2cDevice::Three => dma.channel_select(DmaChannel::C3, 0b011),
+            I2cDevice::Three => dma.channel_select(DmaInput::I2c3Rx),
         }
 
         // DMA (Direct Memory Access) can be enabled for reception by setting the RXDMAEN bit in
@@ -287,6 +304,8 @@ where
         // START bit are programmed by software. When all data are transferred using DMA, the
         // DMA must be initialized before setting the START bit. The end of transfer is managed
         // with the NBYTES counter.
+        self.set_cr2_read(addr, len as u8);
+
         // • In slave mode with NOSTRETCH=0, when all data are transferred using DMA, the
         // DMA must be initialized before the address match event, or in the ADDR interrupt
         // subroutine, before clearing the ADDR flag.
@@ -348,19 +367,19 @@ where
 {
     type Error = Error;
 
-    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+    fn write(&mut self, addr: u8, data: &[u8]) -> Result<(), Error> {
         // C+P from H7 HAL.
         // TODO support transfers of more than 255 bytes
-        assert!(bytes.len() < 256 && bytes.len() > 0);
+        assert!(data.len() < 256 && data.len() > 0);
 
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
         while self.regs.cr2.read().start().bit_is_set() {}
 
-        self.set_cr2_write(addr, bytes);
+        self.set_cr2_write(addr, data.len() as u8);
 
-        for byte in bytes {
+        for byte in data {
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte when
             // through)
@@ -386,9 +405,9 @@ where
 {
     type Error = Error;
 
-    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Error> {
+    fn read(&mut self, addr: u8, read_buf: &mut [u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        assert!(buffer.len() < 256 && buffer.len() > 0);
+        assert!(read_buf.len() < 256 && read_buf.len() > 0);
 
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
@@ -398,18 +417,10 @@ where
         // Set START and prepare to receive bytes into
         // `buffer`. The START bit can be set even if the bus
         // is BUSY or I2C is in slave mode.
-        self.regs.cr2.write(|w| {
-            unsafe {
-                w.sadd().bits((addr << 1 | 0) as u16);
-                w.add10().clear_bit();
-                w.rd_wrn().set_bit(); // read
-                w.nbytes().bits(buffer.len() as u8);
-                w.start().set_bit();
-                w.autoend().set_bit() // automatic end mode
-            }
-        });
+        self.set_cr2_read(addr, read_buf.len() as u8);
 
-        for byte in buffer {
+
+        for byte in read_buf {
             // Wait until we have received something
             busy_wait!(self.regs, rxne, bit_is_set);
 
@@ -428,19 +439,19 @@ where
 {
     type Error = Error;
 
-    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
+    fn write_read(&mut self, addr: u8, data: &[u8], read_buf: &mut [u8]) -> Result<(), Error> {
         // TODO support transfers of more than 255 bytes
-        assert!(bytes.len() < 256 && bytes.len() > 0);
-        assert!(buffer.len() < 256 && buffer.len() > 0);
+        assert!(data.len() < 256 && data.len() > 0);
+        assert!(read_buf.len() < 256 && read_buf.len() > 0);
 
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
         while self.regs.cr2.read().start().bit_is_set() {}
 
-        self.set_cr2_write(addr, bytes);
+        self.set_cr2_write(addr, data.len() as u8);
 
-        for byte in bytes {
+        for byte in data {
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte went through)
 
@@ -461,13 +472,13 @@ where
                 w.sadd().bits(u16(addr << 1 | 1));
                 w.add10().clear_bit();
                 w.rd_wrn().set_bit(); // read mode
-                w.nbytes().bits(buffer.len() as u8);
+                w.nbytes().bits(read_buf.len() as u8);
                 w.autoend().set_bit(); // automatic end mode
                 w.start().set_bit()
             }
         });
 
-        for byte in buffer {
+        for byte in read_buf {
             // Wait until we have received something
             busy_wait!(self.regs, rxne, bit_is_set);
 
