@@ -13,7 +13,7 @@ use crate::pac::dma;
 #[cfg(not(feature = "g0"))]
 use crate::pac::dma1 as dma;
 
-use embedded_dma::{ReadBuffer, WriteBuffer};
+// use embedded_dma::{ReadBuffer, WriteBuffer};
 
 use cfg_if::cfg_if;
 
@@ -322,8 +322,8 @@ pub struct Dma<D> {
 }
 
 impl<D> Dma<D>
-    where
-        D: Deref<Target = dma::RegisterBlock>,
+where
+    D: Deref<Target = dma::RegisterBlock>,
 {
     pub fn new(regs: D, rcc: &mut RCC) -> Self {
         // todo: Enable RCC for DMA 2 etc!
@@ -1111,114 +1111,114 @@ impl<D> Dma<D>
     }
 }
 
-// todo: Remove the static reqs once you get thi sworking.
-// todo: If you end up using these, move to util.
-// todo: Set up a global flag to figure out if this is in use to prevent concurrent SPI
-// todo activity while in use??
-// todo: Impl Drop for DmaWriteBuf, where it stops the transfer.
-pub struct DmaWriteBuf<'a, T> {
-    // pub buf: &'static [u8]
-    pub buf: &'a mut [T], // pub channel: DmaChannel,
-
-    // #[repr(align(4))]
-    // struct Aligned<T: ?Sized>(T);
-    //s tatic mut BUF: Aligned<[u16; 8]> = Aligned([0; 8]);
-}
-
-// unsafe impl StaticWriteBuffer for DmaWriteBuf {
-//     type Word = u8;
+// // todo: Remove the static reqs once you get thi sworking.
+// // todo: If you end up using these, move to util.
+// // todo: Set up a global flag to figure out if this is in use to prevent concurrent SPI
+// // todo activity while in use??
+// // todo: Impl Drop for DmaWriteBuf, where it stops the transfer.
+// pub struct DmaWriteBuf<'a, T> {
+//     // pub buf: &'static [u8]
+//     pub buf: &'a mut [T], // pub channel: DmaChannel,
 //
-//     unsafe fn static_write_buffer(&mut self) -> (*mut Self::Word, usize) {
+//     // #[repr(align(4))]
+//     // struct Aligned<T: ?Sized>(T);
+//     //s tatic mut BUF: Aligned<[u16; 8]> = Aligned([0; 8]);
+// }
+//
+// // unsafe impl StaticWriteBuffer for DmaWriteBuf {
+// //     type Word = u8;
+// //
+// //     unsafe fn static_write_buffer(&mut self) -> (*mut Self::Word, usize) {
+// //         (self.buf.as_mut_ptr(), self.buf.len())
+// //     }
+// // }
+//
+// unsafe impl<'a, T> WriteBuffer for DmaWriteBuf<'a, T> {
+//     type Word = T;
+//
+//     unsafe fn write_buffer(&mut self) -> (*mut Self::Word, usize) {
 //         (self.buf.as_mut_ptr(), self.buf.len())
 //     }
 // }
-
-unsafe impl<'a, T> WriteBuffer for DmaWriteBuf<'a, T> {
-    type Word = T;
-
-    unsafe fn write_buffer(&mut self) -> (*mut Self::Word, usize) {
-        (self.buf.as_mut_ptr(), self.buf.len())
-    }
-}
-
-impl<T> Drop for DmaWriteBuf<'_, T> {
-    // todo: Hardcoded for DMA1 and Chan 3.
-    // todo: Does this stop all transfers in progress?
-    fn drop(&mut self) {
-        unsafe {
-            cfg_if! {
-                if #[cfg(feature = "g4")] {
-                    (*pac::DMA1::ptr()).ifcr.write(|w| w.gif2().clear_bit());
-                } else if #[cfg(feature = "g0")] {
-                } else if #[cfg(feature = "g0")] {
-                    (*pac::DMA::ptr()).ifcr.write(|w| w.cgif2().clear_bit());
-                } else {
-                    (*pac::DMA1::ptr()).ifcr.write(|w| w.cgif2().clear_bit());
-                }
-            }
-            cfg_if! {
-                if #[cfg(feature = "f3")] {
-                    (*pac::DMA1::ptr()).ch2.cr.modify(|_, w| w.en().clear_bit());
-                } else if #[cfg(feature = "g0")] {
-                    (*pac::DMA::ptr()).ch2.cr.modify(|_, w| w.en().clear_bit());
-                } else {
-                    (*pac::DMA1::ptr()).ccr2.modify(|_, w| w.en().clear_bit());
-                }
-            }
-        }
-    }
-}
-
-pub struct DmaReadBuf<'a, T> {
-    // pub buf: &'static [u8]
-    pub buf: &'a [T],
-}
-
-// unsafe impl StaticReadBuffer for DmaReadBuf {
-//     type Word = u8;
 //
-//     unsafe fn static_write_buffer(&self) -> (*const Self::Word, usize) {
-//         (self.buf[.as_ptr(), self.buf.len())
+// impl<T> Drop for DmaWriteBuf<'_, T> {
+//     // todo: Hardcoded for DMA1 and Chan 3.
+//     // todo: Does this stop all transfers in progress?
+//     fn drop(&mut self) {
+//         unsafe {
+//             cfg_if! {
+//                 if #[cfg(feature = "g4")] {
+//                     (*pac::DMA1::ptr()).ifcr.write(|w| w.gif2().clear_bit());
+//                 } else if #[cfg(feature = "g0")] {
+//                 } else if #[cfg(feature = "g0")] {
+//                     (*pac::DMA::ptr()).ifcr.write(|w| w.cgif2().clear_bit());
+//                 } else {
+//                     (*pac::DMA1::ptr()).ifcr.write(|w| w.cgif2().clear_bit());
+//                 }
+//             }
+//             cfg_if! {
+//                 if #[cfg(feature = "f3")] {
+//                     (*pac::DMA1::ptr()).ch2.cr.modify(|_, w| w.en().clear_bit());
+//                 } else if #[cfg(feature = "g0")] {
+//                     (*pac::DMA::ptr()).ch2.cr.modify(|_, w| w.en().clear_bit());
+//                 } else {
+//                     (*pac::DMA1::ptr()).ccr2.modify(|_, w| w.en().clear_bit());
+//                 }
+//             }
+//         }
 //     }
 // }
-
-unsafe impl<'a, T> ReadBuffer for DmaReadBuf<'a, T> {
-    type Word = T;
-
-    unsafe fn read_buffer(&self) -> (*const Self::Word, usize) {
-        (self.buf.as_ptr(), self.buf.len())
-    }
-}
-
-impl<T> Drop for DmaReadBuf<'_, T> {
-    // todo: Hardcoded for DMA1 and Chan 2.
-    // todo: Does this stop all transfers in progress?
-
-    // todo: DRY with impl in DmaWriteBuf above.
-    fn drop(&mut self) {
-        unsafe {
-            // Global interrupt clear flag for this channel.
-            cfg_if! {
-                if #[cfg(feature = "g4")] {
-                    (*pac::DMA1::ptr()).ifcr.write(|w| w.gif2().clear_bit());
-                } else if #[cfg(feature = "g0")] {
-                    (*pac::DMA::ptr()).ifcr.write(|w| w.cgif2().clear_bit());
-                } else {
-                    (*pac::DMA1::ptr()).ifcr.write(|w| w.cgif2().clear_bit());
-                }
-            }
-            cfg_if! {
-                if #[cfg(feature = "f3")] {
-                    (*pac::DMA1::ptr()).ch2.cr.modify(|_, w| w.en().clear_bit());
-                } else if #[cfg(feature = "g0")] {
-                    (*pac::DMA::ptr()).ch2.cr.modify(|_, w| w.en().clear_bit());
-                } else {
-                    (*pac::DMA1::ptr()).ccr2.modify(|_, w| w.en().clear_bit());
-                }
-            }
-        }
-    }
-}
+//
+// pub struct DmaReadBuf<'a, T> {
+//     // pub buf: &'static [u8]
+//     pub buf: &'a [T],
+// }
+//
+// // unsafe impl StaticReadBuffer for DmaReadBuf {
+// //     type Word = u8;
+// //
+// //     unsafe fn static_write_buffer(&self) -> (*const Self::Word, usize) {
+// //         (self.buf[.as_ptr(), self.buf.len())
+// //     }
+// // }
+//
+// unsafe impl<'a, T> ReadBuffer for DmaReadBuf<'a, T> {
+//     type Word = T;
+//
+//     unsafe fn read_buffer(&self) -> (*const Self::Word, usize) {
+//         (self.buf.as_ptr(), self.buf.len())
+//     }
+// }
+//
+// impl<T> Drop for DmaReadBuf<'_, T> {
+//     // todo: Hardcoded for DMA1 and Chan 2.
+//     // todo: Does this stop all transfers in progress?
+//
+//     // todo: DRY with impl in DmaWriteBuf above.
+//     fn drop(&mut self) {
+//         unsafe {
+//             // Global interrupt clear flag for this channel.
+//             cfg_if! {
+//                 if #[cfg(feature = "g4")] {
+//                     (*pac::DMA1::ptr()).ifcr.write(|w| w.gif2().clear_bit());
+//                 } else if #[cfg(feature = "g0")] {
+//                     (*pac::DMA::ptr()).ifcr.write(|w| w.cgif2().clear_bit());
+//                 } else {
+//                     (*pac::DMA1::ptr()).ifcr.write(|w| w.cgif2().clear_bit());
+//                 }
+//             }
+//             cfg_if! {
+//                 if #[cfg(feature = "f3")] {
+//                     (*pac::DMA1::ptr()).ch2.cr.modify(|_, w| w.en().clear_bit());
+//                 } else if #[cfg(feature = "g0")] {
+//                     (*pac::DMA::ptr()).ch2.cr.modify(|_, w| w.en().clear_bit());
+//                 } else {
+//                     (*pac::DMA1::ptr()).ccr2.modify(|_, w| w.en().clear_bit());
+//                 }
+//             }
+//         }
+//     }
+// }
 
 #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
 /// Configure a specific DMA channel to work with a specific peripheral.

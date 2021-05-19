@@ -76,14 +76,12 @@ fn main() -> ! {
     // 2: Set up DMA, for nonblocking (generally faster) conversion transfers:
     let mut dma = Dma::new(&mut dp.DMA1, &dp.RCC);
 
-    let mut dma_buf = DmaWriteBuf {
-        buf: &mut [0_u16; 1],
-    };
+    let mut dma_buf = [0];
 
     // Begin a DMA transfer. Note that the `DmaChannel` we pass here is only used on
     // MCUs that use `DMAMUX`, eg L5, G0, and G4. For those, you need to run `mux`, to
     // set the channel: `dma::mux(DmaChannel::C1, MuxInput::Adc1, &mut dp.DMAMUX);
-    adc.read_dma(&mut buf, chan_num, DmaChannel::C1, &mut dma);
+    adc.read_dma(&mut dma_buf, chan_num, DmaChannel::C1, &mut dma);
 
     // Wait for the transfer to complete. Ie by handling the channel's transfer-complete
     // interrupt in an ISR, which is enabled by the `read_dma` command.
@@ -91,7 +89,7 @@ fn main() -> ! {
     while !dma.transfer_is_complete(DmaChannel::C1) {}
     dma.stop(DmaChannel::C1);
 
-    defmt::info!("Reading: {:?}", &dma_buf.buf[0]);
+    defmt::info!("Reading: {:?}", &dma_buf[0]);
 
     // Unmask the interrupt line. See the `DMA_CH1` interrupt handler below.
     unsafe { NVIC::unmask(pac::Interrupt::DMA1_CH1) }

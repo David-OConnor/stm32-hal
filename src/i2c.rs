@@ -17,9 +17,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel, DmaInput};
-
-use embedded_dma::{ReadBuffer, WriteBuffer};
+use crate::dma::{self, Dma, DmaChannel, DmaInput};
 
 /// I2C error
 #[non_exhaustive]
@@ -206,22 +204,21 @@ where
 
     /// Read data, using DMA. See L44 RM, 37.4.16: "Transmissino using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub fn write_dma<D, B>(&mut self, addr: u8, data: &B, channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn write_dma<D>(&mut self, addr: u8, buf: &[u8], channel: DmaChannel, dma: &mut Dma<D>)
     where
-        B: ReadBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         while self.regs.cr2.read().start().bit_is_set() {}
 
-        let (ptr, len) = unsafe { data.read_buffer() };
+        let (ptr, len) = (buf.as_ptr(), buf.len());
 
         // todo: DMA2 support.
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
             I2cDevice::One => DmaInput::I2c1Tx.dma1_channel(),
-            I2cDevice::Two => DmaInput::I2c1Tx.dma1_channel(),
+            I2cDevice::Two => DmaInput::I2c2Tx.dma1_channel(),
             #[cfg(feature = "h7")]
-            I2cDevice::Three => DmaInput::I2c1Tx.dma1_channel(),
+            I2cDevice::Three => DmaInput::I2c3Tx.dma1_channel(),
         };
 
         #[cfg(feature = "l4")]
@@ -237,6 +234,7 @@ where
         // peripheral (see Section 11: Direct memory access controller (DMA) on page 295) to the
         // I2C_TXDR register whenever the TXIS bit is set.
         self.regs.cr1.modify(|_, w| w.txdmaen().set_bit());
+        while self.regs.cr1.read().txdmaen().bit_is_clear() {}
 
         // Only the data are transferred with DMA.
         // • In master mode: the initialization, the slave address, direction, number of bytes and
@@ -246,6 +244,18 @@ where
         // NBYTES counter. Refer to Master transmitter on page 1151.
         // (The steps above are handled in the write this function performs.)
         self.set_cr2_write(addr, len as u8);
+
+        // todo: not usgin set_cr2_write to ts due to auto ending?
+        // self.regs.cr2.write(|w| {
+        //     unsafe {
+        //         w.add10().clear_bit();
+        //         w.sadd().bits(u16(addr << 1));
+        //         w.rd_wrn().clear_bit(); // write
+        //         w.nbytes().bits(len as u8);
+        //         w.autoend().set_bit(); // software end mode
+        //         w.start().set_bit()
+        //     }
+        // });
 
         // • In slave mode:
         // – With NOSTRETCH=0, when all data are transferred using DMA, the DMA must be
@@ -273,14 +283,14 @@ where
 
     /// Read data, using DMA. See L44 RM, 37.4.16: "Reception using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub fn read_dma<D, B>(&mut self, addr: u8, read_buf: &mut B, channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn read_dma<D>(&mut self, addr: u8, buf: &mut [u8], channel: DmaChannel, dma: &mut Dma<D>)
     where
-        B: WriteBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
-        while self.regs.cr2.read().start().bit_is_set() {}
+        // while self.regs.cr2.read().start().bit_is_set() {}
+        // todo: Think about how you want to do write reads. Ie there's no stopping there.
 
-        let (ptr, len) = unsafe { read_buf.write_buffer() };
+        let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         // todo: DMA2 support.
         #[cfg(any(feature = "f3", feature = "l4"))]
@@ -305,6 +315,7 @@ where
         // (DMA) on page 295) whenever the RXNE bit is set. Only the data (including PEC) are
         // transferred with DMA.
         self.regs.cr1.modify(|_, w| w.rxdmaen().set_bit());
+        while self.regs.cr1.read().rxdmaen().bit_is_clear() {}
 
         // • In master mode, the initialization, the slave address, direction, number of bytes and
         // START bit are programmed by software. When all data are transferred using DMA, the

@@ -23,7 +23,7 @@ use stm32_hal2::{
     low_power, pac,
 };
 
-use embedded_hal::{Write, Read, WriteRead};
+use embedded_hal::{Read, Write, WriteRead};
 
 #[entry]
 fn main() -> ! {
@@ -43,7 +43,7 @@ fn main() -> ! {
     // Enable the GPIOB port.
     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
 
-   // Configure pins for I2c.
+    // Configure pins for I2c.
     let mut scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
@@ -65,11 +65,10 @@ fn main() -> ! {
     // Set up DMA, for nonblocking (generally faster) conversion transfers:
     let mut dma = Dma::new(&mut dp.DMA1, &dp.RCC);
 
-
     // todo fill this in)
 
     // Alternatively, use the blocking, non-DMA I2C API provided by `embedded-hal`:
-    let mut read_buf: [u8; 2] = [0, 0];
+    let mut read_buf = [0, 0];
     // Write the config register address, then the 2 bytes of the value we're writing.
     i2c.write(addr, &[cfg_reg, cfg[0], cfg[1]]).ok();
     // Now request a reading by passing the conversion reg, and a buffer to write
@@ -106,8 +105,5 @@ fn DMA1_CH6() {
 #[interrupt]
 /// This interrupt fires when a DMA read is complete
 fn DMA1_CH7() {
-    free(|cs| {
-        unsafe { (*pac::DMA1::ptr()).ifcr.write(|w| w.tcif7().set_bit()) }
-    });
+    free(|cs| unsafe { (*pac::DMA1::ptr()).ifcr.write(|w| w.tcif7().set_bit()) });
 }
-

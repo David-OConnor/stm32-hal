@@ -22,8 +22,6 @@ use crate::pac::dma1 as dma_p;
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel, DmaInput};
 
-use embedded_dma::WriteBuffer;
-
 const MAX_ADVREGEN_STARTUP_US: u32 = 10;
 
 /// https://github.com/rust-embedded/embedded-hal/issues/267
@@ -697,13 +695,12 @@ macro_rules! hal {
 
             /// Take a one shot reading, using DMA. See L44 RM, 16.4.27: "DMA one shot mode".
             /// Note that the `channel` argument is only used on F3 and L4.
-            pub fn read_dma<D, B>(&mut self, buf: &mut B, adc_channel: u8, dma_channel: DmaChannel, dma: &mut Dma<D>)
+            pub fn read_dma<D>(&mut self, buf: &mut [u16], adc_channel: u8, dma_channel: DmaChannel, dma: &mut Dma<D>)
             where
-                B: WriteBuffer,
                 D: Deref<Target = dma_p::RegisterBlock>,
             {
 
-                let (ptr, len) = unsafe { buf.write_buffer() };
+                let (ptr, len) = (buf.as_mut_ptr(), buf.len());
                 // The software is allowed to write (dmaen and dmacfg) only when ADSTART=0 and JADSTART=0 (which
                 // ensures that no conversion is ongoing)
                 // Todo: Should these settings be handled in `init`?

@@ -19,9 +19,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel, DmaInput};
-
-use embedded_dma::{ReadBuffer, WriteBuffer};
+use crate::dma::{self, Dma, DmaChannel, DmaInput};
 
 use embedded_hal::{
     blocking,
@@ -379,13 +377,11 @@ where
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub fn write_dma<D, B>(&mut self, mut buf: &B, channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn write_dma<D>(&mut self, mut buf: &[u8], channel: DmaChannel, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
-        B: ReadBuffer,
     {
-        let (ptr, len) = unsafe { buf.read_buffer() };
-
+        let (ptr, len) = (buf.as_ptr(), buf.len());
 
         // To map a DMA channel for USART transmission, use
         // the following procedure (x denotes the channel number):
@@ -462,12 +458,11 @@ where
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub fn read_dma<D, B>(&mut self, buf: &mut B, channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn read_dma<D>(&mut self, buf: &mut [u8], channel: DmaChannel, dma: &mut Dma<D>)
     where
-        B: WriteBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
-        let (ptr, len) = unsafe { buf.write_buffer() };
+        let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {

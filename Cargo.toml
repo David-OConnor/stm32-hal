@@ -31,7 +31,7 @@ stm32h7 = { version = "0.13.0", optional = true }
 
 # Embedded traits
 embedded-hal = { version = "0.2.5", features = ["unproven"] }
-embedded-dma = "0.1.2" # todo As you expand your DMA code, decide if you still want this.
+#embedded-dma = "0.1.2" # todo As you expand your DMA code, decide if you still want this.
 rtcc = "0.2"  # Embedded datetime traits.
 
 # These USB and CAN crates are only imported if the `usb` feature is used.

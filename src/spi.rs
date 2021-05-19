@@ -16,9 +16,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel, DmaInput};
-
-use embedded_dma::{ReadBuffer, WriteBuffer};
+use crate::dma::{self, Dma, DmaChannel, DmaInput};
 
 use cfg_if::cfg_if;
 
@@ -369,13 +367,12 @@ where
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note that the `channel` argument has no effect on F3 and L4.
-    pub fn write_dma<D, B>(&mut self, mut buf: &B, channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn write_dma<D>(&mut self, mut buf: &[u8], channel: DmaChannel, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
-        B: ReadBuffer,
     {
         // Static write and read buffers?
-        let (ptr, len) = unsafe { buf.read_buffer() };
+        let (ptr, len) = (buf.as_ptr(), buf.len());
 
         // todo: Pri and Circular as args?
 
@@ -408,7 +405,7 @@ where
 
         #[cfg(feature = "l4")]
         match self.device {
-            SpiDevice::One =>dma.channel_select(DmaInput::Spi1Tx),
+            SpiDevice::One => dma.channel_select(DmaInput::Spi1Tx),
             #[cfg(not(feature = "f3x4"))]
             SpiDevice::Two => dma.channel_select(DmaInput::Spi2Tx),
             #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
@@ -442,12 +439,11 @@ where
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note taht the `channel` argument has no effect on F3 and L4.
-    pub fn read_dma<D, B>(&mut self, buf: &mut B, channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn read_dma<D>(&mut self, buf: &mut [u8], channel: DmaChannel, dma: &mut Dma<D>)
     where
-        B: WriteBuffer,
         D: Deref<Target = dma_p::RegisterBlock>,
     {
-        let (ptr, len) = unsafe { buf.write_buffer() };
+        let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         self.regs.cr2.modify(|_, w| w.rxdmaen().set_bit());
 
@@ -465,7 +461,7 @@ where
 
         #[cfg(feature = "l4")]
         match self.device {
-            SpiDevice::One =>dma.channel_select(DmaInput::Spi1Rx),
+            SpiDevice::One => dma.channel_select(DmaInput::Spi1Rx),
             #[cfg(not(feature = "f3x4"))]
             SpiDevice::Two => dma.channel_select(DmaInput::Spi2Rx),
             #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]

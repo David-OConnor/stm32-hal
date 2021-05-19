@@ -71,11 +71,16 @@ fn main() -> ! {
 }
 ```
 
-The library is influenced by the `stm32fyxx` HALs, and several of the modules here are modified 
-versions of those. There are some areas where design philosophy is different. For example: GPIO 
+## Why this module is different from `stm32yxx-hal` libraries
+There are some areas where design philosophy is different. For example: GPIO 
 type-checking, level-of-abstraction from registers/PAC, role of DMA, role of `embedded-hal` traits in the API, 
 feature parity among STM32 families, and clock config.
+
+`stm32yxx-hal`s focus on building an API that doesn't let users configure something wrong. 
+From a programmer's perspective, these guards aren't zero-cost: They complicate both HAL and user
+code, and limit functionality.
     
+## Docs caveat
 The Rust docs page is built for STM32L4x3, and some aspects are not accurate for other
 variants. We currently don't have a good solution to this problem, and may
 self-host docs in the future.
