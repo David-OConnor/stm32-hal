@@ -811,7 +811,8 @@ where
                         let ccr = &self.regs.ccr1;
                     }
                 }
-                ccr.modify(|_, w| w.en().clear_bit())
+                ccr.modify(|_, w| w.en().clear_bit());
+                while ccr.read().en().bit_is_set() {}
             }
             DmaChannel::C2 => {
                 cfg_if! {
@@ -821,7 +822,8 @@ where
                         let ccr = &self.regs.ccr2;
                     }
                 }
-                ccr.modify(|_, w| w.en().clear_bit())
+                ccr.modify(|_, w| w.en().clear_bit());
+                while ccr.read().en().bit_is_set() {}
             }
             DmaChannel::C3 => {
                 cfg_if! {
@@ -831,7 +833,8 @@ where
                         let ccr = &self.regs.ccr3;
                     }
                 }
-                ccr.modify(|_, w| w.en().clear_bit())
+                ccr.modify(|_, w| w.en().clear_bit());
+                while ccr.read().en().bit_is_set() {}
             }
             DmaChannel::C4 => {
                 cfg_if! {
@@ -841,7 +844,8 @@ where
                         let ccr = &self.regs.ccr4;
                     }
                 }
-                ccr.modify(|_, w| w.en().clear_bit())
+                ccr.modify(|_, w| w.en().clear_bit());
+                while ccr.read().en().bit_is_set() {}
             }
             DmaChannel::C5 => {
                 cfg_if! {
@@ -851,7 +855,8 @@ where
                         let ccr = &self.regs.ccr5;
                     }
                 }
-                ccr.modify(|_, w| w.en().clear_bit())
+                ccr.modify(|_, w| w.en().clear_bit());
+                while ccr.read().en().bit_is_set() {}
             }
             #[cfg(not(feature = "g0"))]
             DmaChannel::C6 => {
@@ -862,7 +867,8 @@ where
                         let ccr = &self.regs.ccr6;
                     }
                 }
-                ccr.modify(|_, w| w.en().clear_bit())
+                ccr.modify(|_, w| w.en().clear_bit());
+                while ccr.read().en().bit_is_set() {}
             }
             #[cfg(not(feature = "g0"))]
             DmaChannel::C7 => {
@@ -873,12 +879,13 @@ where
                         let ccr = &self.regs.ccr7;
                     }
                 }
-                ccr.modify(|_, w| w.en().clear_bit())
+                ccr.modify(|_, w| w.en().clear_bit());
+                while ccr.read().en().bit_is_set() {}
             }
             #[cfg(any(feature = "l5", feature = "g4"))]
             DmaChannel::C8 => {
                 let ccr = &self.regs.ccr8;
-                ccr.modify(|_, w| w.en().clear_bit())
+                ccr.modify(|_, w| w.en().clear_bit());
             }
         };
 

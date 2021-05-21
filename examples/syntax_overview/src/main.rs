@@ -76,7 +76,10 @@ fn main() -> ! {
         dp.RTC,
         &mut dp.RCC,
         &mut dp.PWR,
-        RtcConfig::default().clock_source(RtcClockSource::Lse), // .bypass_lse_output(true)
+        RtcConfig {
+            clock_source: RtcClockSource::Lse,
+            ..Default::default()
+        }
     );
 
     // Read from and write to the onboard flash memory.

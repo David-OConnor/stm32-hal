@@ -79,18 +79,18 @@ pub struct Rtc {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RtcConfig {
     /// RTC clock source
-    clock_source: RtcClockSource,
+    pub clock_source: RtcClockSource,
     /// Asynchronous prescaler factor
     /// This is the asynchronous division factor:
     /// ck_apre frequency = RTCCLK frequency/(PREDIV_A+1)
     /// ck_apre drives the subsecond register
-    async_prescaler: u8,
+    pub async_prescaler: u8,
     /// Synchronous prescaler factor
     /// This is the synchronous division factor:
     /// ck_spre frequency = ck_apre frequency/(PREDIV_S+1)
     /// ck_spre must be 1Hz
-    sync_prescaler: u16,
-    bypass_lse_output: bool,
+    pub sync_prescaler: u16,
+    pub bypass_lse_output: bool,
 }
 
 impl Default for RtcConfig {
@@ -103,33 +103,6 @@ impl Default for RtcConfig {
             sync_prescaler: 255,
             bypass_lse_output: false,
         }
-    }
-}
-
-impl RtcConfig {
-    /// Sets the clock source of RTC config
-    pub fn clock_source(mut self, source: RtcClockSource) -> Self {
-        self.clock_source = source;
-        self
-    }
-
-    /// Set the asynchronous prescaler of RTC config
-    pub fn async_prescaler(mut self, prescaler: u8) -> Self {
-        self.async_prescaler = prescaler;
-        self
-    }
-
-    /// Set the synchronous prescaler of RTC config
-    pub fn sync_prescaler(mut self, prescaler: u16) -> Self {
-        self.sync_prescaler = prescaler;
-        self
-    }
-
-    /// Choose wheather to bypass the output line to the LSE, and configure
-    /// it as a GPIO
-    pub fn bypass_lse_output(mut self, bypass: bool) -> Self {
-        self.bypass_lse_output = bypass;
-        self
     }
 }
 

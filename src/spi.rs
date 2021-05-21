@@ -351,16 +351,22 @@ where
         // 1. Wait until FTLVL[1:0] = 00 (no more data to transmit).
         #[cfg(not(feature = "f4"))]
         while self.regs.sr.read().ftlvl().bits() != 0 {}
-        // 2. Wait until BSY=0 (the last data frame is processed).
-        #[cfg(not(feature = "f4"))]
+        #[cfg(feature = "f4")]
         while self.regs.sr.read().ftlvl().bits() != 0 {}
+        // 2. Wait until BSY=0 (the last data frame is processed).
+        while self.regs.sr.read().bsy().bit_is_set() {}
         // 3. Disable the SPI (SPE=0).
+        // todo: Instructions say to stp DMA, but this breaks non-DMA writes, which assume
+        // todo SPI is enabled, the way we structure things.
         self.regs.cr1.modify(|_, w| w.spe().clear_bit());
         // 4. Read data until FRLVL[1:0] = 00 (read all the received data).
         #[cfg(not(feature = "f4"))]
         while self.regs.sr.read().frlvl().bits() != 0 {
-            // is `read_volatile` more efficient here?
-            self.regs.dr.read();
+            unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) };
+        }
+        #[cfg(feature = "f4")]
+        while self.regs.sr.read().frlvl().bits() != 0 {
+            unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) };
         }
     }
 
@@ -392,7 +398,7 @@ where
 
         // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel = match self.device {
+        let tx_channel = match self.device {
             SpiDevice::One => DmaInput::Spi1Tx.dma1_channel(),
             #[cfg(not(feature = "f3x4"))]
             SpiDevice::Two => DmaInput::Spi2Tx.dma1_channel(),
@@ -403,11 +409,28 @@ where
             ),
         };
 
+        // #[cfg(any(feature = "f3", feature = "l4"))]
+        // let rx_channel = match self.device {
+        //     SpiDevice::One => DmaInput::Spi1Rx.dma1_channel(),
+        //     #[cfg(not(feature = "f3x4"))]
+        //     SpiDevice::Two => DmaInput::Spi2Rx.dma1_channel(),
+        //     #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
+        //     SpiDevice::Three => panic!(
+        //         "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
+        //         or PR on Github."
+        //     ),
+        // };
+
         #[cfg(feature = "l4")]
         match self.device {
-            SpiDevice::One => dma.channel_select(DmaInput::Spi1Tx),
-            #[cfg(not(feature = "f3x4"))]
-            SpiDevice::Two => dma.channel_select(DmaInput::Spi2Tx),
+            SpiDevice::One => {
+                dma.channel_select(DmaInput::Spi1Tx);
+                // dma.channel_select(DmaInput::Spi1Rx);
+            }
+            SpiDevice::Two => {
+                dma.channel_select(DmaInput::Spi2Tx);
+                // dma.channel_select(DmaInput::Spi2Rx);
+            }
             #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
             _ => unimplemented!(),
         };
@@ -498,8 +521,8 @@ where
         // (RM:) To close communication it is mandatory to follow these steps in order:
         // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
         dma.stop(channel);
-        // 2. Disable the SPI by following the SPI disable procedure.
-        // self.disable();
+        // 2. Disable the SPI by following the SPI disable procedure:
+        self.disable();
         // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
         // SPI_CR2 register, if DMA Tx and/or DMA Rx are used.
         self.regs.cr2.modify(|_, w| {

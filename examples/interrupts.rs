@@ -24,6 +24,7 @@ use stm32_hal::{
 
 // Copy type variables can go in `Cell`s, which are easier to access.
 static SENSOR_READING: Mutex<Cell<f32>> = Mutex::new(Cell::new(335.));
+static BOUNCING: Mutex<Cell<bool>> = Mutex::new(Cell::new(false));
 
 // More complex values go in `RefCell`s. Use an option, since we need to set this up
 // before we initialize the peripheral it stores.
@@ -62,7 +63,10 @@ fn main() -> ! {
         dp.RTC,
         &mut dp.RCC,
         &mut dp.PWR,
-        RtcConfig::default().clock_source(RtcClockSource::Lse), // .bypass_lse_output(true)
+        RtcConfig {
+            clock_source: RtcClockSource::Lse,
+            ..Default::default()
+        },
     );
 
     // Set the RTC to trigger an interrupt every 30 seconds.
@@ -115,6 +119,13 @@ fn EXTI0() {
             // Clear the interrupt flag, to prevent continous firing.
             (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr0().set_bit());
         }
+
+        let bouncing = BOUNCING.borrow(cs);
+        if bouncing.get() {
+            return;
+        }
+        unsafe { (*pac::TIM15::ptr()).cr1.modify(|_, w| w.cen().set_bit()) }
+        bouncing.set(true);
 
         // Update our global sensor reading. This section dmeonstrates boilerplate
         // for Mutexes etc.
@@ -178,10 +189,9 @@ fn TIM15() {
     free(|cs| {
         unsafe { (*pac::TIM15::ptr()).sr.modify(|_, w| w.uif().set_bit()) }
 
-        // BOUNCING.borrow(cs).set(false);
+        BOUNCING.borrow(cs).set(false);
 
-        defmt::info!("DEBOUNCE FIRED");
         // Disable the timer until next time you press a button.
-        debounce_timer.disable();
+        unsafe { (*pac::TIM15::ptr()).cr1.modify(|_, w| w.cen().clear_bit()) }
     });
 }

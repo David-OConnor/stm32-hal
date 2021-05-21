@@ -95,7 +95,8 @@ pub type UsbBusType = UsbBus<Peripheral>;
 /// Enables the Vdd USB power supply
 pub fn enable_usb_pwr(pwr: &mut PWR, rcc: &mut RCC) {
     // Enable PWR peripheral
-    rcc_en_reset!(apb1, pwr, rcc);
+    // todo: This breaks the RTC. Why did you put it there? And isn't it pwren?
+    // rcc_en_reset!(apb1, pwr, rcc);
 
     // Enable VddUSB
     pwr.cr2.modify(|_, w| w.usv().set_bit());

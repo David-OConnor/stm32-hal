@@ -162,7 +162,7 @@ where
     }
 
     /// Helper function to prevent repetition between `write`, `write_read`, and `write_dma`.
-    fn set_cr2_write(&mut self, addr: u8, len: u8) {
+    fn set_cr2_write(&mut self, addr: u8, len: u8, autoend: bool) {
         // L44 RM: "Master communication initialization (address phase)
         // In order to initiate the communication, the user must program the following parameters for
         // the addressed slave in the I2C_CR2 register:
@@ -173,19 +173,23 @@ where
                 // Slave address to be sent: SADD[9:0]
                 // SADD0: "This bit is don’t care"
                 // SADD[7:1]: "These bits should be written with the 7-bit slave address to be sent"
-                // todo: Why is 1 being set at bit 0 for repeating starts??
                 w.sadd().bits(u16(addr << 1));
                 // Transfer direction: RD_WRN
                 w.rd_wrn().clear_bit(); // write
                                         // The number of bytes to be transferred: NBYTES[7:0]. If the number of bytes is equal to
                                         // or greater than 255 bytes, NBYTES[7:0] must initially be filled with 0xFF.
                 w.nbytes().bits(len);
-                w.autoend().clear_bit(); // software end mode
-                                         // The user must then set the START bit in I2C_CR2 register. Changing all the above bits is
-                                         // not allowed when START bit is set.
+                w.autoend().bit(autoend); // software end mode
+                                          // The user must then set the START bit in I2C_CR2 register. Changing all the above bits is
+                                          // not allowed when START bit is set.
                 w.start().set_bit()
             }
         });
+        // Note on start bit (RM):
+        // If the I2C is already in master mode with AUTOEND = 0, setting this bit generates a
+        // Repeated Start condition when RELOAD=0, after the end of the NBYTES transfer.
+        // Otherwise setting this bit generates a START condition once the bus is free.
+        // (This is why we don't set autoend on the write portion of a write_read.)
     }
 
     /// Helper function to prevent repetition between `read`, `write_read`, and `read_dma`.
@@ -204,8 +208,16 @@ where
 
     /// Read data, using DMA. See L44 RM, 37.4.16: "Transmissino using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub fn write_dma<D>(&mut self, addr: u8, buf: &[u8], channel: DmaChannel, dma: &mut Dma<D>)
-    where
+    /// For a single write, set `autoend` to `true`. For a write_read and other use cases,
+    /// set it to `false`.
+    pub fn write_dma<D>(
+        &mut self,
+        addr: u8,
+        buf: &[u8],
+        autoend: bool,
+        channel: DmaChannel,
+        dma: &mut Dma<D>,
+    ) where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         while self.regs.cr2.read().start().bit_is_set() {}
@@ -243,7 +255,7 @@ where
         // initialized before setting the START bit. The end of transfer is managed with the
         // NBYTES counter. Refer to Master transmitter on page 1151.
         // (The steps above are handled in the write this function performs.)
-        self.set_cr2_write(addr, len as u8);
+        self.set_cr2_write(addr, len as u8, autoend);
 
         // todo: not usgin set_cr2_write to ts due to auto ending?
         // self.regs.cr2.write(|w| {
@@ -393,7 +405,7 @@ where
         // cycle (ie. up to 0.5/freq)
         while self.regs.cr2.read().start().bit_is_set() {}
 
-        self.set_cr2_write(addr, bytes.len() as u8);
+        self.set_cr2_write(addr, bytes.len() as u8, true);
 
         for byte in bytes {
             // Wait until we are allowed to send data
@@ -404,13 +416,6 @@ where
             // Put byte on the wire
             self.regs.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
         }
-
-        // Wait until the write finishes
-        busy_wait!(self.regs, tc, bit_is_set); // transfer is complete
-
-        // todo: Why do we explicitly stop here, but use auto stop in
-        // todo `read` and `write_read`? Repeating starts?
-        self.regs.cr2.write(|w| w.stop().set_bit());
 
         Ok(())
     }
@@ -463,7 +468,7 @@ where
         // cycle (ie. up to 0.5/freq)
         while self.regs.cr2.read().start().bit_is_set() {}
 
-        self.set_cr2_write(addr, bytes.len() as u8);
+        self.set_cr2_write(addr, bytes.len() as u8, false);
 
         for byte in bytes {
             // Wait until we are allowed to send data
