@@ -55,12 +55,12 @@ fn main() -> ! {
     pb15.set_high();
 
     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
-    timer.listen(TimeOut);
+    timer.enable_interrupt(TimerInterrupt::Update);
 
     let mut scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let mut sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::AF4));
+    let mut sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg, &mut dp.RCC);

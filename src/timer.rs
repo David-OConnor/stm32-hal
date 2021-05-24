@@ -413,7 +413,7 @@ macro_rules! pwm_features {
 
             /// Enables basic PWM input. TODO: Doesn't work yet.
             /// L4 RM, section 26.3.8
-            pub fn enable_pwm_input(
+            pub fn _enable_pwm_input(
                 &mut self,
                 channel: Channel,
                 compare: OutputCompare,

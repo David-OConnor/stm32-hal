@@ -362,8 +362,6 @@ where
         // 1. Wait until FTLVL[1:0] = 00 (no more data to transmit).
         #[cfg(not(feature = "f4"))]
         while self.regs.sr.read().ftlvl().bits() != 0 {}
-        #[cfg(feature = "f4")]
-        while self.regs.sr.read().ftlvl().bits() != 0 {}
         // 2. Wait until BSY=0 (the last data frame is processed).
         while self.regs.sr.read().bsy().bit_is_set() {}
         // 3. Disable the SPI (SPE=0).
@@ -375,16 +373,12 @@ where
         while self.regs.sr.read().frlvl().bits() != 0 {
             unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) };
         }
-        #[cfg(feature = "f4")]
-        while self.regs.sr.read().frlvl().bits() != 0 {
-            unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) };
-        }
     }
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note that the `channel` argument has no effect on F3 and L4.
-    pub fn write_dma<D>(&mut self, mut buf: &[u8], channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn write_dma<D>(&mut self, buf: &[u8], channel: DmaChannel, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
