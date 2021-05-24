@@ -29,10 +29,32 @@ pub struct Timer<TIM> {
     tim: TIM,         // Register block for the specific timer.
 }
 
-/// Interrupt events
-pub enum Event {
-    /// Timer timed out / count down ended
-    TimeOut,
+/// Timer interrupt
+pub enum TimerInterrupt {
+    /// Update interrupt can be used for a timeout. DIER UIE to set, ... to clear
+    Update,
+    /// Trigger. DIER TIE to set, ... to clear
+    Trigger,
+    /// Capture/Compare. CC1IE to set, ... to clear
+    CaptureCompare1,
+    /// Capture/Compare. CC2IE to set, ... to clear
+    CaptureCompare2,
+    /// Capture/Compare. CC3IE to set, ... to clear
+    CaptureCompare3,
+    /// Capture/Compare. CC4IE to set, ... to clear
+    CaptureCompare4,
+    /// Update DMA. DIER UDE to set, ... to clear
+    UpdateDma,
+    /// Drigger. TDE to set, ... to clear
+    TriggerDma,
+    /// Capture/Compare. CC1DE to set, ... to clear
+    CaptureCompare1Dma,
+    /// Capture/Compare. CC2DE to set, ... to clear
+    CaptureCompare2Dma,
+    /// Capture/Compare. CC3DE to set, ... to clear
+    CaptureCompare3Dma,
+    /// Capture/Compare. CC4DE to set, ... to clear
+    CaptureCompare4Dma,
 }
 
 /// Output alignment
@@ -194,7 +216,7 @@ macro_rules! hal {
                 // The above line raises an update event which will indicate
                 // that the timer is already finished. Since this is not the case,
                 // it should be cleared
-                self.clear_update_interrupt_flag();
+                self.clear_interrupt(TimerInterrupt::Update);
 
                 // start counter
                 self.enable();
@@ -204,7 +226,7 @@ macro_rules! hal {
                 if self.tim.sr.read().uif().bit_is_clear() {
                     Err(nb::Error::WouldBlock)
                 } else {
-                    self.clear_update_interrupt_flag();
+                    self.clear_interrupt(TimerInterrupt::Update);
                     Ok(())
                 }
             }
@@ -231,17 +253,50 @@ macro_rules! hal {
                     // The above line raises an update event which will indicate
                     // that the timer is already finished. Since this is not the case,
                     // it should be cleared
-                    timer.clear_update_interrupt_flag();
+                    timer.clear_interrupt(TimerInterrupt::Update);
 
                     timer
                 }
             }
             /// Starts listening for an `event`. Used to enable interrupts.
             /// Starts listening for an `event`. Used to enable interrupts.
-            pub fn listen(&mut self, event: Event) {
-                match event {
-                    // Enable update event interrupt
-                    Event::TimeOut => self.tim.dier.write(|w| w.uie().set_bit()),
+            pub fn enable_interrupt(&mut self, interrupt_type: TimerInterrupt) {
+                match interrupt_type {
+                        TimerInterrupt::Update => self.tim.dier.modify(|_, w| w.uie().set_bit()),
+                        // TimerInterrupt::Trigger => self.tim.dier.modify(|_, w| w.tie().set_bit()),
+                        // TimerInterrupt::CaptureCompare1 => self.tim.dier.modify(|_, w| w.cc1ie().set_bit()),
+                        // TimerInterrupt::CaptureCompare2 => self.tim.dier.modify(|_, w| w.cc2ie().set_bit()),
+                        // TimerInterrupt::CaptureCompare3 => self.tim.dier.modify(|_, w| w.cc3ie().set_bit()),
+                        // TimerInterrupt::CaptureCompare4 => self.tim.dier.modify(|_, w| w.cc4ie().set_bit()),
+                        // TimerInterrupt::UpdateDma => self.tim.dier.modify(|_, w| w.ude().set_bit()),
+                        // TimerInterrupt::TriggerDma => self.tim.dier.modify(|_, w| w.tde().set_bit()),
+                        // TimerInterrupt::CaptureCompare1Dma => self.tim.dier.modify(|_, w| w.cc1de().set_bit()),
+                        // TimerInterrupt::CaptureCompare2Dma => self.tim.dier.modify(|_, w| w.ccd2de().set_bit()),
+                        // TimerInterrupt::CaptureCompare3Dma => self.tim.dier.modify(|_, w| w.cc3de().set_bit()),
+                        // TimerInterrupt::CaptureCompare4Dma => self.tim.dier.modify(|_, w| w.cc4de().set_bit()),
+                        // todo: Only DIER is in PAC. PAC BUG?
+                        _ => unimplemented!("TODO TEMP PROBLEMS"),
+                }
+            }
+
+            /// Clears interrupt associated with this timer.
+            ///
+            /// If the interrupt is not cleared, it will immediately retrigger after
+            /// the ISR has finished. For examlpe, place this at the top of your timer's
+            /// interrupt handler.
+            pub fn clear_interrupt(&mut self, interrupt_type: TimerInterrupt) {
+                // Note that unlike other clear interrupt functions, for this, we clear the bit instead
+                // of setting it.
+                // todo: Overcapture flags for each CC? DMA interrupts?
+                match interrupt_type {
+                    TimerInterrupt::Update => self.tim.sr.modify(|_, w| w.uif().clear_bit()),
+                    // todo: Only DIER is in PAC. PAC BUG?
+                    // TimerInterrupt::Trigger => self.tim.sr.modify(|_, w| w.tif().clear_bit()),
+                    // TimerInterrupt::CaptureCompare1 => self.tim.sr.modify(|_, w| w.cc1if().clear_bit()),
+                    // TimerInterrupt::CaptureCompare2 => self.tim.sr.modify(|_, w| w.cc2if().clear_bit()),
+                    // TimerInterrupt::CaptureCompare3 => self.tim.sr.modify(|_, w| w.cc3if().clear_bit()),
+                    // TimerInterrupt::CaptureCompare4 => self.tim.sr.modify(|_, w| w.cc4if().clear_bit()),
+                    _ => unimplemented!("Clearing DMA flags is unimplemented using this function."),
                 }
             }
 
@@ -258,28 +313,6 @@ macro_rules! hal {
             /// Check if the timer is enabled.
             pub fn is_enabled(&self) -> bool {
                 self.tim.cr1.read().cen().bit_is_set()
-            }
-
-            /// Clears interrupt associated with this timer.
-            ///
-            /// If the interrupt is not cleared, it will immediately retrigger after
-            /// the ISR has finished. For examlpe, place this at the top of your timer's
-            /// interrupt handler.
-            pub fn clear_interrupt(&mut self) {
-                self.tim.sr.write(|w| w.uif().clear_bit());
-            }
-
-            /// Stops listening for an `xcevent`. Used to disable interrupts.
-            pub fn unlisten(&mut self, event: Event) {
-                match event {
-                    // Disable update event interrupt
-                    Event::TimeOut => self.tim.dier.write(|w| w.uie().clear_bit()),
-                }
-            }
-
-            /// Clears Update Interrupt Flag
-            pub fn clear_update_interrupt_flag(&mut self) {
-                self.tim.sr.modify(|_, w| w.uif().clear_bit());
             }
 
             /// Releases the TIM peripheral

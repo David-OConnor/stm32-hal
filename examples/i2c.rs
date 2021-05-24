@@ -53,6 +53,8 @@ fn main() -> ! {
     // Set up an I2C peripheral, running at 100Khz.
     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg, &mut dp.RCC);
 
+    // todo: Show how to set up SMBUS.
+
     // Configure settings for the ADS1115 ADC:
     let addr: u8 = 0x48;
     // This config is the 16-bit register contents to set up the ADC in one-shot mode

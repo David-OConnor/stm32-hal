@@ -239,6 +239,7 @@ impl Rtc {
     // /// Setup the alarm. See AN4759, section 2.3.1.
     // /// `sleep_time` is in ms. `Table 8` desribes these steps.
     // pub fn set_alarm(&mut self, exti: &mut EXTI) {
+    // note: STM3241x and 42x have diff addresses, and are PAC incompatible!
     //     exti.imr1.modify(|_, w| w.mr18().unmasked());
     //     exti.rtsr1.modify(|_, w| w.tr18().bit(true));
     //     exti.ftsr1.modify(|_, w| w.tr18().bit(false));

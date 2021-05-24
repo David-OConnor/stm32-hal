@@ -38,7 +38,7 @@ use stm32_hal2::{
     rtc::{Rtc, RtcClockSource, RtcConfig},
     usart::{Usart, UsartDevice, UsartInterrupt, UsartConfig},
     spi::{self, Spi, SpiConfig, SpiDevice},
-    timer::{Event::TimeOut, Timer},
+    timer::{Timer, TimerInterrupt},
 };
 
 #[entry]
@@ -138,6 +138,7 @@ fn main() -> ! {
         &clock_cfg,
         &mut dp.RCC,
     );
+    );
 
     // Configure pins for UART.
     let _uart_tx = gpioa.new_pin(PinNum::P9, PinMode::Alt(AltFn::Af7));
@@ -187,7 +188,7 @@ fn main() -> ! {
 
     // Set up and start a timer; set it to fire interrupts at 5Hz.
     let mut timer = Timer::new_tim1(dp.TIM1, 0.2, &clock_cfg, &mut dp.RCC);
-    timer.listen(TimeOut); // Enable update event interrupts.
+    timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
     timer.enable();
 
     // For pins that aren't called directly (Like the ones we set up for I2C, SPI, UART, ADC, and DAC),

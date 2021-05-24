@@ -1,4 +1,4 @@
-//! This module includes an overview of ADC features available.
+//! This module includes an overview of timer
 //! For project structure and debugging boilerplate, see the `synax_overview` example.
 
 #![no_main]
@@ -11,12 +11,11 @@ use cortex_m::{
 use cortex_m_rt::entry;
 
 use stm32_hal2::{
-    adc::{Adc, AdcChannel, Align, ClockMode, InputType, OperationMode},
     clocks::Clocks,
     delay::Delay,
     gpio::{Edge, PinMode, PinNum},
     low_power, pac,
-    timer::{Channel, CountDir, OutputCompare, Timer},
+    timer::{Channel, CountDir, OutputCompare, Timer, TimerInterrupt},
 };
 
 #[entry]
@@ -32,26 +31,33 @@ fn main() -> ! {
         defmt::error!("Unable to configure clocks due to a speed error.")
     };
 
-    let mut delay = Delay::new(cp.SYST, &clock_cfg);
-
     // Enable the GPIOB port.
-    let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
+    let mut gpioa = GpioA::new(dp.GPIOB, &mut dp.RCC);
 
-    let mut timer = Timer::new_tim1(dp.TIM1, 0.2, &clock_cfg, &mut dp.RCC);
-    timer.listen(TimeOut); // Enable update event interrupts.
-    timer.enable();
+    // Set up a PWM pin
+    let _pwm_pin = gpioa.new_pin(PinNum::P0, PinMode::Alt(AltFn::Af1));
 
-    // timer.disable();
-
+    // Set up a PWM timer that will output to PA0, run at 2400Hz in edge-aligned mode,
+    // count up, with a 50% duty cycle.
+    let mut pwm_timer = Timer::new_tim2(dp.TIM2, 2_400., &clock_cfg, &mut dp.RCC);
+    pwm_timer.enable_pwm_output(Channel::One, OutputCompare::Pwm1, CountDir::Up, 0.5);
     // Setting auto reload preload allow changing frequency (period) while the timer is running.
-    timer.set_auto_reload_preload(true);
-    timer.enable_pwm_output(Channel::One, OutputCompare::Pwm1, CountDir::Up, 0.5);
+    pwm_timer.set_auto_reload_preload(true);
+    pwm_timer.enable();
 
-    // todo: Flesh out this example.
+    let mut countdown_timer = Timer::new_tim3(dp.TIM3, 0.5, &clock_cfg, &mut dp.RCC);
+    timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
+    countdown_timer_timer.enable();
+
+    pwm_timer.set_freq(1_000.); // set to 1000Hz.
+
+    // Or set PSC and ARR manually, eg to set period (freq), while preventing additional calculations.
+    pwm_timer.set_auto_reload(100);
+    pwm_timer.set_prescaler(100);
 
     // Unmask the interrupt line.
     unsafe {
-        NVIC::unmask(pac::Interrupt::TIM1);
+        NVIC::unmask(pac::Interrupt::TIM3);
     }
 
     loop {
@@ -65,10 +71,6 @@ fn TIM3() {
     free(|cs| {
         // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
         unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().set_bit()) }
-
-        // Alternatively, if you have the timer set up in a global mutex:
-        // access_global!(TIMER, timer, cs);
-        // timer.clear_interrupt();
     });
 
     // Do something.

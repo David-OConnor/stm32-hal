@@ -19,7 +19,7 @@ use stm32_hal::{
     pac::{self, ADC1, EXTI},
     prelude::*,
     rtc::{Rtc, RtcClockSource, RtcConfig},
-    timer::{Event::TimeOut, Timer},
+    timer::{Timer, TimerInterrupt},
 };
 
 // Copy type variables can go in `Cell`s, which are easier to access.
@@ -52,11 +52,11 @@ fn main() -> ! {
 
     // Set up and start a timer; set it to fire interrupts every 5 seconds.
     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
-    timer.listen(TimeOut); // Enable update event interrupts.
+    timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
     timer.enable();
 
     let mut debounce_timer = Timer::new_tim15(dp.TIM15, 5., &clock_cfg, &mut dp.RCC);
-    debounce_timer.listen(TimeOut); // Enable update event interrupts.
+    debounce_timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
 
     // Set up the realtime clock.
     let mut rtc = Rtc::new(

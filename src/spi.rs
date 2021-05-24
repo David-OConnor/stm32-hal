@@ -34,6 +34,17 @@ pub enum Error {
     Crc,
 }
 
+/// Possible interrupt types. Enable these in CR2. Check and clear with SR. Clear in ?
+#[derive(Debug)]
+pub enum SpiInterrupt {
+    /// Tx buffer empty (TXEIE)
+    TxBufEmpty,
+    /// Rx buffer not empty (RXNEIE)
+    RxBufNotEmpty,
+    /// Error (ERRIE)
+    Error,
+}
+
 #[derive(Clone, Copy)]
 pub enum SpiDevice {
     One,
@@ -356,7 +367,7 @@ where
         // 2. Wait until BSY=0 (the last data frame is processed).
         while self.regs.sr.read().bsy().bit_is_set() {}
         // 3. Disable the SPI (SPE=0).
-        // todo: Instructions say to stp DMA, but this breaks non-DMA writes, which assume
+        // todo: Instructions say to stop SPI (including to close DMA comms), but this breaks non-DMA writes, which assume
         // todo SPI is enabled, the way we structure things.
         self.regs.cr1.modify(|_, w| w.spe().clear_bit());
         // 4. Read data until FRLVL[1:0] = 00 (read all the received data).
@@ -530,6 +541,25 @@ where
             w.rxdmaen().clear_bit()
         })
     }
+
+    /// Enable an interrupt
+    pub fn enable_interrupt(&mut self, interrupt_type: SpiInterrupt) {
+        match interrupt_type {
+            SpiInterrupt::TxBufEmpty => self.regs.cr2.modify(|_, w| w.txeie().set_bit()),
+            SpiInterrupt::RxBufNotEmpty => self.regs.cr2.modify(|_, w| w.rxneie().set_bit()),
+            SpiInterrupt::Error => self.regs.cr2.modify(|_, w| w.errie().set_bit()),
+        }
+    }
+
+    // // todo: Not sure how to clear SPI interrupts. No ICR, and SR is read only?
+    // /// Clear an interrupt flag.
+    // pub fn clear_interrupt(&mut self, interrupt_type: SpiInterrupt) {
+    //     match interrupt_type {
+    //         SpiInterrupt::TxBufEmpty => self.regs.cr2.modify(|_, w| w.txeie.set_bit()),
+    //         SpiInterrupt::RxBufNotEmpty => self.regs.cr2.modify(|_, w| w.rxneie.set_bit()),
+    //         SpiInterrupt::Error => self.regs.cr2.modify(|_, w| w.erreie.set_bit()),
+    //     }
+    // }
 }
 
 impl<S> FullDuplex<u8> for Spi<S>

@@ -30,7 +30,6 @@ pub enum Error {
     /// NACK
     Nack,
     // Overrun, // slave mode only
-    // Overrun, // slave mode only
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
@@ -57,6 +56,8 @@ pub struct I2c<I2C> {
     regs: I2C,
     device: I2cDevice,
     // mode: I2cMode,
+    /// SMBUS features like PEC enabled.
+    smbus: bool,
 }
 
 impl<I> I2c<I>
@@ -158,7 +159,39 @@ where
         // Enable the peripheral
         regs.cr1.write(|w| w.pe().set_bit());
 
-        I2c { regs, device }
+        I2c {
+            regs,
+            device,
+            smbus: false,
+        }
+    }
+
+    /// Enable SMBus support. See L44 RM, section 37.4.11: SMBus initialization
+    pub fn enable_smbus(&mut self) {
+        // todo: Roll this into an init setting or I2cConfig struct etc.
+        // PEC calculation is enabled by setting the PECEN bit in the I2C_CR1 register. Then the PEC
+        // transfer is managed with the help of a hardware byte counter: NBYTES[7:0] in the I2C_CR2
+        // register. The PECEN bit must be configured before enabling the I2C.
+
+        // The PEC transfer is managed with the hardware byte counter, so the SBC bit must be set
+        // when interfacing the SMBus in slave mode. The PEC is transferred after NBYTES-1 data
+        // have been transferred when the PECBYTE bit is set and the RELOAD bit is cleared. If
+        // RELOAD is set, PECBYTE has no effect.
+        // Caution: Changing the PECEN configuration is not allowed when the I2C is enabled.
+
+        let originally_enabled = self.regs.cr1.read().pe().bit_is_set();
+        if originally_enabled {
+            self.regs.cr1.modify(|_, w| w.pe().clear_bit());
+            while self.regs.cr1.read().pe().bit_is_set() {}
+        }
+
+        self.regs.cr1.modify(|_, w| w.pecen().set_bit());
+
+        // todo: Timeout detection?
+
+        if originally_enabled {
+            self.regs.cr1.modify(|_, w| w.pe().set_bit());
+        }
     }
 
     /// Helper function to prevent repetition between `write`, `write_read`, and `write_dma`.
@@ -182,6 +215,14 @@ where
                 w.autoend().bit(autoend); // software end mode
                                           // The user must then set the START bit in I2C_CR2 register. Changing all the above bits is
                                           // not allowed when START bit is set.
+                                          // When the SMBus master wants to transmit the PEC, the PECBYTE bit must be set and the
+                                          // number of bytes must be programmed in the NBYTES[7:0] field, before setting the START
+                                          // bit. In this case the total number of TXIS interrupts is NBYTES-1. So if the PECBYTE bit is
+                                          // set when NBYTES=0x1, the content of the I2C_PECR register is automatically transmitted.
+                                          // If the SMBus master wants to send a STOP condition after the PEC, automatic end mode
+                                          // must be selected (AUTOEND=1). In this case, the STOP condition automatically follows the
+                                          // PEC transmission.
+                w.pecbyte().bit(self.smbus);
                 w.start().set_bit()
             }
         });
@@ -201,6 +242,13 @@ where
                 w.rd_wrn().set_bit(); // read
                 w.nbytes().bits(len);
                 w.autoend().set_bit(); // automatic end mode
+                                       // When the SMBus master wants to receive the PEC followed by a STOP at the end of the
+                                       // transfer, automatic end mode can be selected (AUTOEND=1). The PECBYTE bit must be
+                                       // set and the slave address must be programmed, before setting the START bit. In this case,
+                                       // after NBYTES-1 data have been received, the next received byte is automatically checked
+                                       // versus the I2C_PECR register content. A NACK response is given to the PEC byte, followed
+                                       // by a STOP condition.
+                w.pecbyte().bit(self.smbus);
                 w.start().set_bit()
             }
         });
