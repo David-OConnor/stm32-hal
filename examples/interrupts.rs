@@ -108,6 +108,9 @@ fn main() -> ! {
             &clock_cfg,
             &mut dp.RCC,
         );
+
+        // Turn back on the PLL.
+        clocks.reselect_input();
     }
 }
 

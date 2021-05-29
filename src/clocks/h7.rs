@@ -320,7 +320,7 @@ impl Clocks {
 
     /// Re-select input source; used on Stop and Standby modes, where the system reverts
     /// to HSI after wake.
-    pub(crate) fn re_select_input(&self, rcc: &mut RCC) {
+    pub fn reselect_input(&self, rcc: &mut RCC) {
         // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
 
         // Note: It would save code repetition to pass the `Clocks` struct in and re-run setup

@@ -13,9 +13,6 @@ use cortex_m::{asm::wfi, peripheral::SCB};
 
 use cfg_if::cfg_if;
 
-// clocks::re_select_input` is separate (in `clocks` instead of here) due to varying significantly
-// among families.
-
 // See L4 Reference Manual section 5.3.6. The values correspond to the PWR_CR1 LPMS bits.
 // todo PWR_CR1, LPMS field.
 #[derive(Clone, Copy)]
@@ -96,8 +93,9 @@ cfg_if::cfg_if! {
         /// STM32f3.
         /// To exit:  Any EXTI Line configured in Interrupt mode (the corresponding EXTI
         /// Interrupt vector must be enabled in the NVIC). Refer to Table 82.
-        /// F3 RM, table 20. F4 RM, Table 27. H742 RM, Table 38. (CSrtop on H7)
-        pub fn stop(scb: &mut SCB, pwr: &mut PWR, clocks: &Clocks, rcc: &mut RCC) {
+        /// F3 RM, table 20. F4 RM, Table 27. H742 RM, Table 38. (CSrtop on H7).
+        /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
+        pub fn stop(scb: &mut SCB, pwr: &mut PWR) {
             // todo: On some F4 variants, you may need to `select voltage regulator
             // todo mode by configuring LPDS, MRUDS, LPUDS and UDEN bits in PWR_CR.`
             //WFI (Wait for Interrupt) or WFE (Wait for Event) while:
@@ -120,8 +118,6 @@ cfg_if::cfg_if! {
             pwr.cr.modify(|_, w| w.lpds().set_bit());
 
             wfi();
-
-            clocks.re_select_input(rcc);
         }
 
         /// Enter `Standby` mode: the lowest-power of the 3 low-power states avail on the
@@ -129,7 +125,8 @@ cfg_if::cfg_if! {
         /// To exit: WKUP pin rising edge, RTC alarm event’s rising edge, external Reset in
         /// NRST pin, IWDG Reset.
         /// Ref man, table 21.
-        pub fn standby(scb: &mut SCB, pwr: &mut PWR, clocks: &Clocks, rcc: &mut RCC) {
+        /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
+        pub fn standby(scb: &mut SCB, pwr: &mut PWR) {
             // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
 
             // Set SLEEPDEEP bit in ARM® Cortex®-M4 System Control register
@@ -147,14 +144,13 @@ cfg_if::cfg_if! {
             pwr.cr.modify(|_, w| w.cwuf().set_bit());
 
             wfi();
-
-            clocks.re_select_input(rcc);
         }
     } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g0", feature = "g4"))] {
         /// Enter Stop 0, Stop 1, or Stop 2 modes. L4 Reference manual, section 5.3.6. Tables 27, 28, and 29.
         /// G0 RMs, tables 30, 31, 32.
         /// G4 Table 45, 47, 47.
-        pub fn stop(scb: &mut SCB, pwr: &mut PWR, mode: StopMode, clocks: &Clocks, rcc: &mut RCC) {
+        /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
+        pub fn stop(scb: &mut SCB, pwr: &mut PWR, mode: StopMode) {
             // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
             // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
             scb.set_sleepdeep();
@@ -170,13 +166,12 @@ cfg_if::cfg_if! {
             // – LPMS = “000” in PWR_CR1
 
             wfi();
-
-            clocks.re_select_input(rcc);
         }
 
 
         /// Enter `Standby` mode. See L4 table 30. G4 table 47.
-        pub fn standby(scb: &mut SCB, pwr: &mut PWR, clocks: &Clocks, rcc: &mut RCC) {
+        /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
+        pub fn standby(scb: &mut SCB, pwr: &mut PWR) {
             // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
             scb.set_sleepdeep();
             // – No interrupt (for WFI) or event (for WFE) is pending
@@ -226,13 +221,11 @@ cfg_if::cfg_if! {
             // – The RTC flag corresponding to the chosen wakeup source (RTC Alarm
             // A, RTC Alarm B, RTC wakeup, tamper or timestamp flags) is cleared
             wfi();
-
-            clocks.re_select_input(rcc);
         }
 
         /// Enter `Shutdown mode` mode: the lowest-power of the 3 low-power states avail. See
         /// L4 Table 31. G4 table 48.
-        pub fn shutdown(scb: &mut SCB, pwr: &mut PWR, clocks: &Clocks, rcc: &mut RCC) {
+        pub fn shutdown(scb: &mut SCB, pwr: &mut PWR) {
             // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
             scb.set_sleepdeep();
             // – No interrupt (for WFI) or event (for WFE) is pending
@@ -260,12 +253,10 @@ cfg_if::cfg_if! {
             // Alarm A, RTC Alarm B, RTC wakeup, tamper or timestamp flags) is
             // cleared
             wfi();
-
-            clocks.re_select_input(rcc);
         }
     } else { // H7
         ///  Stops clocks on the CPU subsystem. H742 RM, Table 38.
-        pub fn cstop(scb: &mut SCB, pwr: &mut PWR, clocks: &Clocks, rcc: &mut RCC) {
+        pub fn cstop(scb: &mut SCB, pwr: &mut PWR) {
             // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
 
             // Set SLEEPDEEP bit in ARM® Cortex®-M4 System Control register
@@ -275,12 +266,10 @@ cfg_if::cfg_if! {
             // – All CPU EXTI Wakeup sources are cleared.
 
             wfi();
-
-            clocks.re_select_input(rcc);
         }
 
         // /// Stops clocks on the D1 and D2 domain. H742 RM, Table 40.
-        // pub fn dstop(scb: &mut SCB, pwr: &mut PWR, clocks: &Clocks, rcc: &mut RCC) {
+        // pub fn dstop(scb: &mut SCB, pwr: &mut PWR) {
         //
         //     // -The domain CPU subsystem enters CStop.
         //     // (Don't call self.cstop, since that handles WFI and reselecting clocks as well).
@@ -294,8 +283,6 @@ cfg_if::cfg_if! {
         //     // – The PDDS_Dn bit for the domain selects Stop mode.
         //
         //     wfi();
-        //
-        //     clocks.re_select_input(rcc);
         // }
 
         // /// Enter `Standby` mode: the lowest-power of the 3 low-power states avail on the
@@ -303,7 +290,8 @@ cfg_if::cfg_if! {
         // /// To exit: WKUP pin rising edge, RTC alarm event’s rising edge, external Reset in
         // /// NRST pin, IWDG Reset.
         // /// Ref man, table 21.
-        // pub fn standby(scb: &mut SCB, pwr: &mut PWR, clocks: &Clocks, rcc: &mut RCC) {
+        // /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
+        // pub fn standby(scb: &mut SCB, pwr: &mut PWR) {
         //     // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
         //
         //     // Set SLEEPDEEP bit in ARM® Cortex®-M4 System Control register
@@ -321,8 +309,6 @@ cfg_if::cfg_if! {
         //     pwr.cr.modify(|_, w| w.cwuf().set_bit());
         //
         //     wfi();
-        //
-        //     clocks.re_select_input(rcc);
         // }
     }
 }

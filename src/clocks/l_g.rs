@@ -788,7 +788,7 @@ impl Clocks {
 
     /// Re-select input source; used after Stop and Standby modes, where the system reverts
     /// to MSI or HSI after wake.
-    pub(crate) fn re_select_input(&self, rcc: &mut RCC) {
+    pub fn reselect_input(&self, rcc: &mut RCC) {
         // Re-select the input source; useful for changing input source, or reverting
         // from stop or standby mode. This assumes we're on a clean init,
         // or waking up from stop mode etc.
@@ -917,9 +917,11 @@ impl Clocks {
     }
 
     #[cfg(any(feature = "l4", feature = "l5"))]
-    /// Enables MSI, and configures it at 48Mhz. This is useful when using it as the USB clock,
-    /// ie with `clk48_src: Clk48Src::Msi`. Don't use this if using MSI for the input source or PLL source.
-    /// You may need to re-run this after exiting `stop` mode.
+    /// Enables MSI, and configures it at 48Mhz, and trims it using the LSE. This is useful when using it as
+    /// the USB clock, ie with `clk48_src: Clk48Src::Msi`. Don't use this if using MSI for the input
+    /// source or PLL source. You may need to re-run this after exiting `stop` mode. Only works for USB
+    /// if you have an LSE connected.
+    /// Note: MSIPLLEN must be enabled after LSE is enabled. So, run this function after RCC clock setup.
     pub fn enable_msi_48(&self, rcc: &mut RCC) {
         if let InputSrc::Msi(_) = self.input_src {
             panic!(
@@ -936,14 +938,21 @@ impl Clocks {
             }
         }
 
-        // todo: Calibrate MSI with LSE / HSE(?) if avail?
         rcc.cr.modify(|_, w| w.msion().clear_bit());
         while rcc.cr.read().msirdy().bit_is_set() {}
 
+        // L44 RM, section 6.2.3: When a 32.768 kHz external oscillator is present in the application, it is possible to configure
+        // the MSI in a PLL-mode by setting the MSIPLLEN bit in the Clock control register (RCC_CR).
+        // When configured in PLL-mode, the MSI automatically calibrates itself thanks to the LSE.
+        // This mode is available for all MSI frequency ranges. At 48 MHz, the MSI in PLL-mode can
+        // be used for the USB FS device, saving the need of an external high-speed crystal.
+        // MSIPLLEN must be enabled after LSE is enabled
         rcc.cr.modify(|_, w| unsafe {
             w.msirange()
                 .bits(MsiRange::R48M as u8)
                 .msirgsel()
+                .set_bit()
+                .msipllen()
                 .set_bit()
                 .msion()
                 .set_bit()

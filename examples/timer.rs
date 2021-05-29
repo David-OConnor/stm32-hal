@@ -46,12 +46,14 @@ fn main() -> ! {
     pwm_timer.enable();
 
     let mut countdown_timer = Timer::new_tim3(dp.TIM3, 0.5, &clock_cfg, &mut dp.RCC);
-    timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
-    countdown_timer_timer.enable();
+    countdown_timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
+    countdown_timer.enable();
 
-    pwm_timer.set_freq(1_000.); // set to 1000Hz.
+    // Change the frequency to 1Khz.
+    pwm_timer.set_freq(1_000.);
 
-    // Or set PSC and ARR manually, eg to set period (freq), while preventing additional calculations.
+    // Or set PSC and ARR manually, eg to set period (freq), without running the calculations
+    // used in `set_freq`.
     pwm_timer.set_auto_reload(100);
     pwm_timer.set_prescaler(100);
 
@@ -66,11 +68,13 @@ fn main() -> ! {
 }
 
 #[interrupt]
-/// Timer interrupt handler
+/// Timer interrupt handler; runs when the countdown period expires.
 fn TIM3() {
     free(|cs| {
         // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
         unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().set_bit()) }
+
+        defmt::info!("Countdown expired");
     });
 
     // Do something.

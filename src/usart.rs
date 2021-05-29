@@ -530,12 +530,12 @@ where
 
     #[cfg(not(feature = "f4"))]
     /// Enable a specific type of interrupt.
-    pub fn enable_interrupt(&mut self, interrupt_type: UsartInterrupt) {
+    pub fn enable_interrupt(&mut self, interrupt: UsartInterrupt) {
         // Disable the UART to allow writing the `add` and `addm7` bits
         self.regs.cr1.modify(|_, w| w.ue().clear_bit());
         while self.regs.cr1.read().ue().bit_is_set() {}
 
-        match interrupt_type {
+        match interrupt {
             UsartInterrupt::CharDetect(char) => {
                 // Enable character-detecting UART interrupt
                 self.regs.cr1.modify(|_, w| w.cmie().set_bit());
@@ -598,8 +598,8 @@ where
 
     #[cfg(not(feature = "f4"))]
     /// Clears the interrupt pending flag for a specific type of interrupt.
-    pub fn clear_interrupt(&mut self, interrupt_type: UsartInterrupt) {
-        match interrupt_type {
+    pub fn clear_interrupt(&mut self, interrupt: UsartInterrupt) {
+        match interrupt {
             UsartInterrupt::CharDetect(_) => self.regs.icr.write(|w| w.cmcf().set_bit()),
             UsartInterrupt::Cts => self.regs.icr.write(|w| w.ctscf().set_bit()),
             UsartInterrupt::EndOfBlock => self.regs.icr.write(|w| w.eobcf().set_bit()),

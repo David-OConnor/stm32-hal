@@ -4,7 +4,7 @@
 
 // Based on `stm3h7xx-hal`
 
-use crate::pac::{self, RCC, PWR};
+use crate::pac::{self, PWR, RCC};
 
 pub use synopsys_usb_otg::UsbBus;
 use synopsys_usb_otg::UsbPeripheral;
@@ -30,7 +30,6 @@ pub struct USB2 {
     // pub prec: rcc::rec::Usb2Otg,  todo
     pub hclk: u32,
 }
-
 
 macro_rules! usb_peripheral {
     ($USB:ident, $GLOBAL:ident, $en:ident, $rst:ident) => {

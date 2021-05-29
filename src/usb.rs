@@ -1,9 +1,7 @@
 //! USB support, including for simulated COM ports. This module is a thin wrapper required to work with
 //! the `usbd` crate.
 //! Requires the `usb` feature.
-
-// Based on `stm32f3xx-hal`
-
+//! Only used on F303, L4x2, and L4x3. Other families that use USB use the `usb_otg` module.
 
 use crate::{
     pac::{PWR, RCC, USB},
@@ -28,20 +26,17 @@ unsafe impl UsbPeripheral for Peripheral {
     const REGISTERS: *const () = USB::ptr() as *const ();
 
     // Embedded pull-up resistor on USB_DP line
-    const DP_PULL_UP_FEATURE: bool = true; // todo: What should this be?
+    const DP_PULL_UP_FEATURE: bool = true; // todo: What should this be? try false?
+                                           // todo: L4xx hal has it true. f3xx has false.
 
     // Pointer to the endpoint memory
     // todo: This is the L4 setting. Is this right?
     // L4 Reference manual, Table 2. USB SRAM is on APB1, at this address:
-    // Note: L4 USB FS is at `0x400_6800`.
     const EP_MEMORY: *const () = 0x4000_6c00 as _;
 
     // Endpoint memory access scheme. Check RM.
     // Set to `true` if "2x16 bits/word" access scheme is used, otherwise set to `false`.
     const EP_MEMORY_ACCESS_2X16: bool = true;
-    // #[cfg(any(feature = "stm32f303xb", feature = "stm32f303xc"))]
-    // const EP_MEMORY_SIZE: usize = 512;
-    // #[cfg(any(feature = "stm32f303xd", feature = "stm32f303xe"))]
 
     // f303 subvariants have diff mem sizes and bits/word scheme. :/
 
@@ -81,7 +76,6 @@ unsafe impl UsbPeripheral for Peripheral {
     fn startup_delay() {
         // There is a chip specific startup delay. For STM32F103xx it's 1µs and this should wait for
         // at least that long.
-        // 72 Mhz is the highest frequency, so this ensures a minimum of 1µs wait time.
         cortex_m::asm::delay(120);
     }
 }

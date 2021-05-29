@@ -259,9 +259,8 @@ macro_rules! hal {
                 }
             }
             /// Starts listening for an `event`. Used to enable interrupts.
-            /// Starts listening for an `event`. Used to enable interrupts.
-            pub fn enable_interrupt(&mut self, interrupt_type: TimerInterrupt) {
-                match interrupt_type {
+            pub fn enable_interrupt(&mut self, interrupt: TimerInterrupt) {
+                match interrupt {
                         TimerInterrupt::Update => self.tim.dier.modify(|_, w| w.uie().set_bit()),
                         // TimerInterrupt::Trigger => self.tim.dier.modify(|_, w| w.tie().set_bit()),
                         // TimerInterrupt::CaptureCompare1 => self.tim.dier.modify(|_, w| w.cc1ie().set_bit()),
@@ -274,7 +273,7 @@ macro_rules! hal {
                         // TimerInterrupt::CaptureCompare2Dma => self.tim.dier.modify(|_, w| w.ccd2de().set_bit()),
                         // TimerInterrupt::CaptureCompare3Dma => self.tim.dier.modify(|_, w| w.cc3de().set_bit()),
                         // TimerInterrupt::CaptureCompare4Dma => self.tim.dier.modify(|_, w| w.cc4de().set_bit()),
-                        // todo: Only DIER is in PAC. PAC BUG?
+                        // todo: Only DIER is in PAC. PAC BUG? Only avail on some timers?
                         _ => unimplemented!("TODO TEMP PROBLEMS"),
                 }
             }
@@ -284,13 +283,13 @@ macro_rules! hal {
             /// If the interrupt is not cleared, it will immediately retrigger after
             /// the ISR has finished. For examlpe, place this at the top of your timer's
             /// interrupt handler.
-            pub fn clear_interrupt(&mut self, interrupt_type: TimerInterrupt) {
+            pub fn clear_interrupt(&mut self, interrupt: TimerInterrupt) {
                 // Note that unlike other clear interrupt functions, for this, we clear the bit instead
                 // of setting it.
                 // todo: Overcapture flags for each CC? DMA interrupts?
-                match interrupt_type {
+                match interrupt {
                     TimerInterrupt::Update => self.tim.sr.modify(|_, w| w.uif().clear_bit()),
-                    // todo: Only DIER is in PAC. PAC BUG?
+                    // todo: Only DIER is in PAC. PAC BUG? Only avail on some timers?
                     // TimerInterrupt::Trigger => self.tim.sr.modify(|_, w| w.tif().clear_bit()),
                     // TimerInterrupt::CaptureCompare1 => self.tim.sr.modify(|_, w| w.cc1if().clear_bit()),
                     // TimerInterrupt::CaptureCompare2 => self.tim.sr.modify(|_, w| w.cc2if().clear_bit()),
