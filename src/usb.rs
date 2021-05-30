@@ -86,12 +86,10 @@ unsafe impl UsbPeripheral for Peripheral {
 /// this is the only possible concrete type construction.
 pub type UsbBusType = UsbBus<Peripheral>;
 
-/// Enables the Vdd USB power supply
+/// Enables the Vdd USB power supply. Note that we also need to enable `PWREN` in APB1,
+/// but we handle this using the RTC setup. Use a raw pointer if doing this without the RTC
+/// already set up.
 pub fn enable_usb_pwr(pwr: &mut PWR, rcc: &mut RCC) {
-    // Enable PWR peripheral
-    // todo: This breaks the RTC. Why did you put it there? And isn't it pwren?
-    // rcc_en_reset!(apb1, pwr, rcc);
-
     // Enable VddUSB
     pwr.cr2.modify(|_, w| w.usv().set_bit());
 }

@@ -410,6 +410,18 @@ impl Clocks {
 
         (input_freq, sysclk)
     }
+
+    /// Check if the PLL is enabled. This is useful if checking wheather to re-enable the PLL
+    /// after exiting Stop or Standby modes, eg so you don't re-enable if it was already re-enabled
+    /// in a different context. eg:
+    /// ```
+    /// if !clock_cfg.pll_is_enabled() {
+    ///     clock_cfg.reselect_input(&mut dp.RCC);
+    ///}
+    ///```
+    pub fn pll_is_enabled(&self, rcc: &mut RCC) -> bool {
+        rcc.cr.read().pll1on().bit_is_set()
+    }
 }
 
 // todo: Some extra calculations here, vice doing it once and caching.

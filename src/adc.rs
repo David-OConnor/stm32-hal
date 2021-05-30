@@ -16,7 +16,7 @@ use paste::paste;
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
-#[cfg(any(feature = "f3", feature = "l4", feature = "g0", feature = "g4"))]
+#[cfg(any(feature = "f3", feature = "l4", feature = "g4"))]
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
