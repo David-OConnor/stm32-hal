@@ -228,7 +228,7 @@ pub mod adc;
 #[cfg(all(
     feature = "can",
     any(
-        feature = "f3",
+        all(feature = "f3", not(feature = "f301")),
         all(feature = "f4", not(any(feature = "f401", feature = "f410"))),
         feature = "l4"
     )

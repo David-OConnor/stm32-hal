@@ -409,6 +409,15 @@ where
         match self.device {
             UsartDevice::One => dma.channel_select(DmaInput::Usart1Tx),
             UsartDevice::Two => dma.channel_select(DmaInput::Usart2Tx),
+            #[cfg(not(any(
+                feature = "f401",
+                feature = "f410",
+                feature = "f411",
+                feature = "f412",
+                feature = "f413",
+                feature = "l4x1",
+                feature = "g0"
+            )))]
             UsartDevice::Three => dma.channel_select(DmaInput::Usart3Tx),
         }
 
@@ -484,6 +493,15 @@ where
         match self.device {
             UsartDevice::One => dma.channel_select(DmaInput::Usart1Rx),
             UsartDevice::Two => dma.channel_select(DmaInput::Usart2Rx),
+            #[cfg(not(any(
+                feature = "f401",
+                feature = "f410",
+                feature = "f411",
+                feature = "f412",
+                feature = "f413",
+                feature = "l4x1",
+                feature = "g0"
+            )))]
             UsartDevice::Three => dma.channel_select(DmaInput::Usart3Rx),
         }
 
