@@ -26,8 +26,11 @@ unsafe impl UsbPeripheral for Peripheral {
     const REGISTERS: *const () = USB::ptr() as *const ();
 
     // Embedded pull-up resistor on USB_DP line
-    const DP_PULL_UP_FEATURE: bool = true; // todo: What should this be? try false?
-                                           // todo: L4xx hal has it true. f3xx has false.
+    #[cfg(feature = "f3")]
+    const DP_PULL_UP_FEATURE: bool = false;
+
+    #[cfg(feature = "l4")]
+    const DP_PULL_UP_FEATURE: bool = true;
 
     // Pointer to the endpoint memory
     // todo: This is the L4 setting. Is this right?

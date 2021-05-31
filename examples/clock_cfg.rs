@@ -78,6 +78,10 @@ fn main() -> ! {
     // Change some of the peripheral prescalers
     clock_cfg.apb1prescaler = ApbPrescaler::Div2;
 
+    // Enable the Clock Recovery System (CRS), to automatically trim the HSI48 on variants
+    // that include it. (eg STM32l4x2 and L4x3, L5, G4)
+    clocks::enable_crs(CrsSyncSrc::Usb, &mut dp.CRS, &mut dp.RCC);
+
     // If you need to modify functionality not supported by this library,
     // you can make register writes directly  using the PAC. If you find missing functionality
     // you find useful, consider making an issue or PR on Github.
