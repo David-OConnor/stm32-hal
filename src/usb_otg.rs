@@ -1,6 +1,8 @@
 //! USB support, including for simulated COM ports. This module is a thin wrapper required to work with
 //! the `usbd` crate.
-//! Requires the `usb` feature.
+//!
+//! Requires the `usbotg_fs` or `usbotg_hs` features.
+//! Used on F4, L4x5, L4x6, and H7. Others use the `usb` module.
 
 // Based on `stm3h7xx-hal`
 

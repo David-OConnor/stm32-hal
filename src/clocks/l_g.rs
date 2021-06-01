@@ -1165,8 +1165,8 @@ impl ClockCfg for Clocks {
 }
 
 impl Default for Clocks {
-    /// This default configures common with a HSI, a 80Mhz sysclck (l4). All peripheral clocks are at
-    /// 80Mhz (l4). L5 speeds: 108Mhz. G4 speeds: 168Mhz.
+    /// This default configures clocks with a HSI, with system and peripheral clocks at full rated speed.
+    /// All peripheral. Speeds -> L4: 80Mhz. L5: 110Mhz. G0: 64Mhz. G4: 170Mhz.
     fn default() -> Self {
         Self {
             input_src: InputSrc::Pll(PllSrc::Hsi),
@@ -1174,11 +1174,11 @@ impl Default for Clocks {
             #[cfg(feature = "l4")]
             plln: 40,
             #[cfg(feature = "l5")]
-            plln: 27,
+            plln: 55,
             #[cfg(feature = "g0")]
-            plln: 16,
+            plln: 32,
             #[cfg(feature = "g4")]
-            plln: 42,
+            plln: 85,
             #[cfg(not(any(feature = "g0", feature = "g4")))]
             pll_sai1_mul: 8,
             #[cfg(not(any(feature = "g0", feature = "g4")))]
@@ -1189,9 +1189,7 @@ impl Default for Clocks {
             apb1_prescaler: ApbPrescaler::Div1,
             #[cfg(not(feature = "g0"))]
             apb2_prescaler: ApbPrescaler::Div1,
-            #[cfg(any(feature = "l4", feature = "l5"))]
-            clk48_src: Clk48Src::Msi,
-            #[cfg(feature = "g4")]
+            #[cfg(not(feature = "g0"))]
             clk48_src: Clk48Src::Hsi48,
             #[cfg(not(any(feature = "g0", feature = "g4")))]
             sai1_enabled: false,

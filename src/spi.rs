@@ -1,6 +1,10 @@
 //! Serial Peripheral Interface (SPI) bus. Implements traits from `embedded-hal`.
 
-use core::{ops::Deref, ptr, sync::atomic::{self, Ordering}};
+use core::{
+    ops::Deref,
+    ptr,
+    sync::atomic::{self, Ordering},
+};
 
 use embedded_hal::spi::{FullDuplex, Mode, Phase, Polarity};
 
@@ -390,8 +394,6 @@ where
 
         // todo: Pri and Circular as args?
 
-        // todo: Include muxing for G and L5? Or handle that s
-
         // A DMA access is requested when the TXE or RXNE enable bit in the SPIx_CR2 register is
         // set. Separate requests must be issued to the Tx and Rx buffers.
         // In transmission, a DMA request is issued each time TXE is set to 1. The DMA then
@@ -527,7 +529,9 @@ where
     // todo: pub fn transfer_dma()?
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
-    /// Stop a DMA transfer. Run this after each transfer (?) Mandatory(?)
+    /// Stop a DMA transfer. Stops the channel, and disables the `txdmaen` and `rxdmaen` bits.
+    /// Run this after each transfer completes - you may wish to do this in an interrupt
+    /// (eg DMA transfer complete) instead of blocking.
     pub fn stop_dma<D>(&mut self, channel: DmaChannel, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
@@ -536,7 +540,7 @@ where
         // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
         dma.stop(channel);
         // 2. Disable the SPI by following the SPI disable procedure:
-        // self.disable(); // todo: experiment.
+        // self.disable(); // todo: This probably isn't required.
         // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
         // SPI_CR2 register, if DMA Tx and/or DMA Rx are used.
         self.regs.cr2.modify(|_, w| {

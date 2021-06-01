@@ -1,15 +1,23 @@
 //! USB support, including for simulated COM ports. This module is a thin wrapper required to work with
-//! the `usbd` crate.
+//! the `stm32_usbd` crate.
 //! Requires the `usb` feature.
-//! Only used on F303, L4x2, and L4x3. Other families that use USB use the `usb_otg` module.
+//! Used on F303, L4x2, L4x3, L5, G0, and G4. F4, L4x5, L4x6 and H7 use USB use the `usb_otg` module.
+//! For G0 series, only available on G0B0, G0B1, G0C1, which the PAC doesn't yet differentiate.
 
 use crate::{
-    pac::{PWR, RCC, USB},
+    pac::{PWR, RCC},
     rcc_en_reset,
 };
-use stm32_usbd::UsbPeripheral;
+
+#[cfg(not(feature = "g4"))]
+use crate::pac::USB;
+#[cfg(feature = "g4")]
+use crate::pac::USB_FS_DEVICE as USB;
 
 pub use stm32_usbd::UsbBus;
+use stm32_usbd::UsbPeripheral;
+
+use cfg_if::cfg_if;
 
 /// USB Peripheral
 ///
@@ -29,47 +37,65 @@ unsafe impl UsbPeripheral for Peripheral {
     #[cfg(feature = "f3")]
     const DP_PULL_UP_FEATURE: bool = false;
 
-    #[cfg(feature = "l4")]
+    #[cfg(not(feature = "f3"))]
     const DP_PULL_UP_FEATURE: bool = true;
 
     // Pointer to the endpoint memory
     // todo: This is the L4 setting. Is this right?
     // L4 Reference manual, Table 2. USB SRAM is on APB1, at this address:
+    #[cfg(feature = "l4")]
     const EP_MEMORY: *const () = 0x4000_6c00 as _;
 
-    // Endpoint memory access scheme. Check RM.
-    // Set to `true` if "2x16 bits/word" access scheme is used, otherwise set to `false`.
-    const EP_MEMORY_ACCESS_2X16: bool = true;
+    #[cfg(feature = "l5")]
+    const EP_MEMORY: *const () = 0x5000_d800 as _;
 
-    // f303 subvariants have diff mem sizes and bits/word scheme. :/
+    #[cfg(feature = "g0")]
+    const EP_MEMORY: *const () = 0x4000_5c00 as _;
 
-    // todo: Is there a way to pass `EP_MEMORY_SIZE` as an arg?
+    #[cfg(feature = "g4")]
+    const EP_MEMORY: *const () = 0x4000_6000 as _;
 
     // Endpoint memory size in bytes
+    // F303 subvariants have diff mem sizes and bits/word scheme: 0B/C use 512 size and 1x16 bits/word.
+    // F303D/E use 1024 bytes, and 2x16 bits/word.
     #[cfg(feature = "f3")]
     const EP_MEMORY_SIZE: usize = 512;
     // todo: Feature-gate various memory sizes
 
-    #[cfg(feature = "l4")]
-    const EP_MEMORY_SIZE: usize = 1024;
+    #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))]
+    const EP_MEMORY_SIZE: usize = 1_024;
+
+    #[cfg(feature = "g0")]
+    const EP_MEMORY_SIZE: usize = 2_048;
+
+    // Endpoint memory access scheme.
+    // Set to `true` if "2x16 bits/word" access scheme is used, otherwise set to `false`.
+    #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))]
+    const EP_MEMORY_ACCESS_2X16: bool = true;
+
+    #[cfg(any(feature = "f3", feature = "g0"))]
+    // F3 uses 1x16 or 2x16 depending on variant. G0 uses a 32-bit word.
+    const EP_MEMORY_ACCESS_2X16: bool = false;
 
     fn enable() {
         let rcc = unsafe { &*RCC::ptr() };
+
         cortex_m::interrupt::free(|_| {
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "f3")] {
-                    rcc_en_reset!(apb1, usb, rcc);
-                } else if #[cfg(feature = "l4x3")] {
+            cfg_if! {
+                if #[cfg(feature = "l4x3")] {
                     // todo: rstr absent or missing in Pac for L4x3. Present in RM.
                     rcc.apb1enr1.modify(|_, w| w.usbfsen().set_bit());
 
                     let rstr_val = rcc.apb1rstr1.read().bits();
                     rcc.apb1rstr1.modify(|_, w| unsafe { w.bits(rstr_val | (1 << 26)) }); // Set bit 26
-                    rcc.apb1rstr1.modify(|_ ,w| unsafe { w.bits(rstr_val & !(1 << 26)) }); // Clear bit 26
+                    rcc.apb1rstr1.modify(|_ , w| unsafe { w.bits(rstr_val & !(1 << 26)) }); // Clear bit 26
                 } else if #[cfg(feature = "l4x2")] {
                     rcc_en_reset!(apb1, usbfs, rcc);
-                }
-                else { // G
+                } else if #[cfg(feature = "l5")] {
+                    rcc.apb1enr2.modify(|_, w| w.usbfsen().set_bit());
+                    rcc.apb1rstr2.modify(|_, w| w.usbfsrst().set_bit());
+                    rcc.apb1rstr2.modify(|_ , w| w.usbfsrst().clear_bit());
+                } else {
                     rcc_en_reset!(apb1, usb, rcc);
                 }
             }
@@ -89,7 +115,7 @@ unsafe impl UsbPeripheral for Peripheral {
 /// this is the only possible concrete type construction.
 pub type UsbBusType = UsbBus<Peripheral>;
 
-#[cfg(feature = "l4")]
+#[cfg(any(feature = "l4", feature = "l5", feature = "g0"))]
 /// Enables the Vdd USB power supply. Note that we also need to enable `PWREN` in APB1,
 /// but we handle this using the RTC setup. Use a raw pointer if doing this without the RTC
 /// already set up.

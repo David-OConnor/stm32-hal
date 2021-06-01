@@ -1,7 +1,10 @@
 //! Direct Memory Access (DMA). This module handles initialization, and transfer
 //! configuration for DMA. The `Dma::cfg_channel` method is called by modules that use DMA.
 
-use core::{ops::Deref, sync::atomic::{self, Ordering}};
+use core::{
+    ops::Deref,
+    sync::atomic::{self, Ordering},
+};
 
 use crate::{
     pac::{self, RCC},
@@ -894,7 +897,7 @@ where
         // todo?
 
         // The software waits for the transfer complete or transfer error interrupt.
-        // (Handed by calling code))
+        // (Handed by calling code)
 
         // (todo: set ifcr.cficx bit to clear all interrupts?)
 

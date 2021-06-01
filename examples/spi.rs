@@ -19,13 +19,13 @@ use stm32_hal2::{
     delay::Delay,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
     gpio::{Edge, PinMode, PinNum},
-    spi::{self, Spi, SpiConfig, SpiDevice},
     low_power, pac,
+    spi::{self, Spi, SpiConfig, SpiDevice},
 };
 
 use embedded_hal::{
-    blocking::spi::{Write, Transfer},
-    spi::{Phase, Polarity, Mode}
+    blocking::spi::{Transfer, Write},
+    spi::{Mode, Phase, Polarity},
 };
 
 #[entry]
@@ -44,7 +44,7 @@ fn main() -> ! {
     // Enable the GPIOB port.
     let mut gpioa = GpioA::new(dp.GPIOB, &mut dp.RCC);
 
-      // Configure pins for I2c.
+    // Configure pins for I2c.
     let _sck = gpioa.new_pin(PinNum::P5, PinMode::Alt(AltFn::Af5));
     let _miso = gpioa.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af5));
     let _mosi = gpioa.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af5));
@@ -73,13 +73,16 @@ fn main() -> ! {
     let mut dma = Dma::new(&mut dp.DMA1, &dp.RCC);
 
     // We read 3 bytes from the `0x9f` register.
+    let mut write_buf = [0x80, 100];
     let mut read_buf = [0x9f, 0, 0, 0];
+
+    // todo: Write example.
+
     cs.set_low();
 
     spi.write_dma(&read_buf, DmaChannel::C3, &mut dma);
     spi.read_dma(&mut read_buf, DmaChannel::C2, &mut dma);
 
-    // while !dma.transfer_is_complete(DmaChannel::C3) {}
     while !dma.transfer_is_complete(DmaChannel::C2) {}
     spi.stop_dma(DmaChannel::C2, &mut dma);
     spi.stop_dma(DmaChannel::C3, &mut dma);
@@ -109,7 +112,7 @@ fn main() -> ! {
 #[interrupt]
 /// This interrupt fires when a DMA transmission is complete
 fn DMA1_CH3() {
-  free(|cs| {
+    free(|cs| {
         access_global!(DMA, dma, cs);
         access_global!(SPI, spi, cs);
 
@@ -126,7 +129,7 @@ fn DMA1_CH3() {
 #[interrupt]
 /// This interrupt fires when a DMA read is complete
 fn DMA1_CH2() {
-      free(|cs| {
+    free(|cs| {
         defmt::info!("SPI DMA STOPPED");
         access_global!(DMA, dma, cs);
         access_global!(SPI, spi, cs);

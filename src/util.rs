@@ -26,6 +26,8 @@ macro_rules! rcc_en_reset {
                 $rcc.apb1lrstr.modify(|_, w| w.[<$periph rst>]().set_bit());
                 $rcc.apb1lrstr.modify(|_, w| w.[<$periph rst>]().clear_bit());
             }
+            // todo: apb1enr2 on L5? Currently we only use it with USB, which is handled in
+            // todo `usb.rs`.
         }}
     };
     (apb2, $periph:expr, $rcc:expr) => {

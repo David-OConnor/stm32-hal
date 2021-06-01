@@ -290,21 +290,16 @@ pub mod spi;
 
 pub mod timer;
 
-// Non-OTG: F3, L4x2, L4x3,
-// OTG HS: F4, H7
-// OTG FS: F4
-// OTG (not sure which): L4x5, l4x6, [L5, G4?] (Are these newer ones really non-OTG? Use the usbd crate?)
-// which variant does G0 use? Only G0Bx and G0Cx support it. (G0 RMs, "Availability of Peripherals") section.
-// todo: Figure out which variant G4 uses, and add it.
-// todo: This needs work. For example, where does G4 fit in? has USB_FS_DEVICE reg block in PAC.
+// See note at top of `usb` module for info on G0; not avail on modules the PAC has avail.
 cfg_if::cfg_if! {
     if #[cfg(all(
         feature = "usb",
-        any(feature = "f303", feature = "l4x2", feature = "l4x3")
+        any(feature = "f303", feature = "l4x2", feature = "l4x3", feature = "l5", feature = "g4")
     ))] {
         pub mod usb;
     } else if #[cfg(all(
-        feature = "usbotg",
+    // todo: I think only H7 has hs (high-speed), while F4 and L4 have FS only.
+        any(feature = "usbotg_fs", feature = "usbotg_hs"),
         any(feature = "f4", feature = "l4x5", feature = "l4x6", feature = "h7")
     ))] {
         pub mod usb_otg;
