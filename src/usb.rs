@@ -89,6 +89,7 @@ unsafe impl UsbPeripheral for Peripheral {
 /// this is the only possible concrete type construction.
 pub type UsbBusType = UsbBus<Peripheral>;
 
+#[cfg(feature = "l4")]
 /// Enables the Vdd USB power supply. Note that we also need to enable `PWREN` in APB1,
 /// but we handle this using the RTC setup. Use a raw pointer if doing this without the RTC
 /// already set up.

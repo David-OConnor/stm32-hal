@@ -138,7 +138,6 @@ fn main() -> ! {
         &clock_cfg,
         &mut dp.RCC,
     );
-    );
 
     // Configure pins for UART.
     let _uart_tx = gpioa.new_pin(PinNum::P9, PinMode::Alt(AltFn::Af7));

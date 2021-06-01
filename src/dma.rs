@@ -1,7 +1,7 @@
 //! Direct Memory Access (DMA). This module handles initialization, and transfer
 //! configuration for DMA. The `Dma::cfg_channel` method is called by modules that use DMA.
 
-use core::{ops::Deref, sync::atomic};
+use core::{ops::Deref, sync::atomic::{self, Ordering}};
 
 use crate::{
     pac::{self, RCC},
@@ -639,7 +639,7 @@ where
         // for info on why we use `compiler_fence` here:
         // "We use Ordering::Release to prevent all preceding memory operations from being moved
         // after [starting DMA], which performs a volatile write."
-        atomic::compiler_fence(atomic::Ordering::Release);
+        atomic::compiler_fence(Ordering::Release);
 
         match channel {
             DmaChannel::C1 => {
@@ -901,6 +901,7 @@ where
         // When a channel transfer error occurs, the EN bit of the DMA_CCRx register is cleared by
         // hardware. This EN bit can not be set again by software to re-activate the channel x, until the
         // TEIFx bit of the DMA_ISR register is set
+        atomic::compiler_fence(Ordering::SeqCst);
     }
 
     pub fn transfer_is_complete(&mut self, channel: DmaChannel) -> bool {

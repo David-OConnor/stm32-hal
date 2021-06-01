@@ -1170,9 +1170,9 @@ impl Default for Clocks {
     fn default() -> Self {
         Self {
             input_src: InputSrc::Pll(PllSrc::Hsi),
-            pllm: Pllm::Div2,
+            pllm: Pllm::Div4,
             #[cfg(feature = "l4")]
-            plln: 20,
+            plln: 40,
             #[cfg(feature = "l5")]
             plln: 27,
             #[cfg(feature = "g0")]
