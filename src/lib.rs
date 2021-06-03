@@ -41,6 +41,7 @@
     feature = "f469",
     feature = "l4x1",
     feature = "l4x2",
+    feature = "l412", // temp RTC workaround.
     feature = "l4x3",
     feature = "l4x5",
     feature = "l4x6",
@@ -129,6 +130,9 @@ pub use stm32l4::stm32l4x1 as pac;
 
 #[cfg(feature = "l4x2")]
 pub use stm32l4::stm32l4x2 as pac;
+
+#[cfg(feature = "l412")] // Temp RTC workaround
+pub use stm32l412::stm32l412 as pac;
 
 #[cfg(feature = "l4x3")]
 pub use stm32l4::stm32l4x3 as pac;

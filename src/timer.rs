@@ -746,6 +746,7 @@ cfg_if! {
         feature = "f410",
         feature = "l4x1",
         feature = "l4x2",
+        feature = "l412", // todo: 412 workaround
         feature = "l4x3",
         feature = "l552",
         feature = "g0",
@@ -761,6 +762,7 @@ cfg_if! {
         feature = "f410",
         feature = "l4x1",
         feature = "l4x2",
+        feature = "l412", // todo: 412 workaround
         feature = "l4x3",
         feature = "l5",
         feature = "g0",
@@ -847,6 +849,7 @@ cfg_if! {
     if #[cfg(not(any(
         feature = "l4x1",
         feature = "l4x2",
+        feature = "l412", // todo: 412 workaround
         feature = "l4x3",
         feature = "f4",
     )))] {

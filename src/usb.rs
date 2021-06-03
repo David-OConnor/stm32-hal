@@ -34,7 +34,7 @@ unsafe impl UsbPeripheral for Peripheral {
     #[cfg(not(feature = "l4x3"))]
     const REGISTERS: *const () = USB::ptr() as *const ();
 
-    // todo workaround due to an issue.
+    // Workaround due to a PAC issue: https://github.com/stm32-rs/stm32-rs/issues/565
     #[cfg(feature = "l4x3")]
     const REGISTERS: *const () = 0x4000_6800 as *const ();
 

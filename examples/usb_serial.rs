@@ -1,15 +1,17 @@
+//! This example demonstrates serial communication with a PC.
+
 //! For project structure and debugging boilerplate, see the `synax_overview` example.
 
 #![no_main]
 #![no_std]
 
-use cortex_m::{interrupt::free, peripheral::NVIC};
+use cortex_m::{self, interrupt::free, peripheral::NVIC};
 
 use cortex_m_rt::entry;
 
 use stm32_hal2::{
-    clocks::Clocks,
-    gpio::GpioA,
+    clocks::{Clocks, CrsSyncSr},
+    gpio::{AltFn, GpioA, PinNum},
     pac,
     usb::{Peripheral, UsbBus, UsbBusType},
 };
@@ -23,11 +25,25 @@ fn main() -> ! {
     // Set up microcontroller peripherals
     let mut dp = pac::Peripherals::take().unwrap();
 
-    let clock_cfg = Clocks::default();
+    let mut clock_cfg = Clocks::default();
+
+    // Enable the HSI48 oscillator, so we don't need an external oscillator, and
+    // aren't restricted in our PLL config.
+    clock_cfg.hsi48_on = true;
+    clock_cfg.clk48_src = Clk48Src::Hsi48;
 
     if clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
         defmt::error!("Unable to configure clocks due to a speed error.")
     };
+
+    // Enable the Clock Recovery System, which improves HSI48 accuracy.
+    clocks::enable_crs(CrsSyncSrc::Usb, &mut dp.CRS, &mut dp.RCC);
+
+    // Enable `pwren`. Note that this is also set up by the `rtc` initialization, so this
+    // step isn't required if you have the RTC set up.
+    dp.RCC.apb1enr1.modify(|_, w| w.pwren().set_bit());
+    // Enable USB power, on applicable MCUs like L4.
+    usb::enable_usb_pwr(&mut dp.PWR, &mut dp.RCC);
 
     // Enable the GPIOA port.
     let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
@@ -49,6 +65,7 @@ fn main() -> ! {
         .device_class(USB_CLASS_CDC)
         .build();
 
+    // todo: Interrupt.
     loop {
         // It's probably better to do this with an interrupt than polling. Polling here
         // keep the syntax simple. To use in an interrupt, set up the USB-related structs as

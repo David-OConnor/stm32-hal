@@ -747,8 +747,9 @@ cfg_if! {
     }
 }
 
+// todo: 412 workaround
 cfg_if! {
-    if #[cfg(not(any(feature = "f401", feature = "f410", feature = "f411", feature = "l4x1", feature = "l4x2", feature = "l4x3")))] {
+    if #[cfg(not(any(feature = "f401", feature = "f410", feature = "f411", feature = "l4x1", feature = "l4x2", feature = "l412", feature = "l4x3")))] {
         make_port!(F, f);
         make_pin!(F);
     }
