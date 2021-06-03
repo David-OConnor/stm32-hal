@@ -201,7 +201,7 @@ where
 - The DMA2 peripheral is unimplemented
 - DMA circular buffers unimplemented
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
-- USB unimplemented for H7 and G0.
+- USB unimplemented for H7
 - USART synchronous mode, and auto-baud-rate detection unimplemented
 - USART interrupts unimplemented on F4
 - H7 clocks are missing advanced features

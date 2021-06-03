@@ -1216,7 +1216,6 @@ impl Default for Clocks {
 /// Note: This is for HSI48 only. Note that the HSI will turn off after entering Stop or Standby.
 pub fn enable_crs(sync_src: CrsSyncSrc, crs: &mut pac::CRS, rcc: &mut RCC) {
     rcc.apb1enr1.modify(|_, w| w.crsen().set_bit());
-    // Initialize clock recovery
 
     crs.cfgr
         .modify(|_, w| unsafe { w.syncsrc().bits(sync_src as u8) });

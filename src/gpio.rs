@@ -86,22 +86,22 @@ pub enum CfgLock {
 #[repr(u8)]
 /// Values for `GPIOx_AFRL` and `GPIOx_AFRH`.
 pub enum AltFn {
-    Af0 = 0b0000,
-    Af1 = 0b0001,
-    Af2 = 0b0010,
-    Af3 = 0b0011,
-    Af4 = 0b0100,
-    Af5 = 0b0101,
-    Af6 = 0b0110,
-    Af7 = 0b0111,
-    Af8 = 0b1000,
-    Af9 = 0b1001,
-    Af10 = 0b1010,
-    Af11 = 0b1011,
-    Af12 = 0b1100,
-    Af13 = 0b1101,
-    Af14 = 0b1110,
-    Af15 = 0b1111,
+    Af0 = 0,
+    Af1 = 1,
+    Af2 = 2,
+    Af3 = 3,
+    Af4 = 4,
+    Af5 = 5,
+    Af6 = 6,
+    Af7 = 7,
+    Af8 = 8,
+    Af9 = 9,
+    Af10 = 10,
+    Af11 = 11,
+    Af12 = 12,
+    Af13 = 13,
+    Af14 = 14,
+    Af15 = 15,
 }
 
 #[derive(Copy, Clone)]

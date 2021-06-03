@@ -31,7 +31,12 @@ pub struct Peripheral {
 unsafe impl Sync for Peripheral {}
 
 unsafe impl UsbPeripheral for Peripheral {
+    #[cfg(not(feature = "l4x3"))]
     const REGISTERS: *const () = USB::ptr() as *const ();
+
+    // todo workaround due to an issue.
+    #[cfg(feature = "l4x3")]
+    const REGISTERS: *const () = 0x4000_6800 as *const ();
 
     // Embedded pull-up resistor on USB_DP line
     #[cfg(feature = "f3")]
@@ -83,7 +88,7 @@ unsafe impl UsbPeripheral for Peripheral {
         cortex_m::interrupt::free(|_| {
             cfg_if! {
                 if #[cfg(feature = "l4x3")] {
-                    // todo: rstr absent or missing in Pac for L4x3. Present in RM.
+                    // todo: rstr absent or missing in Pac for L4x3. Fixed in next PAC.
                     rcc.apb1enr1.modify(|_, w| w.usbfsen().set_bit());
 
                     let rstr_val = rcc.apb1rstr1.read().bits();
@@ -95,7 +100,7 @@ unsafe impl UsbPeripheral for Peripheral {
                     rcc.apb1enr2.modify(|_, w| w.usbfsen().set_bit());
                     rcc.apb1rstr2.modify(|_, w| w.usbfsrst().set_bit());
                     rcc.apb1rstr2.modify(|_ , w| w.usbfsrst().clear_bit());
-                } else {
+                } else { // G0 and G4.
                     rcc_en_reset!(apb1, usb, rcc);
                 }
             }
@@ -103,16 +108,14 @@ unsafe impl UsbPeripheral for Peripheral {
     }
 
     fn startup_delay() {
-        // There is a chip specific startup delay. For STM32F103xx it's 1µs and this should wait for
-        // at least that long.
-        cortex_m::asm::delay(120);
+        // There is a chip specific startup delay, around 1µs.
+        // todo: Come back to this. This value current assumes 1µs
+        // todo for an L4 running at full speed.
+        cortex_m::asm::delay(80);
     }
 }
 
 /// Type of the UsbBus
-///
-/// As this MCU family has only USB peripheral,
-/// this is the only possible concrete type construction.
 pub type UsbBusType = UsbBus<Peripheral>;
 
 #[cfg(any(feature = "l4", feature = "l5", feature = "g0"))]

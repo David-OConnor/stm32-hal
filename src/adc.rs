@@ -340,8 +340,8 @@ macro_rules! hal {
                 cfg_if! {
                     // todo: We've put l4x2 on the newer one, since we're using the workaround local
                     // todo PAC, which has the newer approach.
-                    // if #[cfg(any(feature = "l4x1", feature = "l4x2", feature = "l4x3", feature = "l4x5"))] {
-                    if #[cfg(any(feature = "l4x1", feature = "l4x3", feature = "l4x5"))] {
+                    if #[cfg(any(feature = "l4x1", feature = "l4x2", feature = "l4x3", feature = "l4x5"))] {
+                    // if #[cfg(any(feature = "l4x1", feature = "l4x3", feature = "l4x5"))] {
                         self.regs.sqr1.modify(|_, w| unsafe { w.l3().bits(len - 1) });
                     } else {
                         self.regs.sqr1.modify(|_, w| unsafe { w.l().bits(len - 1) });

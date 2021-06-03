@@ -52,14 +52,9 @@ void = { version = "1.0.2", default-features = false }  # One off in `timer.rs`.
 cfg-if = "1.0.0"  # if/else blocks for feature-gating
 paste = "1.0.4"  # Token pasting, to make macros easier
 
-# todo: These are required by the l4 Serial and DMA implementation. Is it worth having these dependencies?
-# todo: Can we remove them?
-as-slice = "0.1"
-generic-array = "0.13"
-stable_deref_trait = { version = "1.1", default-features = false }
-
 [package.metadata.docs.rs]
-features = ["l4rt", "l4x3", "usb"]
+#features = ["l4rt", "l4x3", "usb"]
+features = ["l4rt", "usb"]
 targets = ["thumbv7em-none-eabihf"]
 
 # Compile with one of these "runtime" features if the program
