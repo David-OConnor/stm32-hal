@@ -23,7 +23,7 @@ use paste::paste;
 /// Used for when attempting to set a timer period that is out of range.
 pub struct ValueError {}
 
-/// Hardware timers
+/// Represents a timer peripheral.
 pub struct Timer<TIM> {
     clock_speed: u32, // Associated timer clock speed in Hz.
     tim: TIM,         // Register block for the specific timer.
@@ -314,12 +314,6 @@ macro_rules! hal {
                 self.tim.cr1.read().cen().bit_is_set()
             }
 
-            /// Releases the TIM peripheral
-            pub fn free(mut self) -> pac::$TIMX {
-                self.disable();
-                self.tim
-            }
-
             /// Set the timer frequency, in Hz. Overrides the period or frequency set
             /// in the constructor. If you use `center` aligned PWM, make sure to
             /// enter twice the freq you normally would.
@@ -351,6 +345,11 @@ macro_rules! hal {
             /// Reset the countdown; set the counter to 0.
             pub fn reset_countdown(&mut self) {
                 self.tim.cnt.write(|w| unsafe { w.bits(0) });
+            }
+
+            /// Read the current counter value.
+            pub fn countdown(&self) -> u32 {
+                self.tim.cnt.read().bits()
             }
         }
     }
@@ -724,7 +723,13 @@ pwm_features!(TIM2, u16);
 #[cfg(not(any(feature = "l5", feature = "g070", feature = "g4", feature = "f410")))]
 pwm_features!(TIM2, u32);
 
-#[cfg(not(any(feature = "f301", feature = "l4x1", feature = "l4x3", feature = "f410",)))]
+#[cfg(not(any(
+    feature = "f301",
+    feature = "l4x1",
+    feature = "l4x3",
+    feature = "f410",
+    feature = "wb"
+)))]
 hal!(TIM3, tim3, 1);
 
 #[cfg(not(any(
@@ -732,7 +737,8 @@ hal!(TIM3, tim3, 1);
     feature = "l4x3",
     feature = "l5",
     feature = "f410",
-    feature = "g0"
+    feature = "g0",
+    feature = "wb",
 )))]
 pwm_features!(TIM3, u16);
 
@@ -750,6 +756,7 @@ cfg_if! {
         feature = "l4x3",
         feature = "l552",
         feature = "g0",
+        feature = "wb",
     )))] {
         hal!(TIM4, tim4, 1);
     }
@@ -766,6 +773,7 @@ cfg_if! {
         feature = "l4x3",
         feature = "l5",
         feature = "g0",
+        feature = "wb",
     )))] {
         pwm_features!(TIM4, u16);
     }
@@ -804,7 +812,8 @@ cfg_if! {
         feature = "g031",
         feature = "g041",
         feature = "g070",
-        feature = "g030"
+        feature = "g030",
+        feature = "wb",
     )))] {
         hal!(TIM6, tim6, 1);
     }
@@ -818,7 +827,8 @@ cfg_if! {
     feature = "f411",
     feature = "g031",
     feature = "g041",
-    feature = "g030"
+    feature = "g030",
+    feature = "wb",
 )))]
 hal!(TIM7, tim7, 1);
 
@@ -838,7 +848,7 @@ hal!(TIM8, tim8, 2);
     feature = "g031",
     feature = "g031",
     feature = "g041",
-    feature = "g030"
+    feature = "g030",
 )))]
 hal!(TIM15, tim15, 2);
 

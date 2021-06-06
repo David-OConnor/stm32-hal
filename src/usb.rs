@@ -19,10 +19,7 @@ use stm32_usbd::UsbPeripheral;
 
 use cfg_if::cfg_if;
 
-/// USB Peripheral
-///
-/// Constructs the peripheral, which
-/// than gets passed to the [`UsbBus`].
+/// Represents a Universal Serial Bus (USB) peripheral.
 pub struct Peripheral {
     /// USB Register Block
     pub usb: USB,
@@ -48,7 +45,7 @@ unsafe impl UsbPeripheral for Peripheral {
     // Pointer to the endpoint memory
     // todo: This is the L4 setting. Is this right?
     // L4 Reference manual, Table 2. USB SRAM is on APB1, at this address:
-    #[cfg(feature = "l4")]
+    #[cfg(any(feature = "l4", feature = "wb"))]
     const EP_MEMORY: *const () = 0x4000_6c00 as _;
 
     #[cfg(feature = "l5")]
@@ -67,7 +64,7 @@ unsafe impl UsbPeripheral for Peripheral {
     const EP_MEMORY_SIZE: usize = 512;
     // todo: Feature-gate various memory sizes
 
-    #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))]
+    #[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "wb"))]
     const EP_MEMORY_SIZE: usize = 1_024;
 
     #[cfg(feature = "g0")]
@@ -75,7 +72,7 @@ unsafe impl UsbPeripheral for Peripheral {
 
     // Endpoint memory access scheme.
     // Set to `true` if "2x16 bits/word" access scheme is used, otherwise set to `false`.
-    #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))]
+    #[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "wb"))]
     const EP_MEMORY_ACCESS_2X16: bool = true;
 
     #[cfg(any(feature = "f3", feature = "g0"))]
@@ -100,7 +97,7 @@ unsafe impl UsbPeripheral for Peripheral {
                     rcc.apb1enr2.modify(|_, w| w.usbfsen().set_bit());
                     rcc.apb1rstr2.modify(|_, w| w.usbfsrst().set_bit());
                     rcc.apb1rstr2.modify(|_ , w| w.usbfsrst().clear_bit());
-                } else { // G0 and G4.
+                } else { // G0, G4, WB.
                     rcc_en_reset!(apb1, usb, rcc);
                 }
             }

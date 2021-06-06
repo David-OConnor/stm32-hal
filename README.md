@@ -10,15 +10,15 @@ This library provides high-level access to STM32 peripherals. It's based on the
 multiple STM32 families, with minimal code repetition. This makes it easy to switch MCUs 
 within, or across families, for a given project.
 
-**Family support**: F3, F4, L4, L5, G0, G4, and H7. U5 is planned once its SVD files and PAC
-become available. WL and WB eventually.
+**Family support**: F3, F4, L4, L5, G0, G4, H7, and WB. U5 is planned once its SVD files and PAC
+become available. WL eventually. (WB is WIP; not working yet!)
 
 **Motivation**: Use STM32s in real-world hardware projects. Be able to switch MCUs with
 minimal code change. 
 
-**Design priority**: Get hardware working with a robust feature set, aimed at
-practical uses. The freedom to choose the right MCU for each project, without 
-changing code bases.
+**Design priority**: Get hardware working with a robust feature set, and a clean,
+consistent API. Design around practical uses. The flexibility to choose the right MCU for each 
+project, without changing code bases.
 
 Both DMA (Direct Memory Access) and non-DMA APIs and examples are provided. DMA APIs provide faster and more efficient
 operations, while non-DMA APIs are simpler, and are compatible with `embedded-hal`.
@@ -76,9 +76,8 @@ There are some areas where design philosophy is different. For example: GPIO
 type-checking, level-of-abstraction from registers/PAC, role of DMA, role of `embedded-hal` traits in the API, 
 feature parity among STM32 families, and clock config.
 
-`stm32yxx-hal`s focus on building an API that doesn't let users configure something wrong. 
-From a programmer's perspective, these guards aren't zero-cost: They complicate both HAL and user
-code, and limit functionality.
+`stm32yxx-hal`s focus is building an API that doesn't let users configure something wrong. 
+These guards complicate both HAL and user code, and limit functionality.
     
 ## Docs caveat
 The Rust docs page is built for STM32L4x3, and some aspects are not accurate for other
@@ -127,7 +126,7 @@ enum FcRadarInterrupt {
     LostTrack,
 }
 
-/// Represents the Fire Control Radar peripheral.
+/// Represents a Fire Control Radar (FCR) peripheral.
 pub struct FcRadar<F> {
     regs: F,
     pub prf: Prf,

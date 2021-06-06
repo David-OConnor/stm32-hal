@@ -51,7 +51,7 @@ pub enum I2cDevice {
     Three,
 }
 
-/// I2C peripheral operating in master mode
+/// Represents an Inter-Integrated Circuit (I2C) peripheral.
 pub struct I2c<I2C> {
     regs: I2C,
     device: I2cDevice,

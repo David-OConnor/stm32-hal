@@ -11,7 +11,7 @@ cfg_if::cfg_if! {
     if #[cfg(any(feature = "f3", feature = "f4"))] {
         mod f;
         pub use f::*;
-    } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g0", feature = "g4"))] {
+    } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g0", feature = "g4", feature = "wb"))] {
         mod l_g;
         pub use l_g::*;
     } else if #[cfg(feature = "u5")] {

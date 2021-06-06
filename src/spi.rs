@@ -114,7 +114,7 @@ impl Default for SpiConfig {
     }
 }
 
-/// SPI peripheral operating in full duplex master mode
+/// Represents an Serial Peripheral Interface (SPI) peripheral.
 pub struct Spi<S> {
     regs: S,
     device: SpiDevice,

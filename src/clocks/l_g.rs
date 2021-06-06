@@ -1,4 +1,4 @@
-//! Clock config for STM32L and G-series MCUs
+//! Clock config for STM32L, G, and W-series MCUs
 
 use crate::{
     clocks::SpeedError,
@@ -9,8 +9,8 @@ use crate::{
 
 use cfg_if::cfg_if;
 
-// todo: MSI and HSI calibration with LSE. The L4 RM describes this as possible, but doesn't tell you how
-// todo to do it. Something about tim15 and tim16? `RCC_ICSCR` resgister?
+// todo: WB is missing second LSI2, and perhaps other things.
+// todo: Mix H7 clocks into this module.
 
 #[cfg(not(feature = "g0"))]
 #[derive(Clone, Copy, PartialEq)]
@@ -26,7 +26,7 @@ pub enum Clk48Src {
     Msi = 0b11,
 }
 
-#[cfg(any(feature = "l4", feature = "l5"))]
+#[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
 #[derive(Clone, Copy)]
 #[repr(u8)]
 pub enum CrsSyncSrc {
@@ -52,7 +52,7 @@ pub enum PllSrc {
     Hse(u32),
 }
 
-#[cfg(any(feature = "l4", feature = "l5"))]
+#[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 /// Select the system clock used when exiting Stop mode
@@ -425,6 +425,12 @@ pub struct Clocks {
     pub pllq: Pllr,
     /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
     pub hclk_prescaler: HclkPrescaler,
+    #[cfg(feature = "wb")]
+    /// The value to divide SYSCLK by for HCLK2. (CPU2)
+    pub hclk2_prescaler: HclkPrescaler,
+    #[cfg(feature = "wb")]
+    /// The value to divide SYSCLK by for HCLK4.
+    pub hclk4_prescaler: HclkPrescaler,
     /// The divider of HCLK to get the APB1 peripheral clock
     pub apb1_prescaler: ApbPrescaler,
     #[cfg(not(feature = "g0"))]
@@ -446,7 +452,7 @@ pub struct Clocks {
     #[cfg(not(feature = "g0"))]
     /// Enable the HSI48. For L4, this is only applicable for some devices.
     pub hsi48_on: bool,
-    #[cfg(any(feature = "l4", feature = "l5"))]
+    #[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
     /// Select the input source to use after waking up from `stop` mode. Eg HSI or MSI.
     pub stop_wuck: StopWuck,
 }
@@ -732,6 +738,13 @@ impl Clocks {
             return w.ppre1().bits(self.apb1_prescaler as u8); // HCLK division for APB1
             #[cfg(feature = "g0")]
             return w.ppre().bits(self.apb1_prescaler as u8);
+        });
+
+        // todo: Adapt this logic for H7? Mix H7 into this module?
+        #[cfg(feature = "wb")]
+        rcc.extcfgr.modify(|_, w| unsafe {
+            w.c2hpre.bits(self.hclk2_prescaler as u8);
+            w.shdhpre.bits(self.hclk4_prescaler as u8)
         });
 
         rcc.cr.modify(|_, w| w.csson().bit(self.security_system));
@@ -1117,9 +1130,12 @@ impl ClockCfg for Clocks {
         #[cfg(feature = "g4")]
         let max_clock = 170_000_000;
 
+        #[cfg(feature = "wb")]
+        let max_clock = 64_000_000;
+
         // todo: L4+ (ie R, S, P, Q) can go up to 120_000.
 
-        #[cfg(any(feature = "l4", feature = "l5"))]
+        #[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
         if self.plln < 7
             || self.plln > 86
             || self.pll_sai1_mul < 7
@@ -1166,7 +1182,7 @@ impl ClockCfg for Clocks {
 
 impl Default for Clocks {
     /// This default configures clocks with a HSI, with system and peripheral clocks at full rated speed.
-    /// All peripheral. Speeds -> L4: 80Mhz. L5: 110Mhz. G0: 64Mhz. G4: 170Mhz.
+    /// All peripheral. Speeds -> L4: 80Mhz. L5: 110Mhz. G0: 64Mhz. G4: 170Mhz. WB: 64Mhz.
     fn default() -> Self {
         Self {
             input_src: InputSrc::Pll(PllSrc::Hsi),
@@ -1179,13 +1195,22 @@ impl Default for Clocks {
             plln: 32,
             #[cfg(feature = "g4")]
             plln: 85,
+            #[cfg(feature = "wb")]
+            plln: 64,
             #[cfg(not(any(feature = "g0", feature = "g4")))]
             pll_sai1_mul: 8,
             #[cfg(not(any(feature = "g0", feature = "g4")))]
             pll_sai2_mul: 8,
+            #[cfg(not(feature = "wb"))]
             pllr: Pllr::Div2,
+            #[cfg(feature = "wb")]
+            pllr: Pllr::Div4,
             pllq: Pllr::Div4,
             hclk_prescaler: HclkPrescaler::Div1,
+            #[cfg(feature = "wb")]
+            hclk2_prescaler: HclkPrescaler::Div2,
+            #[cfg(feature = "wb")]
+            hclk4_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div1,
             #[cfg(not(feature = "g0"))]
             apb2_prescaler: ApbPrescaler::Div1,
@@ -1199,13 +1224,13 @@ impl Default for Clocks {
             security_system: false,
             #[cfg(not(feature = "g0"))]
             hsi48_on: false,
-            #[cfg(any(feature = "l4", feature = "l5"))]
+            #[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
             stop_wuck: StopWuck::Msi,
         }
     }
 }
 
-#[cfg(any(feature = "l4", feature = "l5"))]
+#[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
 /// Enable the Clock Recovery System. L443 User manual:
 /// "The STM32L443xx devices embed a special block which allows automatic trimming of the
 /// internal 48 MHz oscillator to guarantee its optimal accuracy over the whole device

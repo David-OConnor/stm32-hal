@@ -69,7 +69,7 @@ impl From<Alarm> for Event {
     }
 }
 
-/// Real Time Clock peripheral
+/// Represents a Real Time Clock (RTC) peripheral.
 pub struct Rtc {
     /// RTC Peripheral register definition
     regs: RTC,

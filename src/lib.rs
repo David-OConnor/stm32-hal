@@ -69,6 +69,7 @@
     feature = "h753",
     feature = "h753v",
     feature = "h7b3",
+    feature = "wb55",
 )))]
 compile_error!("This crate requires an MCU-specifying feature to be enabled. eg `l552`.");
 
@@ -219,6 +220,9 @@ pub use stm32h7::stm32h753v as pac;
 #[cfg(feature = "h7b3")]
 pub use stm32h7::stm32h7b3 as pac;
 
+#[cfg(feature = "wb55")]
+pub use stm32wb::stm32wb55 as pac;
+
 // todo: U5 once SVD is out.
 
 pub mod traits;
@@ -245,6 +249,7 @@ pub mod can;
 pub mod clocks;
 #[cfg(not(any(feature = "f4", feature = "g0", feature = "g4", feature = "l5")))] // todo
 pub mod crc;
+#[cfg(not(feature = "wb"))] // WB doesn't have a DAC.
 pub mod dac;
 
 // todo: F3, G0 missing many DMA registers like CCR? H7 DMA layout is different.
@@ -284,21 +289,21 @@ pub mod low_power;
 pub mod qspi;
 pub mod rtc;
 
-pub mod usart;
-
 // #[cfg(not(any(feature = "f3")))]
 // pub mod sai;
 
 #[cfg(not(feature = "h7"))] // todo
 pub mod spi;
 
+#[cfg(not(feature = "wb"))] // todo: Unknown issue with WB timers. Put back
 pub mod timer;
+pub mod usart;
 
 // See note at top of `usb` module for info on G0; not avail on modules the PAC has avail.
 cfg_if::cfg_if! {
     if #[cfg(all(
         feature = "usb",
-        any(feature = "f303", feature = "l4x2", feature = "l4x3", feature = "l5", feature = "g4")
+        any(feature = "f303", feature = "l4x2", feature = "l4x3", feature = "l5", feature = "g4", feature = "wb")
     ))] {
         pub mod usb;
     } else if #[cfg(all(

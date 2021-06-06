@@ -78,6 +78,7 @@ jobs:
           - h753
           - h753v
           - h7b3
+          - wb55
 
     steps:
       - uses: actions/checkout@v2

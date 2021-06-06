@@ -320,6 +320,7 @@ impl Default for ChannelCfg {
     }
 }
 
+/// Represents a Direct Memory Access (DMA) peripheral.
 pub struct Dma<D> {
     regs: D,
 }
@@ -1231,7 +1232,7 @@ where
 //     }
 // }
 
-#[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
+#[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "wb"))]
 /// Configure a specific DMA channel to work with a specific peripheral.
 pub fn mux(channel: DmaChannel, input: DmaInput, mux: &pac::DMAMUX) {
     // Note: This is similar in API and purpose to `channel_select` above,
