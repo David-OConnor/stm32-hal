@@ -266,8 +266,10 @@ macro_rules! set_exti {
                                 $exti.cpuimr1.modify(|_, w| w.[<mr $num>]().unmasked());
                             } else if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
                                 $exti.c1imr1.modify(|_, w| w.[<mr $num>]().unmasked());
-                            }else if #[cfg(feature = "g4")] {
+                            }else if #[cfg(any(feature = "g4"))] {
                                 $exti.imr1.modify(|_, w| w.[<im $num>]().unmasked());
+                            } else if #[cfg(feature = "wb")] {
+                                // todo: Missing in PAC!
                             } else {
                                 $exti.imr1.modify(|_, w| w.[<mr $num>]().unmasked());
                             }
@@ -277,6 +279,8 @@ macro_rules! set_exti {
                             if #[cfg(feature = "g4")] {
                                 $exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($trigger));
                                 $exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit(!$trigger));
+                            } else if #[cfg(feature = "wb")] {
+                                // todo: Missing in PAC!
                             } else {
                                 $exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($trigger));
                                 $exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit(!$trigger));
@@ -365,9 +369,9 @@ macro_rules! set_alt {
                     $(
                         PinNum::[<P $num>] => {
                             $regs.moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(AltFn::Af0).val()));
-                            #[cfg(any(feature = "l5", feature = "g0", feature = "h7"))]
+                            #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
                             $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val as u8));
-                            #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7")))]
+                            #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
                             $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val as u8));
                         }
                     )+
@@ -488,7 +492,7 @@ macro_rules! make_pin {
             /// Set up a pin's alternate function. We set this up initially using `mode()`.
             fn alt_fn(&mut self, value: AltFn, regs: &mut pac::[<GPIO $Port>]) {
                 cfg_if! {
-                    if #[cfg(any(feature = "l5", feature = "g0"))] {
+                    if #[cfg(any(feature = "l5", feature = "g0", feature = "wb"))] {
                         set_alt!(self.pin, regs, afsel, value, [(0, l), (1, l), (2, l),
                             (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                             (13, h), (14, h), (15, h)])
@@ -741,7 +745,8 @@ cfg_if! {
 }
 
 cfg_if! {
-    if #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0")))] {
+    // note: WB has port E, but is missing some field values etc. Not sure if in PAC or actual.
+    if #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb")))] {
         make_port!(E, e);
         make_pin!(E);
     }

@@ -247,7 +247,14 @@ pub mod adc;
 pub mod can;
 
 pub mod clocks;
-#[cfg(not(any(feature = "f4", feature = "g0", feature = "g4", feature = "l5")))] // todo
+// todo: You could get CRC working on most of these with some effort.
+#[cfg(not(any(
+    feature = "f4",
+    feature = "g0",
+    feature = "g4",
+    feature = "l5",
+    feature = "wb"
+)))]
 pub mod crc;
 #[cfg(not(feature = "wb"))] // WB doesn't have a DAC.
 pub mod dac;
@@ -285,6 +292,7 @@ pub mod low_power;
     feature = "g491",
     feature = "g4a1",
     feature = "h7b3",
+    feature = "wb", // todo: WB has SPI; we just haven't fixed it up yet.
 )))]
 pub mod qspi;
 pub mod rtc;

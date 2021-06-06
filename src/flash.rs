@@ -223,7 +223,7 @@ impl Flash {
                     w.snb().bits(page as u8) // todo: Probably not right?
                 });
 
-            } else if #[cfg(any(feature = "g0", feature = "g4"))] {
+            } else if #[cfg(any(feature = "g0", feature = "g4", feature = "wb"))] {
                  self.regs.cr.modify(|_, w| unsafe {
                     w.pnb()
                     .bits(page as u8)
@@ -256,7 +256,7 @@ impl Flash {
 
         // 4. Set the STRT bit in the FLASH_CR register.
         cfg_if::cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4"))] {
+            if #[cfg(any(feature = "f3", feature = "f4", feature = "wb"))] {
                 self.regs.cr.modify(|_, w| w.strt().set_bit());
             } else {
                 #[cfg(any(feature = "g0", feature = "g4"))]
@@ -429,7 +429,7 @@ impl Flash {
         // (FLASH_CR). Both banks can be selected in the same operation.
 
         cfg_if::cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4"))] {
+            if #[cfg(any(feature = "f3", feature = "f4", feature = "wb"))] {
                 self.regs.cr.modify(|_, w| w.mer().clear_bit());
 
                 // 4. Set the STRT bit in the FLASH_CR register.

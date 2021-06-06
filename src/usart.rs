@@ -15,7 +15,7 @@ use core::ops::Deref;
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
-#[cfg(any(feature = "f3", feature = "l4", feature = "g4"))]
+#[cfg(any(feature = "f3", feature = "l4", feature = "g4", feature = "wb"))]
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
@@ -66,6 +66,7 @@ impl WordLen {
 /// Specify the Usart device to use. Used internally for setting the appropriate APB.
 pub enum UsartDevice {
     One,
+    #[cfg(not(feature = "wb"))]
     Two,
     #[cfg(not(any(
         feature = "f401",
@@ -74,7 +75,8 @@ pub enum UsartDevice {
         feature = "f412",
         feature = "f413",
         feature = "l4x1",
-        feature = "g0"
+        feature = "g0",
+        feature = "wb",
     )))]
     Three,
     // Four,  todo
@@ -149,6 +151,7 @@ where
             UsartDevice::One => {
                 rcc_en_reset!(apb2, usart1, rcc);
             }
+            #[cfg(not(feature = "wb"))]
             UsartDevice::Two => {
                 cfg_if! {
                     if #[cfg(not(feature = "f4"))] {
@@ -168,7 +171,8 @@ where
                 feature = "f412",
                 feature = "f413",
                 feature = "l4x1",
-                feature = "g0"
+                feature = "g0",
+                feature = "wb",
             )))]
             UsartDevice::Three => {
                 cfg_if! {
@@ -391,6 +395,7 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
             UsartDevice::One => DmaInput::Usart1Tx.dma1_channel(),
+            #[cfg(not(feature = "wb"))]
             UsartDevice::Two => DmaInput::Usart2Tx.dma1_channel(),
             #[cfg(not(any(
                 feature = "f401",
@@ -399,7 +404,8 @@ where
                 feature = "f412",
                 feature = "f413",
                 feature = "l4x1",
-                feature = "g0"
+                feature = "g0",
+                feature = "wb",
             )))]
             UsartDevice::Three => DmaInput::Usart3Tx.dma1_channel(),
         };
@@ -408,16 +414,9 @@ where
         #[cfg(feature = "l4")]
         match self.device {
             UsartDevice::One => dma.channel_select(DmaInput::Usart1Tx),
+            #[cfg(not(feature = "wb"))]
             UsartDevice::Two => dma.channel_select(DmaInput::Usart2Tx),
-            #[cfg(not(any(
-                feature = "f401",
-                feature = "f410",
-                feature = "f411",
-                feature = "f412",
-                feature = "f413",
-                feature = "l4x1",
-                feature = "g0"
-            )))]
+            #[cfg(not(feature = "l4x1"))]
             UsartDevice::Three => dma.channel_select(DmaInput::Usart3Tx),
         }
 
@@ -476,6 +475,7 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
             UsartDevice::One => DmaInput::Usart1Rx.dma1_channel(),
+            #[cfg(not(feature = "wb"))]
             UsartDevice::Two => DmaInput::Usart2Rx.dma1_channel(),
             #[cfg(not(any(
                 feature = "f401",
@@ -484,7 +484,8 @@ where
                 feature = "f412",
                 feature = "f413",
                 feature = "l4x1",
-                feature = "g0"
+                feature = "g0",
+                feature = "wb",
             )))]
             UsartDevice::Three => DmaInput::Usart3Rx.dma1_channel(),
         };
@@ -493,15 +494,7 @@ where
         match self.device {
             UsartDevice::One => dma.channel_select(DmaInput::Usart1Rx),
             UsartDevice::Two => dma.channel_select(DmaInput::Usart2Rx),
-            #[cfg(not(any(
-                feature = "f401",
-                feature = "f410",
-                feature = "f411",
-                feature = "f412",
-                feature = "f413",
-                feature = "l4x1",
-                feature = "g0"
-            )))]
+            #[cfg(not(feature = "l4x1"))]
             UsartDevice::Three => dma.channel_select(DmaInput::Usart3Rx),
         }
 

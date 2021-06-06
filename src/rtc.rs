@@ -133,13 +133,17 @@ impl Rtc {
                 pwr.cr.read(); // read to allow the pwr clock to enable
                 pwr.cr.modify(|_, w| w.dbp().set_bit());
                 while pwr.cr.read().dbp().bit_is_clear() {}
-            } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4"))] {
+            } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "wb"))] {
                 // 1. Enable the power interface clock by setting the PWREN bits in the Section 6.4.18:
                 // APB1 peripheral clock enable register 1 (RCC_APB1ENR1)
+                #[cfg(not(feature = "wb"))]
                 rcc.apb1enr1.modify(|_, w| {
                     w.pwren().set_bit();
                     w.rtcapben().set_bit()
                 });
+                #[cfg(feature = "wb")]
+                rcc.apb1enr1.modify(|_, w| w.rtcapben().set_bit());
+
                 rcc.apb1smenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
                 pwr.cr1.read(); // Read to allow the pwr clock to enable
                 // 2. Set the DBP bit in the Power control register 1 (PWR_CR1) to enable access to the
@@ -171,8 +175,16 @@ impl Rtc {
         // Set up the LSI or LSE as required.
         match config.clock_source {
             RtcClockSource::Lsi => {
-                rcc.csr.modify(|_, w| w.lsion().set_bit());
-                while rcc.csr.read().lsirdy().bit_is_clear() {}
+                cfg_if! {
+                    if #[cfg(feature = "wb")] {
+                    // todo: LSI2?
+                        rcc.csr.modify(|_, w| w.lsi1on().set_bit());
+                        while rcc.csr.read().lsi1rdy().bit_is_clear() {}
+                    } else {
+                        rcc.csr.modify(|_, w| w.lsion().set_bit());
+                        while rcc.csr.read().lsirdy().bit_is_clear() {}
+                    }
+                }
             }
             RtcClockSource::Lse => {
                 // Can only set lsebyp when lse is off, so do this as a separate step.
@@ -387,7 +399,7 @@ impl Rtc {
                 exti.imr1.modify(|_, w| w.im20().unmasked());
                 exti.rtsr1.modify(|_, w| w.rt20().bit(true));
                 exti.ftsr1.modify(|_, w| w.ft20().bit(false));
-            } else if #[cfg(any(feature = "l5", feature = "g0"))] {
+            } else if #[cfg(any(feature = "l5", feature = "g0", feature = "wb"))] {
                 // exti.imr1.modify(|_, w| w.mr20().unmasked());
                 // exti.rtsr1.modify(|_, w| w.rt20().bit(true));
                 // exti.ftsr1.modify(|_, w| w.ft20().bit(false));

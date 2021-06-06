@@ -13,7 +13,7 @@ use crate::{
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
-#[cfg(any(feature = "f3", feature = "l4", feature = "g4"))]
+#[cfg(any(feature = "f3", feature = "l4", feature = "g4", feature = "wb"))]
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
@@ -46,8 +46,9 @@ pub enum Error {
 #[derive(Clone, Copy)]
 pub enum I2cDevice {
     One,
+    #[cfg(not(feature = "wb"))]
     Two,
-    #[cfg(feature = "h7")]
+    #[cfg(any(feature = "h7", feature = "wb"))]
     Three,
 }
 
@@ -76,10 +77,11 @@ where
             I2cDevice::One => {
                 rcc_en_reset!(apb1, i2c1, rcc);
             }
+            #[cfg(not(feature = "wb"))]
             I2cDevice::Two => {
                 rcc_en_reset!(apb1, i2c2, rcc);
             }
-            #[cfg(feature = "h7")]
+            #[cfg(any(feature = "h7", feature = "wb"))]
             I2cDevice::Three => {
                 rcc_en_reset!(apb1, i2c3, rcc);
             }
@@ -277,8 +279,9 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
             I2cDevice::One => DmaInput::I2c1Tx.dma1_channel(),
+            #[cfg(not(feature = "wb"))]
             I2cDevice::Two => DmaInput::I2c2Tx.dma1_channel(),
-            #[cfg(feature = "h7")]
+            #[cfg(any(feature = "h7", feature = "wb"))]
             I2cDevice::Three => DmaInput::I2c3Tx.dma1_channel(),
         };
 
@@ -286,7 +289,6 @@ where
         match self.device {
             I2cDevice::One => dma.channel_select(DmaInput::I2c1Tx),
             I2cDevice::Two => dma.channel_select(DmaInput::I2c2Tx),
-            #[cfg(feature = "h7")]
             I2cDevice::Three => dma.channel_select(DmaInput::I2c3Tx),
         }
 
@@ -358,8 +360,9 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
             I2cDevice::One => DmaInput::I2c1Rx.dma1_channel(),
+            #[cfg(not(feature = "wb"))]
             I2cDevice::Two => DmaInput::I2c2Rx.dma1_channel(),
-            #[cfg(feature = "h7")]
+            #[cfg(any(feature = "h7", feature = "wb"))]
             I2cDevice::Three => DmaInput::I231Rx.dma1_channel(),
         };
 
@@ -367,8 +370,6 @@ where
         match self.device {
             I2cDevice::One => dma.channel_select(DmaInput::I2c1Rx),
             I2cDevice::Two => dma.channel_select(DmaInput::I2c2Rx),
-            #[cfg(feature = "h7")]
-            I2cDevice::Three => dma.channel_select(DmaInput::I2c3Rx),
         }
 
         // DMA (Direct Memory Access) can be enabled for reception by setting the RXDMAEN bit in

@@ -58,11 +58,6 @@ impl Delay {
             self.syst.disable_counter();
         }
     }
-
-    /// Releases the system timer (SysTick) resource
-    pub fn free(self) -> SYST {
-        self.syst
-    }
 }
 
 /// Delay, with sSstem timer (SysTick) as the provider.

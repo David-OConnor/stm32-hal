@@ -20,7 +20,7 @@ impl CrcExt for CRC {
             if #[cfg(feature = "f3")] {
                 rcc.ahbenr.modify(|_, w| w.crcen().set_bit());
                 // F3 doesn't appear to have a crcrst field in `ahbrstr`, per RM.
-            } else if #[cfg(feature = "l4")] {
+            } else if #[cfg(any(feature = "l4", feature = "wb"))] {
                 rcc.ahb1enr.modify(|_, w| w.crcen().set_bit());
                 rcc.ahb1rstr.modify(|_, w| w.crcrst().set_bit());
                 rcc.ahb1rstr.modify(|_, w| w.crcrst().clear_bit());
@@ -140,7 +140,7 @@ impl Crc {
     }
 
     cfg_if! {
-        if #[cfg(any(feature = "f3x4", feature = "g4", feature = "h7"))] {
+        if #[cfg(any(feature = "f3x4", feature = "g4", feature = "h7", feature = "wb"))] {
             /// Write the independent data register. The IDR can be used as
             /// temporary storage. It is not cleared on CRC hash reset.
             ///
@@ -160,7 +160,7 @@ impl Crc {
     }
 
     cfg_if! {
-        if #[cfg(any(feature = "f3x4", feature = "g4", feature = "h7"))] {
+        if #[cfg(any(feature = "f3x4", feature = "g4", feature = "h7", feature = "wb"))] {
             /// Get the current value of the independent data register.
             ///
             /// The IDR is not involved with CRC calculation.

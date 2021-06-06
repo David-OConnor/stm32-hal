@@ -11,7 +11,7 @@ multiple STM32 families, with minimal code repetition. This makes it easy to swi
 within, or across families, for a given project.
 
 **Family support**: F3, F4, L4, L5, G0, G4, H7, and WB. U5 is planned once its SVD files and PAC
-become available. WL eventually. (WB is WIP; not working yet!)
+become available. WL eventually.
 
 **Motivation**: Use STM32s in real-world hardware projects. Be able to switch MCUs with
 minimal code change. 
@@ -208,7 +208,7 @@ where
 - SPI unimplemented for H7
 - CRC unimplemented for L5, F4, G0, and G4
 - Flash read/write unimplemented on H7
-- Low power timers (LPTIM) unimplemented
+- Low power timers (LPTIM) and low power usart (LPUSART) unimplemented
 - Timer 15 can't set PSC on L5 due to a PAC error that's now fixed upstream on GH
 - ADC unimplemented on F4
 - ADC3 unimplemented on H7

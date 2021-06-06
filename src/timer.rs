@@ -2,7 +2,10 @@
 
 use num_traits::float::Float;
 
-use embedded_hal::timer::{CountDown, Periodic};
+use embedded_hal::{
+    blocking::delay::{DelayMs, DelayUs},
+    timer::{CountDown, Periodic},
+};
 
 use void::Void;
 
@@ -197,41 +200,6 @@ impl OutputCompare {
 
 macro_rules! hal {
     ($TIMX:ident, $tim:ident, $apb:expr) => {
-        impl Periodic for Timer<pac::$TIMX> {}
-
-        impl CountDown for Timer<pac::$TIMX> {
-            type Time = f32;
-
-            fn start<T>(&mut self, timeout: T)
-            where
-                T: Into<f32>,  // Hz.
-            {
-                self.disable();
-
-                self.set_freq(timeout.into()).ok();
-
-                // Trigger an update event to load the prescaler value to the clock
-                // NOTE(write): uses all bits in this register.
-                self.tim.egr.write(|w| w.ug().set_bit());
-                // The above line raises an update event which will indicate
-                // that the timer is already finished. Since this is not the case,
-                // it should be cleared
-                self.clear_interrupt(TimerInterrupt::Update);
-
-                // start counter
-                self.enable();
-            }
-
-            fn wait(&mut self) -> nb::Result<(), Void> {
-                if self.tim.sr.read().uif().bit_is_clear() {
-                    Err(nb::Error::WouldBlock)
-                } else {
-                    self.clear_interrupt(TimerInterrupt::Update);
-                    Ok(())
-                }
-            }
-        }
-
         impl Timer<pac::$TIMX> {
             paste! {
                 /// Configures a TIM peripheral as a periodic count down timer
@@ -350,6 +318,81 @@ macro_rules! hal {
             /// Read the current counter value.
             pub fn countdown(&self) -> u32 {
                 self.tim.cnt.read().bits()
+            }
+        }
+
+        impl DelayMs<u32> for Timer<pac::$TIMX> {
+            fn delay_ms(&mut self, ms: u32) {
+                self.delay_us(ms * 1_000 as u32);
+            }
+        }
+
+        impl DelayMs<u16> for Timer<pac::$TIMX> {
+            fn delay_ms(&mut self, ms: u16) {
+                self.delay_us(ms * 1_000 as u32);
+            }
+        }
+
+        impl DelayMs<u8> for Timer<pac::$TIMX> {
+            fn delay_ms(&mut self, ms: u8) {
+                self.delay_us(ms * 1_000 as u32);
+            }
+        }
+
+        impl DelayUs<u32> for Timer<pac::$TIMX> {
+            fn delay_us(&mut self, us: u32) {
+                self.set_freq(1. / (us * 1_000 as f32)).ok();
+                self.reset_countdown();
+                self.enable();
+                while self.countdown() != 0 {}
+                self.disable();
+            }
+        }
+
+        impl DelayUs<u16> for Timer<pac::$TIMX> {
+            fn delay_us(&mut self, us: u16) {
+                self.delay_us(us as u32);
+            }
+        }
+
+        impl DelayUs<u8> for Timer<pac::$TIMX> {
+            fn delay_us(&mut self, us: u8) {
+                self.delay_us(us as u32);
+            }
+        }
+
+         impl Periodic for Timer<pac::$TIMX> {}
+
+        impl CountDown for Timer<pac::$TIMX> {
+            type Time = f32;
+
+            fn start<T>(&mut self, timeout: T)
+            where
+                T: Into<f32>,  // Hz.
+            {
+                self.disable();
+
+                self.set_freq(timeout.into()).ok();
+
+                // Trigger an update event to load the prescaler value to the clock
+                // NOTE(write): uses all bits in this register.
+                self.tim.egr.write(|w| w.ug().set_bit());
+                // The above line raises an update event which will indicate
+                // that the timer is already finished. Since this is not the case,
+                // it should be cleared
+                self.clear_interrupt(TimerInterrupt::Update);
+
+                // start counter
+                self.enable();
+            }
+
+            fn wait(&mut self) -> nb::Result<(), Void> {
+                if self.tim.sr.read().uif().bit_is_clear() {
+                    Err(nb::Error::WouldBlock)
+                } else {
+                    self.clear_interrupt(TimerInterrupt::Update);
+                    Ok(())
+                }
             }
         }
     }

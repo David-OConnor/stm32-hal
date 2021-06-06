@@ -564,12 +564,10 @@ impl Clocks {
                 while rcc.cr.read().msirdy().bit_is_set() {}
 
                 rcc.cr.modify(|_, w| unsafe {
-                    w.msirange()
-                        .bits(range as u8)
-                        .msirgsel()
-                        .set_bit()
-                        .msion()
-                        .set_bit()
+                    w.msirange().bits(range as u8);
+                    #[cfg(not(feature = "wb"))]
+                    w.msirgsel().set_bit();
+                    w.msion().set_bit()
                 });
                 // Wait for the MSI to be ready.
                 while rcc.cr.read().msirdy().bit_is_clear() {}
@@ -590,12 +588,10 @@ impl Clocks {
                     #[cfg(not(any(feature = "g0", feature = "g4")))]
                     PllSrc::Msi(range) => {
                         rcc.cr.modify(|_, w| unsafe {
-                            w.msirange()
-                                .bits(range as u8)
-                                .msirgsel()
-                                .set_bit()
-                                .msion()
-                                .set_bit()
+                            w.msirange().bits(range as u8);
+                            #[cfg(not(feature = "wb"))]
+                            w.msirgsel().set_bit();
+                            w.msion().set_bit()
                         });
                         while rcc.cr.read().msirdy().bit_is_clear() {}
                     }
@@ -654,16 +650,18 @@ impl Clocks {
             }
 
             cfg_if! {
-                if #[cfg(not(any(feature = "g0", feature = "g4")))] {
+                if #[cfg(any(feature = "l4", feature = "l5"))] {
                      if self.sai1_enabled {
-                        rcc.pllsai1cfgr
-                            .modify(|_, w| unsafe { w.pllsai1n().bits(self.pll_sai1_mul) });
+                        rcc.pllsai1cfgr.modify(|_, w| unsafe { w.pllsai1n().bits(self.pll_sai1_mul) });
                     }
 
                     #[cfg(any(feature = "l4x5", feature = "l4x6",))]
                     if self.sai2_enabled {
-                        rcc.pllsai2cfgr
-                            .modify(|_, w| unsafe { w.pllsai2n().bits(self.pll_sai2_mul) });
+                        rcc.pllsai2cfgr.modify(|_, w| unsafe { w.pllsai2n().bits(self.pll_sai2_mul) });
+                    }
+                } else if #[cfg(feature = "wb")] {
+                    if self.sai1_enabled {
+                        rcc.pllsai1cfgr.modify(|_, w| unsafe { w.plln().bits(self.pll_sai1_mul) });
                     }
                 }
             }
@@ -707,7 +705,7 @@ impl Clocks {
             }
 
             cfg_if! {
-                if #[cfg(not(any(feature = "g0", feature = "g4")))] {
+                if #[cfg(any(feature = "l4", feature = "l5"))] {
                     if self.sai1_enabled {
                         rcc.pllsai1cfgr.modify(|_, w| {
                             w.pllsai1pen().set_bit();
@@ -721,6 +719,14 @@ impl Clocks {
                         rcc.pllsai2cfgr.modify(|_, w| {
                             w.pllsai2pen().set_bit();
                             w.pllsai2ren().set_bit()
+                        });
+                    }
+                } else if #[cfg(feature = "wb")] {
+                    if self.sai1_enabled {
+                        rcc.pllsai1cfgr.modify(|_, w| {
+                            w.pllpen().set_bit();
+                            w.pllqen().set_bit();
+                            w.pllren().set_bit()
                         });
                     }
                 }
@@ -743,8 +749,8 @@ impl Clocks {
         // todo: Adapt this logic for H7? Mix H7 into this module?
         #[cfg(feature = "wb")]
         rcc.extcfgr.modify(|_, w| unsafe {
-            w.c2hpre.bits(self.hclk2_prescaler as u8);
-            w.shdhpre.bits(self.hclk4_prescaler as u8)
+            w.c2hpre().bits(self.hclk2_prescaler as u8);
+            w.shdhpre().bits(self.hclk4_prescaler as u8)
         });
 
         rcc.cr.modify(|_, w| w.csson().bit(self.security_system));
@@ -803,6 +809,8 @@ impl Clocks {
 
         // Enable and reset System Configuration Controller, ie for interrupts.
         // todo: Is this the right module to do this in?
+        #[cfg(not(feature = "wb"))] // todo: Do interrupts work without enabling syscfg on wb, which
+                                    // todo doesn't have this?
         rcc_en_reset!(apb2, syscfg, rcc);
 
         Ok(())
@@ -842,9 +850,15 @@ impl Clocks {
                     #[cfg(not(any(feature = "g0", feature = "g4")))]
                     PllSrc::Msi(range) => {
                         // Range initializes to 4Mhz, so set that as well.
+                        #[cfg(not(feature = "wb"))]
                         rcc.cr.modify(|_, w| unsafe {
-                            w.msirange().bits(range as u8).msirgsel().set_bit()
+                            w.msirange().bits(range as u8);
+                            w.msirgsel().set_bit()
                         });
+                        #[cfg(feature = "wb")]
+                        rcc.cr
+                            .modify(|_, w| unsafe { w.msirange().bits(range as u8) });
+
                         if let StopWuck::Hsi = self.stop_wuck {
                             rcc.cr.modify(|_, w| w.msion().set_bit());
 
@@ -887,8 +901,14 @@ impl Clocks {
             #[cfg(not(any(feature = "g0", feature = "g4")))]
             InputSrc::Msi(range) => {
                 // Range initializes to 4Mhz, so set that as well.
+                #[cfg(not(feature = "wb"))]
+                rcc.cr.modify(|_, w| unsafe {
+                    w.msirange().bits(range as u8);
+                    w.msirgsel().set_bit()
+                });
+                #[cfg(feature = "wb")]
                 rcc.cr
-                    .modify(|_, w| unsafe { w.msirange().bits(range as u8).msirgsel().set_bit() });
+                    .modify(|_, w| unsafe { w.msirange().bits(range as u8) });
 
                 if let StopWuck::Hsi = self.stop_wuck {
                     rcc.cr.modify(|_, w| w.msion().set_bit());

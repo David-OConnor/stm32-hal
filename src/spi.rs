@@ -16,7 +16,7 @@ use crate::{
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
-#[cfg(any(feature = "f3", feature = "l4", feature = "g4"))]
+#[cfg(any(feature = "f3", feature = "l4", feature = "g4", feature = "wb"))]
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
@@ -52,9 +52,9 @@ pub enum SpiInterrupt {
 #[derive(Clone, Copy)]
 pub enum SpiDevice {
     One,
-    #[cfg(not(feature = "f3x4"))]
+    #[cfg(not(any(feature = "f3x4", feature = "wb")))]
     Two,
-    #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
+    #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0", feature = "wb")))]
     Three,
 }
 
@@ -139,11 +139,11 @@ where
                 #[cfg(not(feature = "f301"))] // todo: Not sure what's going on  here.
                 rcc_en_reset!(apb2, spi1, rcc);
             }
-            #[cfg(not(feature = "f3x4"))]
+            #[cfg(not(any(feature = "f3x4", feature = "wb")))]
             SpiDevice::Two => {
                 rcc_en_reset!(apb1, spi2, rcc);
             }
-            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
+            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0", feature = "wb")))]
             SpiDevice::Three => {
                 cfg_if! {
                     // Note `sp3en` mixed with `spi3rst`; why we can't use the usual macro.
@@ -410,9 +410,9 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let tx_channel = match self.device {
             SpiDevice::One => DmaInput::Spi1Tx.dma1_channel(),
-            #[cfg(not(feature = "f3x4"))]
+            #[cfg(not(any(feature = "f3x4", feature = "wb")))]
             SpiDevice::Two => DmaInput::Spi2Tx.dma1_channel(),
-            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
+            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0", feature = "wb")))]
             SpiDevice::Three => panic!(
                 "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
                 or PR on Github."
@@ -487,9 +487,9 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
             SpiDevice::One => DmaInput::Spi1Rx.dma1_channel(),
-            #[cfg(not(feature = "f3x4"))]
+            #[cfg(not(any(feature = "f3x4", feature = "wb")))]
             SpiDevice::Two => DmaInput::Spi2Rx.dma1_channel(),
-            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
+            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0", feature = "wb")))]
             _ => panic!(
                 "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
                 or PR on Github."
@@ -499,9 +499,9 @@ where
         #[cfg(feature = "l4")]
         match self.device {
             SpiDevice::One => dma.channel_select(DmaInput::Spi1Rx),
-            #[cfg(not(feature = "f3x4"))]
+            #[cfg(not(any(feature = "f3x4", feature = "wb")))]
             SpiDevice::Two => dma.channel_select(DmaInput::Spi2Rx),
-            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
+            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0", feature = "wb")))]
             _ => unimplemented!(),
         };
 

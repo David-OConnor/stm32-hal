@@ -16,6 +16,11 @@ use crate::pac::dma;
 #[cfg(not(feature = "g0"))]
 use crate::pac::dma1 as dma;
 
+#[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
+use pac::DMAMUX;
+#[cfg(feature = "wb")]
+use pac::DMAMUX1 as DMAMUX;
+
 // use embedded_dma::{ReadBuffer, WriteBuffer};
 
 use cfg_if::cfg_if;
@@ -1234,7 +1239,7 @@ where
 
 #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "wb"))]
 /// Configure a specific DMA channel to work with a specific peripheral.
-pub fn mux(channel: DmaChannel, input: DmaInput, mux: &pac::DMAMUX) {
+pub fn mux(channel: DmaChannel, input: DmaInput, mux: &DMAMUX) {
     // Note: This is similar in API and purpose to `channel_select` above,
     // for different families. We're keeping it as a separate function instead
     // of feature-gating within the same function so the name can be recognizable
