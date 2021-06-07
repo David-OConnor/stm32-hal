@@ -1,6 +1,6 @@
 [package]
 name = "stm32-hal2"
-version = "0.2.7"
+version = "0.2.8"
 authors = ["David O'Connor <david.alan.oconnor@gmail.com>"]
 description = "Hardware abstraction layer for the stm32 chips"
 keywords = ["no-std", "stm32", "embedded", "embedded-hal"]
@@ -23,16 +23,16 @@ cortex-m = "0.7.1"
 # Peripheral Access Crates
 stm32f3 = { version = "0.13.0", optional = true }
 stm32f4 = { version = "0.13.0", optional = true }
-#stm32l4 = { version = "0.13.0", optional = true }
+stm32l4 = { version = "0.13.0", optional = true }
 stm32l5 = { version = "0.13.0", optional = true }
 stm32g0 = { version = "0.13.0", optional = true }
 stm32g4 = { version = "0.13.0", optional = true }
 stm32h7 = { version = "0.13.0", optional = true }
 stm32wb = { version = "0.13.0", optional = true }
 # Temporary fix to get L412 RTC working until [this issue is fixed](https://github.com/stm32-rs/stm32-rs/issues/555)
-stm32l412 = { path = "../../Desktop/stm32l412", optional = true }
+#stm32l412 = { path = "../../Desktop/stm32l412", optional = true }
 # todo: Workaround for not having USB interrupt. Also have the 412 RTC fix.
-stm32l4 = { path = "../../Desktop/stm32l4", optional = true }
+#stm32l4 = { path = "../../Desktop/stm32l4", optional = true }
 
 # Embedded traits
 embedded-hal = { version = "0.2.5", features = ["unproven"] }
@@ -64,7 +64,7 @@ targets = ["thumbv7em-none-eabihf"]
 f3rt = ["stm32f3/rt"]
 f4rt = ["stm32f4/rt"]
 l4rt = ["stm32l4/rt"]
-l412rt = ["stm32l412/rt"] # todo workaround
+#l412rt = ["stm32l412/rt"] # todo workaround
 l5rt = ["stm32l5/rt"]
 g0rt = ["stm32g0/rt"]
 g4rt = ["stm32g4/rt"]
@@ -98,7 +98,7 @@ l4x2 = ["stm32l4/stm32l4x2", "l4"]
 l4x3 = ["stm32l4/stm32l4x3", "l4"]
 l4x5 = ["stm32l4/stm32l4x5", "l4"]
 l4x6 = ["stm32l4/stm32l4x6", "l4"]
-l412 = ["stm32l412/stm32l412", "l4"]  # Workaround due to RTC being inop in PAC.
+#l412 = ["stm32l412/stm32l412", "l4"]  # Workaround due to RTC being inop in PAC.
 # todo: Handle l4+ (P, R, S, Q)
 
 # [L5](https://docs.rs/crate/stm32l5/0.13.0/source/Cargo.toml)

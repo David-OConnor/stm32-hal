@@ -154,6 +154,21 @@ fn main() -> ! {
         &mut dp.RCC,
     );
 
+    // Or, to set a custom USART config:
+    let usart_cfg = UsartConfig {
+        parity: Parity::EnabledOdd,
+        stop_bits: StopBits::S2,
+        ..Default::default()
+    };
+    let mut uart = Usart::new(
+        dp.USART1,
+        UsartDevice::One,
+        9_600,
+        usart_cfg,
+        &clock_cfg,
+        &mut dp.RCC,
+    );
+
     // Write a byte array to the UART
     uart.write(&[1, 2, 3, 4]);
 

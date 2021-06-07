@@ -335,14 +335,14 @@ macro_rules! hal {
                     panic!("ADC sequence length must be in 1..=16")
                 }
 
-                self.regs.sqr1.modify(|_, w| unsafe { w.l().bits(len - 1) });
-                // cfg_if! {
-                //     if #[cfg(any(feature = "l4x1", feature = "l4x2", feature = "l4x3", feature = "l4x5"))] {
-                //         self.regs.sqr1.modify(|_, w| unsafe { w.l3().bits(len - 1) });
-                //     } else {
-                //         self.regs.sqr1.modify(|_, w| unsafe { w.l().bits(len - 1) });
-                //     }
-                // }
+                // self.regs.sqr1.modify(|_, w| unsafe { w.l().bits(len - 1) });
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x1", feature = "l4x2", feature = "l4x3", feature = "l4x5"))] {
+                        self.regs.sqr1.modify(|_, w| unsafe { w.l3().bits(len - 1) });
+                    } else {
+                        self.regs.sqr1.modify(|_, w| unsafe { w.l().bits(len - 1) });
+                    }
+                }
             }
 
             pub fn set_align(&self, align: Align) {
