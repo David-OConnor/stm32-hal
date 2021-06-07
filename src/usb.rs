@@ -54,7 +54,7 @@ unsafe impl UsbPeripheral for Peripheral {
     #[cfg(feature = "g0")]
     const EP_MEMORY: *const () = 0x4000_5c00 as _;
 
-    #[cfg(feature = "g4")]
+    #[cfg(any(feature = "f3", feature = "g4"))]
     const EP_MEMORY: *const () = 0x4000_6000 as _;
 
     // Endpoint memory size in bytes
