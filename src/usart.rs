@@ -40,6 +40,14 @@ pub enum StopBits {
     S1_5 = 0b11,
 }
 
+#[derive(Clone, Copy, PartialEq)]
+/// Parity control enable/disable, and even/odd selection (USART_CR1, PCE and PS)
+pub enum Parity {
+    EnabledEven,
+    EnabledOdd,
+    Disabled,
+}
+
 #[derive(Clone, Copy)]
 #[repr(u8)]
 /// The length of word to transmit and receive. (USART_CR1, M)
@@ -115,6 +123,7 @@ pub struct UsartConfig {
     word_len: WordLen,
     stop_bits: StopBits,
     oversampling: OverSampling,
+    parity: Parity,
 }
 
 impl Default for UsartConfig {
@@ -123,6 +132,7 @@ impl Default for UsartConfig {
             word_len: WordLen::W8,
             stop_bits: StopBits::S1,
             oversampling: OverSampling::O16,
+            parity: Parity::Disabled,
         }
     }
 }
@@ -199,14 +209,27 @@ where
             config,
         };
 
-        // This should already be disabled on power up, but disable here just in case:
+        // This should already be disabled on power up, but disable here just in case;
+        // some bits can't be set with USART enabled.
         result.regs.cr1.modify(|_, w| w.ue().clear_bit());
         while result.regs.cr1.read().ue().bit_is_set() {}
 
-        result
-            .regs
-            .cr1
-            .modify(|_, w| w.over8().bit(result.config.oversampling as u8 != 0));
+        #[cfg(not(any(feature = "f3", feature = "f4")))]
+        let word_len_bits = result.config.word_len.bits();
+
+        result.regs.cr1.modify(|_, w| {
+            w.over8().bit(result.config.oversampling as u8 != 0);
+            w.pce().bit(result.config.parity != Parity::Disabled);
+            w.ps().bit(result.config.parity == Parity::EnabledOdd);
+            cfg_if! {
+                if #[cfg(any(feature = "f3", feature = "f4"))] {
+                    return w.m().bit(result.config.word_len as u8 != 0);
+                } else {
+                    w.m1().bit(word_len_bits.0 != 0);
+                    return w.m0().bit(word_len_bits.1 != 0);
+                }
+            }
+        });
 
         // Set up transmission. See L44 RM, section 38.5.2: "Character Transmission Procedures".
         // 1. Program the M bits in USART_CR1 to define the word length.

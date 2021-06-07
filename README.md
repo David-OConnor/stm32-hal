@@ -196,7 +196,7 @@ where
 ## Errata
 
 - SAI, SDIO, ethernet unimplemented
-- DMA only implemented on F3, L4, G0, and G4
+- DMA unimplemented on F4 and H7
 - The DMA2 peripheral is unimplemented
 - DMA circular buffers unimplemented
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
@@ -213,3 +213,4 @@ where
 - ADC unimplemented on F4
 - ADC3 unimplemented on H7
 - Low power modes beyond sleep and cstop aren't implemented for H7
+- WB is missing features relating to radio and second core operations

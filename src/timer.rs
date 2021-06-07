@@ -323,25 +323,25 @@ macro_rules! hal {
 
         impl DelayMs<u32> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u32) {
-                self.delay_us(ms * 1_000 as u32);
+                self.delay_us(ms as u32 * 1_000);
             }
         }
 
         impl DelayMs<u16> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u16) {
-                self.delay_us(ms * 1_000 as u32);
+                self.delay_us(ms as u32 * 1_000);
             }
         }
 
         impl DelayMs<u8> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u8) {
-                self.delay_us(ms * 1_000 as u32);
+                self.delay_us(ms as u32 * 1_000);
             }
         }
 
         impl DelayUs<u32> for Timer<pac::$TIMX> {
             fn delay_us(&mut self, us: u32) {
-                self.set_freq(1. / (us * 1_000 as f32)).ok();
+                self.set_freq(1. / (us as f32 * 1_000.)).ok();
                 self.reset_countdown();
                 self.enable();
                 while self.countdown() != 0 {}

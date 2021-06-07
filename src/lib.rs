@@ -271,12 +271,18 @@ pub mod delay;
 pub mod flash;
 pub mod gpio;
 
+#[cfg(feature = "wb")]
+pub mod hsem;
+
 #[cfg(not(any(feature = "f4", feature = "f3x4")))]
 pub mod i2c;
 #[cfg(feature = "f4")]
 pub mod i2c_f4;
 #[cfg(feature = "f4")]
 pub use i2c_f4 as i2c;
+
+#[cfg(feature = "wb")]
+pub mod ipcc;
 
 pub mod low_power;
 

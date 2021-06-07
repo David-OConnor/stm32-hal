@@ -53,8 +53,8 @@ pub enum I2cDevice {
 }
 
 /// Represents an Inter-Integrated Circuit (I2C) peripheral.
-pub struct I2c<I2C> {
-    regs: I2C,
+pub struct I2c<I> {
+    regs: I,
     device: I2cDevice,
     // mode: I2cMode,
     /// SMBUS features like PEC enabled.
@@ -161,7 +161,7 @@ where
         // Enable the peripheral
         regs.cr1.write(|w| w.pe().set_bit());
 
-        I2c {
+        Self {
             regs,
             device,
             smbus: false,
@@ -289,7 +289,6 @@ where
         match self.device {
             I2cDevice::One => dma.channel_select(DmaInput::I2c1Tx),
             I2cDevice::Two => dma.channel_select(DmaInput::I2c2Tx),
-            I2cDevice::Three => dma.channel_select(DmaInput::I2c3Tx),
         }
 
         // DMA (Direct Memory Access) can be enabled for transmission by setting the TXDMAEN bit
