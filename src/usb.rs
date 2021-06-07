@@ -97,7 +97,11 @@ unsafe impl UsbPeripheral for Peripheral {
                     rcc.apb1enr2.modify(|_, w| w.usbfsen().set_bit());
                     rcc.apb1rstr2.modify(|_, w| w.usbfsrst().set_bit());
                     rcc.apb1rstr2.modify(|_ , w| w.usbfsrst().clear_bit());
-                } else { // G0, G4, WB.
+                } else if #[cfg(feature = "wb")] {
+                    rcc.apb1enr1.modify(|_, w| w.usben().set_bit());
+                    rcc.apb1rstr1.modify(|_, w| w.usbfsrst().set_bit());
+                    rcc.apb1rstr1.modify(|_ , w| w.usbfsrst().clear_bit());
+                } else { // G0, G4
                     rcc_en_reset!(apb1, usb, rcc);
                 }
             }
