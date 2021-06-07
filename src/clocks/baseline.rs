@@ -1260,7 +1260,15 @@ impl Default for Clocks {
 /// startup it is also possible to combine automatic trimming with manual trimming action."
 /// Note: This is for HSI48 only. Note that the HSI will turn off after entering Stop or Standby.
 pub fn enable_crs(sync_src: CrsSyncSrc, crs: &mut pac::CRS, rcc: &mut RCC) {
-    rcc.apb1enr1.modify(|_, w| w.crsen().set_bit());
+    // todo: CRSEN missing on l4x5 pac: https://github.com/stm32-rs/stm32-rs/issues/572
+    cfg_if! {
+        if #[cfg(feature = "l4x5")] {
+            let val = rcc.apb1enr1.read().bits();
+            rcc.apb1enr1.write(|w| unsafe { w.bits(val | (1 << 24)) });
+        } else {
+            rcc.apb1enr1.modify(|_, w| w.crsen().set_bit());
+        }
+    }
 
     crs.cfgr
         .modify(|_, w| unsafe { w.syncsrc().bits(sync_src as u8) });
