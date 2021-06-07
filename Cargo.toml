@@ -55,7 +55,7 @@ cfg-if = "1.0.0"  # if/else blocks for feature-gating
 paste = "1.0.4"  # Token pasting, to make macros easier
 
 [package.metadata.docs.rs]
-features = ["l4rt", "l4x3", "usb"]
+features = ["l4rt", "l4x3", "can", "usb"]
 targets = ["thumbv7em-none-eabihf"]
 
 # Compile with one of these "runtime" features if the program
