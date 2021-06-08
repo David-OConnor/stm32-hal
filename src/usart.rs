@@ -49,18 +49,16 @@ pub enum Parity {
 }
 
 #[derive(Clone, Copy)]
-#[repr(u8)]
 /// The length of word to transmit and receive. (USART_CR1, M)
 pub enum WordLen {
-    W8 = 0b00,
-    W9 = 0b01,
-    W7 = 0b10,
+    W8,
+    W9,
+    W7,
 }
 
 impl WordLen {
     /// We use this function due to the M field being split into 2 separate bits.
     /// Returns M1 val, M0 val
-    /// todo: Make sure this isn't backwards.
     fn bits(&self) -> (u8, u8) {
         match self {
             Self::W8 => (0, 0),
@@ -217,33 +215,33 @@ where
         #[cfg(not(any(feature = "f3", feature = "f4")))]
         let word_len_bits = result.config.word_len.bits();
 
+        // Set up transmission. See L44 RM, section 38.5.2: "Character Transmission Procedures".
+        // 1. Program the M bits in USART_CR1 to define the word length.
+
+        let word_len_bits = result.config.word_len.bits();
         result.regs.cr1.modify(|_, w| {
             w.over8().bit(result.config.oversampling as u8 != 0);
             w.pce().bit(result.config.parity != Parity::Disabled);
-            w.ps().bit(result.config.parity == Parity::EnabledOdd);
             cfg_if! {
-                if #[cfg(any(feature = "f3", feature = "f4"))] {
-                    return w.m().bit(result.config.word_len as u8 != 0);
-                } else {
+                if #[cfg(not(any(feature = "f3", feature = "f4")))] {
                     w.m1().bit(word_len_bits.0 != 0);
-                    return w.m0().bit(word_len_bits.1 != 0);
+                    w.m0().bit(word_len_bits.1 != 0);
+                    return w.ps().bit(result.config.parity == Parity::EnabledOdd);
+                } else {
+                    return w.ps().bit(result.config.parity == Parity::EnabledOdd);
                 }
             }
         });
 
-        // Set up transmission. See L44 RM, section 38.5.2: "Character Transmission Procedures".
-        // 1. Program the M bits in USART_CR1 to define the word length.
-        // todo: Make sure you aren't doing this backwards.
-
-        cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4"))] {
-                result.regs.cr1.modify(|_, w| w.m().bit(result.config.word_len as u8 != 0));
-            } else {
-                let word_len_bits = result.config.word_len.bits();
-                result.regs.cr1.modify(|_, w| w.m1().bit(word_len_bits.0 != 0));
-                result.regs.cr1.modify(|_, w| w.m0().bit(word_len_bits.1 != 0));
-            }
-        }
+        // todo: Workaround due to a PAC bug, where M0 is missing.
+        #[cfg(any(feature = "f3", feature = "f4"))]
+        result.regs.cr1.write(|w| unsafe {
+            w.bits(
+                result.regs.cr1.read().bits()
+                    | ((word_len_bits.0 as u32) << 28)
+                    | ((word_len_bits.1 as u32) << 12)
+            )
+        });
 
         // 2. Select the desired baud rate using the USART_BRR register.
         result.set_baud(baud, clock_cfg);
@@ -256,7 +254,7 @@ where
         result.regs.cr1.modify(|_, w| w.ue().set_bit());
         // 5. Select DMA enable (DMAT[R]] in USART_CR3 if multibuffer communication is to take
         // place. Configure the DMA register as explained in multibuffer communication.
-        // (Handled in `enable_dma()`)
+        // (Handled in `read_dma()` and `write_dma()`)
         // 6. Set the TE bit in USART_CR1 to send an idle frame as first transmission.
         // 6. Set the RE bit USART_CR1. This enables the receiver which begins searching for a
         // start bit.
@@ -385,22 +383,6 @@ where
         }
     }
 
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    /// Enable use of DMA transmission for U[s]ART: (L44 RM, section 38.5.15)
-    pub fn enable_dma<D>(&mut self, dma: &mut Dma<D>)
-    where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
-        // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
-        // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
-        // Section 11: Direct memory access controller (DMA) on page 295) to the USART_TDR
-        // register whenever the TXE bit is set."
-        self.regs.cr3.modify(|_, w| w.dmat().set_bit());
-        self.regs.cr3.modify(|_, w| w.dmar().set_bit());
-
-        // Note that we need neither channel select, nor multiplex for F3.
-    }
-
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is only used on F3 and L4.
@@ -442,6 +424,14 @@ where
             #[cfg(not(feature = "l4x1"))]
             UsartDevice::Three => dma.channel_select(DmaInput::Usart3Tx),
         }
+
+        // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
+        // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
+        // Section 11: Direct memory access controller (DMA) on page 295) to the USART_TDR
+        // register whenever the TXE bit is set."
+        self.regs.cr3.modify(|_, w| w.dmat().set_bit());
+
+        // Note that we need neither channel select, nor multiplex for F3.
 
         // todo: Pri and Circular as args?
 
@@ -520,6 +510,10 @@ where
             #[cfg(not(feature = "l4x1"))]
             UsartDevice::Three => dma.channel_select(DmaInput::Usart3Rx),
         }
+
+        self.regs.cr3.modify(|_, w| w.dmar().set_bit());
+
+        // Note that we need neither channel select, nor multiplex for F3.
 
         // todo: Pri and Circular as args?
 

@@ -392,6 +392,7 @@ where
         // Static write and read buffers?
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
+        // todo: Accept u16 words too.
         // todo: Pri and Circular as args?
 
         // A DMA access is requested when the TXE or RXNE enable bit in the SPIx_CR2 register is
@@ -478,6 +479,7 @@ where
     where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
+        // todo: Accept u16 words too.
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         // atomic::compiler_fence(Ordering::Release);  // todo ?
