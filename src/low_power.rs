@@ -108,14 +108,16 @@ cfg_if::cfg_if! {
             // 0: Enter Stop mode when the CPU enters Deepsleep. The regulator status
             // depends on the LPDS bit.
             // 1: Enter Stop mode when the CPU enters Deepsleep.
-            pwr.cr.modify(|_, w| w.pdds().clear_bit());
+            pwr.cr.modify(|_, w| {
+                w.pdds().clear_bit();
+                // Select the voltage regulator mode by configuring LPDS bit in PWR_CR
+                // This bit is set and cleared by software. It works together with the PDDS bit.
+                // 0: Voltage regulator on during Stop mode
+                // 1: Voltage regulator in low-power mode during Stop mode
+                // pwr.cr.modify(|_, w| w.pdds().clear_bit());
+                 w.lpds().set_bit()
+            });
 
-            // Select the voltage regulator mode by configuring LPDS bit in PWR_CR
-            // This bit is set and cleared by software. It works together with the PDDS bit.
-            // 0: Voltage regulator on during Stop mode
-            // 1: Voltage regulator in low-power mode during Stop mode
-            // pwr.cr.modify(|_, w| w.pdds().clear_bit());
-            pwr.cr.modify(|_, w| w.lpds().set_bit());
 
             wfi();
         }
@@ -137,11 +139,12 @@ cfg_if::cfg_if! {
             // 0: Enter Stop mode when the CPU enters Deepsleep. The regulator status
             // depends on the LPDS bit.
             // 1: Enter Standby mode when the CPU enters Deepsleep.
-            pwr.cr.modify(|_, w| w.pdds().set_bit());
-
-            // Clear WUF bit in Power Control/Status register (PWR_CSR) (Must do this by setting CWUF bit in
-            // PWR_CR.)
-            pwr.cr.modify(|_, w| w.cwuf().set_bit());
+            pwr.cr.modify(|_, w| {
+                w.pdds().set_bit();
+                // Clear WUF bit in Power Control/Status register (PWR_CSR) (Must do this by setting CWUF bit in
+                // PWR_CR.)
+                w.cwuf().set_bit()
+            });
 
             wfi();
         }
@@ -302,12 +305,13 @@ cfg_if::cfg_if! {
         //     // 0: Enter Stop mode when the CPU enters Deepsleep. The regulator status
         //     // depends on the LPDS bit.
         //     // 1: Enter Standby mode when the CPU enters Deepsleep.
-        //     pwr.cr.modify(|_, w| w.pdds().set_bit());
-        //
-        //     // Clear WUF bit in Power Control/Status register (PWR_CSR) (Must do this by setting CWUF bit in
-        //     // PWR_CR.)
-        //     pwr.cr.modify(|_, w| w.cwuf().set_bit());
-        //
+        //     pwr.cr.modify(|_, w| {
+        //         w.pdds().set_bit();
+        //         // Clear WUF bit in Power Control/Status register (PWR_CSR) (Must do this by setting CWUF bit in
+        //         // PWR_CR.)
+        //         w.cwuf().set_bit()
+        //     });
+
         //     wfi();
         // }
     }

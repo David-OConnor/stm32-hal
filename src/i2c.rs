@@ -19,6 +19,40 @@ use crate::pac::dma1 as dma_p;
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
 use crate::dma::{self, Dma, DmaChannel, DmaInput};
 
+macro_rules! busy_wait {
+    ($regs:expr, $flag:ident, $variant:ident) => {
+        loop {
+            let isr = $regs.isr.read();
+
+            if isr.$flag().$variant() {
+                break;
+            } else if isr.berr().bit_is_set() {
+                $regs.icr.write(|w| w.berrcf().set_bit());
+                return Err(Error::Bus);
+            } else if isr.arlo().bit_is_set() {
+                $regs.icr.write(|w| w.arlocf().set_bit());
+                return Err(Error::Arbitration);
+            } else if isr.nackf().bit_is_set() {
+                $regs.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
+
+                // If a pending TXIS flag is set, write dummy data to TXDR
+                if $regs.isr.read().txis().bit_is_set() {
+                    $regs.txdr.write(|w| unsafe { w.txdata().bits(0) });
+                }
+
+                // If TXDR is not flagged as empty, write 1 to flush it
+                if $regs.isr.read().txe().bit_is_clear() {
+                    $regs.isr.write(|w| w.txe().set_bit());
+                }
+
+                return Err(Error::Nack);
+            } else {
+                // try again
+            }
+        }
+    };
+}
+
 /// I2C error
 #[non_exhaustive]
 #[derive(Debug)]
@@ -194,6 +228,86 @@ where
         if originally_enabled {
             self.regs.cr1.modify(|_, w| w.pe().set_bit());
         }
+    }
+
+    /// Read multiple words.
+    pub fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
+        // Wait for any previous address sequence to end
+        // automatically. This could be up to 50% of a bus
+        // cycle (ie. up to 0.5/freq)
+        while self.regs.cr2.read().start().bit_is_set() {}
+
+        // Set START and prepare to receive bytes into
+        // `buffer`. The START bit can be set even if the bus
+        // is BUSY or I2C is in slave mode.
+        self.set_cr2_read(addr, bytes.len() as u8);
+
+        for byte in bytes {
+            // Wait until we have received something
+            busy_wait!(self.regs, rxne, bit_is_set);
+
+            *byte = self.regs.rxdr.read().rxdata().bits();
+        }
+
+        Ok(())
+    }
+
+    /// Write an array of words
+    pub fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+        // Wait for any previous address sequence to end
+        // automatically. This could be up to 50% of a bus
+        // cycle (ie. up to 0.5/freq)
+        while self.regs.cr2.read().start().bit_is_set() {}
+
+        self.set_cr2_write(addr, bytes.len() as u8, true);
+
+        for byte in bytes {
+            // Wait until we are allowed to send data
+            // (START has been ACKed or last byte when
+            // through)
+            busy_wait!(self.regs, txis, bit_is_set); // TXDR register is empty
+
+            // Put byte on the wire
+            self.regs.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
+        }
+
+        Ok(())
+    }
+
+    /// Write and read an array of words.
+    pub fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
+        // Wait for any previous address sequence to end
+        // automatically. This could be up to 50% of a bus
+        // cycle (ie. up to 0.5/freq)
+        while self.regs.cr2.read().start().bit_is_set() {}
+
+        self.set_cr2_write(addr, bytes.len() as u8, false);
+
+        for byte in bytes {
+            // Wait until we are allowed to send data
+            // (START has been ACKed or last byte went through)
+
+            busy_wait!(self.regs, txis, bit_is_set); // TXDR register is empty
+
+            // Put byte on the wire
+            self.regs.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
+        }
+
+        // Wait until the write finishes before beginning to read.
+        busy_wait!(self.regs, tc, bit_is_set); // transfer is complete
+
+        // reSTART and prepare to receive bytes into `buffer`
+
+        self.set_cr2_read(addr, buffer.len() as u8);
+
+        for byte in buffer {
+            // Wait until we have received something
+            busy_wait!(self.regs, rxne, bit_is_set);
+
+            *byte = self.regs.rxdr.read().rxdata().bits();
+        }
+
+        Ok(())
     }
 
     /// Helper function to prevent repetition between `write`, `write_read`, and `write_dma`.
@@ -406,40 +520,6 @@ where
     }
 }
 
-macro_rules! busy_wait {
-    ($regs:expr, $flag:ident, $variant:ident) => {
-        loop {
-            let isr = $regs.isr.read();
-
-            if isr.$flag().$variant() {
-                break;
-            } else if isr.berr().bit_is_set() {
-                $regs.icr.write(|w| w.berrcf().set_bit());
-                return Err(Error::Bus);
-            } else if isr.arlo().bit_is_set() {
-                $regs.icr.write(|w| w.arlocf().set_bit());
-                return Err(Error::Arbitration);
-            } else if isr.nackf().bit_is_set() {
-                $regs.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
-
-                // If a pending TXIS flag is set, write dummy data to TXDR
-                if $regs.isr.read().txis().bit_is_set() {
-                    $regs.txdr.write(|w| unsafe { w.txdata().bits(0) });
-                }
-
-                // If TXDR is not flagged as empty, write 1 to flush it
-                if $regs.isr.read().txe().bit_is_clear() {
-                    $regs.isr.write(|w| w.txe().set_bit());
-                }
-
-                return Err(Error::Nack);
-            } else {
-                // try again
-            }
-        }
-    };
-}
-
 impl<I2C> Write for I2c<I2C>
 where
     I2C: Deref<Target = pac::i2c1::RegisterBlock>,
@@ -447,24 +527,7 @@ where
     type Error = Error;
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
-        // Wait for any previous address sequence to end
-        // automatically. This could be up to 50% of a bus
-        // cycle (ie. up to 0.5/freq)
-        while self.regs.cr2.read().start().bit_is_set() {}
-
-        self.set_cr2_write(addr, bytes.len() as u8, true);
-
-        for byte in bytes {
-            // Wait until we are allowed to send data
-            // (START has been ACKed or last byte when
-            // through)
-            busy_wait!(self.regs, txis, bit_is_set); // TXDR register is empty
-
-            // Put byte on the wire
-            self.regs.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
-        }
-
-        Ok(())
+        I2c::write(self, addr, bytes)
     }
 }
 
@@ -475,24 +538,7 @@ where
     type Error = Error;
 
     fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
-        // Wait for any previous address sequence to end
-        // automatically. This could be up to 50% of a bus
-        // cycle (ie. up to 0.5/freq)
-        while self.regs.cr2.read().start().bit_is_set() {}
-
-        // Set START and prepare to receive bytes into
-        // `buffer`. The START bit can be set even if the bus
-        // is BUSY or I2C is in slave mode.
-        self.set_cr2_read(addr, bytes.len() as u8);
-
-        for byte in bytes {
-            // Wait until we have received something
-            busy_wait!(self.regs, rxne, bit_is_set);
-
-            *byte = self.regs.rxdr.read().rxdata().bits();
-        }
-
-        Ok(())
+        I2c::read(self, addr, bytes)
     }
 }
 
@@ -503,37 +549,6 @@ where
     type Error = Error;
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
-        // Wait for any previous address sequence to end
-        // automatically. This could be up to 50% of a bus
-        // cycle (ie. up to 0.5/freq)
-        while self.regs.cr2.read().start().bit_is_set() {}
-
-        self.set_cr2_write(addr, bytes.len() as u8, false);
-
-        for byte in bytes {
-            // Wait until we are allowed to send data
-            // (START has been ACKed or last byte went through)
-
-            busy_wait!(self.regs, txis, bit_is_set); // TXDR register is empty
-
-            // Put byte on the wire
-            self.regs.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
-        }
-
-        // Wait until the write finishes before beginning to read.
-        busy_wait!(self.regs, tc, bit_is_set); // transfer is complete
-
-        // reSTART and prepare to receive bytes into `buffer`
-
-        self.set_cr2_read(addr, buffer.len() as u8);
-
-        for byte in buffer {
-            // Wait until we have received something
-            busy_wait!(self.regs, rxne, bit_is_set);
-
-            *byte = self.regs.rxdr.read().rxdata().bits();
-        }
-
-        Ok(())
+        I2c::write_read(self, addr, bytes, buffer)
     }
 }

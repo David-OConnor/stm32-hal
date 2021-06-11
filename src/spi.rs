@@ -8,6 +8,8 @@ use core::{
 
 use embedded_hal::spi::{FullDuplex, Mode, Phase, Polarity};
 
+use nb::block;
+
 use crate::{
     pac::{self, RCC},
     rcc_en_reset,
@@ -158,102 +160,71 @@ where
             }
         }
 
+        let fclk = match device {
+            SpiDevice::One => clocks.apb2(),
+            _ => clocks.apb1(),
+        };
+
+        let br = Self::compute_baud_rate(fclk, freq);
+
         cfg_if! {
             if #[cfg(feature = "h7")] {
                   // Disable SS output
                 regs.cfg2.write(|w| w.ssoe().disabled());
 
-                let config: Config = config.into();
-
-                let spi_freq = freq;
-                let spi_ker_ck = match Self::kernel_clk(clocks) {
-                    Some(ker_hz) => ker_hz.0,
-                    _ => panic!("$SPX kernel clock not running!")
-                };
-                let mbr = match spi_ker_ck / spi_freq {
-                    0 => unreachable!(),
-                    1..=2 => MBR::DIV2,
-                    3..=5 => MBR::DIV4,
-                    6..=11 => MBR::DIV8,
-                    12..=23 => MBR::DIV16,
-                    24..=47 => MBR::DIV32,
-                    48..=95 => MBR::DIV64,
-                    96..=191 => MBR::DIV128,
-                    _ => MBR::DIV256,
-                };
-                regs.cfg1.modify(|_, w| {
-                    w.mbr()
-                        .variant(mbr) // master baud rate
-                });
-                spi!(DSIZE, spi, $TY); // modify CFG1 for DSIZE
+                regs.cfg1.modify(|_, w| w.mbr().bits(br));
+                // spi!(DSIZE, spi, $TY); // modify CFG1 for DSIZE
 
                 // ssi: select slave = master mode
                 regs.cr1.write(|w| w.ssi().slave_not_selected());
 
+                // todo: Come back to this.
                 // Calculate the CS->transaction cycle delay bits.
-                let (start_cycle_delay, interdata_cycle_delay) = {
-                    let mut delay: u32 = (config.cs_delay * spi_freq as f32) as u32;
-
-                    // If the cs-delay is specified as non-zero, add 1 to the delay cycles
-                    // before truncation to an integer to ensure that we have at least as
-                    // many cycles as required.
-                    if config.cs_delay > 0.0_f32 {
-                        delay += 1;
-                    }
-
-                    if delay > 0xF {
-                        delay = 0xF;
-                    }
-
-                    // If CS suspends while data is inactive, we also require an
-                    // "inter-data" delay.
-                    if config.suspend_when_inactive {
-                        (delay as u8, delay as u8)
-                    } else {
-                        (delay as u8, 0_u8)
-                    }
-                };
+                // let (start_cycle_delay, interdata_cycle_delay) = {
+                //     let mut delay: u32 = (config.cs_delay * spi_freq as f32) as u32;
+                //
+                //     // If the cs-delay is specified as non-zero, add 1 to the delay cycles
+                //     // before truncation to an integer to ensure that we have at least as
+                //     // many cycles as required.
+                //     if config.cs_delay > 0.0_f32 {
+                //         delay += 1;
+                //     }
+                //
+                //     if delay > 0xF {
+                //         delay = 0xF;
+                //     }
+                //
+                //     // If CS suspends while data is inactive, we also require an
+                //     // "inter-data" delay.
+                //     if cfg.suspend_when_inactive {
+                //         (delay as u8, delay as u8)
+                //     } else {
+                //         (delay as u8, 0_u8)
+                //     }
+                // };
 
 
                 // mstr: master configuration
                 // lsbfrst: MSB first
                 // comm: full-duplex
+                // todo: Flesh this out.
                 regs.cfg2.write(|w| {
-                    w.cpha()
-                        .bit(config.mode.phase ==
-                             Phase::CaptureOnSecondTransition)
-                        .cpol()
-                        .bit(config.mode.polarity == Polarity::IdleHigh)
-                        .master()
-                        .master()
-                        .lsbfrst()
-                        .msbfirst()
-                        .ssom()
-                        .bit(config.suspend_when_inactive)
-                        .ssm()
-                        .bit(config.managed_cs == false)
-                        .ssoe()
-                        .bit(config.managed_cs == true)
-                        .mssi()
-                        .bits(start_cycle_delay)
-                        .midi()
-                        .bits(interdata_cycle_delay)
-                        .ioswp()
-                        .bit(config.swap_miso_mosi == true)
-                        .comm()
-                        .variant(communication_mode)
+                    w.cpha().bit(cfg.mode.phase == Phase::CaptureOnSecondTransition);
+                        w.cpol().bit(cfg.mode.polarity == Polarity::IdleHigh);
+                        w.master().master();
+                        w.lsbfrst().msbfirst()
+                        // w.ssom().bit(config.suspend_when_inactive);
+                        // w.ssm().bit(config.managed_cs == false);
+                        // w.ssoe().bit(config.managed_cs == true);
+                        // w.mssi().bits(start_cycle_delay);
+                        // w.midi().bits(interdata_cycle_delay);
+                        // w.ioswp().bit(config.swap_miso_mosi == true)
+                        // w.comm().variant(communication_mode);
                 });
 
                 // spe: enable the SPI bus
                 regs.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
             } else {
-                let fclk = match device {
-                    SpiDevice::One => clocks.apb2(),
-                    _ => clocks.apb1(),
-                };
-
-                let br = Self::compute_baud_rate(fclk, freq);
-
                 // L44 RM, section 40.4.7: Configuration of SPI
                 // The configuration procedure is almost the same for master and slave. For specific mode
                 // setups, follow the dedicated sections. When a standard communication is to be initialized,
@@ -334,12 +305,17 @@ where
 
         let br = Self::compute_baud_rate(fclk, freq);
 
-        self.regs.cr1.modify(|_, w| {
-            unsafe {
-                w.br().bits(br);
-            }
+        #[cfg(not(feature = "h7"))]
+        self.regs.cr1.modify(|_, w| unsafe {
+            w.br().bits(br);
             w.spe().set_bit()
         });
+
+        #[cfg(feature = "h7")]
+        self.regs.cfg1.modify(|_, w| unsafe { w.mbr().bits(br) });
+
+        #[cfg(feature = "h7")]
+        self.regs.cr1.modify(|_, w| w.spe().set_bit());
     }
 
     /// Compute value for the baud rate register (BR). BR is specified as
@@ -366,20 +342,132 @@ where
     /// modes the disable procedure is the only way to stop continuous communication running.
     pub fn disable(&mut self) {
         // The correct disable procedure is (except when receive only mode is used):
-        // 1. Wait until FTLVL[1:0] = 00 (no more data to transmit).
-        #[cfg(not(feature = "f4"))]
-        while self.regs.sr.read().ftlvl().bits() != 0 {}
-        // 2. Wait until BSY=0 (the last data frame is processed).
-        while self.regs.sr.read().bsy().bit_is_set() {}
-        // 3. Disable the SPI (SPE=0).
-        // todo: Instructions say to stop SPI (including to close DMA comms), but this breaks non-DMA writes, which assume
-        // todo SPI is enabled, the way we structure things.
-        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
-        // 4. Read data until FRLVL[1:0] = 00 (read all the received data).
-        #[cfg(not(feature = "f4"))]
-        while self.regs.sr.read().frlvl().bits() != 0 {
-            unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) };
+        cfg_if! {
+            if #[cfg(feature = "h7")] {
+                // 1. Wait until TXC=1 and/or EOT=1 (no more data to transmit and last data frame sent).
+                // When CRC is used, it is sent automatically after the last data in the block is processed.
+                // TXC/EOT is set when CRC frame is completed in this case. When a transmission is
+                // suspended the software has to wait till CSTART bit is cleared.
+                while self.regs.sr.read().txc().bit_is_clear() {}
+                while self.regs.sr.read().eot().bit_is_clear() {}
+                // 2. Read all RxFIFO data (until RXWNE=0 and RXPLVL=00)
+                while self.regs.sr.read().rxwne().bit_is_set() || self.regs.sr.read().rxplvl().bits() != 0  {
+                    unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) };
+                }
+                // 3. Disable the SPI (SPE=0).
+                self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+            } else {
+                 // 1. Wait until FTLVL[1:0] = 00 (no more data to transmit).
+                #[cfg(not(feature = "f4"))]
+                while self.regs.sr.read().ftlvl().bits() != 0 {}
+                // 2. Wait until BSY=0 (the last data frame is processed).
+                while self.regs.sr.read().bsy().bit_is_set() {}
+                // 3. Disable the SPI (SPE=0).
+                // todo: Instructions say to stop SPI (including to close DMA comms), but this breaks non-DMA writes, which assume
+                // todo SPI is enabled, the way we structure things.
+                self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+                // 4. Read data until FRLVL[1:0] = 00 (read all the received data).
+                #[cfg(not(feature = "f4"))]
+                while self.regs.sr.read().frlvl().bits() != 0 {
+                    unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) };
+                }
+            }
         }
+    }
+
+    /// Read a single byte if available, or block until it's available.
+    /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
+    pub fn read(&mut self) -> nb::Result<u8, Error> {
+        let sr = self.regs.sr.read();
+
+        cfg_if! {
+            if #[cfg(feature = "h7")] {
+                let crce = sr.crce().bit_is_set();
+                let not_empty = sr.rxp().bit_is_set();
+            } else {
+                let crce = sr.crcerr().bit_is_set();
+                let not_empty = sr.rxne().bit_is_set();
+            }
+        }
+
+        if sr.ovr().bit_is_set() {
+            Err(nb::Error::Other(Error::Overrun))
+        } else if sr.modf().bit_is_set() {
+            Err(nb::Error::Other(Error::ModeFault))
+        } else if crce {
+            Err(nb::Error::Other(Error::Crc))
+        } else if not_empty {
+            #[cfg(feature = "h7")]
+            // todo: note: H7 can support words beyond u8. (Can others too?)
+            let result = unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) };
+            #[cfg(not(feature = "h7"))]
+            let result = unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) };
+            Ok(result)
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    /// Write a single byte if available, or block until it's available.
+    /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
+    pub fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
+        let sr = self.regs.sr.read();
+
+        cfg_if! {
+            if #[cfg(feature = "h7")] {
+                let crce = sr.crce().bit_is_set();
+                let rdy = sr.txp().bit_is_set();
+                let rdy = sr.txp().bit_is_set();
+            } else {
+                let crce = sr.crcerr().bit_is_set();
+                let rdy = sr.txe().bit_is_set();
+            }
+        }
+
+        if sr.ovr().bit_is_set() {
+            Err(nb::Error::Other(Error::Overrun))
+        } else if sr.modf().bit_is_set() {
+            Err(nb::Error::Other(Error::ModeFault))
+        } else if crce {
+            Err(nb::Error::Other(Error::Crc))
+        } else if rdy {
+            cfg_if! {
+                if #[cfg(feature = "h7")] {
+                    // todo: note: H7 can support words beyond u8. (Can others too?)
+                    unsafe { ptr::write_volatile(&self.regs.txdr as *const _ as *mut u8, byte) };
+                    // write CSTART to start a transaction in master mode
+                    self.regs.cr1.modify(|_, w| w.cstart().started());
+                }
+                 else {
+                    unsafe { ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, byte) };
+                }
+            }
+            Ok(())
+        } else {
+            Err(nb::Error::WouldBlock)
+        }
+    }
+
+    /// Write multiple bytes, blocking.
+    pub fn write(&mut self, words: &[u8]) -> Result<(), Error> {
+        // todo: We ape a default EH implementation. Is this what we want?
+        for word in words {
+            nb::block!(self.send(word.clone()))?;
+            nb::block!(self.read())?;
+        }
+
+        Ok(())
+    }
+
+    /// Read multiple bytes, blocking.
+    pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Error> {
+        // todo: We ape a default EH implementation. Is this what we want?
+        for word in words.iter_mut() {
+            nb::block!(self.send(word.clone()))?;
+            *word = nb::block!(self.read())?;
+        }
+
+        Ok(words)
     }
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
@@ -551,6 +639,7 @@ where
         })
     }
 
+    #[cfg(not(feature = "h7"))]
     /// Enable an interrupt
     pub fn enable_interrupt(&mut self, interrupt_type: SpiInterrupt) {
         match interrupt_type {
@@ -577,74 +666,12 @@ where
 {
     type Error = Error;
 
-    /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
     fn read(&mut self) -> nb::Result<u8, Error> {
-        let sr = self.regs.sr.read();
-
-        cfg_if! {
-            if #[cfg(feature = "h7")] {
-                let crce = sr.crce().bit_is_set();
-                let not_empty = sr.rxp().bit_is_set();
-            } else {
-                let crce = sr.crcerr().bit_is_set();
-                let not_empty = sr.rxne().bit_is_set();
-            }
-        }
-
-        if sr.ovr().bit_is_set() {
-            Err(nb::Error::Other(Error::Overrun))
-        } else if sr.modf().bit_is_set() {
-            Err(nb::Error::Other(Error::ModeFault))
-        } else if crce {
-            Err(nb::Error::Other(Error::Crc))
-        } else if not_empty {
-            #[cfg(feature = "h7")]
-            // todo: note: H7 can support words beyond u8. (Can others too?)
-            let result = unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) };
-            #[cfg(not(feature = "h7"))]
-            let result = unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) };
-            Ok(result)
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
+        Spi::read(self)
     }
 
     fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
-        let sr = self.regs.sr.read();
-
-        cfg_if! {
-            if #[cfg(feature = "h7")] {
-                let crce = sr.crce().bit_is_set();
-                let rdy = sr.txp().bit_is_set();
-                let rdy = sr.txp().bit_is_set();
-            } else {
-                let crce = sr.crcerr().bit_is_set();
-                let rdy = sr.txe().bit_is_set();
-            }
-        }
-
-        if sr.ovr().bit_is_set() {
-            Err(nb::Error::Other(Error::Overrun))
-        } else if sr.modf().bit_is_set() {
-            Err(nb::Error::Other(Error::ModeFault))
-        } else if crce {
-            Err(nb::Error::Other(Error::Crc))
-        } else if rdy {
-            cfg_if! {
-                if #[cfg(feature = "h7")] {
-                    // todo: note: H7 can support words beyond u8. (Can others too?)
-                    unsafe { ptr::write_volatile(&self.regs.txdr as *const _ as *mut u8, byte) };
-                    // write CSTART to start a transaction in master mode
-                    self.regs.cr1.modify(|_, w| w.cstart().started());
-                }
-                 else {
-                    unsafe { ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, byte) };
-                }
-            }
-            Ok(())
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
+        Spi::send(self, byte)
     }
 }
 

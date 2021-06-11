@@ -29,6 +29,18 @@ for example uses of many of this library's features. Copy and paste its whole fo
 using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml` 
 and `main.rs` as required.
 
+When specifying this crate as a dependency in `Cargo.toml`, you need to specify a feature
+representing your MCU. If this is for code that runs on an MCU directly (ie not a library), also
+ include a run-time feature, following the template "l4rt" etc. For example: 
+```toml
+cortex-m = "0.7.1"
+cortex-m-rt = "0.6.13"
+stm32-hal2 = { version = "^0.2.8", features = ["l4x3", "l4rt"]}
+```
+
+You can review [this section of Cargo.toml](https://github.com/David-OConnor/stm32-hal/blob/main/Cargo.toml#L61)
+to see which MCU and runtime features are available.
+
 ### Example highlights:
 ```rust
 use cortex_m;
@@ -205,7 +217,6 @@ where
 - USART interrupts unimplemented on F4
 - H7 clocks are missing advanced features
 - PWM input unimplemented
-- SPI unimplemented for H7
 - CRC unimplemented for L5, F4, G0, and G4
 - Flash read/write unimplemented on H7
 - Low power timers (LPTIM) and low power usart (LPUSART) unimplemented

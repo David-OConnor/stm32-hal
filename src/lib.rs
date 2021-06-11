@@ -15,8 +15,6 @@
 // Using `unsafe` for all is cleaner than feature-gating, due to how many fields this affects. We've allowed
 // these warnings; ie hidden during build.
 
-// todo: Modify `rust.yml` to test with `usb` and `can` features.
-
 #![no_std]
 // Some reg modifications are marked `unsafe` in some PAC crates, but not others.
 // Disable these warnings.
@@ -306,7 +304,7 @@ pub mod rtc;
 // #[cfg(not(any(feature = "f3")))]
 // pub mod sai;
 
-#[cfg(not(feature = "h7"))] // todo
+// #[cfg(not(feature = "h7"))] // todo
 pub mod spi;
 
 #[cfg(not(feature = "wb"))] // todo: Unknown issue with WB timers. Put back

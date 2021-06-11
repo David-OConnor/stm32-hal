@@ -239,7 +239,7 @@ where
             w.bits(
                 result.regs.cr1.read().bits()
                     | ((word_len_bits.0 as u32) << 28)
-                    | ((word_len_bits.1 as u32) << 12)
+                    | ((word_len_bits.1 as u32) << 12),
             )
         });
 
@@ -425,12 +425,6 @@ where
             UsartDevice::Three => dma.channel_select(DmaInput::Usart3Tx),
         }
 
-        // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
-        // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
-        // Section 11: Direct memory access controller (DMA) on page 295) to the USART_TDR
-        // register whenever the TXE bit is set."
-        self.regs.cr3.modify(|_, w| w.dmat().set_bit());
-
         // Note that we need neither channel select, nor multiplex for F3.
 
         // todo: Pri and Circular as args?
@@ -474,6 +468,13 @@ where
         // disabling the USART or entering Stop mode. Software must wait until TC=1. The TC flag
         // remains cleared during all data transfers and it is set by hardware at the end of transmission
         // of the last frame.
+
+        // (this RM quote isn't part of the steps and section the others above are)
+        // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
+        // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
+        // Section 11: Direct memory access controller (DMA) on page 295) to the USART_TDR
+        // register whenever the TXE bit is set."
+        self.regs.cr3.modify(|_, w| w.dmat().set_bit());
     }
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
@@ -511,10 +512,6 @@ where
             UsartDevice::Three => dma.channel_select(DmaInput::Usart3Rx),
         }
 
-        self.regs.cr3.modify(|_, w| w.dmar().set_bit());
-
-        // Note that we need neither channel select, nor multiplex for F3.
-
         // todo: Pri and Circular as args?
 
         dma.cfg_channel(
@@ -534,6 +531,8 @@ where
             dma::DataSize::S8,
             Default::default(),
         );
+
+        self.regs.cr3.modify(|_, w| w.dmar().set_bit());
 
         // 5. Configure interrupt generation after half/ full transfer as required by the application.
         // todo (Let the user call `dma.setup_interrupt()`? But that requires they know

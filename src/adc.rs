@@ -693,6 +693,8 @@ macro_rules! hal {
                 self.read_result()
             }
 
+            // todo: fn read_voltage, using vrefint and L4xx-hal style calibration?
+
             #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
             /// Take a one shot reading, using DMA. See L44 RM, 16.4.27: "DMA one shot mode".
             /// Note that the `channel` argument is only used on F3 and L4.
