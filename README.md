@@ -31,7 +31,7 @@ and `main.rs` as required.
 
 When specifying this crate as a dependency in `Cargo.toml`, you need to specify a feature
 representing your MCU. If this is for code that runs on an MCU directly (ie not a library), also
- include a run-time feature, following the template "l4rt" etc. For example: 
+ include a run-time feature, following the template `l4rt`. For example: 
 ```toml
 cortex-m = "0.7.1"
 cortex-m-rt = "0.6.13"
@@ -225,3 +225,4 @@ where
 - ADC3 unimplemented on H7
 - Low power modes beyond sleep and cstop aren't implemented for H7
 - WB is missing features relating to radio and second core operations
+- WB TIM16 unimplemented, and interrupts unimplemented on all WB timers.

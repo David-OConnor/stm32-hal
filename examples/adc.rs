@@ -101,6 +101,10 @@ fn main() -> ! {
     // for use in embedded drivers). Channels for EH usage are included: `stm32hal2::adc::AdcChannel::C3`
     let reading = adc.read(chan_num);
 
+    // Convert a reading to voltage, which includes compensation for the built-in VDDA
+    // reference voltage
+    let voltage = adc.reading_to_voltage(reading);
+
     // Or, start reading in continuous mode, reading a single channel
     adc.start_conversion(&[chan_num], OperationMode::Continuous);
 

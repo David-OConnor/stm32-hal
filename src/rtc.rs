@@ -516,6 +516,9 @@ impl Rtc {
                 if #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))] {
                     regs.scr.write(|w| w.cwutf().set_bit());
                 } else {
+                    // Note that we clear this by writing 0, which isn't
+                    // the standard convention, eg in other families, and
+                    // other peripherals.
                     regs.isr.modify(|_, w| w.wutf().clear_bit());
                 }
             }

@@ -69,6 +69,7 @@ l5rt = ["stm32l5/rt"]
 g0rt = ["stm32g0/rt"]
 g4rt = ["stm32g4/rt"]
 h7rt = ["stm32h7/rt"]
+wbrt = ["stm32wb/rt"]
 
 # Features defined here are those taken from the SVD-generated STM32 PACs.
 

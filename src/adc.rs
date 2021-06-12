@@ -3,7 +3,7 @@
 use cortex_m::asm;
 use embedded_hal::adc::{Channel, OneShot};
 
-use core::ops::Deref;
+use core::{ops::Deref, ptr};
 
 use crate::{
     pac::{self, RCC},
@@ -51,7 +51,7 @@ pub mod AdcChannel {
     pub struct C20;
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum AdcDevice {
     One,
     Two,
@@ -76,18 +76,6 @@ pub enum AdcInterrupt {
     EndOfSamplingPhase,
     Overrun,
     InjectedOverflow,
-}
-
-/// Represents an Analog to Digital Converter (ADC) peripheral.
-pub struct Adc<ADC> {
-    /// ADC Register
-    regs: ADC,
-    device: AdcDevice,
-    ckmode: ClockMode,
-    operation_mode: OperationMode,
-    // Most families use u8 values for calibration, but H7 uses u16.
-    cal_single_ended: Option<u16>, // Stored calibration value for single-ended
-    cal_differential: Option<u16>, // Stored calibration value for differential
 }
 
 // todo: Adc sampling time below depends on the STM32 family. Eg the numbers below
@@ -229,6 +217,21 @@ impl Default for Align {
     }
 }
 
+/// Represents an Analog to Digital Converter (ADC) peripheral.
+pub struct Adc<A> {
+    /// ADC Register
+    regs: A,
+    // Note: We don't own the common regs; pass them mutably where required, since they may be used
+    // by a different ADC.
+    device: AdcDevice,
+    ckmode: ClockMode,
+    operation_mode: OperationMode,
+    // Most families use u8 values for calibration, but H7 uses u16.
+    cal_single_ended: Option<u16>, // Stored calibration value for single-ended
+    cal_differential: Option<u16>, // Stored calibration value for differential
+    vdda_calibrated: f32,
+}
+
 // Abstract implementation of ADC functionality
 macro_rules! hal {
     ($ADC:ident, $ADC_COMMON:ident, $adc:ident, $rcc_num:tt) => {
@@ -246,7 +249,7 @@ macro_rules! hal {
                 pub fn [<new_ $adc>]<C: ClockCfg>(
                     regs: pac::$ADC,
                     device: AdcDevice,
-                    adc_common : &mut pac::$ADC_COMMON,
+                    common_regs : &mut pac::$ADC_COMMON,
                     ckmode: ClockMode,
                     clocks: &C,
                     rcc: &mut RCC,
@@ -258,9 +261,10 @@ macro_rules! hal {
                         operation_mode: OperationMode::OneShot,
                         cal_single_ended: None,
                         cal_differential: None,
+                        vdda_calibrated: 0.
                     };
 
-                    result.enable_clock(adc_common, rcc);
+                    result.enable_clock(common_regs, rcc);
                     result.set_align(Align::default());
 
                     result.advregen_enable(clocks);
@@ -282,12 +286,15 @@ macro_rules! hal {
 
                     result.setup_oneshot(); // todo: Setup Continuous
 
+                    // Set up VDDA only after the ADC is otherwise enabled.
+                    result.setup_vdda(common_regs, clocks);
+
                     result
                 }
             }
 
             /// Enable the ADC clock, and set the clock mode.
-            fn enable_clock(&self, common_regs: &mut pac::$ADC_COMMON, rcc: &mut RCC) {
+            fn enable_clock(&self, regs_common: &mut pac::$ADC_COMMON, rcc: &mut RCC) {
                 paste! {
                     cfg_if! {
                         if #[cfg(any(feature = "f3", feature = "h7"))] {
@@ -304,7 +311,7 @@ macro_rules! hal {
                         }
                     }
                 }
-                common_regs.ccr.modify(|_, w| unsafe { w.ckmode().bits(self.ckmode as u8) });
+                regs_common.ccr.modify(|_, w| unsafe { w.ckmode().bits(self.ckmode as u8) });
 
             }
 
@@ -655,10 +662,115 @@ macro_rules! hal {
                 }
             }
 
+            /// Set up the internal voltage reference, to improve conversion from reading
+            /// to voltage accuracy. See L44 RM, section 16.4.34: "Monitoring the internal voltage reference"
+            fn setup_vdda<C: ClockCfg>(&mut self, regs_common: &mut pac::$ADC_COMMON, clocks: &C) {
+                // todo: Using ints intead of floats here and in read_voltage, for use on Cortex M0s?
+                // todo: May need to use mv.
+                regs_common.ccr.modify(|_, w| w.vrefen().set_bit());
+                // "Table 24. Embedded internal voltage reference" states that it takes a maximum of 12 us
+                // to stabilize the internal voltage reference, we wait a little more.
+                let mut delay = (15_000_000) / clocks.sysclk();
+                // https://github.com/rust-embedded/cortex-m/pull/328
+                if delay < 2 {  // Work around a bug in cortex-m.
+                    delay = 2;
+                }
+                asm::delay(delay);
+
+                // todo: Set sample time appropriately.
+                // from L4xx-hal:
+                // let old_sample_time = self.sample_time;
+                //
+                // // "Table 24. Embedded internal voltage reference" states that the sample time needs to be
+                // // at a minimum 4 us. With 640.5 ADC cycles we have a minimum of 8 us at 80 MHz, leaving
+                // // some headroom.
+                // self.set_sample_time(SampleTime::Cycles640_5);
+                //
+                // // This can't actually fail, it's just in a result to satisfy hal trait
+                // let vref_samp = self.read(vref).unwrap();
+                //
+                // self.set_sample_time(old_sample_time);
+
+                // RM: It is possible to monitor the internal voltage reference (VREFINT) to have a reference point for
+                // evaluating the ADC VREF+ voltage level.
+                // The internal voltage reference is internally connected to the input channel 0 of the ADC1
+                // (ADC1_INP0).
+
+                // Regardless of which ADC we're on, we take this reading using ADC1.
+                let vref_reading = if self.device != AdcDevice::One {
+                    // todo: What if ADC1 is alreayd enabled and configured differently?
+                    // todo: Either way, if you're also using ADC1, this will screw things up⋅.
+
+                    // If we're currently using ADC1 (and this is a different ADC), skip this step for now;
+                    // VDDA will be wrong,
+                    // and all readings using voltage conversion will be wrong.
+                    if unsafe { (*pac::ADC1::ptr()).cr.read().aden().bit_is_set() } {
+                        // todo: Take an ADC1 reading if this is the case.
+                        return
+                    }
+
+                    let mut dp = unsafe { pac::Peripherals::steal() };
+                    let mut adc1 = Adc::new_adc1(
+                        dp.ADC1,
+                        AdcDevice::One,
+                        &mut dp.ADC_COMMON,
+                        ClockMode::default(),
+                        clocks,
+                        &mut dp.RCC,
+                    );
+                    let reading = adc1.read(0);
+                    adc1.disable();
+                    // todo: Disable its clock too.
+                    reading
+                } else { self.read(0) };
+
+                regs_common.ccr.modify(|_, w| w.vrefen().clear_bit());
+
+
+                // The VDDA power supply voltage applied to the microcontroller may be subject to variation or
+                // not precisely known. The embedded internal voltage reference (VREFINT) and its calibration
+                // data acquired by the ADC during the manufacturing process at VDDA = 3.0 V can be used to
+                // evaluate the actual VDDA voltage level.
+                // The following formula gives the actual VDDA voltage supplying the device:
+                // VDDA = 3.0 V x VREFINT_CAL / VREFINT_DATA
+                // where:
+                // • VREFINT_CAL is the VREFINT calibration value
+                // • VREFINT_DATA is the actual VREFINT output value converted by ADC
+
+                // todo: This address may be different on different MCUs, even within the same family!!
+                let vrefint_cal: u16 = unsafe { ptr::read_volatile(&*(0x1FFF_75AA as *const _)) };
+
+                self.vdda_calibrated = 3. * vrefint_cal as f32 / vref_reading as f32
+            }
+
+            /// Convert a raw measurement into a voltage in Volts, using the calibrated VDDA.
+            /// See RM0394, section 16.4.34
+            pub fn reading_to_voltage(&self, reading: u16) -> f32 {
+                // RM:
+                // Converting a supply-relative ADC measurement to an absolute voltage value
+                // The ADC is designed to deliver a digital value corresponding to the ratio between the analog
+                // power supply and the voltage applied on the converted channel. For most application use
+                // cases, it is necessary to convert this ratio into a voltage independent of VDDA. For
+                // applications where VDDA is known and ADC converted values are right-aligned you can use
+                // the following formula to get this absolute value:
+
+                // V_CHANNELx = V_DDA / FULL_SCALE x ADCx_DATA
+
+                // Where:
+                // • VREFINT_CAL is the VREFINT calibration value
+                // • ADC_DATA is the value measured by the ADC on channel x (right-aligned)
+                // • VREFINT_DATA is the actual VREFINT output value converted by the ADC
+                // • FULL_SCALE is the maximum digital value of the ADC output. For example with 12-bit
+                // resolution, it will be 212 − 1 = 4095 or with 8-bit resolution, 28 − 1 = 255
+                // todo: Pass vdda here, or to teh struct?
+                // todo: FULL_SCALE will be different for 16-bit. And differential?
+                self.vdda_calibrated / 4_096. * reading as f32
+            }
+
             /// Start a conversion: Either a single measurement, or continuous conversions.
             /// See L4 RM 16.4.15 for details.
             pub fn start_conversion(&mut self, sequence: &[u8], mode: OperationMode) {
-                // Set continuous or differential mode.
+                // Set continuous or one-shot mode.
                 self.regs.cfgr.modify(|_, w| w.cont().bit(mode as u8 != 0));
                 // todo: You should call this elsewhere, once, to prevent unneded reg writes.
                 for (i, channel) in sequence.iter().enumerate() {

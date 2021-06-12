@@ -229,20 +229,22 @@ macro_rules! hal {
             /// Starts listening for an `event`. Used to enable interrupts.
             pub fn enable_interrupt(&mut self, interrupt: TimerInterrupt) {
                 match interrupt {
-                        TimerInterrupt::Update => self.tim.dier.modify(|_, w| w.uie().set_bit()),
-                        // TimerInterrupt::Trigger => self.tim.dier.modify(|_, w| w.tie().set_bit()),
-                        // TimerInterrupt::CaptureCompare1 => self.tim.dier.modify(|_, w| w.cc1ie().set_bit()),
-                        // TimerInterrupt::CaptureCompare2 => self.tim.dier.modify(|_, w| w.cc2ie().set_bit()),
-                        // TimerInterrupt::CaptureCompare3 => self.tim.dier.modify(|_, w| w.cc3ie().set_bit()),
-                        // TimerInterrupt::CaptureCompare4 => self.tim.dier.modify(|_, w| w.cc4ie().set_bit()),
-                        // TimerInterrupt::UpdateDma => self.tim.dier.modify(|_, w| w.ude().set_bit()),
-                        // TimerInterrupt::TriggerDma => self.tim.dier.modify(|_, w| w.tde().set_bit()),
-                        // TimerInterrupt::CaptureCompare1Dma => self.tim.dier.modify(|_, w| w.cc1de().set_bit()),
-                        // TimerInterrupt::CaptureCompare2Dma => self.tim.dier.modify(|_, w| w.ccd2de().set_bit()),
-                        // TimerInterrupt::CaptureCompare3Dma => self.tim.dier.modify(|_, w| w.cc3de().set_bit()),
-                        // TimerInterrupt::CaptureCompare4Dma => self.tim.dier.modify(|_, w| w.cc4de().set_bit()),
-                        // todo: Only DIER is in PAC. PAC BUG? Only avail on some timers?
-                        _ => unimplemented!("TODO TEMP PROBLEMS"),
+                    // todo: DIER field incorrect - https://github.com/stm32-rs/stm32-rs/issues/575
+                    #[cfg(not(feature = "wb"))]
+                    TimerInterrupt::Update => self.tim.dier.modify(|_, w| w.uie().set_bit()),
+                    // TimerInterrupt::Trigger => self.tim.dier.modify(|_, w| w.tie().set_bit()),
+                    // TimerInterrupt::CaptureCompare1 => self.tim.dier.modify(|_, w| w.cc1ie().set_bit()),
+                    // TimerInterrupt::CaptureCompare2 => self.tim.dier.modify(|_, w| w.cc2ie().set_bit()),
+                    // TimerInterrupt::CaptureCompare3 => self.tim.dier.modify(|_, w| w.cc3ie().set_bit()),
+                    // TimerInterrupt::CaptureCompare4 => self.tim.dier.modify(|_, w| w.cc4ie().set_bit()),
+                    // TimerInterrupt::UpdateDma => self.tim.dier.modify(|_, w| w.ude().set_bit()),
+                    // TimerInterrupt::TriggerDma => self.tim.dier.modify(|_, w| w.tde().set_bit()),
+                    // TimerInterrupt::CaptureCompare1Dma => self.tim.dier.modify(|_, w| w.cc1de().set_bit()),
+                    // TimerInterrupt::CaptureCompare2Dma => self.tim.dier.modify(|_, w| w.ccd2de().set_bit()),
+                    // TimerInterrupt::CaptureCompare3Dma => self.tim.dier.modify(|_, w| w.cc3de().set_bit()),
+                    // TimerInterrupt::CaptureCompare4Dma => self.tim.dier.modify(|_, w| w.cc4de().set_bit()),
+                    // todo: Only DIER is in PAC. PAC BUG? Only avail on some timers?
+                    _ => unimplemented!("TODO TEMP PROBLEMS"),
                 }
             }
 
@@ -550,12 +552,13 @@ macro_rules! pwm_features {
                 cfg_if! {
                     if #[cfg(feature = "g0")] {
                         match channel {
+                            // todo: This isn't right!!
                             Channel::One => self.tim.ccr1.read().bits(),
                             Channel::Two => self.tim.ccr2.read().bits(),
                             Channel::Three => self.tim.ccr3.read().bits(),
                             Channel::Four => self.tim.ccr4.read().bits(),
                         }
-                    } else if #[cfg(feature = "g4")] {
+                    } else if #[cfg(any(feature = "g4", feature = "wb"))] {
                         match channel {
                             Channel::One => self.tim.ccr1.read().ccr1().bits(),
                             Channel::Two => self.tim.ccr2.read().ccr2().bits(),
@@ -578,12 +581,13 @@ macro_rules! pwm_features {
                 cfg_if! {
                     if #[cfg(feature = "g0")] {
                         match channel {
+                            // todo: This isn't right!!
                             Channel::One => self.tim.ccr1.read().bits(),
                             Channel::Two => self.tim.ccr2.read().bits(),
                             Channel::Three => self.tim.ccr3.read().bits(),
                             Channel::Four => self.tim.ccr4.read().bits(),
                         };
-                    } else if #[cfg(feature = "g4")] {
+                    } else if #[cfg(any(feature = "g4", feature = "wb"))] {
                         unsafe {
                             match channel {
                                 Channel::One => self.tim.ccr1.write(|w| w.ccr1().bits(duty)),
@@ -763,7 +767,13 @@ cfg_if! {
 #[cfg(feature = "g4")]
 pwm_features!(TIM2, u16);
 
-#[cfg(not(any(feature = "l5", feature = "g070", feature = "g4", feature = "f410")))]
+#[cfg(not(any(
+    feature = "l5",
+    feature = "g070",
+    feature = "g4",
+    feature = "f410",
+    feature = "wb"
+)))]
 pwm_features!(TIM2, u32);
 
 #[cfg(not(any(
@@ -892,10 +902,12 @@ hal!(TIM8, tim8, 2);
     feature = "g031",
     feature = "g041",
     feature = "g030",
+    feature = "wb",
 )))]
 hal!(TIM15, tim15, 2);
 
-#[cfg(not(feature = "f4"))]
+// todo: WB has TIM16, but there's a [PAC error on CR1](https://github.com/stm32-rs/stm32-rs/issues/575).
+#[cfg(not(any(feature = "f4", feature = "wb")))]
 hal!(TIM16, tim16, 2);
 
 cfg_if! {

@@ -307,7 +307,6 @@ pub mod rtc;
 // #[cfg(not(feature = "h7"))] // todo
 pub mod spi;
 
-#[cfg(not(feature = "wb"))] // todo: Unknown issue with WB timers. Put back
 pub mod timer;
 pub mod usart;
 
