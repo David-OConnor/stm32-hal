@@ -1,62 +1,34 @@
-//! Hardware delays, using Cortex-m systick.
-
-// Based on `stm32l4xx-hal`.
+//! Hardware delays, using Cortex-m systick. Thin wrapper of `cortex-m::delay::Delay`.
 
 use cast::u32;
-use cortex_m::peripheral::syst::SystClkSource;
-use cortex_m::peripheral::SYST;
+use cortex_m::{self, peripheral::SYST};
+
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
 use crate::traits::ClockCfg;
 
 /// System timer (SysTick) as a delay provider
 pub struct Delay {
-    syst: SYST,
-    systick_speed: u32,
+    cortex_m_delay: cortex_m::delay::Delay,
 }
 
 impl Delay {
     /// Configures the system timer (SysTick) as a delay provider
-    pub fn new<C: ClockCfg>(mut syst: SYST, clocks: &C) -> Self {
-        syst.set_clock_source(SystClkSource::Core);
-
-        Delay {
-            syst,
-            systick_speed: clocks.systick(),
+    pub fn new<C: ClockCfg>(syst: SYST, clock_cfg: &C) -> Self {
+        Self {
+            cortex_m_delay: cortex_m::delay::Delay::new(syst, clock_cfg.systick()),
         }
-    }
-
-    /// Delay using the Cortex-M systick for a certain duration, ms.
-    pub fn delay_ms(&mut self, ms: u32) {
-        self.delay_us(ms * 1_000);
     }
 
     /// Delay using the Cortex-M systick for a certain duration, µs. This is the core delay
     /// code all other functions, including the EH trait ones call indirectly.
     pub fn delay_us(&mut self, us: u32) {
-        // The SysTick Reload Value register supports values between 1 and 0x00FFFFFF.
-        const MAX_RVR: u32 = 0x00FF_FFFF;
+        self.cortex_m_delay.delay_us(us);
+    }
 
-        let mut total_rvr = us * (self.systick_speed / 1_000_000);
-
-        while total_rvr != 0 {
-            let current_rvr = if total_rvr <= MAX_RVR {
-                total_rvr
-            } else {
-                MAX_RVR
-            };
-
-            self.syst.set_reload(current_rvr);
-            self.syst.clear_current();
-            self.syst.enable_counter();
-
-            // Update the tracking variable while we are waiting...
-            total_rvr -= current_rvr;
-
-            while !self.syst.has_wrapped() {}
-
-            self.syst.disable_counter();
-        }
+    /// Delay using the Cortex-M systick for a certain duration, ms.
+    pub fn delay_ms(&mut self, ms: u32) {
+        self.delay_us(ms * 1_000);
     }
 }
 

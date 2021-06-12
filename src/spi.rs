@@ -459,6 +459,7 @@ where
         Ok(())
     }
 
+    // todo: Commented out to TS.
     /// Read multiple bytes, blocking.
     pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Error> {
         // todo: We ape a default EH implementation. Is this what we want?

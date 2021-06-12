@@ -638,6 +638,7 @@ macro_rules! hal {
                 self.stop_conversions();
                 unsafe {
                     match chan {
+                        0 => self.regs.smpr1.modify(|_, w| w.smp0().bits(smp as u8)),
                         1 => self.regs.smpr1.modify(|_, w| w.smp1().bits(smp as u8)),
                         2 => self.regs.smpr1.modify(|_, w| w.smp2().bits(smp as u8)),
                         3 => self.regs.smpr1.modify(|_, w| w.smp3().bits(smp as u8)),
@@ -677,19 +678,12 @@ macro_rules! hal {
                 }
                 asm::delay(delay);
 
-                // todo: Set sample time appropriately.
-                // from L4xx-hal:
-                // let old_sample_time = self.sample_time;
-                //
-                // // "Table 24. Embedded internal voltage reference" states that the sample time needs to be
-                // // at a minimum 4 us. With 640.5 ADC cycles we have a minimum of 8 us at 80 MHz, leaving
-                // // some headroom.
-                // self.set_sample_time(SampleTime::Cycles640_5);
-                //
-                // // This can't actually fail, it's just in a result to satisfy hal trait
-                // let vref_samp = self.read(vref).unwrap();
-                //
-                // self.set_sample_time(old_sample_time);
+
+                // (From L4xx-hal) "Table 24. Embedded internal voltage reference" states that the sample time needs to be
+                // at a minimum 4 us. With 640.5 ADC cycles we have a minimum of 8 us at 80 MHz, leaving
+                // some headroom.
+                // todo: Reset existing sample time after this measurement?
+                // todo: This may not work properly on variants clocked faster than 80Mhz(?)
 
                 // RM: It is possible to monitor the internal voltage reference (VREFINT) to have a reference point for
                 // evaluating the ADC VREF+ voltage level.
@@ -718,12 +712,20 @@ macro_rules! hal {
                         clocks,
                         &mut dp.RCC,
                     );
+                    adc1.set_sample_time(0, SampleTime::T601);
                     let reading = adc1.read(0);
-                    adc1.disable();
-                    // todo: Disable its clock too.
-                    reading
-                } else { self.read(0) };
 
+                    // Disable ADC1 and its clock.
+                    adc1.disable();
+                    // todo: Disable the ADC1 clock. (Note it's on 3 diff regs depending on family)
+
+                    reading
+                } else {
+                    self.set_sample_time(0, SampleTime::T601);
+                    self.read(0)
+                };
+
+                // self.set_sample_time(0, old_sample_time);
                 regs_common.ccr.modify(|_, w| w.vrefen().clear_bit());
 
 
