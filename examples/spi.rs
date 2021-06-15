@@ -23,10 +23,7 @@ use stm32_hal2::{
     spi::{self, Spi, SpiConfig, SpiDevice},
 };
 
-use embedded_hal::{
-    blocking::spi::{Transfer, Write},
-    spi::{Mode, Phase, Polarity},
-};
+use embedded_hal::spi::{Mode, Phase, Polarity};
 
 #[entry]
 fn main() -> ! {
@@ -80,8 +77,10 @@ fn main() -> ! {
 
     cs.set_low();
 
-    spi.write_dma(&read_buf, DmaChannel::C3, &mut dma);
-    spi.read_dma(&mut read_buf, DmaChannel::C2, &mut dma);
+    unsafe {
+        spi.write_dma(&read_buf, DmaChannel::C3, &mut dma);
+        spi.read_dma(&mut read_buf, DmaChannel::C2, &mut dma);
+    }
 
     while !dma.transfer_is_complete(DmaChannel::C2) {}
     spi.stop_dma(DmaChannel::C2, &mut dma);

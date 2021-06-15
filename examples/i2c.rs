@@ -23,8 +23,6 @@ use stm32_hal2::{
     low_power, pac,
 };
 
-use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
-
 #[entry]
 fn main() -> ! {
     // Set up CPU peripherals

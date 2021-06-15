@@ -812,7 +812,7 @@ macro_rules! hal {
             #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
             /// Take a one shot reading, using DMA. See L44 RM, 16.4.27: "DMA one shot mode".
             /// Note that the `channel` argument is only used on F3 and L4.
-            pub fn read_dma<D>(&mut self, buf: &mut [u16], adc_channel: u8, dma_channel: DmaChannel, dma: &mut Dma<D>)
+            pub unsafe fn read_dma<D>(&mut self, buf: &mut [u16], adc_channel: u8, dma_channel: DmaChannel, dma: &mut Dma<D>)
             where
                 D: Deref<Target = dma_p::RegisterBlock>,
             {

@@ -16,7 +16,6 @@ cortex-m-rt = "0.6.13"
 # the runtime feature for that
 # family, eg `l4rt`.
 stm32-hal2 = { version = "^0.2.8", features = ["l4x3", "l4rt"]}
-embedded-hal = { version = "0.2.5", features=["unproven"] }
 
 [features]
 # set logging levels here

@@ -375,7 +375,7 @@ where
     /// Note that the `channel` argument is only used on F3 and L4.
     /// For a single write, set `autoend` to `true`. For a write_read and other use cases,
     /// set it to `false`.
-    pub fn write_dma<D>(
+    pub unsafe fn write_dma<D>(
         &mut self,
         addr: u8,
         buf: &[u8],
@@ -460,8 +460,13 @@ where
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Read data, using DMA. See L44 RM, 37.4.16: "Reception using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub fn read_dma<D>(&mut self, addr: u8, buf: &mut [u8], channel: DmaChannel, dma: &mut Dma<D>)
-    where
+    pub unsafe fn read_dma<D>(
+        &mut self,
+        addr: u8,
+        buf: &mut [u8],
+        channel: DmaChannel,
+        dma: &mut Dma<D>,
+    ) where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         // while self.regs.cr2.read().start().bit_is_set() {}

@@ -410,7 +410,7 @@ where
 
     /// Write a single byte if available, or block until it's available.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
-    pub fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
+    pub fn write_one(&mut self, byte: u8) -> nb::Result<(), Error> {
         let sr = self.regs.sr.read();
 
         cfg_if! {
@@ -459,12 +459,11 @@ where
         Ok(())
     }
 
-    // todo: Commented out to TS.
     /// Read multiple bytes, blocking.
     pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Error> {
         // todo: We ape a default EH implementation. Is this what we want?
         for word in words.iter_mut() {
-            nb::block!(self.send(word.clone()))?;
+            nb::block!(self.write_one(word.clone()))?;
             *word = nb::block!(self.read())?;
         }
 
@@ -474,7 +473,7 @@ where
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note that the `channel` argument has no effect on F3 and L4.
-    pub fn write_dma<D>(&mut self, buf: &[u8], channel: DmaChannel, dma: &mut Dma<D>)
+    pub unsafe fn write_dma<D>(&mut self, buf: &[u8], channel: DmaChannel, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
@@ -564,7 +563,7 @@ where
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note taht the `channel` argument has no effect on F3 and L4.
-    pub fn read_dma<D>(&mut self, buf: &mut [u8], channel: DmaChannel, dma: &mut Dma<D>)
+    pub unsafe fn read_dma<D>(&mut self, buf: &mut [u8], channel: DmaChannel, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
     {

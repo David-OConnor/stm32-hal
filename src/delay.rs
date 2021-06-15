@@ -1,5 +1,9 @@
 //! Hardware delays, using Cortex-m systick. Thin wrapper of `cortex-m::delay::Delay`.
 
+// todo: If EH dependence on cortex_m::delay::Delay is removed, delete this module, and
+// todo direct examples there. https://github.com/rust-embedded/cortex-m/issues/343
+// todo PR: https://github.com/rust-embedded/cortex-m/pull/344
+
 use cast::u32;
 use cortex_m::{self, peripheral::SYST};
 
