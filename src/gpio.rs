@@ -233,26 +233,25 @@ macro_rules! set_exti {
                             }else if #[cfg(any(feature = "g4"))] {
                                 $exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());
                             } else if #[cfg(feature = "wb")] {
-                                // todo: Missing 0-4 in PAC, so we read+write. https://github.com/stm32-rs/stm32-rs/issues/570
-                                let val =  $exti.c1imr1.read().bits();
-                                $exti.c1imr1.write(|w| unsafe { w.bits(val | (1 << $num)) });
-                                // todo: Core 2 interrupts.
+                                // todo: Do the rename in WB pac, then merge this section with g4 above.
+                                $exti.c1imr1.modify(|_, w| w.[<im $num>]().set_bit());
+                                // todo: Core 2 interrupts for wb.
                             } else {
                                 $exti.imr1.modify(|_, w| w.[<mr $num>]().set_bit());
                             }
                         }
 
                         cfg_if! {
-                            if #[cfg(feature = "g4")] {
+                            if #[cfg(any(feature = "g4", feature = "wb"))] {
                                 $exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($trigger));
                                 $exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit(!$trigger));
-                            } else if #[cfg(feature = "wb")] {
-                                // todo: Missing in PAC, so we read+write. https://github.com/stm32-rs/stm32-rs/issues/570
-                                let val_r =  $exti.rtsr1.read().bits();
-                                $exti.rtsr1.write(|w| unsafe { w.bits(val_r | (1 << $num)) });
-                                let val_f =  $exti.ftsr1.read().bits();
-                                $exti.ftsr1.write(|w| unsafe { w.bits(val_f | (1 << $num)) });
-                                // todo: Core 2 interrupts.
+                            // } else if #[cfg(feature = "wb")] {
+                            //     // todo: Missing in PAC, so we read+write. https://github.com/stm32-rs/stm32-rs/issues/570
+                            //     let val_r =  $exti.rtsr1.read().bits();
+                            //     $exti.rtsr1.write(|w| unsafe { w.bits(val_r | (1 << $num)) });
+                            //     let val_f =  $exti.ftsr1.read().bits();
+                            //     $exti.ftsr1.write(|w| unsafe { w.bits(val_f | (1 << $num)) });
+                            //     // todo: Core 2 interrupts.
                             } else {
                                 $exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($trigger));
                                 $exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit(!$trigger));

@@ -82,7 +82,6 @@ fn main() -> ! {
         NVIC::unmask(pac::Interrupt::DMA1_CH7);
     }
 
-
     loop {
         low_power::sleep_now(&mut SCB);
     }

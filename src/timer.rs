@@ -229,8 +229,6 @@ macro_rules! hal {
             /// Starts listening for an `event`. Used to enable interrupts.
             pub fn enable_interrupt(&mut self, interrupt: TimerInterrupt) {
                 match interrupt {
-                    // todo: DIER field incorrect - https://github.com/stm32-rs/stm32-rs/issues/575
-                    #[cfg(not(feature = "wb"))]
                     TimerInterrupt::Update => self.tim.dier.modify(|_, w| w.uie().set_bit()),
                     // TimerInterrupt::Trigger => self.tim.dier.modify(|_, w| w.tie().set_bit()),
                     // TimerInterrupt::CaptureCompare1 => self.tim.dier.modify(|_, w| w.cc1ie().set_bit()),
@@ -805,7 +803,7 @@ cfg_if! {
         feature = "f410",
         feature = "l4x1",
         feature = "l4x2",
-        feature = "l412", // todo: 412 workaround
+        feature = "l412",
         feature = "l4x3",
         feature = "l552",
         feature = "g0",
@@ -822,7 +820,7 @@ cfg_if! {
         feature = "f410",
         feature = "l4x1",
         feature = "l4x2",
-        feature = "l412", // todo: 412 workaround
+        feature = "l412",
         feature = "l4x3",
         feature = "l5",
         feature = "g0",
@@ -906,15 +904,14 @@ hal!(TIM8, tim8, 2);
 )))]
 hal!(TIM15, tim15, 2);
 
-// todo: WB has TIM16, but there's a [PAC error on CR1](https://github.com/stm32-rs/stm32-rs/issues/575).
-#[cfg(not(any(feature = "f4", feature = "wb")))]
+#[cfg(not(feature = "f4"))]
 hal!(TIM16, tim16, 2);
 
 cfg_if! {
     if #[cfg(not(any(
         feature = "l4x1",
         feature = "l4x2",
-        feature = "l412", // todo: 412 workaround
+        feature = "l412",
         feature = "l4x3",
         feature = "f4",
     )))] {

@@ -39,7 +39,7 @@
     feature = "f469",
     feature = "l4x1",
     feature = "l4x2",
-    feature = "l412", // temp RTC workaround.
+    feature = "l412",
     feature = "l4x3",
     feature = "l4x5",
     feature = "l4x6",
@@ -130,8 +130,8 @@ pub use stm32l4::stm32l4x1 as pac;
 #[cfg(feature = "l4x2")]
 pub use stm32l4::stm32l4x2 as pac;
 
-#[cfg(feature = "l412")] // Temp RTC workaround
-pub use stm32l412::stm32l412 as pac;
+#[cfg(feature = "l412")]
+pub use stm32l4::stm32l412 as pac;
 
 #[cfg(feature = "l4x3")]
 pub use stm32l4::stm32l4x3 as pac;
@@ -314,7 +314,7 @@ pub mod usart;
 cfg_if::cfg_if! {
     if #[cfg(all(
         feature = "usb",
-        any(feature = "f303", feature = "l4x2", feature = "l4x3", feature = "l5", feature = "g4", feature = "wb")
+        any(feature = "f303", feature = "l4x2", feature = "l412", feature = "l4x3", feature = "l5", feature = "g4", feature = "wb")
     ))] {
         pub mod usb;
     } else if #[cfg(all(

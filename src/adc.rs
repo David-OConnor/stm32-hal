@@ -343,13 +343,6 @@ macro_rules! hal {
                 }
 
                 self.regs.sqr1.modify(|_, w| unsafe { w.l().bits(len - 1) });
-                // cfg_if! {
-                //     if #[cfg(any(feature = "l4x1", feature = "l4x2", feature = "l4x3", feature = "l4x5"))] {
-                //         self.regs.sqr1.modify(|_, w| unsafe { w.l3().bits(len - 1) });
-                //     } else {
-                //         self.regs.sqr1.modify(|_, w| unsafe { w.l().bits(len - 1) });
-                //     }
-                // }
             }
 
             pub fn set_align(&self, align: Align) {
@@ -691,6 +684,7 @@ macro_rules! hal {
                 // (ADC1_INP0).
 
                 // Regardless of which ADC we're on, we take this reading using ADC1.
+                #[cfg(not(feature = "l5"))]
                 let vref_reading = if self.device != AdcDevice::One {
                     // todo: What if ADC1 is alreayd enabled and configured differently?
                     // todo: Either way, if you're also using ADC1, this will screw things up⋅.
@@ -704,6 +698,7 @@ macro_rules! hal {
                     }
 
                     let mut dp = unsafe { pac::Peripherals::steal() };
+
                     let mut adc1 = Adc::new_adc1(
                         dp.ADC1,
                         AdcDevice::One,
@@ -724,6 +719,9 @@ macro_rules! hal {
                     self.set_sample_time(0, SampleTime::T601);
                     self.read(0)
                 };
+
+                #[cfg(feature = "l5")]
+                let vref_reading = 0.; // todo handle this! Just take a reading off the only ADC.
 
                 // self.set_sample_time(0, old_sample_time);
                 regs_common.ccr.modify(|_, w| w.vrefen().clear_bit());
@@ -1057,7 +1055,13 @@ hal!(ADC4, ADC3_4, adc4, 34);
 #[cfg(any(feature = "l4"))]
 hal!(ADC1, ADC_COMMON, adc1, _);
 
-#[cfg(any(feature = "l4x1", feature = "l4x2", feature = "l4x5", feature = "l4x6",))]
+#[cfg(any(
+    feature = "l4x1",
+    feature = "l4x2",
+    feature = "l412",
+    feature = "l4x5",
+    feature = "l4x6",
+))]
 hal!(ADC2, ADC_COMMON, adc2, _);
 
 #[cfg(any(feature = "l4x5", feature = "l4x6",))]

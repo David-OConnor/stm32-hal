@@ -24,15 +24,20 @@ cortex-m = "0.7.1"
 stm32f3 = { version = "0.13.2", optional = true }
 stm32f4 = { version = "0.13.0", optional = true }
 #stm32l4 = { version = "0.13.0", optional = true }
+# We use custom patches for L4 and WB due to errors not yet fixed in the `stm32-rs`
+# Github and/or crates.io release.
+stm32l4 = { path = "../../Desktop/stm32-rs/stm32l4", optional = true }
 stm32l5 = { version = "0.13.0", optional = true }
 stm32g0 = { version = "0.13.0", optional = true }
 stm32g4 = { version = "0.13.0", optional = true }
 stm32h7 = { version = "0.13.0", optional = true }
-stm32wb = { version = "0.13.0", optional = true }
+#stm32wb = { version = "0.13.0", optional = true }
+stm32wb = { path = "../../Desktop/stm32-rs/stm32wb", optional = true }
 # Temporary fix to get L412 RTC working until [this issue is fixed](https://github.com/stm32-rs/stm32-rs/issues/555)
 #stm32l412 = { path = "../../Desktop/stm32l412", optional = true }
 # todo: Workaround for not having USB interrupt. Also have the 412 RTC fix.
-stm32l4 = { path = "../../Desktop/stm32l4", optional = true }
+#stm32l4 = { path = "../../Desktop/stm32l4", optional = true }
+
 
 # Embedded traits
 embedded-hal = { version = "0.2.5", features = ["unproven"] }
@@ -96,10 +101,11 @@ f469 = ["stm32f4/stm32f469", "f4"]
 # [L4](https://docs.rs/crate/stm32l4/0.13.0/source/Cargo.toml)
 l4x1 = ["stm32l4/stm32l4x1", "l4"]
 l4x2 = ["stm32l4/stm32l4x2", "l4"]
+# L412 is the same as L4x2, but with an RTC like in G0, G4 and L5.
+l412 = ["stm32l4/stm32l412", "l4"]
 l4x3 = ["stm32l4/stm32l4x3", "l4"]
 l4x5 = ["stm32l4/stm32l4x5", "l4"]
 l4x6 = ["stm32l4/stm32l4x6", "l4"]
-#l412 = ["stm32l412/stm32l412", "l4"]  # Workaround due to RTC being inop in PAC.
 # todo: Handle l4+ (P, R, S, Q)
 
 # [L5](https://docs.rs/crate/stm32l5/0.13.0/source/Cargo.toml)

@@ -232,4 +232,3 @@ bluetooth library.
 - ADC3 unimplemented on H7
 - Low power modes beyond sleep and cstop aren't implemented for H7
 - WB is missing features relating to second core operations
-- WB TIM16 unimplemented, and interrupts unimplemented on all WB timers.
