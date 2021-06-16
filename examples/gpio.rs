@@ -15,7 +15,7 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     adc::{Adc, AdcChannel, Align, CkMode, InputType, OperationMode},
     clocks::Clocks,
-    gpio::{AltFn, Edge, GpioA, GpioAPin, GpioB, GpioBPin, PinMode, PinNum, PinState},
+    gpio::{AltFn, Edge, GpioA, GpioAPin, GpioB, GpioBPin, PinMode, PinState},
     low_power, pac,
     prelude::*,
 };
@@ -45,40 +45,40 @@ pub fn setup_pins(
     syscfg: &mut pac::SYSCFG,
 ) {
     // Set up I2C pins
-    let mut scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
+    let mut scl = gpiob.new_pin(6, PinMode::Alt(AltFn::Af4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let mut sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af4));
+    let mut sda = gpiob.new_pin(7, PinMode::Alt(AltFn::Af4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
     // Set up SPI pins
-    let _sck = gpioa.new_pin(PinNum::P5, PinMode::Alt(AltFn::Af5));
-    let _miso = gpioa.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af5));
-    let _mosi = gpioa.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af5));
+    let _sck = gpioa.new_pin(5, PinMode::Alt(AltFn::Af5));
+    let _miso = gpioa.new_pin(6, PinMode::Alt(AltFn::Af5));
+    let _mosi = gpioa.new_pin(7, PinMode::Alt(AltFn::Af5));
 
     // Set up UART pins
-    let _uart_tx = gpioa.new_pin(PinNum::P9, PinMode::Alt(AltFn::Af7));
-    let _uart_rx = gpioa.new_pin(PinNum::P10, PinMode::Alt(AltFn::Af7));
+    let _uart_tx = gpioa.new_pin(9, PinMode::Alt(AltFn::Af7));
+    let _uart_rx = gpioa.new_pin(10, PinMode::Alt(AltFn::Af7));
 
     // Set up USB pins
-    let _usb_dm = gpioa.new_pin(PinNum::P11, PinMode::Alt(AltFn::Af14));
-    let _usb_dp = gpioa.new_pin(PinNum::P12, PinMode::Alt(AltFn::Af14));
+    let _usb_dm = gpioa.new_pin(11, PinMode::Alt(AltFn::Af14));
+    let _usb_dp = gpioa.new_pin(12, PinMode::Alt(AltFn::Af14));
 
     // Set the ADC pin to analog mode, to prevent parasitic power use.
-    let _adc_pin = gpiob.new_pin(PinNum::P0, PinMode::Analog);
+    let _adc_pin = gpiob.new_pin(0, PinMode::Analog);
 
     // Set DAC pin to analog mode, to prevent parasitic power use.
-    let _dac_pin = gpioa.new_pin(PinNum::P4, PinMode::Analog);
+    let _dac_pin = gpioa.new_pin(4, PinMode::Analog);
 
     // Set up PWM.  // Timer 2, channel 1.
-    let _pwm_pin = gpioa.new_pin(PinNum::P0, PinMode::Alt(AltFn::Af1));
+    let _pwm_pin = gpioa.new_pin(0, PinMode::Alt(AltFn::Af1));
 
     // Set up buttons, with pull-up resistors that trigger on the falling edge.
-    let mut up_btn = gpiob.new_pin(PinNum::P3, PinMode::Input);
+    let mut up_btn = gpiob.new_pin(3, PinMode::Input);
     up_btn.pull(Pull::Up, &mut gpiob.regs);
     up_btn.enable_interrupt(Edge::Falling, exti, syscfg);
 
-    let mut dn_btn = gpioa.new_pin(PinNum::P4, PinMode::Input);
+    let mut dn_btn = gpioa.new_pin(4, PinMode::Input);
     dn_btn.pull(Pull::Up, &mut gpioa.regs);
     dn_btn.enable_interrupt(Edge::Falling, exti, syscfg);
 }
@@ -104,8 +104,8 @@ fn main() -> ! {
     setup_pins(&mut gpia, &mut gpiob, &mut dp.exti, &mut dp.syscfg);
 
     // Example pins PB5 and PB6.
-    let mut example_output = gpiob.new_pin(PinNum::P5, PinMode::Output);
-    let mut example_input = gpiob.new_pin(PinNum::P6, PinMode::Input);
+    let mut example_output = gpiob.new_pin(5, PinMode::Output);
+    let mut example_input = gpiob.new_pin(6, PinMode::Input);
 
     example_type_sigs(&mut example_output, &mut example_input);
 

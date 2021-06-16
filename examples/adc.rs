@@ -17,7 +17,7 @@ use stm32_hal2::{
     clocks::Clocks,
     delay::Delay,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
-    gpio::{Edge, PinMode, PinNum},
+    gpio::{Edge, PinMode},
     low_power, pac,
 };
 
@@ -43,7 +43,7 @@ fn main() -> ! {
 
     // Configure the ADC pin in analog mode. (This is the default state for some STM32 families,
     // but not all)
-    let _adc_pin = gpiob.new_pin(PinNum::P0, PinMode::Analog);
+    let _adc_pin = gpiob.new_pin(0, PinMode::Analog);
 
     let mut adc = Adc::new_adc1(
         dp.ADC1,

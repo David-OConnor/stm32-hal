@@ -23,6 +23,7 @@ project, without changing code bases.
 Both DMA (Direct Memory Access) and non-DMA APIs and examples are provided. DMA APIs provide faster and more efficient
 operations, while non-DMA APIs are simpler, and are compatible with `embedded-hal`.
 
+
 ## Getting started
 Review the [syntax overview example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/syntax_overview)
 for example uses of many of this library's features. Copy and paste its whole folder (It's set up
@@ -47,7 +48,7 @@ use cortex_m;
 use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::Clocks,
-    gpio::{GpioB, PinNum, PinMode, OutputType, AltFn},
+    gpio::{GpioB, PinMode, OutputType, AltFn},
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
@@ -63,16 +64,16 @@ fn main() -> ! {
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
-    let mut pb15 = gpiob.new_pin(PinNum::P15, PinMode::Output);
+    let mut pb15 = gpiob.new_pin(15, PinMode::Output);
     pb15.set_high();
 
     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
     timer.enable_interrupt(TimerInterrupt::Update);
 
-    let mut scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
+    let mut scl = gpiob.new_pin(6, PinMode::Alt(AltFn::Af4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let mut sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af4));
+    let mut sda = gpiob.new_pin(7, PinMode::Alt(AltFn::Af4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg, &mut dp.RCC);
@@ -88,13 +89,12 @@ There are some areas where design philosophy is different. For example: GPIO
 type-checking, level-of-abstraction from registers/PAC, role of DMA, role of `embedded-hal` traits in the API, 
 feature parity among STM32 families, and clock config.
 
-`stm32yxx-hal`s focus is building an API that doesn't let users configure something wrong. 
-These guards complicate both HAL and user code, and limit functionality.
-    
+   
 ## Docs caveat
 The Rust docs page is built for STM32L4x3, and some aspects are not accurate for other
 variants. We currently don't have a good solution to this problem, and may
 self-host docs in the future.
+
 
 ## Contributing
 
@@ -205,10 +205,12 @@ where
 }
 ```
 
+
 ## STM32WB radio
 This library doesn't include any radio functionality for the STM32WB. If you'd like to use it
 with bluetooth, use this HAL  in conjuction with with Epun's [stm32wb55](https://github.com/eupn/stm32wb55)
 bluetooth library.
+
 
 ## Errata
 
@@ -229,5 +231,5 @@ bluetooth library.
 - ADC unimplemented on F4
 - ADC3 unimplemented on H7
 - Low power modes beyond sleep and cstop aren't implemented for H7
-- WB is missing features relating to radio and second core operations
+- WB is missing features relating to second core operations
 - WB TIM16 unimplemented, and interrupts unimplemented on all WB timers.

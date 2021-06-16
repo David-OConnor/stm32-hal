@@ -13,7 +13,7 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::Clocks,
     delay::Delay,
-    gpio::{Edge, PinMode, PinNum},
+    gpio::{Edge, PinMode},
     low_power, pac,
     timer::{Channel, CountDir, OutputCompare, Timer, TimerInterrupt},
 };
@@ -35,7 +35,7 @@ fn main() -> ! {
     let mut gpioa = GpioA::new(dp.GPIOB, &mut dp.RCC);
 
     // Set up a PWM pin
-    let _pwm_pin = gpioa.new_pin(PinNum::P0, PinMode::Alt(AltFn::Af1));
+    let _pwm_pin = gpioa.new_pin(0, PinMode::Alt(AltFn::Af1));
 
     // Set up a PWM timer that will output to PA0, run at 2400Hz in edge-aligned mode,
     // count up, with a 50% duty cycle.

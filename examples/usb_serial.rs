@@ -11,7 +11,7 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     clocks::{Clocks, CrsSyncSr},
-    gpio::{AltFn, GpioA, PinNum},
+    gpio::{AltFn, GpioA, PinMode},
     pac,
     usb::{Peripheral, UsbBus, UsbBusType},
 };
@@ -49,8 +49,8 @@ fn main() -> ! {
     let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
 
     // Set up USB pins.
-    let _usb_dm = gpioa.new_pin(PinNum::P11, PinMode::Alt(AltFn::Af14));
-    let _usb_dp = gpioa.new_pin(PinNum::P12, PinMode::Alt(AltFn::Af14));
+    let _usb_dm = gpioa.new_pin(11, PinMode::Alt(AltFn::Af14));
+    let _usb_dp = gpioa.new_pin(12, PinMode::Alt(AltFn::Af14));
 
     let usb = Peripheral { usb: dp.USB };
     let usb_bus = UsbBus::new(usb);

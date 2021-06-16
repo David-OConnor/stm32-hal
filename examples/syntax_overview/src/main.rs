@@ -31,7 +31,7 @@ use stm32_hal2::{
     dma::{Dma, DmaChannel, DmaInterrupt, DmaReadBuf, DmaWriteBuf},
     delay::Delay,
     flash::Flash,
-    gpio::{GpioA, GpioB, Edge, PinNum, PinMode, OutputType, AltFn, Pull},
+    gpio::{GpioA, GpioB, Edge, PinMode, OutputType, AltFn, Pull},
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
@@ -98,25 +98,25 @@ fn main() -> ! {
     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
 
     // An example GPIO pin, configured in output mode.
-    let mut pa15 = gpioa.new_pin(PinNum::P15, PinMode::Output);
+    let mut pa15 = gpioa.new_pin(15, PinMode::Output);
     pa15.set_high();
 
     pa15.enable_interrupt(Edge::Rising, &mut dp.EXTI, &mut dp.SYSCFG);
 
     // Configure pins for I2c.
-    let mut scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
+    let mut scl = gpiob.new_pin(6, PinMode::Alt(AltFn::Af4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let mut sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af4));
+    let mut sda = gpiob.new_pin(7, PinMode::Alt(AltFn::Af4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
     // Set up an I2C peripheral, running at 100Khz.
     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg, &mut dp.RCC);
 
     // Configure pins for I2c.
-    let _sck = gpioa.new_pin(PinNum::P5, PinMode::Alt(AltFn::Af5));
-    let _miso = gpioa.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af5));
-    let _mosi = gpioa.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af5));
+    let _sck = gpioa.new_pin(5, PinMode::Alt(AltFn::Af5));
+    let _miso = gpioa.new_pin(6, PinMode::Alt(AltFn::Af5));
+    let _mosi = gpioa.new_pin(7, PinMode::Alt(AltFn::Af5));
 
     // Configure DMA, to be used by peripherals.
     let mut dma = Dma::new(&mut dp.DMA1, &mut dp.RCC);
@@ -140,8 +140,8 @@ fn main() -> ! {
     );
 
     // Configure pins for UART.
-    let _uart_tx = gpioa.new_pin(PinNum::P9, PinMode::Alt(AltFn::Af7));
-    let _uart_rx = gpioa.new_pin(PinNum::P10, PinMode::Alt(AltFn::Af7));
+    let _uart_tx = gpioa.new_pin(9, PinMode::Alt(AltFn::Af7));
+    let _uart_rx = gpioa.new_pin(10, PinMode::Alt(AltFn::Af7));
 
     // Set up a UART peripheral.
     // Setup UART for connecting to the host
@@ -181,7 +181,7 @@ fn main() -> ! {
     uart.read_dma(&mut uart_buffer, &mut dma);
 
     // Set up the Analog-to-digital converter
-    let _adc_pin = gpiob.new_pin(PinNum::P5, PinMode::Analog);
+    let _adc_pin = gpiob.new_pin(5, PinMode::Analog);
 
     let mut adc = Adc::new_adc1(
         dp.ADC1,
@@ -196,7 +196,7 @@ fn main() -> ! {
     let reading: u16 = adc.read(1);
 
     // Set up the Digital-to-analog converter
-    let mut dac_pin = gpioa.new_pin(PinNum::P12, PinMode::Analog);
+    let mut dac_pin = gpioa.new_pin(12, PinMode::Analog);
     let mut dac = Dac::new(dp.DAC1, DacChannel::One, Bits::TwelveR, 3.3, &mut dp.RCC);
     dac.enable();
 
@@ -208,7 +208,7 @@ fn main() -> ! {
     // For pins that aren't called directly (Like the ones we set up for I2C, SPI, UART, ADC, and DAC),
     // consider a separate function:
     // fn setup_pins(gpioa: &mut GpioA, gpiob: &mut GpioB, exti: &mut EXTI, syscfg: &mut SYSCFG) {
-    //     let mut scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
+    //     let mut scl = gpiob.new_pin(6, PinMode::Alt(AltFn::Af4));
     //     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
     //     // ...
     // }

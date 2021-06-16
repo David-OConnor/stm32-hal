@@ -18,7 +18,7 @@ use stm32_hal2::{
     clocks::Clocks,
     delay::Delay,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
-    gpio::{Edge, PinMode, PinNum},
+    gpio::{Edge, PinMode},
     low_power, pac,
     spi::{self, Spi, SpiConfig, SpiDevice},
 };
@@ -42,11 +42,11 @@ fn main() -> ! {
     let mut gpioa = GpioA::new(dp.GPIOB, &mut dp.RCC);
 
     // Configure pins for I2c.
-    let _sck = gpioa.new_pin(PinNum::P5, PinMode::Alt(AltFn::Af5));
-    let _miso = gpioa.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af5));
-    let _mosi = gpioa.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af5));
+    let _sck = gpioa.new_pin(5, PinMode::Alt(AltFn::Af5));
+    let _miso = gpioa.new_pin(6, PinMode::Alt(AltFn::Af5));
+    let _mosi = gpioa.new_pin(7, PinMode::Alt(AltFn::Af5));
 
-    let cs = gpioa.new_pin(PinNum::P1, PinMode::Output);
+    let cs = gpioa.new_pin(1, PinMode::Output);
 
     let spi_cfg = SpiConfig {
         mode: Mode {
@@ -90,7 +90,8 @@ fn main() -> ! {
 
     defmt::info!("Data: {}", read_buf);
 
-    // Alternatively, use the blocking, non-DMA I2C API provided by `embedded-hal`:
+    // Alternatively, use the blocking, non-DMA SPI API` (Also supports `embedded-hal` traits):
+    spi.write(&write_buf).ok();
     spi.transfer(&mut read_buf).ok();
     defmt::info!("Data: {}", read_buf);
 

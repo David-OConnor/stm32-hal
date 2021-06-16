@@ -18,7 +18,7 @@ use stm32_hal2::{
     clocks::Clocks,
     delay::Delay,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
-    gpio::{Edge, PinMode, PinNum},
+    gpio::{Edge, PinMode},
     i2c::{I2c, I2cDevice},
     low_power, pac,
 };
@@ -42,10 +42,10 @@ fn main() -> ! {
     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
 
     // Configure pins for I2c.
-    let mut scl = gpiob.new_pin(PinNum::P6, PinMode::Alt(AltFn::Af4));
+    let mut scl = gpiob.new_pin(6, PinMode::Alt(AltFn::Af4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let mut sda = gpiob.new_pin(PinNum::P7, PinMode::Alt(AltFn::Af4));
+    let mut sda = gpiob.new_pin(7, PinMode::Alt(AltFn::Af4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
     // Set up an I2C peripheral, running at 100Khz.
@@ -67,7 +67,7 @@ fn main() -> ! {
 
     // todo fill this in)
 
-    // Alternatively, use the blocking, non-DMA I2C API provided by `embedded-hal`:
+    // Alternatively, use the blocking, non-DMA I2C API` (Also supports `embedded-hal` traits):
     let mut read_buf = [0, 0];
     // Write the config register address, then the 2 bytes of the value we're writing.
     i2c.write(addr, &[cfg_reg, cfg[0], cfg[1]]).ok();
@@ -82,8 +82,6 @@ fn main() -> ! {
         NVIC::unmask(pac::Interrupt::DMA1_CH7);
     }
 
-    // Alternatively, we can take readings without DMA. This provides a simpler, memory-safe API,
-    // and is compatible with the `embedded_hal::blocking::i2c traits.
 
     loop {
         low_power::sleep_now(&mut SCB);

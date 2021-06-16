@@ -141,51 +141,12 @@ impl PortLetter {
     }
 }
 
-#[derive(Copy, Clone)]
-/// Pin number; 0 through 15. For example, use 5 for PA5 or PB5.
-pub enum PinNum {
-    P0,
-    P1,
-    P2,
-    P3,
-    P4,
-    P5,
-    P6,
-    P7,
-    P8,
-    P9,
-    P10,
-    P11,
-    P12,
-    P13,
-    P14,
-    P15,
-}
-
 #[derive(Copy, Clone, Debug)]
 // A pulse edge, used to trigger interrupts.
 pub enum Edge {
     Rising,
     Falling,
 }
-
-// pub struct GpioError {}
-
-// // todo: Should this trait be in `traits.rs` (or eventually crate) ?
-// /// Gpio pin traits. Used to check pin config when passing to peripheral constructors.
-// pub trait GpioPin {
-//     /// Port letter (eg A)
-//     fn get_port(&self) -> PortLetter;
-//
-//     /// Pin num (eg P4)
-//     fn get_pin(&self) -> PinNum;
-//
-//     /// Pin mode (input, output, alt, analog), and the alt function if applicable.
-//     fn get_mode(&self) -> PinMode;
-//
-//     /// Output type. Ie open drain or push pull.
-//     fn get_output_type(&self) -> OutputType;
-// }
 
 macro_rules! make_port {
     ($Port:ident, $port:ident) => {
@@ -222,7 +183,9 @@ macro_rules! make_port {
                     Self { regs }
                 }
 
-                pub fn new_pin(&mut self, pin: PinNum, mode: PinMode) -> [<Gpio $Port Pin>] {
+                pub fn new_pin(&mut self, pin: u8, mode: PinMode) -> [<Gpio $Port Pin>] {
+                    assert!(pin >= 0 && pin <= 15);
+
                     let mut result = [<Gpio $Port Pin>] {
                         port: PortLetter::[<$Port>],
                         pin,
@@ -244,8 +207,9 @@ macro_rules! set_field {
             unsafe {
                 match $pin {
                     $(
-                        PinNum::[<P $num>] => $regs.$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+                        $num => $regs.$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
                     )+
+                    _ => panic!("GPIO pins must be 0 - 15."),
                 }
             }
         }
@@ -260,7 +224,7 @@ macro_rules! set_exti {
         paste! {
             match $pin {
                 $(
-                    PinNum::[<P $num>] => {
+                    $num => {
                         cfg_if! {
                             if #[cfg(all(feature = "h7", not(any(feature = "h747cm4", feature = "h747cm7"))))] {
                                 $exti.cpuimr1.modify(|_, w| w.[<mr $num>]().set_bit());
@@ -299,6 +263,7 @@ macro_rules! set_exti {
                             .modify(|_, w| unsafe { w.[<exti $num>]().bits($val) });
                     }
                 )+
+                _ => panic!("GPIO pins must be 0 - 15."),
             }
         }
     }
@@ -311,7 +276,7 @@ macro_rules! set_exti_f4 {
         paste! {
             match $pin {
                 $(
-                    PinNum::[<P $num>] => {
+                    $num => {
                         $exti.imr.modify(|_, w| w.[<mr $num>]().unmasked());
                         $exti.rtsr.modify(|_, w| w.[<tr $num>]().bit($trigger));
                         $exti.ftsr.modify(|_, w| w.[<tr $num>]().bit(!$trigger));
@@ -321,6 +286,7 @@ macro_rules! set_exti_f4 {
                     }
                 )+
             }
+            _ => panic!("GPIO pins must be 0 - 15."),
         }
     }
 }
@@ -332,7 +298,7 @@ macro_rules! set_exti_l5 {
         paste! {
             match $pin {
                 $(
-                    PinNum::[<P $num>] => {
+                    $num => {
                         $exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());  // unmask
                         $exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($trigger));  // Rising trigger
                         $exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit(!$trigger));   // Falling trigger
@@ -341,6 +307,7 @@ macro_rules! set_exti_l5 {
                             .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
                     }
                 )+
+                _ => panic!("GPIO pins must be 0 - 15."),
             }
         }
     }
@@ -353,7 +320,7 @@ macro_rules! set_exti_g0 {
         paste! {
             match $pin {
                 $(
-                    PinNum::[<P $num>] => {
+                    $num => {
                         $exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());  // unmask
                         $exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($trigger));  // Rising trigger
                         $exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit(!$trigger));   // Falling trigger
@@ -362,6 +329,7 @@ macro_rules! set_exti_g0 {
                             .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
                     }
                 )+
+                _ => panic!("GPIO pins must be 0 - 15."),
             }
         }
     }
@@ -375,7 +343,7 @@ macro_rules! set_alt {
             unsafe {
                 match $pin {
                     $(
-                        PinNum::[<P $num>] => {
+                        $num => {
                             $regs.moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(AltFn::Af0).val()));
                             #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
                             $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val as u8));
@@ -383,6 +351,7 @@ macro_rules! set_alt {
                             $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val as u8));
                         }
                     )+
+                    _ => panic!("GPIO pins must be 0 - 15."),
                 }
             }
         }
@@ -397,7 +366,7 @@ macro_rules! make_pin {
         /// to its port's register block, can change and read various properties of the pin.
         pub struct [<Gpio $Port Pin>] {
             pub port: PortLetter,
-            pub pin: PinNum,
+            pub pin: u8,
         }
 
         impl [<Gpio $Port Pin>] {
@@ -443,22 +412,23 @@ macro_rules! make_pin {
             /// Read the input data register.
             pub fn input_data(&mut self, regs: &mut pac::[<GPIO $Port>]) -> PinState {
                 let val = match self.pin {
-                    PinNum::P0 => regs.idr.read().idr0().bit(),
-                    PinNum::P1 => regs.idr.read().idr1().bit(),
-                    PinNum::P2 => regs.idr.read().idr2().bit(),
-                    PinNum::P3 => regs.idr.read().idr3().bit(),
-                    PinNum::P4 => regs.idr.read().idr4().bit(),
-                    PinNum::P5 => regs.idr.read().idr5().bit(),
-                    PinNum::P6 => regs.idr.read().idr6().bit(),
-                    PinNum::P7 => regs.idr.read().idr7().bit(),
-                    PinNum::P8 => regs.idr.read().idr8().bit(),
-                    PinNum::P9 => regs.idr.read().idr9().bit(),
-                    PinNum::P10 => regs.idr.read().idr10().bit(),
-                    PinNum::P11 => regs.idr.read().idr11().bit(),
-                    PinNum::P12 => regs.idr.read().idr12().bit(),
-                    PinNum::P13 => regs.idr.read().idr13().bit(),
-                    PinNum::P14 => regs.idr.read().idr14().bit(),
-                    PinNum::P15 => regs.idr.read().idr15().bit(),
+                    0 => regs.idr.read().idr0().bit(),
+                    1 => regs.idr.read().idr1().bit(),
+                    2 => regs.idr.read().idr2().bit(),
+                    3 => regs.idr.read().idr3().bit(),
+                    4 => regs.idr.read().idr4().bit(),
+                    5 => regs.idr.read().idr5().bit(),
+                    6 => regs.idr.read().idr6().bit(),
+                    7 => regs.idr.read().idr7().bit(),
+                    8 => regs.idr.read().idr8().bit(),
+                    9 => regs.idr.read().idr9().bit(),
+                    10 => regs.idr.read().idr10().bit(),
+                    11 => regs.idr.read().idr11().bit(),
+                    12 => regs.idr.read().idr12().bit(),
+                    13 => regs.idr.read().idr13().bit(),
+                    14 => regs.idr.read().idr14().bit(),
+                    15 => regs.idr.read().idr15().bit(),
+                    _ => panic!("GPIO pins must be 0 - 15."),
                 };
 
                 if val {
@@ -477,22 +447,23 @@ macro_rules! make_pin {
 
                 unsafe {
                     match self.pin {
-                        PinNum::P0 => regs.bsrr.write(|w| w.bits(1 << (offset + 0))),
-                        PinNum::P1 => regs.bsrr.write(|w| w.bits(1 << (offset + 1))),
-                        PinNum::P2 => regs.bsrr.write(|w| w.bits(1 << (offset + 2))),
-                        PinNum::P3 => regs.bsrr.write(|w| w.bits(1 << (offset + 3))),
-                        PinNum::P4 => regs.bsrr.write(|w| w.bits(1 << (offset + 4))),
-                        PinNum::P5 => regs.bsrr.write(|w| w.bits(1 << (offset + 5))),
-                        PinNum::P6 => regs.bsrr.write(|w| w.bits(1 << (offset + 6))),
-                        PinNum::P7 => regs.bsrr.write(|w| w.bits(1 << (offset + 7))),
-                        PinNum::P8 => regs.bsrr.write(|w| w.bits(1 << (offset + 8))),
-                        PinNum::P9 => regs.bsrr.write(|w| w.bits(1 << (offset + 9))),
-                        PinNum::P10 => regs.bsrr.write(|w| w.bits(1 << (offset + 10))),
-                        PinNum::P11 => regs.bsrr.write(|w| w.bits(1 << (offset + 11))),
-                        PinNum::P12 => regs.bsrr.write(|w| w.bits(1 << (offset + 12))),
-                        PinNum::P13 => regs.bsrr.write(|w| w.bits(1 << (offset + 13))),
-                        PinNum::P14 => regs.bsrr.write(|w| w.bits(1 << (offset + 14))),
-                        PinNum::P15 => regs.bsrr.write(|w| w.bits(1 << (offset + 15))),
+                        0 => regs.bsrr.write(|w| w.bits(1 << (offset + 0))),
+                        1 => regs.bsrr.write(|w| w.bits(1 << (offset + 1))),
+                        2 => regs.bsrr.write(|w| w.bits(1 << (offset + 2))),
+                        3 => regs.bsrr.write(|w| w.bits(1 << (offset + 3))),
+                        4 => regs.bsrr.write(|w| w.bits(1 << (offset + 4))),
+                        5 => regs.bsrr.write(|w| w.bits(1 << (offset + 5))),
+                        6 => regs.bsrr.write(|w| w.bits(1 << (offset + 6))),
+                        7 => regs.bsrr.write(|w| w.bits(1 << (offset + 7))),
+                        8 => regs.bsrr.write(|w| w.bits(1 << (offset + 8))),
+                        9 => regs.bsrr.write(|w| w.bits(1 << (offset + 9))),
+                        10 => regs.bsrr.write(|w| w.bits(1 << (offset + 10))),
+                        11 => regs.bsrr.write(|w| w.bits(1 << (offset + 11))),
+                        12 => regs.bsrr.write(|w| w.bits(1 << (offset + 12))),
+                        13 => regs.bsrr.write(|w| w.bits(1 << (offset + 13))),
+                        14 => regs.bsrr.write(|w| w.bits(1 << (offset + 14))),
+                        15 => regs.bsrr.write(|w| w.bits(1 << (offset + 15))),
+                        _ => panic!("GPIO pins must be 0 - 15."),
                     };
                 }
             }
@@ -526,22 +497,23 @@ macro_rules! make_pin {
                 };
                 unsafe {
                     match self.pin {
-                        PinNum::P0 => regs.brr.write(|w| w.bits(1 << (offset + 0))),
-                        PinNum::P1 => regs.brr.write(|w| w.bits(1 << (offset + 1))),
-                        PinNum::P2 => regs.brr.write(|w| w.bits(1 << (offset + 2))),
-                        PinNum::P3 => regs.brr.write(|w| w.bits(1 << (offset + 3))),
-                        PinNum::P4 => regs.brr.write(|w| w.bits(1 << (offset + 4))),
-                        PinNum::P5 => regs.brr.write(|w| w.bits(1 << (offset + 5))),
-                        PinNum::P6 => regs.brr.write(|w| w.bits(1 << (offset + 6))),
-                        PinNum::P7 => regs.brr.write(|w| w.bits(1 << (offset + 7))),
-                        PinNum::P8 => regs.brr.write(|w| w.bits(1 << (offset + 8))),
-                        PinNum::P9 => regs.brr.write(|w| w.bits(1 << (offset + 9))),
-                        PinNum::P10 => regs.brr.write(|w| w.bits(1 << (offset + 10))),
-                        PinNum::P11 => regs.brr.write(|w| w.bits(1 << (offset + 11))),
-                        PinNum::P12 => regs.brr.write(|w| w.bits(1 << (offset + 12))),
-                        PinNum::P13 => regs.brr.write(|w| w.bits(1 << (offset + 13))),
-                        PinNum::P14 => regs.brr.write(|w| w.bits(1 << (offset + 14))),
-                        PinNum::P15 => regs.brr.write(|w| w.bits(1 << (offset + 15))),
+                        0 => regs.brr.write(|w| w.bits(1 << (offset + 0))),
+                        1 => regs.brr.write(|w| w.bits(1 << (offset + 1))),
+                        2 => regs.brr.write(|w| w.bits(1 << (offset + 2))),
+                        3 => regs.brr.write(|w| w.bits(1 << (offset + 3))),
+                        4 => regs.brr.write(|w| w.bits(1 << (offset + 4))),
+                        5 => regs.brr.write(|w| w.bits(1 << (offset + 5))),
+                        6 => regs.brr.write(|w| w.bits(1 << (offset + 6))),
+                        7 => regs.brr.write(|w| w.bits(1 << (offset + 7))),
+                        8 => regs.brr.write(|w| w.bits(1 << (offset + 8))),
+                        9 => regs.brr.write(|w| w.bits(1 << (offset + 9))),
+                        10 => regs.brr.write(|w| w.bits(1 << (offset + 10))),
+                        11 => regs.brr.write(|w| w.bits(1 << (offset + 11))),
+                        12 => regs.brr.write(|w| w.bits(1 << (offset + 12))),
+                        13 => regs.brr.write(|w| w.bits(1 << (offset + 13))),
+                        14 => regs.brr.write(|w| w.bits(1 << (offset + 14))),
+                        15 => regs.brr.write(|w| w.bits(1 << (offset + 15))),
+                        _ => panic!("GPIO pins must be 0 - 15."),
                     };
                 }
             }
@@ -611,22 +583,23 @@ macro_rules! make_pin {
                 // todo: DRy with `input_data`.
                 unsafe {
                     match self.pin {
-                        PinNum::P0 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr0().bit(),
-                        PinNum::P1 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr1().bit(),
-                        PinNum::P2 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr2().bit(),
-                        PinNum::P3 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr3().bit(),
-                        PinNum::P4 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr4().bit(),
-                        PinNum::P5 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr5().bit(),
-                        PinNum::P6 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr6().bit(),
-                        PinNum::P7 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr7().bit(),
-                        PinNum::P8 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr8().bit(),
-                        PinNum::P9 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr9().bit(),
-                        PinNum::P10 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr10().bit(),
-                        PinNum::P11 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr11().bit(),
-                        PinNum::P12 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr12().bit(),
-                        PinNum::P13 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr13().bit(),
-                        PinNum::P14 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr14().bit(),
-                        PinNum::P15 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr15().bit(),
+                        0 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr0().bit(),
+                        1 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr1().bit(),
+                        2 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr2().bit(),
+                        3 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr3().bit(),
+                        4 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr4().bit(),
+                        5 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr5().bit(),
+                        6 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr6().bit(),
+                        7 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr7().bit(),
+                        8 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr8().bit(),
+                        9 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr9().bit(),
+                        10 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr10().bit(),
+                        11 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr11().bit(),
+                        12 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr12().bit(),
+                        13 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr13().bit(),
+                        14 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr14().bit(),
+                        15 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr15().bit(),
+                        _ => panic!("GPIO pins must be 0 - 15."),
                     }
                 }
             }
@@ -643,22 +616,23 @@ macro_rules! make_pin {
 
                 unsafe {
                     match self.pin {
-                        PinNum::P0 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 0))),
-                        PinNum::P1 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 1))),
-                        PinNum::P2 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 2))),
-                        PinNum::P3 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 3))),
-                        PinNum::P4 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 4))),
-                        PinNum::P5 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 5))),
-                        PinNum::P6 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 6))),
-                        PinNum::P7 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 7))),
-                        PinNum::P8 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 8))),
-                        PinNum::P9 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 9))),
-                        PinNum::P10 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 10))),
-                        PinNum::P11 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 11))),
-                        PinNum::P12 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 12))),
-                        PinNum::P13 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 13))),
-                        PinNum::P14 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 14))),
-                        PinNum::P15 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 15))),
+                        0 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 0))),
+                        1 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 1))),
+                        2 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 2))),
+                        3 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 3))),
+                        4 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 4))),
+                        5 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 5))),
+                        6 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 6))),
+                        7 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 7))),
+                        8 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 8))),
+                        9 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 9))),
+                        10 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 10))),
+                        11 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 11))),
+                        12 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 12))),
+                        13 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 13))),
+                        14 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 14))),
+                        15 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 15))),
+                        _ => panic!("GPIO pins must be 0 - 15."),
                     }
                 }
             }
@@ -670,22 +644,23 @@ macro_rules! make_pin {
 
                 unsafe {
                     match self.pin {
-                        PinNum::P0 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 0))),
-                        PinNum::P1 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 1))),
-                        PinNum::P2 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 2))),
-                        PinNum::P3 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 3))),
-                        PinNum::P4 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 4))),
-                        PinNum::P5 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 5))),
-                        PinNum::P6 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 6))),
-                        PinNum::P7 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 7))),
-                        PinNum::P8 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 8))),
-                        PinNum::P9 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 9))),
-                        PinNum::P10 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 10))),
-                        PinNum::P11 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 11))),
-                        PinNum::P12 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 12))),
-                        PinNum::P13 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 13))),
-                        PinNum::P14 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 14))),
-                        PinNum::P15 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 15))),
+                        0 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 0))),
+                        1 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 1))),
+                        2 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 2))),
+                        3 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 3))),
+                        4 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 4))),
+                        5 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 5))),
+                        6 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 6))),
+                        7 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 7))),
+                        8 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 8))),
+                        9 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 9))),
+                        10 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 10))),
+                        11 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 11))),
+                        12 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 12))),
+                        13 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 13))),
+                        14 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 14))),
+                        15 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 15))),
+                        _ => panic!("GPIO pins must be 0 - 15."),
                     }
                 }
             }
