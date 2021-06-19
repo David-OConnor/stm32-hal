@@ -257,7 +257,7 @@ pub mod crc;
 #[cfg(not(feature = "wb"))] // WB doesn't have a DAC.
 pub mod dac;
 
-// todo: F3, G0 missing many DMA registers like CCR? H7 DMA layout is different.
+// todo: G0 missing many DMA registers like CCR? H7 DMA layout is different.
 // todo: F4 needs some mods. So, only working on L4 and G4.
 // todo: L5 has a PAC bug on CCR registers past 1.
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]

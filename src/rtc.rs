@@ -442,7 +442,7 @@ impl Rtc {
         self.regs.cr.modify(|_, w| w.wutie().set_bit());
 
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))] {
+            if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4"))] {
                 self.regs.scr.write(|w| w.cwutf().set_bit());
             } else {
                 self.regs.isr.modify(|_, w| w.wutf().clear_bit());
@@ -513,7 +513,7 @@ impl Rtc {
             regs.cr.modify(|_, w| w.wute().clear_bit());
 
             cfg_if! {
-                if #[cfg(any(feature = "l5", feature = "g0", feature = "g4"))] {
+                if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4"))] {
                     regs.scr.write(|w| w.cwutf().set_bit());
                 } else {
                     // Note that we clear this by writing 0, which isn't
