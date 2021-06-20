@@ -1,13 +1,12 @@
 //! Inter-processor communication controller (IPCC).
 //! Used on STM32WB for communication between cores.
 
-use crate::{
-    pac::{self, IPCC, RCC},
-    traits::ClockCfg,
-};
+use crate::pac::{self, IPCC, RCC};
 
 // todo: C1_1 and C2_1 etc for channels instead of separate core enum?
 // todo: Consider macros to reduce DRY here, re Core and Channel matching.
+// todo: Consolidate match arms to reduce DRY match statements for the diff steps
+// todo excecuted in a given fn.
 
 #[derive(Clone, Copy)]
 /// Represents one of six channels. We use this enum for both Core1 and Core2 channels.
@@ -166,63 +165,74 @@ impl Ipcc {
         // * Once the complete response is posted, the channel status flag CHnF is cleared to free
         // with CHnC and the response pending software variable is set to 0 (this gives memory
         // access and generates the TX free interrupt to the sending processor).
+        // * Once the channel status flag CHnF is cleared, the channel occupied interrupt is
+        // unmasked (CHnOM = 0).
         match core {
             Core::C1 => match channel {
                 Channel::C1 => {
                     self.regs.c1scr.modify(|_, w| w.ch1c().set_bit());
-                    self.regs.c1mr.modify(|_, w| w.ch1fm().clear_bit())
+                    self.regs.c1mr.modify(|_, w| w.ch1fm().clear_bit());
+                    self.regs.c1mr.modify(|_, w| w.ch1om().clear_bit())
                 }
                 Channel::C2 => {
                     self.regs.c1scr.modify(|_, w| w.ch2c().set_bit());
-                    self.regs.c1mr.modify(|_, w| w.ch2fm().clear_bit())
+                    self.regs.c1mr.modify(|_, w| w.ch2fm().clear_bit());
+                    self.regs.c1mr.modify(|_, w| w.ch2om().clear_bit())
                 }
                 Channel::C3 => {
                     self.regs.c1scr.modify(|_, w| w.ch3c().set_bit());
-                    self.regs.c1mr.modify(|_, w| w.ch3fm().clear_bit())
+                    self.regs.c1mr.modify(|_, w| w.ch3fm().clear_bit());
+                    self.regs.c1mr.modify(|_, w| w.ch3om().clear_bit())
                 }
                 Channel::C4 => {
                     self.regs.c1scr.modify(|_, w| w.ch4c().set_bit());
-                    self.regs.c1mr.modify(|_, w| w.ch4fm().clear_bit())
+                    self.regs.c1mr.modify(|_, w| w.ch4fm().clear_bit());
+                    self.regs.c1mr.modify(|_, w| w.ch4om().clear_bit())
                 }
                 Channel::C5 => {
                     self.regs.c1scr.modify(|_, w| w.ch5c().set_bit());
-                    self.regs.c1mr.modify(|_, w| w.ch5fm().clear_bit())
+                    self.regs.c1mr.modify(|_, w| w.ch5fm().clear_bit());
+                    self.regs.c1mr.modify(|_, w| w.ch5om().clear_bit())
                 }
                 Channel::C6 => {
                     self.regs.c1scr.modify(|_, w| w.ch6c().set_bit());
-                    self.regs.c1mr.modify(|_, w| w.ch6fm().clear_bit())
+                    self.regs.c1mr.modify(|_, w| w.ch6fm().clear_bit());
+                    self.regs.c1mr.modify(|_, w| w.ch6om().clear_bit())
                 }
             },
             Core::C2 => match channel {
                 Channel::C1 => {
                     self.regs.c2scr.modify(|_, w| w.ch1c().set_bit());
-                    self.regs.c2mr.modify(|_, w| w.ch1fm().clear_bit())
+                    self.regs.c2mr.modify(|_, w| w.ch1fm().clear_bit());
+                    self.regs.c2mr.modify(|_, w| w.ch1om().clear_bit())
                 }
                 Channel::C2 => {
                     self.regs.c2scr.modify(|_, w| w.ch2c().set_bit());
-                    self.regs.c2mr.modify(|_, w| w.ch2fm().clear_bit())
+                    self.regs.c2mr.modify(|_, w| w.ch2fm().clear_bit());
+                    self.regs.c2mr.modify(|_, w| w.ch2om().clear_bit())
                 }
                 Channel::C3 => {
                     self.regs.c2scr.modify(|_, w| w.ch3c().set_bit());
-                    self.regs.c2mr.modify(|_, w| w.ch3fm().clear_bit())
+                    self.regs.c2mr.modify(|_, w| w.ch3fm().clear_bit());
+                    self.regs.c2mr.modify(|_, w| w.ch3om().clear_bit())
                 }
                 Channel::C4 => {
                     self.regs.c2scr.modify(|_, w| w.ch4c().set_bit());
-                    self.regs.c2mr.modify(|_, w| w.ch4fm().clear_bit())
+                    self.regs.c2mr.modify(|_, w| w.ch4fm().clear_bit());
+                    self.regs.c2mr.modify(|_, w| w.ch4om().clear_bit())
                 }
                 Channel::C5 => {
                     self.regs.c2scr.modify(|_, w| w.ch5c().set_bit());
-                    self.regs.c2mr.modify(|_, w| w.ch5fm().clear_bit())
+                    self.regs.c2mr.modify(|_, w| w.ch5fm().clear_bit());
+                    self.regs.c2mr.modify(|_, w| w.ch5om().clear_bit())
                 }
                 Channel::C6 => {
                     self.regs.c2scr.modify(|_, w| w.ch6c().set_bit());
-                    self.regs.c2mr.modify(|_, w| w.ch6fm().clear_bit())
+                    self.regs.c2mr.modify(|_, w| w.ch6fm().clear_bit());
+                    self.regs.c2mr.modify(|_, w| w.ch6om().clear_bit())
                 }
             },
         }
-
-        // * Once the channel status flag CHnF is cleared, the channel occupied interrupt is
-        // unmasked (CHnOM = 0).
     }
 
     /// Receive in half duplex mode.
@@ -231,9 +241,35 @@ impl Ipcc {
         // * On a RX occupied interrupt, the receiving processor checks which channel became
         // occupied, masks the associated channel occupied interrupt (CHnOM) and reads the
         // communication data from the memory.
+        // todo: check which channel becomes occupied??
+        // todo: Handle this in an ISR?
+
         // * Once the complete communication data is retrieved, the response pending software
         // variable is set. The channel status is not changed, access to the memory is kept to post
         // the subsequent response.
+        // todo: In ISR?
+        match core {
+            Core::C1 => {
+                match channel {
+                    Chann::C1 => self.regs.c1scr.modify(|_, w| w.ch1s.set_bit()),
+                    Chann::C2 => self.regs.c1scr.modify(|_, w| w.ch2s.set_bit()),
+                    Chann::C3 => self.regs.c1scr.modify(|_, w| w.ch3s.set_bit()),
+                    Chann::C4 => self.regs.c1scr.modify(|_, w| w.ch4s.set_bit()),
+                    Chann::C5 => self.regs.c1scr.modify(|_, w| w.ch5s.set_bit()),
+                    Chann::C6 => self.regs.c1scr.modify(|_, w| w.ch6s.set_bit()),
+                }
+            }
+            Core::C2 => {
+                match channel {
+                    Chann::C1 => self.regs.c2scr.modify(|_, w| w.ch1s.set_bit()),
+                    Chann::C2 => self.regs.c2scr.modify(|_, w| w.ch2s.set_bit()),
+                    Chann::C3 => self.regs.c2scr.modify(|_, w| w.ch3s.set_bit()),
+                    Chann::C4 => self.regs.c2scr.modify(|_, w| w.ch4s.set_bit()),
+                    Chann::C5 => self.regs.c2scr.modify(|_, w| w.ch5s.set_bit()),
+                    Chann::C6 => self.regs.c2scr.modify(|_, w| w.ch6s.set_bit()),
+                }
+            }
+        }
 
         // To receive the response the channel free interrupt is unmasked (CHnFM = 0):
         // * On a TX free interrupt, the sending processor checks which channel became free,
