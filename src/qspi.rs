@@ -1,4 +1,6 @@
 //! Quad Serial Peripheral Interface (SPI) bus.
+//! todo: make this fully-featured; currently only "indirect" mode".
+//! todo: THis probably should be rebuilt from the RM.
 
 // Based on `stm32f7xx-hal`.
 

@@ -184,7 +184,7 @@ macro_rules! make_port {
                 }
 
                 pub fn new_pin(&mut self, pin: u8, mode: PinMode) -> [<Gpio $Port Pin>] {
-                    assert!(pin >= 0 && pin <= 15);
+                    assert!(pin <= 15);
 
                     let mut result = [<Gpio $Port Pin>] {
                         port: PortLetter::[<$Port>],

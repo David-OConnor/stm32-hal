@@ -48,7 +48,7 @@ pub struct Ipcc {
 
 impl Ipcc {
     /// Configures the I2C peripheral. `freq` is in Hz. Doesn't check pin config.
-    pub fn new<C: ClockCfg>(regs: IPCC, rcc: &mut RCC) -> Self {
+    pub fn new(regs: IPCC, rcc: &mut RCC) -> Self {
         rcc.ahb3enr.modify(|_, w| w.ipccen().set_bit());
         rcc.ahb3rstr.modify(|_, w| w.ipccrst().set_bit());
         rcc.ahb3rstr.modify(|_, w| w.ipccrst().clear_bit());
@@ -61,7 +61,7 @@ impl Ipcc {
     }
 
     /// Send a message using simplex mode. Non-blocking.
-    pub fn send_simplex(&mut self, channel: IpccChannel, data: asdf) {
+    pub fn send_simplex(&mut self, core: Core, channel: IpccChannel, data: &[u8]) {
         // RM, section 37.3.2: To send communication data:
         // The sending processor checks the channel status flag CHnF:
         // – When CHnF = 0, the channel is free (last communication data retrieved by
@@ -69,8 +69,8 @@ impl Ipcc {
         // – When CHnF = 1, the channel is occupied (last communication data not retrieved
         // by receiving processor) and the sending processor unmasks the channel free
         // interrupt (CHnFM = 0).
-        if self.channel_is_free(channel) {
-            self.regs.asdf.modify(|_, w| w.dasdf.bits(data));
+        if self.channel_is_free(core, channel) {
+            // self.regs.asdf.modify(|_, w| w.dasdf.bits(data));
         } else {
             // todo: Unmask interrupt?
         }
@@ -83,10 +83,25 @@ impl Ipcc {
     }
 
     /// Receive a message using simplex mode. Non-blocking.
-    pub fn receive_simplex(&mut self, channel: IpccChannel) {
+    pub fn receive_simplex(&mut self, core: Core, channel: IpccChannel) {
         // RM, section 37.3.2: To receive a communication, the channel occupied interrupt is unmasked (CHnOM = 0):
-        match channel {
-            IpccChannel::C1 => self.regs.asdf.modify(|_, w| w.ch10M().clear_bit()),
+        match core {
+            Core::C1 => match channel {
+                IpccChannel::C1 => self.regs.c1mr.modify(|_, w| w.ch1om().clear_bit()),
+                IpccChannel::C2 => self.regs.c1mr.modify(|_, w| w.ch2om().clear_bit()),
+                IpccChannel::C3 => self.regs.c1mr.modify(|_, w| w.ch3om().clear_bit()),
+                IpccChannel::C4 => self.regs.c1mr.modify(|_, w| w.ch4om().clear_bit()),
+                IpccChannel::C5 => self.regs.c1mr.modify(|_, w| w.ch5om().clear_bit()),
+                IpccChannel::C6 => self.regs.c1mr.modify(|_, w| w.ch6om().clear_bit()),
+            },
+            Core::C2 => match channel {
+                IpccChannel::C1 => self.regs.c2mr.modify(|_, w| w.ch1om().clear_bit()),
+                IpccChannel::C2 => self.regs.c2mr.modify(|_, w| w.ch2om().clear_bit()),
+                IpccChannel::C3 => self.regs.c2mr.modify(|_, w| w.ch3om().clear_bit()),
+                IpccChannel::C4 => self.regs.c2mr.modify(|_, w| w.ch4om().clear_bit()),
+                IpccChannel::C5 => self.regs.c2mr.modify(|_, w| w.ch5om().clear_bit()),
+                IpccChannel::C6 => self.regs.c2mr.modify(|_, w| w.ch6om().clear_bit()),
+            },
         }
 
         // - On a RX occupied interrupt, the receiving processor checks which channel became
@@ -101,7 +116,7 @@ impl Ipcc {
 
     /// The Half-duplex channel mode is used when one processor sends a communication and the
     /// other processor sends a response to each communication (ping-pong). Blocking.
-    pub fn send_half_duplex(&mut self, core: Core, channel: IpccChannel, data: asdf) {
+    pub fn send_half_duplex(&mut self, core: Core, channel: IpccChannel, data: &[u8]) {
         // RM, section 37.3.3: To send communication data:
         // * The sending processor waits for its response pending software variable to get 0.
         // – Once the response pending software variable is 0 the communication data is
@@ -114,20 +129,20 @@ impl Ipcc {
         // receiving processor).
         match core {
             Core::C1 => match channel {
-                Channel::C1 => self.regs.c1scr.modify(|_, w| w.ch1s().set_bit()),
-                Channel::C2 => self.regs.c1scr.modify(|_, w| w.ch2s().set_bit()),
-                Channel::C3 => self.regs.c1scr.modify(|_, w| w.ch3s().set_bit()),
-                Channel::C4 => self.regs.c1scr.modify(|_, w| w.ch4s().set_bit()),
-                Channel::C5 => self.regs.c1scr.modify(|_, w| w.ch5s().set_bit()),
-                Channel::C6 => self.regs.c1scr.modify(|_, w| w.ch6s().set_bit()),
+                IpccChannel::C1 => self.regs.c1scr.write(|w| w.ch1s().set_bit()),
+                IpccChannel::C2 => self.regs.c1scr.write(|w| w.ch2s().set_bit()),
+                IpccChannel::C3 => self.regs.c1scr.write(|w| w.ch3s().set_bit()),
+                IpccChannel::C4 => self.regs.c1scr.write(|w| w.ch4s().set_bit()),
+                IpccChannel::C5 => self.regs.c1scr.write(|w| w.ch5s().set_bit()),
+                IpccChannel::C6 => self.regs.c1scr.write(|w| w.ch6s().set_bit()),
             },
             Core::C2 => match channel {
-                Channel::C1 => self.regs.c2scr.modify(|_, w| w.ch1s().set_bit()),
-                Channel::C2 => self.regs.c2scr.modify(|_, w| w.ch2s().set_bit()),
-                Channel::C3 => self.regs.c2scr.modify(|_, w| w.ch3s().set_bit()),
-                Channel::C4 => self.regs.c2scr.modify(|_, w| w.ch4s().set_bit()),
-                Channel::C5 => self.regs.c2scr.modify(|_, w| w.ch5s().set_bit()),
-                Channel::C6 => self.regs.c2scr.modify(|_, w| w.ch6s().set_bit()),
+                IpccChannel::C1 => self.regs.c2scr.write(|w| w.ch1s().set_bit()),
+                IpccChannel::C2 => self.regs.c2scr.write(|w| w.ch2s().set_bit()),
+                IpccChannel::C3 => self.regs.c2scr.write(|w| w.ch3s().set_bit()),
+                IpccChannel::C4 => self.regs.c2scr.write(|w| w.ch4s().set_bit()),
+                IpccChannel::C5 => self.regs.c2scr.write(|w| w.ch5s().set_bit()),
+                IpccChannel::C6 => self.regs.c2scr.write(|w| w.ch6s().set_bit()),
             },
         }
 
@@ -135,26 +150,26 @@ impl Ipcc {
         // (CHnFM = 0).
         match core {
             Core::C1 => match channel {
-                Channel::C1 => self.regs.c1mr.modify(|_, w| w.ch1fm().clear_bit()),
-                Channel::C2 => self.regs.c1mr.modify(|_, w| w.ch2fm().clear_bit()),
-                Channel::C3 => self.regs.c1mr.modify(|_, w| w.ch3fm().clear_bit()),
-                Channel::C4 => self.regs.c1mr.modify(|_, w| w.ch4fm().clear_bit()),
-                Channel::C5 => self.regs.c1mr.modify(|_, w| w.ch5fm().clear_bit()),
-                Channel::C6 => self.regs.c1mr.modify(|_, w| w.ch6fm().clear_bit()),
+                IpccChannel::C1 => self.regs.c1mr.modify(|_, w| w.ch1fm().clear_bit()),
+                IpccChannel::C2 => self.regs.c1mr.modify(|_, w| w.ch2fm().clear_bit()),
+                IpccChannel::C3 => self.regs.c1mr.modify(|_, w| w.ch3fm().clear_bit()),
+                IpccChannel::C4 => self.regs.c1mr.modify(|_, w| w.ch4fm().clear_bit()),
+                IpccChannel::C5 => self.regs.c1mr.modify(|_, w| w.ch5fm().clear_bit()),
+                IpccChannel::C6 => self.regs.c1mr.modify(|_, w| w.ch6fm().clear_bit()),
             },
             Core::C2 => match channel {
-                Channel::C1 => self.regs.c2mr.modify(|_, w| w.ch1fm().clear_bit()),
-                Channel::C2 => self.regs.c2mr.modify(|_, w| w.ch2fm().clear_bit()),
-                Channel::C3 => self.regs.c2mr.modify(|_, w| w.ch3fm().clear_bit()),
-                Channel::C4 => self.regs.c2mr.modify(|_, w| w.ch4fm().clear_bit()),
-                Channel::C5 => self.regs.c2mr.modify(|_, w| w.ch5fm().clear_bit()),
-                Channel::C6 => self.regs.c2mr.modify(|_, w| w.ch6fm().clear_bit()),
+                IpccChannel::C1 => self.regs.c2mr.modify(|_, w| w.ch1fm().clear_bit()),
+                IpccChannel::C2 => self.regs.c2mr.modify(|_, w| w.ch2fm().clear_bit()),
+                IpccChannel::C3 => self.regs.c2mr.modify(|_, w| w.ch3fm().clear_bit()),
+                IpccChannel::C4 => self.regs.c2mr.modify(|_, w| w.ch4fm().clear_bit()),
+                IpccChannel::C5 => self.regs.c2mr.modify(|_, w| w.ch5fm().clear_bit()),
+                IpccChannel::C6 => self.regs.c2mr.modify(|_, w| w.ch6fm().clear_bit()),
             },
         }
     }
 
     /// Send a half-duplex response.
-    pub fn send_response_half_duplex(&mut self, core: Core, channel: IpccChannel, data: asdf) {
+    pub fn send_response_half_duplex(&mut self, core: Core, channel: IpccChannel, data: &[u8]) {
         // To send a response:
         // * The receiving processor waits for its response pending software variable to get 1.
         // – Once the response pending software variable is 1 the response is posted.
@@ -169,65 +184,67 @@ impl Ipcc {
         // unmasked (CHnOM = 0).
         match core {
             Core::C1 => match channel {
-                Channel::C1 => {
-                    self.regs.c1scr.modify(|_, w| w.ch1c().set_bit());
+                // Note about SCR: Listed technically as "rw" in manual, but also listed as "reads
+                // always as 0". PAC reflects write-only
+                IpccChannel::C1 => {
+                    self.regs.c1scr.write(|w| w.ch1c().set_bit());
                     self.regs.c1mr.modify(|_, w| w.ch1fm().clear_bit());
                     self.regs.c1mr.modify(|_, w| w.ch1om().clear_bit())
                 }
-                Channel::C2 => {
-                    self.regs.c1scr.modify(|_, w| w.ch2c().set_bit());
+                IpccChannel::C2 => {
+                    self.regs.c1scr.write(|w| w.ch2c().set_bit());
                     self.regs.c1mr.modify(|_, w| w.ch2fm().clear_bit());
                     self.regs.c1mr.modify(|_, w| w.ch2om().clear_bit())
                 }
-                Channel::C3 => {
-                    self.regs.c1scr.modify(|_, w| w.ch3c().set_bit());
+                IpccChannel::C3 => {
+                    self.regs.c1scr.write(|w| w.ch3c().set_bit());
                     self.regs.c1mr.modify(|_, w| w.ch3fm().clear_bit());
                     self.regs.c1mr.modify(|_, w| w.ch3om().clear_bit())
                 }
-                Channel::C4 => {
-                    self.regs.c1scr.modify(|_, w| w.ch4c().set_bit());
+                IpccChannel::C4 => {
+                    self.regs.c1scr.write(|w| w.ch4c().set_bit());
                     self.regs.c1mr.modify(|_, w| w.ch4fm().clear_bit());
                     self.regs.c1mr.modify(|_, w| w.ch4om().clear_bit())
                 }
-                Channel::C5 => {
-                    self.regs.c1scr.modify(|_, w| w.ch5c().set_bit());
+                IpccChannel::C5 => {
+                    self.regs.c1scr.write(|w| w.ch5c().set_bit());
                     self.regs.c1mr.modify(|_, w| w.ch5fm().clear_bit());
                     self.regs.c1mr.modify(|_, w| w.ch5om().clear_bit())
                 }
-                Channel::C6 => {
-                    self.regs.c1scr.modify(|_, w| w.ch6c().set_bit());
+                IpccChannel::C6 => {
+                    self.regs.c1scr.write(|w| w.ch6c().set_bit());
                     self.regs.c1mr.modify(|_, w| w.ch6fm().clear_bit());
                     self.regs.c1mr.modify(|_, w| w.ch6om().clear_bit())
                 }
             },
             Core::C2 => match channel {
-                Channel::C1 => {
-                    self.regs.c2scr.modify(|_, w| w.ch1c().set_bit());
+                IpccChannel::C1 => {
+                    self.regs.c2scr.write(|w| w.ch1c().set_bit());
                     self.regs.c2mr.modify(|_, w| w.ch1fm().clear_bit());
                     self.regs.c2mr.modify(|_, w| w.ch1om().clear_bit())
                 }
-                Channel::C2 => {
-                    self.regs.c2scr.modify(|_, w| w.ch2c().set_bit());
+                IpccChannel::C2 => {
+                    self.regs.c2scr.write(|w| w.ch2c().set_bit());
                     self.regs.c2mr.modify(|_, w| w.ch2fm().clear_bit());
                     self.regs.c2mr.modify(|_, w| w.ch2om().clear_bit())
                 }
-                Channel::C3 => {
-                    self.regs.c2scr.modify(|_, w| w.ch3c().set_bit());
+                IpccChannel::C3 => {
+                    self.regs.c2scr.write(|w| w.ch3c().set_bit());
                     self.regs.c2mr.modify(|_, w| w.ch3fm().clear_bit());
                     self.regs.c2mr.modify(|_, w| w.ch3om().clear_bit())
                 }
-                Channel::C4 => {
-                    self.regs.c2scr.modify(|_, w| w.ch4c().set_bit());
+                IpccChannel::C4 => {
+                    self.regs.c2scr.write(|w| w.ch4c().set_bit());
                     self.regs.c2mr.modify(|_, w| w.ch4fm().clear_bit());
                     self.regs.c2mr.modify(|_, w| w.ch4om().clear_bit())
                 }
-                Channel::C5 => {
-                    self.regs.c2scr.modify(|_, w| w.ch5c().set_bit());
+                IpccChannel::C5 => {
+                    self.regs.c2scr.write(|w| w.ch5c().set_bit());
                     self.regs.c2mr.modify(|_, w| w.ch5fm().clear_bit());
                     self.regs.c2mr.modify(|_, w| w.ch5om().clear_bit())
                 }
-                Channel::C6 => {
-                    self.regs.c2scr.modify(|_, w| w.ch6c().set_bit());
+                IpccChannel::C6 => {
+                    self.regs.c2scr.write(|w| w.ch6c().set_bit());
                     self.regs.c2mr.modify(|_, w| w.ch6fm().clear_bit());
                     self.regs.c2mr.modify(|_, w| w.ch6om().clear_bit())
                 }
@@ -236,7 +253,7 @@ impl Ipcc {
     }
 
     /// Receive in half duplex mode.
-    pub fn receive_half_duplex(&mut self, channel: IpccChannel) {
+    pub fn receive_half_duplex(&mut self, core: Core, channel: IpccChannel) {
         // RM, section 37.3.3: To receive communication data the channel occupied interrupt is unmasked (CHnOM = 0):
         // * On a RX occupied interrupt, the receiving processor checks which channel became
         // occupied, masks the associated channel occupied interrupt (CHnOM) and reads the
@@ -249,26 +266,22 @@ impl Ipcc {
         // the subsequent response.
         // todo: In ISR?
         match core {
-            Core::C1 => {
-                match channel {
-                    Chann::C1 => self.regs.c1scr.modify(|_, w| w.ch1s.set_bit()),
-                    Chann::C2 => self.regs.c1scr.modify(|_, w| w.ch2s.set_bit()),
-                    Chann::C3 => self.regs.c1scr.modify(|_, w| w.ch3s.set_bit()),
-                    Chann::C4 => self.regs.c1scr.modify(|_, w| w.ch4s.set_bit()),
-                    Chann::C5 => self.regs.c1scr.modify(|_, w| w.ch5s.set_bit()),
-                    Chann::C6 => self.regs.c1scr.modify(|_, w| w.ch6s.set_bit()),
-                }
-            }
-            Core::C2 => {
-                match channel {
-                    Chann::C1 => self.regs.c2scr.modify(|_, w| w.ch1s.set_bit()),
-                    Chann::C2 => self.regs.c2scr.modify(|_, w| w.ch2s.set_bit()),
-                    Chann::C3 => self.regs.c2scr.modify(|_, w| w.ch3s.set_bit()),
-                    Chann::C4 => self.regs.c2scr.modify(|_, w| w.ch4s.set_bit()),
-                    Chann::C5 => self.regs.c2scr.modify(|_, w| w.ch5s.set_bit()),
-                    Chann::C6 => self.regs.c2scr.modify(|_, w| w.ch6s.set_bit()),
-                }
-            }
+            Core::C1 => match channel {
+                IpccChannel::C1 => self.regs.c1scr.write(|w| w.ch1s().set_bit()),
+                IpccChannel::C2 => self.regs.c1scr.write(|w| w.ch2s().set_bit()),
+                IpccChannel::C3 => self.regs.c1scr.write(|w| w.ch3s().set_bit()),
+                IpccChannel::C4 => self.regs.c1scr.write(|w| w.ch4s().set_bit()),
+                IpccChannel::C5 => self.regs.c1scr.write(|w| w.ch5s().set_bit()),
+                IpccChannel::C6 => self.regs.c1scr.write(|w| w.ch6s().set_bit()),
+            },
+            Core::C2 => match channel {
+                IpccChannel::C1 => self.regs.c2scr.write(|w| w.ch1s().set_bit()),
+                IpccChannel::C2 => self.regs.c2scr.write(|w| w.ch2s().set_bit()),
+                IpccChannel::C3 => self.regs.c2scr.write(|w| w.ch3s().set_bit()),
+                IpccChannel::C4 => self.regs.c2scr.write(|w| w.ch4s().set_bit()),
+                IpccChannel::C5 => self.regs.c2scr.write(|w| w.ch5s().set_bit()),
+                IpccChannel::C6 => self.regs.c2scr.write(|w| w.ch6s().set_bit()),
+            },
         }
 
         // To receive the response the channel free interrupt is unmasked (CHnFM = 0):
@@ -293,7 +306,7 @@ impl Ipcc {
         match core {
             Core::C1 => {
                 match channel {
-                    // todo: Once you fix the PAC, change syntax, ie "toc2sr"
+                    // todo: Once you fix the PAC, change syntax, ie "toc2sr". Currently not sure how to fix it.
                     IpccChannel::C1 => self.regs.c1to2sr.read().ch1f().bit_is_clear(),
                     IpccChannel::C2 => self.regs.c1to2sr.read().ch2f().bit_is_clear(),
                     IpccChannel::C3 => self.regs.c1to2sr.read().ch3f().bit_is_clear(),
