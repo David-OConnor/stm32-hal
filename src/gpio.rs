@@ -734,7 +734,6 @@ cfg_if! {
     }
 }
 
-// todo: 412 workaround
 cfg_if! {
     if #[cfg(not(any(
     feature = "f401",
@@ -751,6 +750,7 @@ cfg_if! {
     }
 }
 
+// todo: WB (and others?) have GPIOH 0-1 and 3. How can we fit that into this module layout?
 cfg_if! {
     if #[cfg(not(any(
         feature = "f373",

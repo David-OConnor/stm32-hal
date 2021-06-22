@@ -41,7 +41,7 @@ fn main() -> ! {
     // Enable the GPIOB port.
     let mut gpioa = GpioA::new(dp.GPIOB, &mut dp.RCC);
 
-    // Configure pins for I2c.
+    // Configure pins for Spi
     let _sck = gpioa.new_pin(5, PinMode::Alt(AltFn::Af5));
     let _miso = gpioa.new_pin(6, PinMode::Alt(AltFn::Af5));
     let _mosi = gpioa.new_pin(7, PinMode::Alt(AltFn::Af5));
