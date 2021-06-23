@@ -116,7 +116,7 @@ impl Default for SpiConfig {
     }
 }
 
-/// Represents an Serial Peripheral Interface (SPI) peripheral.
+/// Represents a Serial Peripheral Interface (SPI) peripheral.
 pub struct Spi<S> {
     regs: S,
     device: SpiDevice,
@@ -642,11 +642,11 @@ where
     #[cfg(not(feature = "h7"))]
     /// Enable an interrupt
     pub fn enable_interrupt(&mut self, interrupt_type: SpiInterrupt) {
-        match interrupt_type {
-            SpiInterrupt::TxBufEmpty => self.regs.cr2.modify(|_, w| w.txeie().set_bit()),
-            SpiInterrupt::RxBufNotEmpty => self.regs.cr2.modify(|_, w| w.rxneie().set_bit()),
-            SpiInterrupt::Error => self.regs.cr2.modify(|_, w| w.errie().set_bit()),
-        }
+        self.regs.cr2.modify(|_, w| match interrupt_type {
+            SpiInterrupt::TxBufEmpty => w.txeie().set_bit(),
+            SpiInterrupt::RxBufNotEmpty => w.rxneie().set_bit(),
+            SpiInterrupt::Error => w.errie().set_bit(),
+        });
     }
 
     // // todo: Not sure how to clear SPI interrupts. No ICR, and SR is read only?

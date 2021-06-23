@@ -897,37 +897,37 @@ macro_rules! hal {
 
             /// Enable a specific type of ADC interrupt.
             pub fn enable_interrupt(&mut self, interrupt: AdcInterrupt) {
-                match interrupt {
-                    AdcInterrupt::Ready => self.regs.ier.modify(|_, w| w.adrdyie().set_bit()),
-                    AdcInterrupt::EndOfConversion => self.regs.ier.modify(|_, w| w.eocie().set_bit()),
-                    AdcInterrupt::EnfOfSequence => self.regs.ier.modify(|_, w| w.eosie().set_bit()),
-                    AdcInterrupt::EndofConversionInjected => self.regs.ier.modify(|_, w| w.jeocie().set_bit()),
-                    AdcInterrupt::EndOfSequenceInjected => self.regs.ier.modify(|_, w| w.jeosie().set_bit()),
-                    AdcInterrupt::Watchdog1 => self.regs.ier.modify(|_, w| w.awd1ie().set_bit()),
-                    AdcInterrupt::Watchdog2 => self.regs.ier.modify(|_, w| w.awd2ie().set_bit()),
-                    AdcInterrupt::Watchdog3 => self.regs.ier.modify(|_, w| w.awd3ie().set_bit()),
-                    AdcInterrupt::EndOfSamplingPhase => self.regs.ier.modify(|_, w| w.eosmpie().set_bit()),
-                    AdcInterrupt::Overrun => self.regs.ier.modify(|_, w| w.ovrie().set_bit()),
-                    AdcInterrupt::InjectedOverflow => self.regs.ier.modify(|_, w| w.jqovfie().set_bit()),
-                }
+                self.regs.ier.modify(|_, w| match interrupt {
+                    AdcInterrupt::Ready => w.adrdyie().set_bit(),
+                    AdcInterrupt::EndOfConversion => w.eocie().set_bit(),
+                    AdcInterrupt::EnfOfSequence => w.eosie().set_bit(),
+                    AdcInterrupt::EndofConversionInjected => w.jeocie().set_bit(),
+                    AdcInterrupt::EndOfSequenceInjected => w.jeosie().set_bit(),
+                    AdcInterrupt::Watchdog1 => w.awd1ie().set_bit(),
+                    AdcInterrupt::Watchdog2 => w.awd2ie().set_bit(),
+                    AdcInterrupt::Watchdog3 => w.awd3ie().set_bit(),
+                    AdcInterrupt::EndOfSamplingPhase => w.eosmpie().set_bit(),
+                    AdcInterrupt::Overrun => w.ovrie().set_bit(),
+                    AdcInterrupt::InjectedOverflow => w.jqovfie().set_bit(),
+                });
             }
 
             /// Clear an interrupt flag of the specified type. Consider running this in the
             /// corresponding ISR.
             pub fn clear_interrupt(&mut self, interrupt: AdcInterrupt) {
-                match interrupt {
-                    AdcInterrupt::Ready => self.regs.isr.modify(|_, w| w.adrdy().set_bit()),
-                    AdcInterrupt::EndOfConversion => self.regs.isr.modify(|_, w| w.eoc().set_bit()),
-                    AdcInterrupt::EnfOfSequence => self.regs.isr.modify(|_, w| w.eos().set_bit()),
-                    AdcInterrupt::EndofConversionInjected => self.regs.isr.modify(|_, w| w.jeoc().set_bit()),
-                    AdcInterrupt::EndOfSequenceInjected => self.regs.isr.modify(|_, w| w.jeos().set_bit()),
-                    AdcInterrupt::Watchdog1 => self.regs.isr.modify(|_, w| w.awd1().set_bit()),
-                    AdcInterrupt::Watchdog2 => self.regs.isr.modify(|_, w| w.awd2().set_bit()),
-                    AdcInterrupt::Watchdog3 => self.regs.isr.modify(|_, w| w.awd3().set_bit()),
-                    AdcInterrupt::EndOfSamplingPhase => self.regs.isr.modify(|_, w| w.eosmp().set_bit()),
-                    AdcInterrupt::Overrun => self.regs.isr.modify(|_, w| w.ovr().set_bit()),
-                    AdcInterrupt::InjectedOverflow => self.regs.isr.modify(|_, w| w.jqovf().set_bit()),
-                }
+                self.regs.isr.modify(|_, w| match interrupt {
+                    AdcInterrupt::Ready =>  w.adrdy().set_bit(),
+                    AdcInterrupt::EndOfConversion =>  w.eoc().set_bit(),
+                    AdcInterrupt::EnfOfSequence =>  w.eos().set_bit(),
+                    AdcInterrupt::EndofConversionInjected =>  w.jeoc().set_bit(),
+                    AdcInterrupt::EndOfSequenceInjected =>  w.jeos().set_bit(),
+                    AdcInterrupt::Watchdog1 =>  w.awd1().set_bit(),
+                    AdcInterrupt::Watchdog2 =>  w.awd2().set_bit(),
+                    AdcInterrupt::Watchdog3 =>  w.awd3().set_bit(),
+                    AdcInterrupt::EndOfSamplingPhase =>  w.eosmp().set_bit(),
+                    AdcInterrupt::Overrun =>  w.ovr().set_bit(),
+                    AdcInterrupt::InjectedOverflow =>  w.jqovf().set_bit(),
+                });
                 // match interrupt {
                 //     AdcInterrupt::Ready => self.regs.icr.write(|_w| w.adrdy().set_bit()),
                 //     AdcInterrupt::EndOfConversion => self.regs.icr.write(|w| w.eoc().set_bit()),

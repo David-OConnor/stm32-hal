@@ -176,18 +176,16 @@ macro_rules! hal {
             pub fn set_trigger(&mut self, trigger: Trigger) {
                 match self.channel {
                     Channel::One => {
-                        self.regs.$cr.modify(|_, w| w.ten1().set_bit());
-
-                        self.regs
-                            .$cr
-                            .modify(|_, w| unsafe { w.tsel1().bits(trigger.bits()) });
+                        self.regs.$cr.modify(|_, w| unsafe {
+                            w.ten1().set_bit();
+                            w.tsel1().bits(trigger.bits())
+                        });
                     }
                     Channel::Two => {
-                        self.regs.$cr.modify(|_, w| w.ten2().set_bit());
-
-                        self.regs
-                            .$cr
-                            .modify(|_, w| unsafe { w.tsel2().bits(trigger.bits()) });
+                        self.regs.$cr.modify(|_, w| unsafe {
+                            w.ten2().set_bit();
+                            w.tsel2().bits(trigger.bits())
+                        });
                     }
                 }
             }
@@ -199,12 +197,16 @@ macro_rules! hal {
                 // todo: This may not be correct.
                 match self.channel {
                     Channel::One => {
-                        self.regs.$cr.modify(|_, w| unsafe { w.wave1().bits(0b01) });
-                        self.regs.$cr.modify(|_, w| unsafe { w.mamp1().bits(0b01) });
+                        self.regs.$cr.modify(|_, w| unsafe {
+                            w.mamp1().bits(0b01);
+                            w.wave1().bits(0b01)
+                        });
                     }
                     Channel::Two => {
-                        self.regs.$cr.modify(|_, w| unsafe { w.wave2().bits(0b01) });
-                        self.regs.$cr.modify(|_, w| unsafe { w.mamp2().bits(0b01) });
+                        self.regs.$cr.modify(|_, w| unsafe {
+                            w.wave2().bits(0b01);
+                            w.mamp2().bits(0b01)
+                        });
                     }
                 }
                 self.set_trigger(trigger);
@@ -218,12 +220,16 @@ macro_rules! hal {
                 // todo: This may not be correct.
                 match self.channel {
                     Channel::One => {
-                        self.regs.$cr.modify(|_, w| unsafe { w.wave1().bits(0b10) });
-                        self.regs.$cr.modify(|_, w| unsafe { w.mamp1().bits(0b10) });
+                        self.regs.$cr.modify(|_, w| unsafe {
+                            w.wave1().bits(0b10);
+                            w.mamp1().bits(0b10)
+                        });
                     }
                     Channel::Two => {
-                        self.regs.$cr.modify(|_, w| unsafe { w.wave2().bits(0b10) });
-                        self.regs.$cr.modify(|_, w| unsafe { w.mamp2().bits(0b10) });
+                        self.regs.$cr.modify(|_, w| unsafe {
+                            w.wave2().bits(0b10);
+                            w.mamp2().bits(0b10)
+                        });
                     }
                 }
                 self.set_trigger(trigger);

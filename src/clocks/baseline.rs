@@ -233,7 +233,7 @@ impl Prediv {
     }
 }
 
-#[cfg(not(feature = "g4"))]
+#[cfg(not(any(feature = "l5", feature = "g4")))]
 #[derive(Clone, Copy)]
 #[repr(u8)]
 pub enum Pllm {
@@ -247,7 +247,7 @@ pub enum Pllm {
     Div8 = 0b111,
 }
 
-#[cfg(feature = "g4")]
+#[cfg(any(feature = "l5", feature = "g4"))]
 #[derive(Clone, Copy)]
 #[repr(u8)]
 pub enum Pllm {
@@ -271,7 +271,7 @@ pub enum Pllm {
 
 impl Pllm {
     pub fn value(&self) -> u8 {
-        #[cfg(not(feature = "g4"))]
+        #[cfg(not(any(feature = "l5", feature = "g4")))]
         match self {
             Self::Div1 => 1,
             Self::Div2 => 2,
@@ -283,7 +283,7 @@ impl Pllm {
             Self::Div8 => 8,
         }
 
-        #[cfg(feature = "g4")]
+        #[cfg(any(feature = "l5", feature = "g4"))]
         match self {
             Self::Div1 => 1,
             Self::Div2 => 2,
@@ -305,7 +305,7 @@ impl Pllm {
     }
 }
 
-#[cfg(feature = "g0")]
+#[cfg(any(feature = "g0", feature = "wb"))]
 #[derive(Clone, Copy)]
 #[repr(u8)]
 // Main PLL division factor for PLLCLK (system clock).
@@ -319,7 +319,7 @@ pub enum Pllr {
     Div8 = 0b111,
 }
 
-#[cfg(feature = "g0")]
+#[cfg(any(feature = "g0", feature = "wb"))]
 impl Pllr {
     pub fn value(&self) -> u8 {
         match self {
@@ -334,7 +334,7 @@ impl Pllr {
     }
 }
 
-#[cfg(not(feature = "g0"))]
+#[cfg(not(any(feature = "g0", feature = "wb")))]
 #[derive(Clone, Copy)]
 #[repr(u8)]
 // Main PLL division factor for PLLCLK (system clock). G4 RM 7.4.4. Also used to set PLLQ.
@@ -345,7 +345,7 @@ pub enum Pllr {
     Div8 = 0b11,
 }
 
-#[cfg(not(feature = "g0"))]
+#[cfg(not(any(feature = "g0", feature = "wb")))]
 impl Pllr {
     pub fn value(&self) -> u8 {
         match self {
@@ -360,8 +360,19 @@ impl Pllr {
 #[derive(Clone, Copy)]
 #[repr(u8)]
 /// Division factor for the AHB clock. Also known as AHB Prescaler. L4 RM, 6.4.3
+/// on WB, used for all 3 HCLK prescalers.
 pub enum HclkPrescaler {
     Div1 = 0b0000,
+    #[cfg(feature = "wb")]
+    Div3 = 0b0001,
+    #[cfg(feature = "wb")]
+    Div5 = 0b0010,
+    #[cfg(feature = "wb")]
+    Div6 = 0b0101,
+    #[cfg(feature = "wb")]
+    Div10 = 0b0110,
+    #[cfg(feature = "wb")]
+    Div32 = 0b0111,
     Div2 = 0b1000,
     Div4 = 0b1001,
     Div8 = 0b1010,
@@ -376,6 +387,16 @@ impl HclkPrescaler {
     pub fn value(&self) -> u16 {
         match self {
             Self::Div1 => 1,
+            #[cfg(feature = "wb")]
+            Self::Div3 => 3,
+            #[cfg(feature = "wb")]
+            Self::Div5 => 5,
+            #[cfg(feature = "wb")]
+            Self::Div6 => 6,
+            #[cfg(feature = "wb")]
+            Self::Div10 => 10,
+            #[cfg(feature = "wb")]
+            Self::Div32 => 32,
             Self::Div2 => 2,
             Self::Div4 => 4,
             Self::Div8 => 8,
@@ -1175,6 +1196,10 @@ impl ClockCfg for Clocks {
         if self.plln < 8 || self.plln > 127 {
             return ClocksValid::NotValid;
         }
+
+        // todo: on WB, input src / PlLM * plln Must be between 96 and 344 Mhz.
+        // todo; Cube will validate this. Others probably have a similar restriction.
+        // todo: Put this check here.
 
         // todo: QC these limits
         // todo: Note that this involves repeatedly calculating sysclk.

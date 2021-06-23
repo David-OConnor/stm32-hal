@@ -1,28 +1,10 @@
-//! Quad Serial Peripheral Interface (SPI) bus.
-//! todo: make this fully-featured; currently only "indirect" mode".
-//! todo: THis probably should be rebuilt from the RM.
+//! Quad Serial Peripheral Interface (SPI) bus: A specialized interface used for
+//! high-speed communications with external flash memory.
 
-// Based on `stm32f7xx-hal`.
 
-//! Quad SPI (QSPI) bus
-//!
-//! The QSPI peripheral supports a SPI interface operating over 1, 2, or 4 IO lines.
-//!
-//! # Usage
-//!
-//! This driver supports using the QSPI peripheral in indirect mode. This allows the peripheral to
-//! be used to read and write from an address over a quad-SPI interface.
-//!
-//! The SPI can be configured to operate on either of the two available banks on the board. In the
-//! simplest case, this can be accomplished with just the peripheral and the GPIO pins.
+// todo: WIP
 
-//!
-//! # Limitations
-//!
-//! This driver currently only supports indirect operation mode of the QSPI
-//! interface. Automatic polling or memory-mapped modes are not supported.  This
-//! driver support either bank 1 or bank 2 as well as a dual flash bank (in
-//! which all 8 IOs are used for the interface).
+
 
 use crate::{
     pac::{QUADSPI, RCC},
@@ -33,26 +15,39 @@ use core::ptr;
 
 use cfg_if::cfg_if;
 
-/// Represents operation modes of the QSPI interface.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum QspiMode {
+#[derive(Copy, Clone)]
+#[repr(u8)]
+/// Sets the Qspi mode to single, dual, or quad. Affects the IMODE/ADMODE/ABMODE/DMODE fields of
+/// the CCR reg.
+pub enum ProtocolMode {
     /// Only a single IO line (IO0) is used for transmit and a separate line (IO1) is used for receive.
-    OneBit,
-
+    Single = 0b01,
     /// Two IO lines (IO0 and IO1) are used for transmit/receive.
-    TwoBit,
-
+    Dual = 0b10,
     /// All four IO lines are used for transmit/receive.
-    FourBit,
+    Quad = 0b11,
 }
-impl QspiMode {
-    pub(self) fn reg_value(&self) -> u8 {
-        match self {
-            QspiMode::OneBit => 1,
-            QspiMode::TwoBit => 2,
-            QspiMode::FourBit => 3,
-        }
-    }
+
+#[derive(Copy, Clone)]
+#[repr(u8)]
+/// Sets the Qspi data mode. Affects the DDRM field of the CCR reg.
+pub enum DataMode {
+    /// In SDR mode, when the QUADSPI is driving the IO0/SO, IO1, IO2, IO3 signals, these
+    /// signals transition only with the falling edge of CLK.
+    Sdr = 0,
+    /// In DDR mode, when the QUADSPI is driving the IO0/SO, IO1, IO2, IO3 signals in the
+    /// address/alternate-byte/data phases, a bit is sent on each of the falling and rising edges of
+    /// CLK.
+    Ddr = 1,
+}
+
+#[derive(Copy, Clone)]
+#[repr(u8)]
+/// Sets the Qspi mode to single, dual, or quad. Affects the FMODE field of the CCR reg.
+pub enum QspiMode {
+    Indirect,
+    StatusPolling,
+    MemoryMapped,
 }
 
 /// Address sizes used by the QSPI interface
@@ -94,8 +89,10 @@ pub enum Bank {
 /// let config = Config::new().dummy_cycles(1);
 /// ```
 #[derive(Copy, Clone)]
-pub struct Config {
+pub struct QspiConfig {
     mode: QspiMode,
+    protocol_mode: ProtocolMode,
+    data_mode: DataMode,
     frequency: u32,
     address_size: AddressSize,
     dummy_cycles: u8,
@@ -103,16 +100,12 @@ pub struct Config {
     fifo_threshold: u8,
 }
 
-impl Config {
-    /// Create a default configuration for the QSPI interface.
-    ///
-    /// * Bus in 1-bit Mode
-    /// * 8-bit Address
-    /// * No dummy cycle
-    /// * Sample on falling edge
-    pub fn new(freq: u32) -> Self {
-        Config {
-            mode: QspiMode::OneBit,
+impl Default for QspiConfig {
+    fn default() -> Self {
+        Self { // todo: QC what you want here.
+            mode: QspiMode::Indirect,
+            protocol_mode: ProtocolMode::Quad,
+            data_mode: DataMode::Sdr,
             frequency: freq.into(),
             address_size: AddressSize::EightBit,
             dummy_cycles: 0,
@@ -120,102 +113,11 @@ impl Config {
             fifo_threshold: 1,
         }
     }
-
-    /// Specify the operating mode of the QSPI bus. Can be a 1-bit, 2-bit or
-    /// 4-bit width.
-    ///
-    /// The operating mode can also be changed using the
-    /// [`configure_mode`](Qspi#method.configure_mode) method
-    pub fn mode(mut self, mode: QspiMode) -> Self {
-        self.mode = mode;
-        self
-    }
-
-    /// Specify the size of the address phase
-    pub fn address_size(mut self, address_size: AddressSize) -> Self {
-        self.address_size = address_size;
-        self
-    }
-
-    /// Specify the number of dummy cycles in between the address and data
-    /// phases.
-    ///
-    /// Hardware supports 0-31 dummy cycles.
-    ///
-    /// # Note
-    ///
-    /// With zero dummy cycles, the QSPI peripheral will erroneously drive the
-    /// output pins for an extra half clock cycle before IO is swapped from
-    /// output to input. Refer to
-    /// https://github.com/quartiq/stabilizer/issues/101 for more information.
-    pub fn dummy_cycles(mut self, cycles: u8) -> Self {
-        debug_assert!(cycles < 32, "Hardware only supports 0-31 dummy cycles");
-
-        self.dummy_cycles = cycles;
-        self
-    }
-
-    /// Specify the sampling edge for the QSPI receiver.
-    ///
-    /// # Note
-    ///
-    /// If zero dummy cycles are used, during read operations the QSPI
-    /// peripheral will erroneously drive the output pins for an extra half
-    /// clock cycle before IO is swapped from output to input. Refer to
-    /// https://github.com/quartiq/stabilizer/issues/101 for more information.
-    ///
-    /// In this case it is recommended to sample on the falling edge. Although
-    /// this doesn't stop the possible bus contention, delaying the sampling
-    /// point by an extra half cycle results in a sampling point after the bus
-    /// contention.
-    pub fn sampling_edge(mut self, sampling_edge: SamplingEdge) -> Self {
-        self.sampling_edge = sampling_edge;
-        self
-    }
-
-    /// Specify the number of bytes in the FIFO that will set the FIFO threshold
-    /// flag. Must be in the range 1-32 inclusive.
-    ///
-    /// In indirect write mode, this is the number of free bytes that will raise
-    /// the FIFO threshold flag.
-    ///
-    /// In indirect read mode, this is the number of valid pending bytes that
-    /// will raise the FIFO threshold flag.
-    pub fn fifo_threshold(mut self, threshold: u8) -> Self {
-        debug_assert!(threshold > 0 && threshold <= 32);
-
-        self.fifo_threshold = threshold;
-        self
-    }
-}
-
-// todo: Do we need this trait? What is it?
-pub trait QspiExt {
-    fn bank1<CONFIG, C>(self, config: CONFIG, clocks: &C, rcc: &mut RCC) -> Qspi
-    where
-        CONFIG: Into<Config>,
-        C: ClockCfg;
-
-    fn bank2<CONFIG, C>(self, config: CONFIG, clocks: &C, rcc: &mut RCC) -> Qspi
-    where
-        CONFIG: Into<Config>,
-        C: ClockCfg;
-
-    fn qspi_unchecked<CONFIG, C>(
-        self,
-        config: CONFIG,
-        bank: Bank,
-        clocks: &C,
-        rcc: &mut RCC,
-    ) -> Qspi
-    where
-        CONFIG: Into<Config>,
-        C: ClockCfg;
 }
 
 /// Interrupt events
 #[derive(Copy, Clone, PartialEq)]
-pub enum Event {
+pub enum QspiInterrupt {
     /// FIFO Threashold
     FIFOThreashold,
     /// Transfer complete
@@ -224,61 +126,36 @@ pub enum Event {
     Error,
 }
 
+/// Represents a Quad Serial Peripheral Interface (QSPI) peripheral.
 pub struct Qspi {
-    rb: QUADSPI,
+    regs: QUADSPI,
+    cfg: QspiConfig,
 }
 
 impl Qspi {
-    pub fn bank1<CONFIG, C>(regs: QUADSPI, config: CONFIG, clocks: &C, rcc: &mut RCC) -> Self
-    where
-        CONFIG: Into<Config>,
-        C: ClockCfg,
-    {
-        Self::qspi_unchecked(regs, config, Bank::One, clocks, rcc)
-    }
-
-    pub fn bank2<CONFIG, C>(regs: QUADSPI, config: CONFIG, clocks: &C, rcc: &mut RCC) -> Self
-    where
-        CONFIG: Into<Config>,
-        C: ClockCfg,
-    {
-        Self::qspi_unchecked(regs, config, Bank::Two, clocks, rcc)
-    }
-
-    pub fn qspi_unchecked<CONFIG, C>(
-        regs: QUADSPI,
-        config: CONFIG,
-        bank: Bank,
-        clocks: &C,
-        rcc: &mut RCC,
-    ) -> Self
-    where
-        CONFIG: Into<Config>,
-        C: ClockCfg,
-    {
-        cfg_if! {
-            if #[cfg(feature = "l4")] {
-                rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
-                rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
-                rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
-            } else { // G4 and H7
-                rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
-                rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
-                rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
-            }
-        }
+    pub fn new(regs: QUADSPI, cfg: QspiConfig) -> Self {
+        // todo: QC this init code.
+        // cfg_if! {
+        //     if #[cfg(any(feature = "l4", feature = "l5", feature = "")] {
+        //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
+        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
+        //     } else { // G and H7
+        //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
+        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
+        //     }
+        // }
+        rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
+        rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+        rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
 
         // Disable QUADSPI before configuring it.
         regs.cr.write(|w| w.en().clear_bit());
 
-        let spi_kernel_ck = match Self::get_clock(clocks) {
-            Some(freq_hz) => freq_hz,
-            _ => panic!("QSPI kernel clock not running!"),
-        };
-
         while regs.sr.read().busy().bit_is_set() {}
 
-        let config: Config = config.into();
+        let config: QspiConfig = config.into();
 
         // Configure the FSIZE to maximum. It appears that even when addressing is not used, the
         // flash size violation may still trigger.
@@ -346,35 +223,30 @@ impl Qspi {
         // Enable ther peripheral
         regs.cr.modify(|_, w| w.en().set_bit());
 
-        Qspi { rb: regs }
+        Self { regs, cfg }
     }
 
-    /// Deconstructs the QSPI HAL and returns the register block.
-    pub fn free(self) -> QUADSPI {
-        self.rb
-    }
-
-    /// Returns a reference to the inner peripheral
-    pub fn inner(&self) -> &QUADSPI {
-        &self.rb
-    }
-
-    /// Returns a mutable reference to the inner peripheral
-    pub fn inner_mut(&mut self) -> &mut QUADSPI {
-        &mut self.rb
-    }
 
     /// Check if the QSPI peripheral is currently busy with a transaction
     pub fn is_busy(&self) -> bool {
         self.rb.sr.read().busy().bit_is_set()
     }
 
-    /// Enable interrupts for the given `event`
-    pub fn listen(&mut self, event: Event) {
+    /// Enable an interrupt
+    pub fn enable_interrupt(&mut self, interrupt: QspiInterrupt) {
+        self.rb.cr.modify(|_, w| match interrupt {
+            QspiInterrupt::FIFOThreashold => w.ftie().set_bit(),
+            QspiInterrupt::Complete => w.tcie().set_bit(),
+            QspiInterrupt::Error => w.teie().set_bit(),
+        });
+    }
+
+    /// Clear an interrupt flag
+    pub fn clear_interrupt(&mut self, interrupt: QspiInterrupt) {
         self.rb.cr.modify(|_, w| match event {
-            Event::FIFOThreashold => w.ftie().set_bit(),
-            Event::Complete => w.tcie().set_bit(),
-            Event::Error => w.teie().set_bit(),
+            QspiInterrupt::FIFOThreashold => w.ftie().set_bit(),
+            QspiInterrupt::Complete => w.tcie().set_bit(),
+            QspiInterrupt::Error => w.teie().set_bit(),
         });
     }
 
@@ -564,7 +436,7 @@ impl Qspi {
 impl QspiExt for QUADSPI {
     fn bank1<CONFIG, C>(self, config: CONFIG, clocks: &C, rcc: &mut RCC) -> Qspi
     where
-        CONFIG: Into<Config>,
+        CONFIG: Into<QspiConfig>,
         C: ClockCfg,
     {
         Qspi::qspi_unchecked(self, config, Bank::One, clocks, rcc)
@@ -572,7 +444,7 @@ impl QspiExt for QUADSPI {
 
     fn bank2<CONFIG, C>(self, config: CONFIG, clocks: &C, rcc: &mut RCC) -> Qspi
     where
-        CONFIG: Into<Config>,
+        CONFIG: Into<QspiConfig>,
         C: ClockCfg,
     {
         Qspi::qspi_unchecked(self, config, Bank::Two, clocks, rcc)
@@ -586,7 +458,7 @@ impl QspiExt for QUADSPI {
         rcc: &mut RCC,
     ) -> Qspi
     where
-        CONFIG: Into<Config>,
+        CONFIG: Into<QspiConfig>,
         C: ClockCfg,
     {
         Qspi::qspi_unchecked(self, config, bank, clocks, rcc)

@@ -291,11 +291,11 @@ macro_rules! enable_interrupt {
             $ccr.modify(|_, w| w.en().clear_bit());
             while $ccr.read().en().bit_is_set() {}
         }
-        match $interrupt_type {
-            DmaInterrupt::TransferError => $ccr.modify(|_, w| w.teie().set_bit()),
-            DmaInterrupt::HalfTransfer => $ccr.modify(|_, w| w.htie().set_bit()),
-            DmaInterrupt::TransferComplete => $ccr.modify(|_, w| w.tcie().set_bit()),
-        }
+        $ccr.modify(|_, w| match $interrupt_type {
+            DmaInterrupt::TransferError => w.teie().set_bit(),
+            DmaInterrupt::HalfTransfer => w.htie().set_bit(),
+            DmaInterrupt::TransferComplete => w.tcie().set_bit(),
+        });
 
         if originally_enabled {
             $ccr.modify(|_, w| w.en().set_bit());

@@ -284,21 +284,23 @@ pub mod ipcc;
 
 pub mod low_power;
 
-#[cfg(not(any(
-    feature = "f3",
-    feature = "f4",
-    feature = "l4x3",
-    feature = "l5",
-    feature = "g0",
-    feature = "g431",
-    feature = "g441",
-    feature = "g471",
-    feature = "g491",
-    feature = "g4a1",
-    feature = "h7b3",
-    feature = "wb", // todo: WB has SPI; we just haven't fixed it up yet.
-)))]
-pub mod qspi;
+// #[cfg(not(any(
+//     feature = "f3",
+//     feature = "f4",
+//     feature = "l4x3",
+//     feature = "l5",
+//     feature = "g0",
+//     feature = "g431",
+//     feature = "g441",
+//     feature = "g471",
+//     feature = "g491",
+//     feature = "g4a1",
+//     feature = "h7b3",
+//     feature = "wb", // todo: WB has SPI; we just haven't fixed it up yet.
+// )))]
+
+// todo: Put back qspi
+// pub mod qspi;
 pub mod rtc;
 
 // #[cfg(not(any(feature = "f3")))]
