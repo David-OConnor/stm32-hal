@@ -410,23 +410,24 @@ macro_rules! make_pin {
 
             /// Read the input data register.
             pub fn input_data(&mut self, regs: &mut pac::[<GPIO $Port>]) -> PinState {
+                let reg_val = regs.idr.read();
                 let val = match self.pin {
-                    0 => regs.idr.read().idr0().bit(),
-                    1 => regs.idr.read().idr1().bit(),
-                    2 => regs.idr.read().idr2().bit(),
-                    3 => regs.idr.read().idr3().bit(),
-                    4 => regs.idr.read().idr4().bit(),
-                    5 => regs.idr.read().idr5().bit(),
-                    6 => regs.idr.read().idr6().bit(),
-                    7 => regs.idr.read().idr7().bit(),
-                    8 => regs.idr.read().idr8().bit(),
-                    9 => regs.idr.read().idr9().bit(),
-                    10 => regs.idr.read().idr10().bit(),
-                    11 => regs.idr.read().idr11().bit(),
-                    12 => regs.idr.read().idr12().bit(),
-                    13 => regs.idr.read().idr13().bit(),
-                    14 => regs.idr.read().idr14().bit(),
-                    15 => regs.idr.read().idr15().bit(),
+                    0 => reg_val.idr0().bit(),
+                    1 => reg_val.idr1().bit(),
+                    2 => reg_val.idr2().bit(),
+                    3 => reg_val.idr3().bit(),
+                    4 => reg_val.idr4().bit(),
+                    5 => reg_val.idr5().bit(),
+                    6 => reg_val.idr6().bit(),
+                    7 => reg_val.idr7().bit(),
+                    8 => reg_val.idr8().bit(),
+                    9 => reg_val.idr9().bit(),
+                    10 => reg_val.idr10().bit(),
+                    11 => reg_val.idr11().bit(),
+                    12 => reg_val.idr12().bit(),
+                    13 => reg_val.idr13().bit(),
+                    14 => reg_val.idr14().bit(),
+                    15 => reg_val.idr15().bit(),
                     _ => panic!("GPIO pins must be 0 - 15."),
                 };
 
@@ -445,25 +446,25 @@ macro_rules! make_pin {
                 };
 
                 unsafe {
-                    match self.pin {
-                        0 => regs.bsrr.write(|w| w.bits(1 << (offset + 0))),
-                        1 => regs.bsrr.write(|w| w.bits(1 << (offset + 1))),
-                        2 => regs.bsrr.write(|w| w.bits(1 << (offset + 2))),
-                        3 => regs.bsrr.write(|w| w.bits(1 << (offset + 3))),
-                        4 => regs.bsrr.write(|w| w.bits(1 << (offset + 4))),
-                        5 => regs.bsrr.write(|w| w.bits(1 << (offset + 5))),
-                        6 => regs.bsrr.write(|w| w.bits(1 << (offset + 6))),
-                        7 => regs.bsrr.write(|w| w.bits(1 << (offset + 7))),
-                        8 => regs.bsrr.write(|w| w.bits(1 << (offset + 8))),
-                        9 => regs.bsrr.write(|w| w.bits(1 << (offset + 9))),
-                        10 => regs.bsrr.write(|w| w.bits(1 << (offset + 10))),
-                        11 => regs.bsrr.write(|w| w.bits(1 << (offset + 11))),
-                        12 => regs.bsrr.write(|w| w.bits(1 << (offset + 12))),
-                        13 => regs.bsrr.write(|w| w.bits(1 << (offset + 13))),
-                        14 => regs.bsrr.write(|w| w.bits(1 << (offset + 14))),
-                        15 => regs.bsrr.write(|w| w.bits(1 << (offset + 15))),
+                    regs.bsrr.write(|w| match self.pin {
+                        0 => w.bits(1 << (offset + 0)),
+                        1 => w.bits(1 << (offset + 1)),
+                        2 => w.bits(1 << (offset + 2)),
+                        3 => w.bits(1 << (offset + 3)),
+                        4 => w.bits(1 << (offset + 4)),
+                        5 => w.bits(1 << (offset + 5)),
+                        6 => w.bits(1 << (offset + 6)),
+                        7 => w.bits(1 << (offset + 7)),
+                        8 => w.bits(1 << (offset + 8)),
+                        9 => w.bits(1 << (offset + 9)),
+                        10 => w.bits(1 << (offset + 10)),
+                        11 => w.bits(1 << (offset + 11)),
+                        12 => w.bits(1 << (offset + 12)),
+                        13 => w.bits(1 << (offset + 13)),
+                        14 => w.bits(1 << (offset + 14)),
+                        15 => w.bits(1 << (offset + 15)),
                         _ => panic!("GPIO pins must be 0 - 15."),
-                    };
+                    });
                 }
             }
 
@@ -495,25 +496,25 @@ macro_rules! make_pin {
                     ResetState::Reset => 0,
                 };
                 unsafe {
-                    match self.pin {
-                        0 => regs.brr.write(|w| w.bits(1 << (offset + 0))),
-                        1 => regs.brr.write(|w| w.bits(1 << (offset + 1))),
-                        2 => regs.brr.write(|w| w.bits(1 << (offset + 2))),
-                        3 => regs.brr.write(|w| w.bits(1 << (offset + 3))),
-                        4 => regs.brr.write(|w| w.bits(1 << (offset + 4))),
-                        5 => regs.brr.write(|w| w.bits(1 << (offset + 5))),
-                        6 => regs.brr.write(|w| w.bits(1 << (offset + 6))),
-                        7 => regs.brr.write(|w| w.bits(1 << (offset + 7))),
-                        8 => regs.brr.write(|w| w.bits(1 << (offset + 8))),
-                        9 => regs.brr.write(|w| w.bits(1 << (offset + 9))),
-                        10 => regs.brr.write(|w| w.bits(1 << (offset + 10))),
-                        11 => regs.brr.write(|w| w.bits(1 << (offset + 11))),
-                        12 => regs.brr.write(|w| w.bits(1 << (offset + 12))),
-                        13 => regs.brr.write(|w| w.bits(1 << (offset + 13))),
-                        14 => regs.brr.write(|w| w.bits(1 << (offset + 14))),
-                        15 => regs.brr.write(|w| w.bits(1 << (offset + 15))),
+                    regs.brr.write(|w| match self.pin {
+                        0 => w.bits(1 << (offset + 0)),
+                        1 => w.bits(1 << (offset + 1)),
+                        2 => w.bits(1 << (offset + 2)),
+                        3 => w.bits(1 << (offset + 3)),
+                        4 => w.bits(1 << (offset + 4)),
+                        5 => w.bits(1 << (offset + 5)),
+                        6 => w.bits(1 << (offset + 6)),
+                        7 => w.bits(1 << (offset + 7)),
+                        8 => w.bits(1 << (offset + 8)),
+                        9 => w.bits(1 << (offset + 9)),
+                        10 => w.bits(1 << (offset + 10)),
+                        11 => w.bits(1 << (offset + 11)),
+                        12 => w.bits(1 << (offset + 12)),
+                        13 => w.bits(1 << (offset + 13)),
+                        14 => w.bits(1 << (offset + 14)),
+                        15 => w.bits(1 << (offset + 15)),
                         _ => panic!("GPIO pins must be 0 - 15."),
-                    };
+                    });
                 }
             }
 
@@ -580,26 +581,25 @@ macro_rules! make_pin {
             /// Check if the pin's input voltage is high (VCC).
             pub fn is_high(&self) -> bool {
                 // todo: DRy with `input_data`.
-                unsafe {
-                    match self.pin {
-                        0 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr0().bit(),
-                        1 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr1().bit(),
-                        2 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr2().bit(),
-                        3 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr3().bit(),
-                        4 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr4().bit(),
-                        5 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr5().bit(),
-                        6 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr6().bit(),
-                        7 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr7().bit(),
-                        8 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr8().bit(),
-                        9 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr9().bit(),
-                        10 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr10().bit(),
-                        11 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr11().bit(),
-                        12 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr12().bit(),
-                        13 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr13().bit(),
-                        14 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr14().bit(),
-                        15 => (*pac::[<GPIO $Port>]::ptr()).idr.read().idr15().bit(),
-                        _ => panic!("GPIO pins must be 0 - 15."),
-                    }
+                let reg_val = unsafe { (*pac::[<GPIO $Port>]::ptr()).idr.read() };
+                match self.pin {
+                    0 => reg_val.idr0().bit(),
+                    1 => reg_val.idr1().bit(),
+                    2 => reg_val.idr2().bit(),
+                    3 => reg_val.idr3().bit(),
+                    4 => reg_val.idr4().bit(),
+                    5 => reg_val.idr5().bit(),
+                    6 => reg_val.idr6().bit(),
+                    7 => reg_val.idr7().bit(),
+                    8 => reg_val.idr8().bit(),
+                    9 => reg_val.idr9().bit(),
+                    10 => reg_val.idr10().bit(),
+                    11 => reg_val.idr11().bit(),
+                    12 => reg_val.idr12().bit(),
+                    13 => reg_val.idr13().bit(),
+                    14 => reg_val.idr14().bit(),
+                    15 => reg_val.idr15().bit(),
+                    _ => panic!("GPIO pins must be 0 - 15."),
                 }
             }
 
@@ -614,25 +614,25 @@ macro_rules! make_pin {
                 let offset = 0;
 
                 unsafe {
-                    match self.pin {
-                        0 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 0))),
-                        1 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 1))),
-                        2 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 2))),
-                        3 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 3))),
-                        4 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 4))),
-                        5 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 5))),
-                        6 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 6))),
-                        7 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 7))),
-                        8 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 8))),
-                        9 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 9))),
-                        10 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 10))),
-                        11 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 11))),
-                        12 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 12))),
-                        13 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 13))),
-                        14 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 14))),
-                        15 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 15))),
+                    (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| match self.pin {
+                        0 => w.bits(1 << (offset + 0)),
+                        1 => w.bits(1 << (offset + 1)),
+                        2 => w.bits(1 << (offset + 2)),
+                        3 => w.bits(1 << (offset + 3)),
+                        4 => w.bits(1 << (offset + 4)),
+                        5 => w.bits(1 << (offset + 5)),
+                        6 => w.bits(1 << (offset + 6)),
+                        7 => w.bits(1 << (offset + 7)),
+                        8 => w.bits(1 << (offset + 8)),
+                        9 => w.bits(1 << (offset + 9)),
+                        10 => w.bits(1 << (offset + 10)),
+                        11 => w.bits(1 << (offset + 11)),
+                        12 => w.bits(1 << (offset + 12)),
+                        13 => w.bits(1 << (offset + 13)),
+                        14 => w.bits(1 << (offset + 14)),
+                        15 => w.bits(1 << (offset + 15)),
                         _ => panic!("GPIO pins must be 0 - 15."),
-                    }
+                    });
                 }
             }
 
@@ -642,25 +642,25 @@ macro_rules! make_pin {
                 let offset = 16;
 
                 unsafe {
-                    match self.pin {
-                        0 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 0))),
-                        1 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 1))),
-                        2 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 2))),
-                        3 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 3))),
-                        4 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 4))),
-                        5 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 5))),
-                        6 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 6))),
-                        7 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 7))),
-                        8 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 8))),
-                        9 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 9))),
-                        10 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 10))),
-                        11 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 11))),
-                        12 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 12))),
-                        13 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 13))),
-                        14 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 14))),
-                        15 => (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| w.bits(1 << (offset + 15))),
+                    (*pac::[<GPIO $Port>]::ptr()).bsrr.write(|w| match self.pin {
+                        0 => w.bits(1 << (offset + 0)),
+                        1 => w.bits(1 << (offset + 1)),
+                        2 => w.bits(1 << (offset + 2)),
+                        3 => w.bits(1 << (offset + 3)),
+                        4 => w.bits(1 << (offset + 4)),
+                        5 => w.bits(1 << (offset + 5)),
+                        6 => w.bits(1 << (offset + 6)),
+                        7 => w.bits(1 << (offset + 7)),
+                        8 => w.bits(1 << (offset + 8)),
+                        9 => w.bits(1 << (offset + 9)),
+                        10 => w.bits(1 << (offset + 10)),
+                        11 => w.bits(1 << (offset + 11)),
+                        12 => w.bits(1 << (offset + 12)),
+                        13 => w.bits(1 << (offset + 13)),
+                        14 => w.bits(1 << (offset + 14)),
+                        15 => w.bits(1 << (offset + 15)),
                         _ => panic!("GPIO pins must be 0 - 15."),
-                    }
+                    });
                 }
             }
         }
