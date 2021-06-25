@@ -459,15 +459,14 @@ where
         Ok(())
     }
 
-    /// Read multiple bytes, blocking.
-    pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<&'w [u8], Error> {
-        // todo: We ape a default EH implementation. Is this what we want?
+    /// Read multiple bytes to a buffer, blocking.
+    pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<(), Error> {
         for word in words.iter_mut() {
             nb::block!(self.write_one(word.clone()))?;
             *word = nb::block!(self.read())?;
         }
 
-        Ok(words)
+        Ok(())
     }
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
