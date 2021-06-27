@@ -7,8 +7,8 @@
 use core::cell::{Cell, RefCell};
 
 use cortex_m::{
-    interrupt::{free, Mutex},
     delay::Delay,
+    interrupt::{free, Mutex},
     peripheral::NVIC,
 };
 use cortex_m_rt::entry;

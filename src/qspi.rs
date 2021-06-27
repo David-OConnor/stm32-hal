@@ -64,7 +64,6 @@ pub enum AddressSize {
 pub enum SamplingEdge {
     Rising = 0,
     Falling = 1,
-
 }
 
 /// Indicates an error with the QSPI peripheral.
@@ -100,7 +99,7 @@ impl Default for QspiConfig {
             address_size: AddressSize::A8,
             dummy_cycles: 0,
             sampling_edge: SamplingEdge::Falling,
-            fifo_threshold: 1,  // todo: What is this?
+            fifo_threshold: 1, // todo: What is this?
         }
     }
 }
@@ -123,7 +122,10 @@ pub struct Qspi {
 
 impl Qspi {
     pub fn new<C: ClockCfg>(regs: QUADSPI, cfg: QspiConfig, clocks: &C, rcc: &mut RCC) -> Self {
-        assert!(cfg.dummy_cycles < 32, "Dumy cycles must be between 0 and 31.");
+        assert!(
+            cfg.dummy_cycles < 32,
+            "Dumy cycles must be between 0 and 31."
+        );
         // cfg_if! {
         //     if #[cfg(any(feature = "l4", feature = "l5", feature = "")] {
         //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
@@ -222,7 +224,7 @@ impl Qspi {
 
     /// Perform a memory write in indirect mode.
     pub fn write_indirect(&mut self, addr: u32, data: &[u8]) {
-         // todo: Do we want to use interrupt flats in these blocking fns?
+        // todo: Do we want to use interrupt flats in these blocking fns?
         self.clear_interrupt(QspiInterrupt::TransferComplete);
 
         // todo: Fix this
@@ -257,7 +259,9 @@ impl Qspi {
             .ccr
             .modify(|_, w| unsafe { w.fmode().bits(QspiMode::IndirectWrite as u8) });
         // 5. Specify the targeted address in the QUADSPI_AR.
-        self.regs.ar.modify(|_, w| unsafe { w.address().bits(addr) });
+        self.regs
+            .ar
+            .modify(|_, w| unsafe { w.address().bits(addr) });
 
         // 6. Read/Write the data from/to the FIFO through the QUADSPI_DR.
         // When writing the control register (QUADSPI_CR) the user specifies the following settings:
@@ -309,11 +313,15 @@ impl Qspi {
         );
 
         // Steps are equivalent to those listed in `write_indirect`.
-        self.regs.dlr.write(|w| unsafe { w.dl().bits(buf.len() as u32 - 1) });
+        self.regs
+            .dlr
+            .write(|w| unsafe { w.dl().bits(buf.len() as u32 - 1) });
         self.regs
             .ccr
             .modify(|_, w| unsafe { w.fmode().bits(QspiMode::IndirectRead as u8) });
-        self.regs.ar.modify(|_, w| unsafe { w.address().bits(addr) });
+        self.regs
+            .ar
+            .modify(|_, w| unsafe { w.address().bits(addr) });
 
         // Check for underflow on the FIFO.
         if (self.regs.sr.read().flevel().bits() as usize) < buf.len() {

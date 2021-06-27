@@ -263,8 +263,6 @@ pub mod dac;
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
 pub mod dma;
 
-pub mod delay;
-
 #[cfg(not(feature = "h7"))] // todo
 pub mod flash;
 pub mod gpio;

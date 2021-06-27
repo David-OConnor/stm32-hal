@@ -450,9 +450,8 @@ where
 
     /// Write multiple bytes, blocking.
     pub fn write(&mut self, words: &[u8]) -> Result<(), Error> {
-        // todo: We ape a default EH implementation. Is this what we want?
         for word in words {
-            nb::block!(self.send(word.clone()))?;
+            nb::block!(self.write_one(word.clone()))?;
             nb::block!(self.read())?;
         }
 
@@ -670,7 +669,7 @@ where
     }
 
     fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
-        Spi::send(self, byte)
+        Spi::write_one(self, byte)
     }
 }
 
