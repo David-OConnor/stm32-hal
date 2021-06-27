@@ -16,7 +16,6 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     clocks::Clocks,
-    delay::Delay,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
     gpio::{Edge, PinMode},
     i2c::{I2c, I2cDevice},
@@ -35,8 +34,6 @@ fn main() -> ! {
     if clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
         defmt::error!("Unable to configure clocks due to a speed error.")
     };
-
-    let mut delay = Delay::new(cp.SYST, &clock_cfg);
 
     // Enable the GPIOB port.
     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);

@@ -8,6 +8,7 @@ use core::cell::{Cell, RefCell};
 
 use cortex_m::{
     interrupt::{free, Mutex},
+    delay::Delay,
     peripheral::NVIC,
 };
 use cortex_m_rt::entry;
@@ -15,10 +16,10 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     adc::{Adc, AdcChannel, AdcDevice, AdcInterrupt, Align, ClockMode, InputType, OperationMode},
     clocks::Clocks,
-    delay::Delay,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
     gpio::{Edge, PinMode},
     low_power, pac,
+    traits::ClockCfg,
 };
 
 #[entry]
@@ -34,7 +35,7 @@ fn main() -> ! {
         defmt::error!("Unable to configure clocks due to a speed error.")
     };
 
-    let mut delay = Delay::new(cp.SYST, &clock_cfg);
+    let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
 
     let chan_num = 2;
 

@@ -10,6 +10,7 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 
 use cortex_m::{
     self,
+    delay::Delay,
     interrupt::{free, Mutex},
     peripheral::NVIC,
 };
@@ -29,7 +30,6 @@ use stm32_hal2::{
     clocks::Clocks,
     dac::{Dac, DacChannel, DacBits},
     dma::{Dma, DmaChannel, DmaInterrupt, DmaReadBuf, DmaWriteBuf},
-    delay::Delay,
     flash::Flash,
     gpio::{GpioA, GpioB, Edge, PinMode, OutputType, AltFn, Pull},
     i2c::{I2c, I2cDevice},
@@ -39,6 +39,7 @@ use stm32_hal2::{
     usart::{Usart, UsartDevice, UsartInterrupt, UsartConfig},
     spi::{self, Spi, SpiConfig, SpiDevice},
     timer::{Timer, TimerInterrupt},
+    traits::ClockCfg,
 };
 
 #[entry]
@@ -65,7 +66,7 @@ fn main() -> ! {
     };
 
     // Setup a delay, based on the Cortex-m systick.
-    let mut delay = Delay::new(cp.SYST, &clock_cfg);
+    let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
 
     delay.delay_ms(500);
 

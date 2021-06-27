@@ -17,7 +17,9 @@ exclude = [".gitignore"]
 edition = "2018"
 
 [dependencies]
-cortex-m = "0.7.1"
+#cortex-m = "0.7.3"
+cortex-m = "0.7.2"
+#cortex-m = {  git = "https://github.com/rust-embedded/cortex-m" }
 
 # Peripheral Access Crates
 stm32f3 = { version = "0.13.2", optional = true }

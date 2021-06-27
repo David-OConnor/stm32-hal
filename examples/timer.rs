@@ -12,7 +12,6 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     clocks::Clocks,
-    delay::Delay,
     gpio::{Edge, PinMode},
     low_power, pac,
     timer::{Channel, CountDir, OutputCompare, Timer, TimerInterrupt},
