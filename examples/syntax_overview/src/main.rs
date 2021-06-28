@@ -37,7 +37,7 @@ use stm32_hal2::{
     pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
     usart::{Usart, UsartDevice, UsartInterrupt, UsartConfig},
-    spi::{self, Spi, SpiConfig, SpiDevice},
+    spi::{self, BaudRate, Spi, SpiConfig, SpiDevice},
     timer::{Timer, TimerInterrupt},
     traits::ClockCfg,
 };
@@ -135,7 +135,7 @@ fn main() -> ! {
         dp.SPI1,
         SpiDevice::One,
         spi_cfg,
-        4_000_000,
+        BadRate::Div32,  // Eg 80Mhz apb clock / 32 = 2.5Mhz SPI clock.
         &clock_cfg,
         &mut dp.RCC,
     );

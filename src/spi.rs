@@ -30,7 +30,7 @@ use cfg_if::cfg_if;
 
 /// SPI error
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Copy, Clone)]
 pub enum Error {
     /// Overrun occurred
     Overrun,
@@ -41,7 +41,7 @@ pub enum Error {
 }
 
 /// Possible interrupt types. Enable these in CR2. Check and clear with SR. Clear in ?
-#[derive(Debug)]
+#[derive(Copy, Clone)]
 pub enum SpiInterrupt {
     /// Tx buffer empty (TXEIE)
     TxBufEmpty,
@@ -58,6 +58,20 @@ pub enum SpiDevice {
     Two,
     #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0", feature = "wb")))]
     Three,
+}
+
+/// Set the factor to divide the APB clock by to set baud rate. Sets `SPI_CR1` register, `BR` field.
+#[derive(Copy, Clone)]
+#[repr(u8)]
+pub enum BaudRate {
+    Div2 = 0b000,
+    Div4 = 0b001,
+    Div8 = 0b010,
+    Div16 = 0b011,
+    Div32 = 0b100,
+    Div64 = 0b101,
+    Div128 = 0b110,
+    Div256 = 0b111,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -132,7 +146,7 @@ where
         regs: S,
         device: SpiDevice,
         cfg: SpiConfig,
-        freq: u32,
+        baud_rate: BaudRate,
         clocks: &C,
         rcc: &mut RCC,
     ) -> Self {
@@ -160,19 +174,12 @@ where
             }
         }
 
-        let fclk = match device {
-            SpiDevice::One => clocks.apb2(),
-            _ => clocks.apb1(),
-        };
-
-        let br = Self::compute_baud_rate(fclk, freq);
-
         cfg_if! {
             if #[cfg(feature = "h7")] {
                   // Disable SS output
                 regs.cfg2.write(|w| w.ssoe().disabled());
 
-                regs.cfg1.modify(|_, w| w.mbr().bits(br));
+                regs.cfg1.modify(|_, w| w.mbr().bits(baud_rate as u8));
                 // spi!(DSIZE, spi, $TY); // modify CFG1 for DSIZE
 
                 // ssi: select slave = master mode
@@ -236,7 +243,7 @@ where
                 // 2. Write to the SPI_CR1 register:
                 regs.cr1.modify(|_, w| unsafe {
                     // a) Configure the serial clock baud rate using the BR[2:0] bits (Note: 4)
-                    w.br().bits(br);
+                    w.br().bits(baud_rate as u8);
                     // b) Configure the CPOL and CPHA bits combination to define one of the four
                     // relationships between the data transfer and the serial clock (CPHA must be
                     // cleared in NSSP mode). (Note: 2 - except the case when CRC is enabled at TI
@@ -295,44 +302,22 @@ where
     }
 
     /// Change the baud rate of the SPI
-    pub fn reclock<F, C: ClockCfg>(&mut self, freq: u32, clocks: C) {
+    pub fn reclock(&mut self, baud_rate: BaudRate) {
         self.regs.cr1.modify(|_, w| w.spe().clear_bit());
-
-        let fclk = match self.device {
-            SpiDevice::One => clocks.apb2(),
-            _ => clocks.apb1(),
-        };
-
-        let br = Self::compute_baud_rate(fclk, freq);
 
         #[cfg(not(feature = "h7"))]
         self.regs.cr1.modify(|_, w| unsafe {
-            w.br().bits(br);
+            w.br().bits(baud_rate as u8);
             w.spe().set_bit()
         });
 
         #[cfg(feature = "h7")]
-        self.regs.cfg1.modify(|_, w| unsafe { w.mbr().bits(br) });
+        self.regs
+            .cfg1
+            .modify(|_, w| unsafe { w.mbr().bits(br as u8) });
 
         #[cfg(feature = "h7")]
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
-    }
-
-    /// Compute value for the baud rate register (BR). BR is specified as
-    /// fraction offpclk (eg apb1 or apb2). Use the divider that will provide
-    /// a speed closest to the one requested.
-    fn compute_baud_rate(clocks: u32, freq: u32) -> u8 {
-        // todo: Check that this is the same across MCUs.
-        match clocks / freq {
-            0..=2 => 0b000,    // fpclk / 2
-            3..=6 => 0b001,    // /4
-            7..=11 => 0b010,   // /8
-            12..=23 => 0b011,  // /16
-            24..=39 => 0b100,  // /32
-            40..=95 => 0b101,  // /64
-            96..=191 => 0b110, // /128
-            _ => 0b111,        // /256
-        }
     }
 
     /// L44 RM, section 40.4.9: "Procedure for disabling the SPI"

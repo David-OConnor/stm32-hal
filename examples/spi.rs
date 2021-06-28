@@ -19,7 +19,7 @@ use stm32_hal2::{
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
     gpio::{Edge, PinMode},
     low_power, pac,
-    spi::{self, Spi, SpiConfig, SpiDevice},
+    spi::{self, BaudRate, Spi, SpiConfig, SpiDevice},
 };
 
 use embedded_hal::spi::{Mode, Phase, Polarity};
@@ -60,7 +60,7 @@ fn main() -> ! {
         dp.SPI1,
         SpiDevice::One,
         spi_cfg,
-        4_000_000,
+        BaudRate::Div32, // Eg 80Mhz apb clock / 32 = 2.5Mhz SPI clock.
         &clock_cfg,
         &mut dp.RCC,
     );

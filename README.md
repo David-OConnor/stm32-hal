@@ -7,7 +7,7 @@ This library provides high-level access to STM32 peripherals.
 
 ## Requirements
 1. Provide high-level access to most STM32 peripherals
-2. Support these STM32 families: `F3`, `F4`, `L4`, `L5`, `G`, `H`, and `W`, and `U`
+2. Support these STM32 families: `F3`, `F4`, `L4`, `L5`, `G`, `H`, `U`, and `W`
 3. Allow switching MCUs with minimal code change
 4. Provide a consistent API across peripheral modules
 5. Support both DMA and non-DMA interfaces
@@ -23,17 +23,14 @@ register access [2]
 - Wrap PAC register blocks in structs that represent the applicable peripheral, and access features
 of these peripherals using public methods [1]
 - Use `#[cfg]` blocks, and the `cfg_if!` macro to handle differences between MCUs; use separate modules
- where large differences exist.[2, 3]
+ where large differences exist [2, 3]
 - Use both peripheral struct methods, and `embedded-hal` trait implementations for non-DMA interfaces; use additional
  struct methods for DMA interfaces [4, 5, 7]
-- Favor functionality, ergonomics, and explicit interfaces. [6]
+- Favor functionality, ergonomics, and explicit interfaces [6]
 
 
 **Current family support**: F3, F4, L4, L5, G0, G4, H7, and WB. U5 is planned once its SVD files and PAC
 become available. WL eventually.
-
-Both DMA (Direct Memory Access) and non-DMA APIs and examples are provided. DMA APIs provide faster and more efficient
-operations, while non-DMA APIs are simpler, and are compatible with `embedded-hal`.
 
 
 ## Getting started
@@ -46,7 +43,7 @@ When specifying this crate as a dependency in `Cargo.toml`, you need to specify 
 representing your MCU. If this is for code that runs on an MCU directly (ie not a library), also
  include a run-time feature, following the template `l4rt`. For example: 
 ```toml
-cortex-m = "0.7.1"
+cortex-m = "0.7.3"
 cortex-m-rt = "0.6.13"
 stm32-hal2 = { version = "^0.2.8", features = ["l4x3", "l4rt"]}
 ```

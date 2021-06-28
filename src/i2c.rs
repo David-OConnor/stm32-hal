@@ -103,7 +103,7 @@ where
     pub fn new<C: ClockCfg>(
         regs: I,
         device: I2cDevice,
-        freq: u32,
+        freq: u32, // todo: Set a division manually, like you do with SPI.
         clocks: &C,
         rcc: &mut RCC,
     ) -> Self {
