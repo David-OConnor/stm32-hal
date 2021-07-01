@@ -30,7 +30,7 @@ use cfg_if::cfg_if;
 
 /// SPI error
 #[non_exhaustive]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Error {
     /// Overrun occurred
     Overrun,
@@ -142,12 +142,11 @@ where
     S: Deref<Target = pac::spi1::RegisterBlock>,
 {
     /// Configures the SPI peripheral to operate in full duplex master mode
-    pub fn new<C: ClockCfg>(
+    pub fn new(
         regs: S,
         device: SpiDevice,
         cfg: SpiConfig,
         baud_rate: BaudRate,
-        clocks: &C,
         rcc: &mut RCC,
     ) -> Self {
         match device {

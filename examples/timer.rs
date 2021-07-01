@@ -14,7 +14,7 @@ use stm32_hal2::{
     clocks::Clocks,
     gpio::{Edge, PinMode},
     low_power, pac,
-    timer::{Channel, CountDir, OutputCompare, Timer, TimerInterrupt},
+    timer::{CountDir, OutputCompare, TimChannel, Timer, TimerInterrupt},
 };
 
 #[entry]
@@ -39,10 +39,13 @@ fn main() -> ! {
     // Set up a PWM timer that will output to PA0, run at 2400Hz in edge-aligned mode,
     // count up, with a 50% duty cycle.
     let mut pwm_timer = Timer::new_tim2(dp.TIM2, 2_400., &clock_cfg, &mut dp.RCC);
-    pwm_timer.enable_pwm_output(Channel::One, OutputCompare::Pwm1, CountDir::Up, 0.5);
+    pwm_timer.enable_pwm_output(TimChannel::C1, OutputCompare::Pwm1, CountDir::Up, 0.5);
     // Setting auto reload preload allow changing frequency (period) while the timer is running.
     pwm_timer.set_auto_reload_preload(true);
     pwm_timer.enable();
+
+    // Change the duty cycle.
+    pwm_timer.set_duty(TimChannel::C1, 100);
 
     let mut countdown_timer = Timer::new_tim3(dp.TIM3, 0.5, &clock_cfg, &mut dp.RCC);
     countdown_timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.

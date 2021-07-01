@@ -71,6 +71,7 @@ enum WaitState {
     W1 = 1,
     W2 = 2,
     W3 = 3,
+    #[cfg(not(feature = "wb"))]
     W4 = 4,
     #[cfg(feature = "l5")]
     W5 = 5,
@@ -494,7 +495,13 @@ impl Clocks {
         // We need to do this before enabling PLL, or it won't enable.
         let (_, sysclk) = self.calc_sysclock();
 
-        let hclk = sysclk / self.hclk_prescaler.value() as u32;
+        cfg_if! {
+            if #[cfg(feature = "wb")] {
+                let hclk = sysclk / self.hclk4_prescaler.value() as u32;
+            } else {
+                let hclk = sysclk / self.hclk_prescaler.value() as u32;
+            }
+        }
 
         // TODO: these are only implemented for Vcore Rnage 1 (Normal mode as applicable)
         // todo: Other modes, like MODE 2 (For lower max system clocks) on L4.
@@ -539,7 +546,20 @@ impl Clocks {
                     } else {
                         w.latency().bits(WaitState::W2 as u8)
                     }
-                })
+                });
+            } else if #[cfg(feature = "wb")] {  // WB. RM section 3.3.4, Table 4.
+            // Note: This applies to HCLK4 HCLK. (See HCLK4 used above for hclk var.)
+                flash.acr.modify(|_, w| unsafe {
+                    if hclk <= 18_000_000 {
+                        w.latency().bits(WaitState::W0 as u8)
+                    } else if hclk <= 36_000_000 {
+                        w.latency().bits(WaitState::W1 as u8)
+                    } else if hclk <= 54_000_000 {
+                        w.latency().bits(WaitState::W2 as u8)
+                    } else {
+                        w.latency().bits(WaitState::W3 as u8)
+                    }
+                });
             } else {  // G4. RM section 3.3.3
                 flash.acr.modify(|_, w| unsafe {
                     if hclk <= 34_000_000 {

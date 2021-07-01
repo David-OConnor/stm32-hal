@@ -10,6 +10,11 @@ use core::ptr;
 
 use cfg_if::cfg_if;
 
+// todo: Status-polling mode.
+
+// todo: Is this avail in PAC? Feature-gate if diff on diff platforms?
+const MEM_MAPPED_BASE_ADDR: usize = 0x9000_0000;
+
 #[derive(Copy, Clone)]
 #[repr(u8)]
 /// Sets the Qspi mode to single, dual, or quad. Affects the IMODE, ADMODE, ABMODE,
@@ -38,8 +43,8 @@ pub enum DataMode {
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
-/// Sets the Qspi mode to single, dual, or quad. Affects the FMODE field of the CCR reg.
-pub enum QspiMode {
+/// Sets the Qspi Functional Mode. Affects the FMODE field of the CCR reg.
+pub enum FunctionalMode {
     IndirectWrite = 0b00,
     IndirectRead = 0b01,
     StatusPolling = 0b10,
@@ -78,21 +83,20 @@ pub enum QspiError {
 /// A structure for specifying QSPI configuration.
 #[derive(Copy, Clone)]
 pub struct QspiConfig {
-    mode: QspiMode,
-    protocol_mode: ProtocolMode,
-    data_mode: DataMode,
-    frequency: u32,
-    address_size: AddressSize,
-    dummy_cycles: u8,
-    sampling_edge: SamplingEdge,
-    fifo_threshold: u8,
+    pub protocol_mode: ProtocolMode,
+    pub data_mode: DataMode,
+    pub frequency: u32,
+    pub address_size: AddressSize,
+    pub dummy_cycles: u8,
+    pub sampling_edge: SamplingEdge,
+    pub fifo_threshold: u8,
+    pub mem_size: u32, // Size of the memory, in Megabytes.
 }
 
 impl Default for QspiConfig {
     fn default() -> Self {
         Self {
             // todo: QC what you want here.
-            mode: QspiMode::MemoryMapped,
             protocol_mode: ProtocolMode::Quad,
             data_mode: DataMode::Sdr,
             frequency: 40_000_000, // todo: What should this be?
@@ -100,6 +104,7 @@ impl Default for QspiConfig {
             dummy_cycles: 0,
             sampling_edge: SamplingEdge::Falling,
             fifo_threshold: 1, // todo: What is this?
+            mem_size: 64,
         }
     }
 }
@@ -148,7 +153,6 @@ impl Qspi {
         while regs.sr.read().busy().bit_is_set() {}
 
         regs.ccr.modify(|_, w| unsafe {
-            w.fmode().bits(cfg.mode as u8);
             w.abmode().bits(cfg.protocol_mode as u8);
             w.admode().bits(cfg.protocol_mode as u8);
             w.imode().bits(cfg.protocol_mode as u8);
@@ -157,6 +161,22 @@ impl Qspi {
             w.adsize().bits(cfg.address_size as u8);
             w.dcyc().bits(cfg.dummy_cycles)
         });
+
+        // RM: The FSIZE[4:0] field defines the size of external memory using the following formula:
+        // Number of bytes in Flash memory = 2^[FSIZE+1]
+        // The addressable space in memory-mapped mode is limited to 256MB.
+        // regs.dcr.modify(|_, w| unsafe { w.fsize.bits(cfg.mem_size / 2 - 1) });
+
+        let mut fsize = 0;
+        for shift in 0..32 {
+            if cfg.mem_size >> shift == 0 {
+                fsize = shift - 1;
+                break;
+            }
+        }
+
+        regs.dcr.modify(|_, w| unsafe { w.fsize().bits(fsize) }); // todo
+                                                                  // regs.dcr.modify(|_, w| unsafe { w.fsize().bits(24) });
 
         // RM: This field [prescaler] defines the scaler factor for generating CLK based on the
         // clock (value+1).
@@ -226,6 +246,8 @@ impl Qspi {
     pub fn write_indirect(&mut self, addr: u32, data: &[u8]) {
         // todo: Do we want to use interrupt flats in these blocking fns?
         self.clear_interrupt(QspiInterrupt::TransferComplete);
+        // FMODE, and perhaps othe rfields can only be set when BUSY = 0.
+        while self.is_busy() {}
 
         // todo: Fix this
         assert!(
@@ -257,7 +279,7 @@ impl Qspi {
         // is updated (if the DMA controller has already been enabled)
         self.regs
             .ccr
-            .modify(|_, w| unsafe { w.fmode().bits(QspiMode::IndirectWrite as u8) });
+            .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::IndirectWrite as u8) });
         // 5. Specify the targeted address in the QUADSPI_AR.
         self.regs
             .ar
@@ -305,6 +327,7 @@ impl Qspi {
     pub fn read_indirect(&mut self, addr: u32, buf: &mut [u8]) -> Result<(), QspiError> {
         // todo: Do we want to use interrupt flats in these blocking fns?
         self.clear_interrupt(QspiInterrupt::TransferComplete);
+        while self.is_busy() {}
 
         // todo: Fix this
         assert!(
@@ -318,7 +341,7 @@ impl Qspi {
             .write(|w| unsafe { w.dl().bits(buf.len() as u32 - 1) });
         self.regs
             .ccr
-            .modify(|_, w| unsafe { w.fmode().bits(QspiMode::IndirectRead as u8) });
+            .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::IndirectRead as u8) });
         self.regs
             .ar
             .modify(|_, w| unsafe { w.address().bits(addr) });
@@ -341,4 +364,19 @@ impl Qspi {
     }
 
     // todo: write_indirect_dma fn.
+
+    /// Read one word from memory in memory-mapped mode
+    pub fn read_1_mem_mapped(&mut self, offset: isize) -> u32 {
+        // todo: unsafe fn? word size?
+        while self.is_busy() {}
+
+        if self.regs.ccr.read().fmode().bits() != FunctionalMode::MemoryMapped as u8 {
+            self.regs
+                .ccr
+                .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::MemoryMapped as u8) });
+        }
+
+        let addr = MEM_MAPPED_BASE_ADDR as *const u32; // as const what?
+        unsafe { core::ptr::read(addr.offset(offset)) }
+    }
 }

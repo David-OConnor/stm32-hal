@@ -69,14 +69,13 @@ pub enum Alignment {
     Center3,
 }
 
-// todo: TimerChannel, to avoid input conflicts?
 /// Timer channel
 #[derive(Clone, Copy)]
-pub enum Channel {
-    One,
-    Two,
-    Three,
-    Four,
+pub enum TimChannel {
+    C1,
+    C2,
+    C3,
+    C4,
 }
 
 /// Timer count direction
@@ -440,7 +439,7 @@ macro_rules! pwm_features {
             /// Enables basic PWM output
             pub fn enable_pwm_output(
                 &mut self,
-                channel: Channel,
+                channel: TimChannel,
                 compare: OutputCompare,
                 dir: CountDir,
                 duty: f32,
@@ -456,7 +455,7 @@ macro_rules! pwm_features {
             /// L4 RM, section 26.3.8
             pub fn _enable_pwm_input(
                 &mut self,
-                channel: Channel,
+                channel: TimChannel,
                 compare: OutputCompare,
                 dir: CountDir,
                 duty: f32,
@@ -501,9 +500,9 @@ macro_rules! pwm_features {
             // todo: more advanced PWM modes. Asymmetric, combined, center-aligned etc.
 
             /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
-            pub fn set_output_compare(&mut self, channel: Channel, mode: OutputCompare) {
+            pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
                 match channel {
-                    Channel::One => {
+                    TimChannel::C1 => {
                         self.tim
                             .ccmr1_output()
                             .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
@@ -514,7 +513,7 @@ macro_rules! pwm_features {
                             .ccmr1_output()
                             .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
                     }
-                    Channel::Two => {
+                    TimChannel::C2 => {
                         self.tim
                             .ccmr1_output()
                             .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
@@ -523,7 +522,7 @@ macro_rules! pwm_features {
                             .ccmr1_output()
                             .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
                     }
-                    Channel::Three => {
+                    TimChannel::C3 => {
                         self.tim
                             .ccmr1_output()
                             .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
@@ -532,7 +531,7 @@ macro_rules! pwm_features {
                             .ccmr1_output()
                             .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
                     }
-                    Channel::Four => {
+                    TimChannel::C4 => {
                         self.tim
                             .ccmr2_output()
                             .modify(|_, w| unsafe { w.oc4m().bits(mode as u8) });
@@ -546,60 +545,60 @@ macro_rules! pwm_features {
 
             /// Return the set duty period for a given channel. Divide by `get_max_duty()`
             /// to find the portion of the duty cycle used.
-            pub fn get_duty(&self, channel: Channel) -> $res {
+            pub fn get_duty(&self, channel: TimChannel) -> $res {
                 cfg_if! {
                     if #[cfg(feature = "g0")] {
                         match channel {
                             // todo: This isn't right!!
-                            Channel::One => self.tim.ccr1.read().bits(),
-                            Channel::Two => self.tim.ccr2.read().bits(),
-                            Channel::Three => self.tim.ccr3.read().bits(),
-                            Channel::Four => self.tim.ccr4.read().bits(),
+                            TimChannel::C1 => self.tim.ccr1.read().bits(),
+                            TimChannel::C2 => self.tim.ccr2.read().bits(),
+                            TimChannel::C3 => self.tim.ccr3.read().bits(),
+                            TimChannel::C4 => self.tim.ccr4.read().bits(),
                         }
                     } else if #[cfg(any(feature = "g4", feature = "wb"))] {
                         match channel {
-                            Channel::One => self.tim.ccr1.read().ccr1().bits(),
-                            Channel::Two => self.tim.ccr2.read().ccr2().bits(),
-                            Channel::Three => self.tim.ccr3.read().ccr3().bits(),
-                            Channel::Four => self.tim.ccr4.read().ccr4().bits(),
+                            TimChannel::C1 => self.tim.ccr1.read().ccr1().bits(),
+                            TimChannel::C2 => self.tim.ccr2.read().ccr2().bits(),
+                            TimChannel::C3 => self.tim.ccr3.read().ccr3().bits(),
+                            TimChannel::C4 => self.tim.ccr4.read().ccr4().bits(),
                         }
                     } else {
                         match channel {
-                            Channel::One => self.tim.ccr1.read().ccr().bits(),
-                            Channel::Two => self.tim.ccr2.read().ccr().bits(),
-                            Channel::Three => self.tim.ccr3.read().ccr().bits(),
-                            Channel::Four => self.tim.ccr4.read().ccr().bits(),
+                            TimChannel::C1 => self.tim.ccr1.read().ccr().bits(),
+                            TimChannel::C2 => self.tim.ccr2.read().ccr().bits(),
+                            TimChannel::C3 => self.tim.ccr3.read().ccr().bits(),
+                            TimChannel::C4 => self.tim.ccr4.read().ccr().bits(),
                         }
                     }
                 }
             }
 
             /// Set the duty cycle, as a portion of `get_max_duty()`.
-            pub fn set_duty(&mut self, channel: Channel, duty: $res) {
+            pub fn set_duty(&mut self, channel: TimChannel, duty: $res) {
                 cfg_if! {
                     if #[cfg(feature = "g0")] {
                         match channel {
                             // todo: This isn't right!!
-                            Channel::One => self.tim.ccr1.read().bits(),
-                            Channel::Two => self.tim.ccr2.read().bits(),
-                            Channel::Three => self.tim.ccr3.read().bits(),
-                            Channel::Four => self.tim.ccr4.read().bits(),
+                            TimChannel::C1 => self.tim.ccr1.read().bits(),
+                            TimChannel::C2 => self.tim.ccr2.read().bits(),
+                            TimChannel::C3 => self.tim.ccr3.read().bits(),
+                            TimChannel::C4 => self.tim.ccr4.read().bits(),
                         };
                     } else if #[cfg(any(feature = "g4", feature = "wb"))] {
                         unsafe {
                             match channel {
-                                Channel::One => self.tim.ccr1.write(|w| w.ccr1().bits(duty)),
-                                Channel::Two => self.tim.ccr2.write(|w| w.ccr2().bits(duty)),
-                                Channel::Three => self.tim.ccr3.write(|w| w.ccr3().bits(duty)),
-                                Channel::Four => self.tim.ccr4.write(|w| w.ccr4().bits(duty)),
+                                TimChannel::C1 => self.tim.ccr1.write(|w| w.ccr1().bits(duty)),
+                                TimChannel::C2 => self.tim.ccr2.write(|w| w.ccr2().bits(duty)),
+                                TimChannel::C3 => self.tim.ccr3.write(|w| w.ccr3().bits(duty)),
+                                TimChannel::C4 => self.tim.ccr4.write(|w| w.ccr4().bits(duty)),
                             }
                         }
                     } else {
                         match channel {
-                            Channel::One => self.tim.ccr1.write(|w| w.ccr().bits(duty)),
-                            Channel::Two => self.tim.ccr2.write(|w| w.ccr().bits(duty)),
-                            Channel::Three => self.tim.ccr3.write(|w| w.ccr().bits(duty)),
-                            Channel::Four => self.tim.ccr4.write(|w| w.ccr().bits(duty)),
+                            TimChannel::C1 => self.tim.ccr1.write(|w| w.ccr().bits(duty)),
+                            TimChannel::C2 => self.tim.ccr2.write(|w| w.ccr().bits(duty)),
+                            TimChannel::C3 => self.tim.ccr3.write(|w| w.ccr().bits(duty)),
+                            TimChannel::C4 => self.tim.ccr4.write(|w| w.ccr().bits(duty)),
                         }
                     }
                 }
@@ -639,61 +638,61 @@ macro_rules! pwm_features {
             }
 
             /// Set output polarity. See docs on the `Polarity` enum.
-            pub fn set_polarity(&mut self, channel: Channel, polarity: Polarity) {
+            pub fn set_polarity(&mut self, channel: TimChannel, polarity: Polarity) {
                 match channel {
-                    Channel::One => self.tim.ccer.modify(|_, w| w.cc1p().bit(polarity.bit())),
-                    Channel::Two => self.tim.ccer.modify(|_, w| w.cc2p().bit(polarity.bit())),
-                    Channel::Three => self.tim.ccer.modify(|_, w| w.cc3p().bit(polarity.bit())),
-                    Channel::Four => self.tim.ccer.modify(|_, w| w.cc4p().bit(polarity.bit())),
+                    TimChannel::C1 => self.tim.ccer.modify(|_, w| w.cc1p().bit(polarity.bit())),
+                    TimChannel::C2 => self.tim.ccer.modify(|_, w| w.cc2p().bit(polarity.bit())),
+                    TimChannel::C3 => self.tim.ccer.modify(|_, w| w.cc3p().bit(polarity.bit())),
+                    TimChannel::C4 => self.tim.ccer.modify(|_, w| w.cc4p().bit(polarity.bit())),
                 }
             }
 
             /// Set complementary output polarity. See docs on the `Polarity` enum.
-            pub fn set_complementary_polarity(&mut self, channel: Channel, polarity: Polarity) {
+            pub fn set_complementary_polarity(&mut self, channel: TimChannel, polarity: Polarity) {
                 match channel {
-                    Channel::One => self.tim.ccer.modify(|_, w| w.cc1np().bit(polarity.bit())),
-                    Channel::Two => self.tim.ccer.modify(|_, w| w.cc2np().bit(polarity.bit())),
-                    Channel::Three => self.tim.ccer.modify(|_, w| w.cc3np().bit(polarity.bit())),
-                    Channel::Four => self.tim.ccer.modify(|_, w| w.cc4np().bit(polarity.bit())),
+                    TimChannel::C1 => self.tim.ccer.modify(|_, w| w.cc1np().bit(polarity.bit())),
+                    TimChannel::C2 => self.tim.ccer.modify(|_, w| w.cc2np().bit(polarity.bit())),
+                    TimChannel::C3 => self.tim.ccer.modify(|_, w| w.cc3np().bit(polarity.bit())),
+                    TimChannel::C4 => self.tim.ccer.modify(|_, w| w.cc4np().bit(polarity.bit())),
                 }
             }
             /// Disables capture compare on a specific channel.
-            pub fn disable_capture_compare(&mut self, channel: Channel) {
+            pub fn disable_capture_compare(&mut self, channel: TimChannel) {
                 match channel {
-                    Channel::One => self.tim.ccer.modify(|_, w| w.cc1e().clear_bit()),
-                    Channel::Two => self.tim.ccer.modify(|_, w| w.cc2e().clear_bit()),
-                    Channel::Three => self.tim.ccer.modify(|_, w| w.cc3e().clear_bit()),
-                    Channel::Four => self.tim.ccer.modify(|_, w| w.cc4e().clear_bit()),
+                    TimChannel::C1 => self.tim.ccer.modify(|_, w| w.cc1e().clear_bit()),
+                    TimChannel::C2 => self.tim.ccer.modify(|_, w| w.cc2e().clear_bit()),
+                    TimChannel::C3 => self.tim.ccer.modify(|_, w| w.cc3e().clear_bit()),
+                    TimChannel::C4 => self.tim.ccer.modify(|_, w| w.cc4e().clear_bit()),
                 }
             }
 
             /// Enables capture compare on a specific channel.
-            pub fn enable_capture_compare(&mut self, channel: Channel) {
+            pub fn enable_capture_compare(&mut self, channel: TimChannel) {
                 match channel {
-                    Channel::One => self.tim.ccer.modify(|_, w| w.cc1e().set_bit()),
-                    Channel::Two => self.tim.ccer.modify(|_, w| w.cc2e().set_bit()),
-                    Channel::Three => self.tim.ccer.modify(|_, w| w.cc3e().set_bit()),
-                    Channel::Four => self.tim.ccer.modify(|_, w| w.cc4e().set_bit()),
+                    TimChannel::C1 => self.tim.ccer.modify(|_, w| w.cc1e().set_bit()),
+                    TimChannel::C2 => self.tim.ccer.modify(|_, w| w.cc2e().set_bit()),
+                    TimChannel::C3 => self.tim.ccer.modify(|_, w| w.cc3e().set_bit()),
+                    TimChannel::C4 => self.tim.ccer.modify(|_, w| w.cc4e().set_bit()),
                 }
             }
 
             /// Set Capture Compare Mode. See docs on the `CaptureCompare` enum.
-            pub fn set_capture_compare(&mut self, channel: Channel, mode: CaptureCompare) {
+            pub fn set_capture_compare(&mut self, channel: TimChannel, mode: CaptureCompare) {
                 match channel {
                     // Note: CC1S bits are writable only when the channel is OFF (CC1E = 0 in TIMx_CCER)
-                    Channel::One => self
+                    TimChannel::C1 => self
                         .tim
                         .ccmr1_output()
                         .modify(unsafe { |_, w| w.cc1s().bits(mode as u8) }),
-                    Channel::Two => self
+                    TimChannel::C2 => self
                         .tim
                         .ccmr1_output()
                         .modify(unsafe { |_, w| w.cc2s().bits(mode as u8) }),
-                    Channel::Three => self
+                    TimChannel::C3 => self
                         .tim
                         .ccmr2_output()
                         .modify(unsafe { |_, w| w.cc3s().bits(mode as u8) }),
-                    Channel::Four => self
+                    TimChannel::C4 => self
                         .tim
                         .ccmr2_output()
                         .modify(unsafe { |_, w| w.cc4s().bits(mode as u8) }),
@@ -718,12 +717,12 @@ macro_rules! pwm_features {
             /// pulse mode (OPM bit set in TIMx_CR1 register). Else the behavior is not guaranteed.
             ///
             /// Setting preload is required to enable PWM.
-            pub fn set_preload(&mut self, channel: Channel, value: bool) {
+            pub fn set_preload(&mut self, channel: TimChannel, value: bool) {
                 match channel {
-                    Channel::One => self.tim.ccmr1_output().modify(|_, w| w.oc1pe().bit(value)),
-                    Channel::Two => self.tim.ccmr1_output().modify(|_, w| w.oc2pe().bit(value)),
-                    Channel::Three => self.tim.ccmr2_output().modify(|_, w| w.oc3pe().bit(value)),
-                    Channel::Four => self.tim.ccmr2_output().modify(|_, w| w.oc4pe().bit(value)),
+                    TimChannel::C1 => self.tim.ccmr1_output().modify(|_, w| w.oc1pe().bit(value)),
+                    TimChannel::C2 => self.tim.ccmr1_output().modify(|_, w| w.oc2pe().bit(value)),
+                    TimChannel::C3 => self.tim.ccmr2_output().modify(|_, w| w.oc3pe().bit(value)),
+                    TimChannel::C4 => self.tim.ccmr2_output().modify(|_, w| w.oc4pe().bit(value)),
                 }
 
                 // "As the preload registers are transferred to the shadow registers only when an update event

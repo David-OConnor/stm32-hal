@@ -136,7 +136,6 @@ fn main() -> ! {
         SpiDevice::One,
         spi_cfg,
         BadRate::Div32,  // Eg 80Mhz apb clock / 32 = 2.5Mhz SPI clock.
-        &clock_cfg,
         &mut dp.RCC,
     );
 
@@ -198,8 +197,8 @@ fn main() -> ! {
 
     // Set up the Digital-to-analog converter
     let mut dac_pin = gpioa.new_pin(12, PinMode::Analog);
-    let mut dac = Dac::new(dp.DAC1, DacChannel::One, Bits::TwelveR, 3.3, &mut dp.RCC);
-    dac.enable();
+    let mut dac = Dac::new(dp.DAC1, Bits::TwelveR, 3.3, &mut dp.RCC);
+    dac.enable(DacChannel::C1);
 
     // Set up and start a timer; set it to fire interrupts at 5Hz.
     let mut timer = Timer::new_tim1(dp.TIM1, 0.2, &clock_cfg, &mut dp.RCC);

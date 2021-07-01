@@ -61,7 +61,6 @@ fn main() -> ! {
         SpiDevice::One,
         spi_cfg,
         BaudRate::Div32, // Eg 80Mhz apb clock / 32 = 2.5Mhz SPI clock.
-        &clock_cfg,
         &mut dp.RCC,
     );
 
