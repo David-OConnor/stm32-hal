@@ -131,19 +131,19 @@ impl Default for SpiConfig {
 }
 
 /// Represents a Serial Peripheral Interface (SPI) peripheral.
-pub struct Spi<S> {
-    regs: S,
+pub struct Spi<R> {
+    regs: R,
     device: SpiDevice,
     cfg: SpiConfig,
 }
 
-impl<S> Spi<S>
+impl<R> Spi<R>
 where
-    S: Deref<Target = pac::spi1::RegisterBlock>,
+    R: Deref<Target = pac::spi1::RegisterBlock>,
 {
     /// Configures the SPI peripheral to operate in full duplex master mode
     pub fn new(
-        regs: S,
+        regs: R,
         device: SpiDevice,
         cfg: SpiConfig,
         baud_rate: BaudRate,
@@ -313,7 +313,7 @@ where
         #[cfg(feature = "h7")]
         self.regs
             .cfg1
-            .modify(|_, w| unsafe { w.mbr().bits(br as u8) });
+            .modify(|_, w| unsafe { w.mbr().bits(baud_rate as u8) });
 
         #[cfg(feature = "h7")]
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
@@ -642,9 +642,9 @@ where
     // }
 }
 
-impl<S> FullDuplex<u8> for Spi<S>
+impl<R> FullDuplex<u8> for Spi<R>
 where
-    S: Deref<Target = pac::spi1::RegisterBlock>,
+    R: Deref<Target = pac::spi1::RegisterBlock>,
 {
     type Error = Error;
 
@@ -657,12 +657,12 @@ where
     }
 }
 
-impl<S> embedded_hal::blocking::spi::transfer::Default<u8> for Spi<S> where
-    S: Deref<Target = pac::spi1::RegisterBlock>
+impl<R> embedded_hal::blocking::spi::transfer::Default<u8> for Spi<R> where
+    R: Deref<Target = pac::spi1::RegisterBlock>
 {
 }
 
-impl<S> embedded_hal::blocking::spi::write::Default<u8> for Spi<S> where
-    S: Deref<Target = pac::spi1::RegisterBlock>
+impl<R> embedded_hal::blocking::spi::write::Default<u8> for Spi<R> where
+    R: Deref<Target = pac::spi1::RegisterBlock>
 {
 }

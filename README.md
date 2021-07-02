@@ -148,14 +148,14 @@ enum FcRadarInterrupt {
 }
 
 /// Represents a Fire Control Radar (FCR) peripheral.
-pub struct FcRadar<F> {
-    regs: F,
+pub struct FcRadar<R> {
+    regs: R,
     pub prf: Prf,
 }
 
-impl<F> FcRadar<F>
+impl<F> FcRadar<R>
 where
-    F: Deref<Target = pac::fcrdr1::RegisterBlock>,
+    R: Deref<Target = pac::fcrdr1::RegisterBlock>,
 {
     pub fn new(regs: R, prf: Prf, rcc: &mut pac::RCC) -> Self {
         rcc_en_reset!(apb1, fcradar1, rcc);

@@ -525,9 +525,9 @@ where
     }
 }
 
-impl<I2C> Write for I2c<I2C>
+impl<R> Write for I2c<R>
 where
-    I2C: Deref<Target = pac::i2c1::RegisterBlock>,
+    R: Deref<Target = pac::i2c1::RegisterBlock>,
 {
     type Error = Error;
 
@@ -536,9 +536,9 @@ where
     }
 }
 
-impl<I2C> Read for I2c<I2C>
+impl<R> Read for I2c<R>
 where
-    I2C: Deref<Target = pac::i2c1::RegisterBlock>,
+    R: Deref<Target = pac::i2c1::RegisterBlock>,
 {
     type Error = Error;
 
@@ -547,9 +547,9 @@ where
     }
 }
 
-impl<I2C> WriteRead for I2c<I2C>
+impl<R> WriteRead for I2c<R>
 where
-    I2C: Deref<Target = pac::i2c1::RegisterBlock>,
+    R: Deref<Target = pac::i2c1::RegisterBlock>,
 {
     type Error = Error;
 

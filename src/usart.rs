@@ -136,19 +136,19 @@ impl Default for UsartConfig {
 }
 
 /// Represents the USART peripheral, for serial communications.
-pub struct Usart<U> {
-    regs: U,
+pub struct Usart<R> {
+    regs: R,
     device: UsartDevice,
     pub baud: u32,
     pub config: UsartConfig,
 }
 
-impl<U> Usart<U>
+impl<R> Usart<R>
 where
-    U: Deref<Target = pac::usart1::RegisterBlock>,
+    R: Deref<Target = pac::usart1::RegisterBlock>,
 {
     pub fn new<C: ClockCfg>(
-        regs: U,
+        regs: R,
         device: UsartDevice,
         baud: u32,
         config: UsartConfig,
@@ -690,9 +690,9 @@ where
     }
 }
 
-impl<U> Write<u8> for Usart<U>
+impl<R> Write<u8> for Usart<R>
 where
-    U: Deref<Target = pac::usart1::RegisterBlock>,
+    R: Deref<Target = pac::usart1::RegisterBlock>,
 {
     type Error = Error;
 
@@ -738,9 +738,9 @@ where
     }
 }
 
-impl<U> blocking::serial::Write<u8> for Usart<U>
+impl<R> blocking::serial::Write<u8> for Usart<R>
 where
-    U: Deref<Target = pac::usart1::RegisterBlock>,
+    R: Deref<Target = pac::usart1::RegisterBlock>,
 {
     type Error = Error;
 

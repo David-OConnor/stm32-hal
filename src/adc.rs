@@ -218,9 +218,9 @@ impl Default for Align {
 }
 
 /// Represents an Analog to Digital Converter (ADC) peripheral.
-pub struct Adc<A> {
+pub struct Adc<R> {
     /// ADC Register
-    regs: A,
+    regs: R,
     // Note: We don't own the common regs; pass them mutably where required, since they may be used
     // by a different ADC.
     device: AdcDevice,
@@ -631,6 +631,7 @@ macro_rules! hal {
                 self.stop_conversions();
                 unsafe {
                     match chan {
+                        #[cfg(not(feature = "f3"))]
                         0 => self.regs.smpr1.modify(|_, w| w.smp0().bits(smp as u8)),
                         1 => self.regs.smpr1.modify(|_, w| w.smp1().bits(smp as u8)),
                         2 => self.regs.smpr1.modify(|_, w| w.smp2().bits(smp as u8)),
@@ -684,7 +685,7 @@ macro_rules! hal {
                 // (ADC1_INP0).
 
                 // Regardless of which ADC we're on, we take this reading using ADC1.
-                #[cfg(not(feature = "l5"))]
+                #[cfg(not(any(feature = "l5", feature = "g4")))]
                 let vref_reading = if self.device != AdcDevice::One {
                     // todo: What if ADC1 is alreayd enabled and configured differently?
                     // todo: Either way, if you're also using ADC1, this will screw things up⋅.
@@ -699,10 +700,20 @@ macro_rules! hal {
 
                     let mut dp = unsafe { pac::Peripherals::steal() };
 
+                    cfg_if! {
+                        if #[cfg(feature = "f3")] {
+                            let mut common_regs = dp.ADC1_2;
+                        } else if #[cfg(any(feature = "l4", feature = "l5"))] {
+                            let mut common_regs = dp.ADC_COMMON;
+                        } else {
+                            let mut common_regs = dp.ADC12_COMMON;
+                        }
+                    }
+
                     let mut adc1 = Adc::new_adc1(
                         dp.ADC1,
                         AdcDevice::One,
-                        &mut dp.ADC_COMMON,
+                        &mut common_regs,
                         ClockMode::default(),
                         clocks,
                         &mut dp.RCC,
@@ -722,6 +733,9 @@ macro_rules! hal {
 
                 #[cfg(feature = "l5")]
                 let vref_reading = 0.; // todo handle this! Just take a reading off the only ADC.
+
+                #[cfg(feature = "g4")]
+                let vref_reading = 0.; // todo handle this! Weird macro issue (chicken+egg?)
 
                 // self.set_sample_time(0, old_sample_time);
                 regs_common.ccr.modify(|_, w| w.vrefen().clear_bit());
