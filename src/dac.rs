@@ -5,7 +5,6 @@
 // the `Dac` struct doesn't accept a trait of its reg block. We may have to
 // change this later as we find exceptions.
 
-
 use core::ops::Deref;
 
 use crate::{
@@ -132,7 +131,10 @@ where
                     DacDevice::Three => { rcc_en_reset!(ahb2, dac3, rcc); }
                     DacDevice::Four => { rcc_en_reset!(ahb2, dac4, rcc); }
                 };
-            } else { // F4 only uses 1 enable, despite having 2 devices. (each with 1 channel)
+            } else if #[cfg(feature = "f4")] {
+                // F4 only uses 1 enable, despite having 2 devices. (each with 1 channel)
+                rcc_en_reset!(apb1, dac, rcc);
+            } else {
                 rcc_en_reset!(apb1, dac1, rcc);
             }
         }
@@ -323,6 +325,7 @@ where
         });
     }
 
+    #[cfg(not(any(feature = "l5", feature = "g4")))] // todo: PAC ommission? SR missing on L5/G4? In RM.
     /// Clear the DMA Underrun interrupt - the only interrupt available.
     pub fn clear_interrupt(&mut self, channel: DacChannel) {
         self.regs.sr.modify(|_, w| match channel {

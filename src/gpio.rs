@@ -284,8 +284,8 @@ macro_rules! set_exti_f4 {
                             .modify(|_, w| unsafe { w.[<exti $num>]().bits($val) });
                     }
                 )+
+                _ => panic!("GPIO pins must be 0 - 15."),
             }
-            _ => panic!("GPIO pins must be 0 - 15."),
         }
     }
 }

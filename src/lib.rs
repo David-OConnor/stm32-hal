@@ -259,7 +259,8 @@ pub mod clocks;
     feature = "wl"
 )))]
 pub mod crc;
-#[cfg(not(feature = "wb"))] // WB doesn't have a DAC.
+#[cfg(not(any(feature = "wb", feature = "g0")))]
+// WB doesn't have a DAC. Some G0 variants do - add it!
 pub mod dac;
 
 // todo: G0 missing many DMA registers like CCR? H7 DMA layout is different.
