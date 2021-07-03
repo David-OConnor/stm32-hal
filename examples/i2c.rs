@@ -31,9 +31,7 @@ fn main() -> ! {
 
     let clock_cfg = Clocks::default();
 
-    if clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
-        defmt::error!("Unable to configure clocks due to a speed error.")
-    };
+    clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
     // Enable the GPIOB port.
     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);

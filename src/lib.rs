@@ -68,6 +68,7 @@
     feature = "h753v",
     feature = "h7b3",
     feature = "wb55",
+    feature = "wle5",
 )))]
 compile_error!("This crate requires an MCU-specifying feature to be enabled. eg `l552`.");
 
@@ -221,6 +222,9 @@ pub use stm32h7::stm32h7b3 as pac;
 #[cfg(feature = "wb55")]
 pub use stm32wb::stm32wb55 as pac;
 
+#[cfg(feature = "wle5")]
+pub use stm32wl::stm32wle5 as pac;
+
 // todo: U5 once SVD is out.
 
 pub mod traits;
@@ -251,7 +255,8 @@ pub mod clocks;
     feature = "g0",
     feature = "g4",
     feature = "l5",
-    feature = "wb"
+    feature = "wb",
+    feature = "wl"
 )))]
 pub mod crc;
 #[cfg(not(feature = "wb"))] // WB doesn't have a DAC.

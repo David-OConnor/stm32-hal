@@ -90,10 +90,9 @@ fn main() -> ! {
         .ccipr
         .modify(|_, w| unsafe { w.i2c1sel().bits(0b10) });
 
-    // Configure clock registers.
-    if clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
-        defmt::error!("Unable to configure clocks due to a speed error.")
-    };
+    // Configure clock registers. The previous creation and modification of `clock_cfg`
+    // only set up a configuration struct; `Clocks::setup` performs the MCU operations.
+    clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
     // Show speeds.
     defmt::info!("Speeds: {:?}", clock_cfg.calc_speeds());

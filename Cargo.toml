@@ -17,6 +17,7 @@ exclude = [".gitignore"]
 edition = "2018"
 
 [dependencies]
+# We are waiting for the 0.7.3 release of `cortex-m`, which removes need for `embedded-hal` in Delay.
 #cortex-m = "0.7.3"
 cortex-m = "0.7.2"
 #cortex-m = {  git = "https://github.com/rust-embedded/cortex-m" }
@@ -27,18 +28,19 @@ stm32f4 = { version = "0.13.0", optional = true }
 #stm32l4 = { version = "0.13.0", optional = true }
 # We use custom patches for L4 and WB due to errors not yet fixed in the `stm32-rs`
 # Github and/or crates.io release.
-stm32l4 = { path = "../../Desktop/stm32-rs/stm32l4", optional = true }
+#stm32l4 = { path = "../../Desktop/stm32-rs/stm32l4", optional = true }
+stm32l4 = { package = "stm32l4-stm32hal", version = "0.13.0", optional = true }
 #stm32l4 = { git = "https://github.com/David-OConnor/stm32-rs/stm32l4", branch = "misc_fixes", optional = true }
 stm32l5 = { version = "0.13.0", optional = true }
 stm32g0 = { version = "0.13.0", optional = true }
 stm32g4 = { version = "0.13.0", optional = true }
 stm32h7 = { version = "0.13.0", optional = true }
-#stm32wb = { version = "0.13.0", optional = true }
-stm32wb = { path = "../../Desktop/stm32-rs/stm32wb", optional = true }
+stm32wb = { package = "stm32wb-stm32hal", version = "0.13.0", optional = true }
+#stm32wb = { path = "../../Desktop/stm32-rs/stm32wb", optional = true }
+stm32wl = { version = "0.13.0", optional = true }
 
 # Embedded traits
 embedded-hal = { version = "0.2.5", features = ["unproven"] }
-#embedded-dma = "0.1.2" # todo As you expand your DMA code, decide if you want this.
 rtcc = "0.2"  # Embedded datetime traits.
 
 # These USB and CAN crates are only imported if the `usb` feature is used.
@@ -66,14 +68,15 @@ targets = ["thumbv7em-none-eabihf"]
 f3rt = ["stm32f3/rt"]
 f4rt = ["stm32f4/rt"]
 l4rt = ["stm32l4/rt"]
-#l412rt = ["stm32l412/rt"] # todo workaround
 l5rt = ["stm32l5/rt"]
 g0rt = ["stm32g0/rt"]
 g4rt = ["stm32g4/rt"]
 h7rt = ["stm32h7/rt"]
 wbrt = ["stm32wb/rt"]
+wlrt = ["stm32wl/rt"]
 
 # Features defined here are those taken from the SVD-generated STM32 PACs.
+# The "f3" etc designator at the end lets us group by family when feature-gating.
 
 # [F3](https://docs.rs/crate/stm32f3/0.13.0/source/Cargo.toml)
 f301 = ["stm32f3/stm32f301", "f3"]
@@ -140,6 +143,9 @@ h7b3 = ["stm32h7/stm32h7b3", "h7"]
 # [WB](https://docs.rs/crate/stm32wb/0.13.0/source/Cargo.toml)
 wb55 = ["stm32wb/stm32wb55", "wb"]
 
+# [WB](https://docs.rs/crate/stm32wl/0.13.0/source/Cargo.toml)
+wle5 = ["stm32wl/stm32wle5", "wl"]
+
 usb = ["stm32-usbd"]
 usbotg_fs = ["synopsys-usb-otg/fs"]
 usbotg_hs = ["synopsys-usb-otg/hs"]
@@ -155,4 +161,5 @@ g0 = []
 g4 = []
 h7 = []
 wb = []
+wl = []
 

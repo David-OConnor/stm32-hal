@@ -32,9 +32,7 @@ fn main() -> ! {
     clock_cfg.hsi48_on = true;
     clock_cfg.clk48_src = Clk48Src::Hsi48;
 
-    if clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
-        defmt::error!("Unable to configure clocks due to a speed error.")
-    };
+    clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
     // Enable the Clock Recovery System, which improves HSI48 accuracy.
     clocks::enable_crs(CrsSyncSrc::Usb, &mut dp.CRS, &mut dp.RCC);
