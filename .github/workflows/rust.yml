@@ -42,7 +42,8 @@ jobs:
       matrix:
         mcu:
           - l4x1
-          - l4x2
+#          - l4x2
+#          - l412
           - l4x3
           - l4x5
           - l4x6
@@ -79,6 +80,7 @@ jobs:
           - h753v
           - h7b3
           - wb55
+          - wle5
 
     steps:
       - uses: actions/checkout@v2

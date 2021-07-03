@@ -233,7 +233,7 @@ macro_rules! set_exti {
                                 $exti.c1imr1.modify(|_, w| w.[<mr $num>]().set_bit());
                             }else if #[cfg(any(feature = "g4"))] {
                                 $exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());
-                            } else if #[cfg(feature = "wb", feature = "wl")] {
+                            } else if #[cfg(any(feature = "wb", feature = "wl"))] {
                                 // todo: Do the rename in WB pac, then merge this section with g4 above.
                                 $exti.c1imr1.modify(|_, w| w.[<im $num>]().set_bit());
                                 // todo: Core 2 interrupts for wb.

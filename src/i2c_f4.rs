@@ -4,6 +4,7 @@
 // Based on `stm32f4xx-hal`.
 
 use core::ops::Deref;
+#[cfg(feature = "embedded-hal")]
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 use crate::{
@@ -282,6 +283,8 @@ where
     }
 }
 
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<I2C> WriteRead for I2c<I2C>
 where
     I2C: Instance,
@@ -296,6 +299,8 @@ where
     }
 }
 
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<I2C> Write for I2c<I2C>
 where
     I2C: Instance,
@@ -316,6 +321,8 @@ where
     }
 }
 
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<I2C> Read for I2c<I2C>
 where
     I2C: Instance,

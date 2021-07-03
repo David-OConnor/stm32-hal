@@ -28,7 +28,7 @@ use stm32_hal2::{
     self,
     adc::{self, Adc, AdcChannel, AdcDevice},
     clocks::Clocks,
-    dac::{Dac, DacChannel, DacBits},
+    dac::{Dac, DacChannel, DacDevice, DacBits},
     dma::{Dma, DmaChannel, DmaInterrupt, DmaReadBuf, DmaWriteBuf},
     flash::Flash,
     gpio::{GpioA, GpioB, Edge, PinMode, OutputType, AltFn, Pull},
@@ -192,7 +192,7 @@ fn main() -> ! {
 
     // Set up the Digital-to-analog converter
     let mut dac_pin = gpioa.new_pin(12, PinMode::Analog);
-    let mut dac = Dac::new(dp.DAC1, Bits::TwelveR, 3.3, &mut dp.RCC);
+    let mut dac = Dac::new(dp.DAC1, DacDevice::One, Bits::TwelveR, 3.3, &mut dp.RCC);
     dac.enable(DacChannel::C1);
 
     // Set up and start a timer; set it to fire interrupts at 5Hz.

@@ -26,7 +26,6 @@ use cfg_if::cfg_if;
 
 #[derive(Clone, Copy)]
 /// Select the DAC to use.
-#[cfg(any(feature = "f3", feature = "f4", feature = "g4", feature = "wl"))]
 pub enum DacDevice {
     // Note: F3 has up to 2 DACs. G4 has up to 4. L4, L5, G0, and H7(?) have only 1.
     // WB doesn't have a DAC(?), so it doesn't import this module.
@@ -103,7 +102,6 @@ impl Trigger {
 /// Represents a Digital to Analog Converter (DAC) peripheral.
 pub struct Dac<R> {
     regs: R,
-    #[cfg(any(feature = "f3", feature = "f4", feature = "g4", feature = "wl"))]
     device: DacDevice,
     bits: DacBits,
     vref: f32,
@@ -123,7 +121,7 @@ where
             } else if #[cfg(feature = "f3")] {
                 match device {
                     DacDevice::One => { rcc_en_reset!(apb1, dac1, rcc); }
-                    #[cfg(any(feature = "f303", feature = "f373", feature = "f3x4"))]
+                    #[cfg(any(feature = "f303", feature = "f373", feature = "f3x4", feature = "f4", feature = "g4"))]
                     DacDevice::Two => { rcc_en_reset!(apb1, dac2, rcc); }
                 };
             } else if #[cfg(feature = "g4")] {
@@ -141,12 +139,11 @@ where
             }
         }
 
-        cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4", feature = "g4", feature = "wl"))] {
-                Self { regs, device, bits, vref }
-            } else {
-                Self { regs, bits, vref }
-            }
+        Self {
+            regs,
+            device,
+            bits,
+            vref,
         }
     }
 
