@@ -30,7 +30,7 @@ of these peripherals using public methods [1]
 
 
 **Current family support**: F3, F4, L4, L5, G0, G4, H7, and WB. U5 is planned once its SVD files and PAC
-become available. WL eventually.
+become available. WL support is a WIP, with many features not implemented.
 
 
 ## Getting started
@@ -45,8 +45,10 @@ representing your MCU. If this is for code that runs on an MCU directly (ie not 
 ```toml
 cortex-m = "0.7.3"
 cortex-m-rt = "0.6.13"
-stm32-hal2 = { version = "^0.2.8", features = ["l4x3", "l4rt"]}
+stm32-hal2 = { version = "^0.2.9", features = ["l4x3", "l4rt"]}
 ```
+
+If you need `embedded-hal` traits, include the `embedded-hal` feature.
 
 You can review [this section of Cargo.toml](https://github.com/David-OConnor/stm32-hal/blob/main/Cargo.toml#L61)
 to see which MCU and runtime features are available.
@@ -123,7 +125,8 @@ This struct impls `Default`.
 - A constructor named `new` that performs setup code, including RCC peripheral enable and reset
 - `enable_interrupt` and `clear_interrupt` functions, which accept an enum of interrupt type
 - Add `embedded-hal` implementations as required, that call native methods. Note that
-we design APIs based on STM32 capabilities, and apply EH traits as applicable.
+we design APIs based on STM32 capabilities, and apply EH traits as applicable. We only
+expose these implementations if the `embedded-hal` feature is selected.
 - When available, base setup and usage steps on instructions provided in Reference Manuals.
 These steps are copy+pasted in comments before the code that performs each one.
 - Don't use PAC convenience field settings; they're implemented inconsistently across PACs.
@@ -200,6 +203,7 @@ where
     }
 }
 
+#[cfg(feature = "embedded-hal")]
 /// Wrap our native methods with `embedded-hal` traits.
 impl<F> embedded_hal::TargetTrack for FcRadar<F>
 where

@@ -6,7 +6,8 @@ use core::{
     sync::atomic::{self, Ordering},
 };
 
-use embedded_hal::spi::{FullDuplex, Mode, Phase, Polarity};
+#[cfg(feature = "embedded-hal")]
+use embedded_hal::spi::FullDuplex;
 
 use nb::block;
 
@@ -18,7 +19,13 @@ use crate::{
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
-#[cfg(any(feature = "f3", feature = "l4", feature = "g4", feature = "wb"))]
+#[cfg(any(
+    feature = "f3",
+    feature = "l4",
+    feature = "g4",
+    feature = "wb",
+    feature = "wl"
+))]
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
@@ -54,9 +61,15 @@ pub enum SpiInterrupt {
 #[derive(Clone, Copy)]
 pub enum SpiDevice {
     One,
-    #[cfg(not(any(feature = "f3x4", feature = "wb")))]
+    #[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
     Two,
-    #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0", feature = "wb")))]
+    #[cfg(not(any(
+        feature = "f3x4",
+        feature = "f410",
+        feature = "g0",
+        feature = "wb",
+        feature = "wl"
+    )))]
     Three,
 }
 
@@ -107,8 +120,71 @@ pub enum SlaveSelect {
     HardwareOutDisable,
 }
 
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// Clock polarity
+pub enum SpiPolarity {
+    /// Clock signal low when idle
+    IdleLow = 0,
+    /// Clock signal high when idle
+    IdleHigh = 1,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// Clock phase
+pub enum SpiPhase {
+    /// Data in "captured" on the first clock transition
+    CaptureOnFirstTransition = 0,
+    /// Data in "captured" on the second clock transition
+    CaptureOnSecondTransition = 1,
+}
+
+/// SPI mode
+#[derive(Clone, Copy)]
+pub struct SpiMode {
+    /// Clock polarity
+    pub polarity: SpiPolarity,
+    /// Clock phase
+    pub phase: SpiPhase,
+}
+
+impl SpiMode {
+    /// Set Spi Mode 0: Idle low, capture on first transition.
+    pub fn mode0() -> Self {
+        Self {
+            polarity: SpiPolarity::IdleLow,
+            phase: SpiPhase::CaptureOnFirstTransition,
+        }
+    }
+
+    /// Set Spi Mode 1: Idle low, capture on second transition.
+    pub fn mode1() -> Self {
+        Self {
+            polarity: SpiPolarity::IdleLow,
+            phase: SpiPhase::CaptureOnSecondTransition,
+        }
+    }
+
+    /// Set Spi Mode 2: Idle high, capture on first transition.
+    pub fn mode2() -> Self {
+        Self {
+            polarity: SpiPolarity::IdleHigh,
+            phase: SpiPhase::CaptureOnFirstTransition,
+        }
+    }
+
+    /// Set Spi Mode 3: Idle high, capture on second transition.
+    pub fn mode3() -> Self {
+        Self {
+            polarity: SpiPolarity::IdleHigh,
+            phase: SpiPhase::CaptureOnSecondTransition,
+        }
+    }
+}
+
 pub struct SpiConfig {
-    pub mode: Mode,
+    pub mode: SpiMode,
     pub comm_mode: SpiCommMode,
     pub slave_select: SlaveSelect,
     // pub cs_delay: f32,
@@ -119,11 +195,7 @@ pub struct SpiConfig {
 impl Default for SpiConfig {
     fn default() -> Self {
         Self {
-            mode: Mode {
-                // todo: What's a good default mode? Mode 1?
-                polarity: Polarity::IdleHigh,
-                phase: Phase::CaptureOnFirstTransition,
-            },
+            mode: SpiMode::mode0(),
             comm_mode: SpiCommMode::FullDuplex,
             slave_select: SlaveSelect::Software,
         }
@@ -154,11 +226,17 @@ where
                 #[cfg(not(feature = "f301"))] // todo: Not sure what's going on  here.
                 rcc_en_reset!(apb2, spi1, rcc);
             }
-            #[cfg(not(any(feature = "f3x4", feature = "wb")))]
+            #[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
             SpiDevice::Two => {
                 rcc_en_reset!(apb1, spi2, rcc);
             }
-            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0", feature = "wb")))]
+            #[cfg(not(any(
+                feature = "f3x4",
+                feature = "f410",
+                feature = "g0",
+                feature = "wb",
+                feature = "wl"
+            )))]
             SpiDevice::Three => {
                 cfg_if! {
                     // Note `sp3en` mixed with `spi3rst`; why we can't use the usual macro.
@@ -215,8 +293,8 @@ where
                 // comm: full-duplex
                 // todo: Flesh this out.
                 regs.cfg2.write(|w| {
-                    w.cpha().bit(cfg.mode.phase == Phase::CaptureOnSecondTransition);
-                        w.cpol().bit(cfg.mode.polarity == Polarity::IdleHigh);
+                    w.cpha().bit(cfg.mode.phase as u8 != 0);
+                        w.cpol().bit(cfg.mode.polarity as u8 != 0);
                         w.master().master();
                         w.lsbfrst().msbfirst()
                         // w.ssom().bit(config.suspend_when_inactive);
@@ -247,8 +325,8 @@ where
                     // relationships between the data transfer and the serial clock (CPHA must be
                     // cleared in NSSP mode). (Note: 2 - except the case when CRC is enabled at TI
                     // mode).
-                    w.cpol().bit(cfg.mode.polarity == Polarity::IdleHigh);
-                    w.cpha().bit(cfg.mode.phase == Phase::CaptureOnSecondTransition);
+                    w.cpol().bit(cfg.mode.polarity as u8 != 0);
+                    w.cpha().bit(cfg.mode.phase as u8 != 0);
                     // c) Select simplex or half-duplex mode by configuring RXONLY or BIDIMODE and
                     // BIDIOE (RXONLY and BIDIMODE can't be set at the same time).
                     w.bidimode().bit(cfg.comm_mode == SpiCommMode::HalfDuplex);
@@ -481,9 +559,15 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let tx_channel = match self.device {
             SpiDevice::One => DmaInput::Spi1Tx.dma1_channel(),
-            #[cfg(not(any(feature = "f3x4", feature = "wb")))]
+            #[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
             SpiDevice::Two => DmaInput::Spi2Tx.dma1_channel(),
-            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0", feature = "wb")))]
+            #[cfg(not(any(
+                feature = "f3x4",
+                feature = "f410",
+                feature = "g0",
+                feature = "wb",
+                feature = "wl"
+            )))]
             SpiDevice::Three => panic!(
                 "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
                 or PR on Github."
@@ -559,9 +643,15 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
             SpiDevice::One => DmaInput::Spi1Rx.dma1_channel(),
-            #[cfg(not(any(feature = "f3x4", feature = "wb")))]
+            #[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
             SpiDevice::Two => DmaInput::Spi2Rx.dma1_channel(),
-            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0", feature = "wb")))]
+            #[cfg(not(any(
+                feature = "f3x4",
+                feature = "f410",
+                feature = "g0",
+                feature = "wb",
+                feature = "wl"
+            )))]
             _ => panic!(
                 "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
                 or PR on Github."
@@ -571,9 +661,15 @@ where
         #[cfg(feature = "l4")]
         match self.device {
             SpiDevice::One => dma.channel_select(DmaInput::Spi1Rx),
-            #[cfg(not(any(feature = "f3x4", feature = "wb")))]
+            #[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
             SpiDevice::Two => dma.channel_select(DmaInput::Spi2Rx),
-            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0", feature = "wb")))]
+            #[cfg(not(any(
+                feature = "f3x4",
+                feature = "f410",
+                feature = "g0",
+                feature = "wb",
+                feature = "wl"
+            )))]
             _ => unimplemented!(),
         };
 
@@ -642,6 +738,8 @@ where
     // }
 }
 
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> FullDuplex<u8> for Spi<R>
 where
     R: Deref<Target = pac::spi1::RegisterBlock>,
@@ -657,11 +755,15 @@ where
     }
 }
 
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> embedded_hal::blocking::spi::transfer::Default<u8> for Spi<R> where
     R: Deref<Target = pac::spi1::RegisterBlock>
 {
 }
 
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> embedded_hal::blocking::spi::write::Default<u8> for Spi<R> where
     R: Deref<Target = pac::spi1::RegisterBlock>
 {

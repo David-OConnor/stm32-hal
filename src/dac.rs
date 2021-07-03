@@ -26,12 +26,18 @@ use cfg_if::cfg_if;
 
 #[derive(Clone, Copy)]
 /// Select the DAC to use.
-#[cfg(any(feature = "f3", feature = "f4", feature = "g4"))]
+#[cfg(any(feature = "f3", feature = "f4", feature = "g4", feature = "wl"))]
 pub enum DacDevice {
     // Note: F3 has up to 2 DACs. G4 has up to 4. L4, L5, G0, and H7(?) have only 1.
     // WB doesn't have a DAC(?), so it doesn't import this module.
     One,
-    #[cfg(any(feature = "f303", feature = "f373", feature = "f3x4", feature = "f4", feature = "g4"))]
+    #[cfg(any(
+        feature = "f303",
+        feature = "f373",
+        feature = "f3x4",
+        feature = "f4",
+        feature = "g4"
+    ))]
     Two,
     #[cfg(feature = "g4")]
     Three,
@@ -43,6 +49,7 @@ pub enum DacDevice {
 /// Select the channel to output to. Most MCUs only use 2 channels.
 pub enum DacChannel {
     C1,
+    #[cfg(not(feature = "wl"))] // WL only has one channel.
     C2,
 }
 
@@ -96,7 +103,7 @@ impl Trigger {
 /// Represents a Digital to Analog Converter (DAC) peripheral.
 pub struct Dac<R> {
     regs: R,
-    #[cfg(any(feature = "f3", feature = "f4", feature = "g4"))]
+    #[cfg(any(feature = "f3", feature = "f4", feature = "g4", feature = "wl"))]
     device: DacDevice,
     bits: DacBits,
     vref: f32,
@@ -109,13 +116,7 @@ where
     R: Deref<Target = dac_p::RegisterBlock>,
 {
     /// Create a new DAC instance.
-    pub fn new(
-        regs: R,
-        #[cfg(any(feature = "f3", feature = "f4", feature = "g4"))] device: DacDevice,
-        bits: DacBits,
-        vref: f32,
-        rcc: &mut RCC,
-    ) -> Self {
+    pub fn new(regs: R, device: DacDevice, bits: DacBits, vref: f32, rcc: &mut RCC) -> Self {
         cfg_if! {
             if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
                 rcc_en_reset!(apb1, dac12, rcc);
@@ -141,7 +142,7 @@ where
         }
 
         cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4", feature = "g4"))] {
+            if #[cfg(any(feature = "f3", feature = "f4", feature = "g4", feature = "wl"))] {
                 Self { regs, device, bits, vref }
             } else {
                 Self { regs, bits, vref }
@@ -158,6 +159,7 @@ where
 
         cr.modify(|_, w| match channel {
             DacChannel::C1 => w.en1().set_bit(),
+            #[cfg(not(feature = "wl"))]
             DacChannel::C2 => w.en2().set_bit(),
         });
     }
@@ -171,6 +173,7 @@ where
 
         cr.modify(|_, w| match channel {
             DacChannel::C1 => w.en1().clear_bit(),
+            #[cfg(not(feature = "wl"))]
             DacChannel::C2 => w.en2().clear_bit(),
         });
     }
@@ -197,6 +200,7 @@ where
                 DacBits::TwelveL => self.regs.dac_dhr12l1.modify(|_, w| unsafe { w.bits(val) }),
                 DacBits::TwelveR => self.regs.dac_dhr12r1.modify(|_, w| unsafe { w.bits(val) }),
             },
+            #[cfg(not(feature = "wl"))]
             DacChannel::C2 => match self.bits {
                 DacBits::EightR => self.regs.dac_dhr8r2.modify(|_, w| unsafe { w.bits(val) }),
                 DacBits::TwelveL => self.regs.dac_dhr12l2.modify(|_, w| unsafe { w.bits(val) }),
@@ -211,6 +215,7 @@ where
                 DacBits::TwelveL => self.regs.dhr12l1.modify(|_, w| unsafe { w.bits(val) }),
                 DacBits::TwelveR => self.regs.dhr12r1.modify(|_, w| unsafe { w.bits(val) }),
             },
+            #[cfg(not(feature = "wl"))]
             DacChannel::C2 => match self.bits {
                 DacBits::EightR => self.regs.dhr8r2.modify(|_, w| unsafe { w.bits(val) }),
                 DacBits::TwelveL => self.regs.dhr12l2.modify(|_, w| unsafe { w.bits(val) }),
@@ -231,9 +236,9 @@ where
         self.set_value(channel, val);
     }
 
-    // todo: Trouble finding right `tsel` fields for l5. RM shows same as others. PAC bug?
+    // todo: Trouble finding right `tsel` fields for l5 and WL. RM shows same as others. PAC bug?
     // todo Or is the PAC breaking the bits field into multiple bits?
-    #[cfg(not(feature = "l5"))]
+    #[cfg(not(any(feature = "l5", feature = "wl")))]
     /// Select and activate a trigger. See f303 Reference manual, section 16.5.4.
     pub fn set_trigger(&mut self, channel: DacChannel, trigger: Trigger) {
         #[cfg(any(feature = "l5", feature = "g4"))]
@@ -248,6 +253,7 @@ where
                     w.tsel1().bits(trigger.bits())
                 });
             }
+            #[cfg(not(feature = "wl"))]
             DacChannel::C2 => {
                 cr.modify(|_, w| unsafe {
                     w.ten2().set_bit();
@@ -257,7 +263,7 @@ where
         }
     }
 
-    #[cfg(not(feature = "l5"))] // See note on `set_trigger`.
+    #[cfg(not(any(feature = "l5", feature = "wl")))] // See note on `set_trigger`.
     /// Independent trigger with single LFSR generation
     /// See f303 Reference Manual section 16.5.2
     pub fn trigger_lfsr(&mut self, channel: DacChannel, trigger: Trigger, data: u32) {
@@ -274,6 +280,7 @@ where
                     w.wave1().bits(0b01)
                 });
             }
+            #[cfg(not(feature = "wl"))]
             DacChannel::C2 => {
                 cr.modify(|_, w| unsafe {
                     w.wave2().bits(0b01);
@@ -285,7 +292,7 @@ where
         self.set_value(channel, data);
     }
 
-    #[cfg(not(feature = "l5"))] // See note on `set_trigger`.
+    #[cfg(not(any(feature = "l5", feature = "wl")))] // See note on `set_trigger`.
     /// Independent trigger with single triangle generation
     /// See f303 Reference Manual section 16.5.2
     pub fn trigger_triangle(&mut self, channel: DacChannel, trigger: Trigger, data: u32) {
@@ -302,6 +309,7 @@ where
                     w.mamp1().bits(0b10)
                 });
             }
+            #[cfg(not(feature = "wl"))]
             DacChannel::C2 => {
                 cr.modify(|_, w| unsafe {
                     w.wave2().bits(0b10);
@@ -322,6 +330,7 @@ where
 
         cr.modify(|_, w| match channel {
             DacChannel::C1 => w.dmaudrie1().set_bit(),
+            #[cfg(not(feature = "wl"))]
             DacChannel::C2 => w.dmaudrie2().set_bit(),
         });
     }
@@ -331,6 +340,7 @@ where
     pub fn clear_interrupt(&mut self, channel: DacChannel) {
         self.regs.sr.modify(|_, w| match channel {
             DacChannel::C1 => w.dmaudr1().set_bit(),
+            #[cfg(not(feature = "wl"))]
             DacChannel::C2 => w.dmaudr2().set_bit(),
         });
     }

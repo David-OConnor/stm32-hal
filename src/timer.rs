@@ -2,6 +2,7 @@
 
 use num_traits::float::Float;
 
+#[cfg(feature = "embedded-hal")]
 use embedded_hal::{
     blocking::delay::{DelayMs, DelayUs},
     timer::{CountDown, Periodic},
@@ -320,24 +321,32 @@ macro_rules! hal {
             }
         }
 
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayMs<u32> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u32) {
                 self.delay_us(ms as u32 * 1_000);
             }
         }
 
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayMs<u16> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u16) {
                 self.delay_us(ms as u32 * 1_000);
             }
         }
 
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayMs<u8> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u8) {
                 self.delay_us(ms as u32 * 1_000);
             }
         }
 
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayUs<u32> for Timer<pac::$TIMX> {
             fn delay_us(&mut self, us: u32) {
                 self.set_freq(1. / (us as f32 * 1_000.)).ok();
@@ -348,20 +357,28 @@ macro_rules! hal {
             }
         }
 
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayUs<u16> for Timer<pac::$TIMX> {
             fn delay_us(&mut self, us: u16) {
                 self.delay_us(us as u32);
             }
         }
 
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayUs<u8> for Timer<pac::$TIMX> {
             fn delay_us(&mut self, us: u8) {
                 self.delay_us(us as u32);
             }
         }
 
-         impl Periodic for Timer<pac::$TIMX> {}
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        impl Periodic for Timer<pac::$TIMX> {}
 
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl CountDown for Timer<pac::$TIMX> {
             type Time = f32;
 
@@ -555,7 +572,7 @@ macro_rules! pwm_features {
                             TimChannel::C3 => self.tim.ccr3.read().bits(),
                             TimChannel::C4 => self.tim.ccr4.read().bits(),
                         }
-                    } else if #[cfg(any(feature = "g4", feature = "wb"))] {
+                    } else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
                         match channel {
                             TimChannel::C1 => self.tim.ccr1.read().ccr1().bits(),
                             TimChannel::C2 => self.tim.ccr2.read().ccr2().bits(),
@@ -584,7 +601,7 @@ macro_rules! pwm_features {
                             TimChannel::C3 => self.tim.ccr3.read().bits(),
                             TimChannel::C4 => self.tim.ccr4.read().bits(),
                         };
-                    } else if #[cfg(any(feature = "g4", feature = "wb"))] {
+                    } else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
                         unsafe {
                             match channel {
                                 TimChannel::C1 => self.tim.ccr1.write(|w| w.ccr1().bits(duty)),
@@ -744,7 +761,8 @@ hal!(TIM1, tim1, 2);
     feature = "f4",
     feature = "l4",
     feature = "l5",
-    feature = "g0"
+    feature = "g0",
+    feature = "wl",  // todo temp!
 )))]
 pwm_features!(TIM1, u16);
 
@@ -769,7 +787,8 @@ pwm_features!(TIM2, u16);
     feature = "g070",
     feature = "g4",
     feature = "f410",
-    feature = "wb"
+    feature = "wb",
+    feature = "wl"
 )))]
 pwm_features!(TIM2, u32);
 
@@ -778,7 +797,8 @@ pwm_features!(TIM2, u32);
     feature = "l4x1",
     feature = "l4x3",
     feature = "f410",
-    feature = "wb"
+    feature = "wb",
+    feature = "wl"
 )))]
 hal!(TIM3, tim3, 1);
 
@@ -789,6 +809,7 @@ hal!(TIM3, tim3, 1);
     feature = "f410",
     feature = "g0",
     feature = "wb",
+    feature = "wl"
 )))]
 pwm_features!(TIM3, u16);
 
@@ -807,6 +828,7 @@ cfg_if! {
         feature = "l552",
         feature = "g0",
         feature = "wb",
+        feature = "wl"
     )))] {
         hal!(TIM4, tim4, 1);
     }
@@ -824,6 +846,7 @@ cfg_if! {
         feature = "l5",
         feature = "g0",
         feature = "wb",
+        feature = "wl"
     )))] {
         pwm_features!(TIM4, u16);
     }
@@ -864,6 +887,7 @@ cfg_if! {
         feature = "g070",
         feature = "g030",
         feature = "wb",
+        feature = "wl"
     )))] {
         hal!(TIM6, tim6, 1);
     }
@@ -879,6 +903,7 @@ cfg_if! {
     feature = "g041",
     feature = "g030",
     feature = "wb",
+    feature = "wl"
 )))]
 hal!(TIM7, tim7, 1);
 
@@ -900,6 +925,7 @@ hal!(TIM8, tim8, 2);
     feature = "g041",
     feature = "g030",
     feature = "wb",
+    feature = "wl"
 )))]
 hal!(TIM15, tim15, 2);
 

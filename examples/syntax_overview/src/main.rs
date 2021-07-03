@@ -37,7 +37,7 @@ use stm32_hal2::{
     pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
     usart::{Usart, UsartDevice, UsartInterrupt, UsartConfig},
-    spi::{self, BaudRate, Spi, SpiConfig, SpiDevice},
+    spi::{self, BaudRate, Spi, SpiConfig, SpiDevice, SpiMode},
     timer::{Timer, TimerInterrupt},
     traits::ClockCfg,
 };
@@ -121,10 +121,7 @@ fn main() -> ! {
     let mut dma = Dma::new(&mut dp.DMA1, &mut dp.RCC);
 
     let spi_cfg = SpiConfig {
-        mode: Mode {
-            polarity: Polarity::IdleLow,
-            phase: Phase::CaptureOnFirstTransition,
-        },
+        mode: SpiMode::mode3(),
         ..Default::default()
     };
 

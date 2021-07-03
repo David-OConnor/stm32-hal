@@ -1,6 +1,7 @@
 //! API for the ADC (Analog to Digital Converter)
 
 use cortex_m::asm;
+#[cfg(feature = "embedded-hal")]
 use embedded_hal::adc::{Channel, OneShot};
 
 use core::{ops::Deref, ptr};
@@ -125,7 +126,6 @@ pub enum InputType {
 #[derive(Clone, Copy)]
 #[repr(u8)]
 /// ADC operation mode
-// TODO: Implement other modes
 pub enum OperationMode {
     /// OneShot Mode
     OneShot = 0,
@@ -958,6 +958,8 @@ macro_rules! hal {
             }
         }
 
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl<WORD, PIN> OneShot<pac::$ADC, WORD, PIN> for Adc<pac::$ADC>
         where
             WORD: From<u16>,
@@ -970,83 +972,123 @@ macro_rules! hal {
                 }
         }
 
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         // todo: This mess is due to how EH implements the OneShot trait.
         impl Channel<pac::$ADC> for AdcChannel::C1 {
             type ID = u8;
             fn channel() -> u8 { 1 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C2 {
             type ID = u8;
             fn channel() -> u8 { 2 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C3 {
             type ID = u8;
             fn channel() -> u8 { 3}
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C4 {
             type ID = u8;
             fn channel() -> u8 { 4 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C5 {
             type ID = u8;
             fn channel() -> u8 { 5 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C6 {
             type ID = u8;
             fn channel() -> u8 { 6 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C7 {
             type ID = u8;
             fn channel() -> u8 { 7 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C8 {
             type ID = u8;
             fn channel() -> u8 { 8 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C9 {
             type ID = u8;
             fn channel() -> u8 { 9 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C10 {
             type ID = u8;
             fn channel() -> u8 { 10 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C11 {
             type ID = u8;
             fn channel() -> u8 { 11 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C12 {
             type ID = u8;
             fn channel() -> u8 { 12 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C13 {
             type ID = u8;
             fn channel() -> u8 { 13 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C14 {
             type ID = u8;
             fn channel() -> u8 { 14 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C15 {
             type ID = u8;
             fn channel() -> u8 { 15 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C16 {
             type ID = u8;
             fn channel() -> u8 { 16 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C17 {
             type ID = u8;
             fn channel() -> u8 { 17 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C18 {
             type ID = u8;
             fn channel() -> u8 { 18 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C19 {
             type ID = u8;
             fn channel() -> u8 { 19 }
         }
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Channel<pac::$ADC> for AdcChannel::C20 {
             type ID = u8;
             fn channel() -> u8 { 20 }

@@ -259,8 +259,14 @@ pub mod clocks;
     feature = "wl"
 )))]
 pub mod crc;
-#[cfg(not(any(feature = "wb", feature = "g0")))]
-// WB doesn't have a DAC. Some G0 variants do - add it!
+#[cfg(not(any(
+    feature = "f401",
+    feature = "f411",
+    feature = "f412",
+    feature = "wb",
+    feature = "g0"
+)))]
+// WB doesn't have a DAC. Some G0 variants do - add it! Most F4 variants have it, some don't
 pub mod dac;
 
 // todo: G0 missing many DMA registers like CCR? H7 DMA layout is different.
@@ -271,6 +277,7 @@ pub mod dma;
 
 #[cfg(not(feature = "h7"))] // todo
 pub mod flash;
+#[cfg(not(feature = "wl"))] // todo
 pub mod gpio;
 
 #[cfg(feature = "wb")]
@@ -288,7 +295,7 @@ pub mod ipcc;
 
 pub mod low_power;
 
-// F3, F4, L5, and G0 don't have Quad SPI.
+// F3, F4, L5, G0, and WL don't have Quad SPI.
 #[cfg(not(any(
     feature = "f3",
     feature = "f4",
@@ -301,17 +308,20 @@ pub mod low_power;
     feature = "g491",
     feature = "g4a1",
     feature = "h7b3",
+    feature = "wl",
 )))]
 pub mod qspi;
+#[cfg(not(feature = "wl"))] // todo
 pub mod rtc;
 
 // #[cfg(not(any(feature = "f3")))]
 // pub mod sai;
 
-// #[cfg(not(feature = "h7"))] // todo
 pub mod spi;
 
+#[cfg(not(feature = "wl"))] // todo
 pub mod timer;
+#[cfg(not(feature = "wl"))] // todo
 pub mod usart;
 
 // See note at top of `usb` module for info on G0; not avail on modules the PAC has avail.

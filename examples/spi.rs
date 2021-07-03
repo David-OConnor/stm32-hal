@@ -19,10 +19,11 @@ use stm32_hal2::{
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
     gpio::{Edge, PinMode},
     low_power, pac,
-    spi::{self, BaudRate, Spi, SpiConfig, SpiDevice},
+    prelude::*,
+    spi::{self, BaudRate, Spi, SpiConfig, SpiDevice, SpiMode},
 };
 
-use embedded_hal::spi::{Mode, Phase, Polarity};
+make_globals!((SPI, Spi<SPI1>), (DMA, Dma<DMA1>),);
 
 #[entry]
 fn main() -> ! {
@@ -46,12 +47,15 @@ fn main() -> ! {
     let cs = gpioa.new_pin(1, PinMode::Output);
 
     let spi_cfg = SpiConfig {
-        mode: Mode {
-            polarity: Polarity::IdleLow,
-            phase: Phase::CaptureOnFirstTransition,
-        },
+        mode: SpiMode::mode1(),
+        // `SpiConfig::default` is mode 0, full duplex, with software CS.
         ..Default::default()
     };
+    // Alternatively, we can configure Mode py polarity and phase:
+    // mode: SpiMode {
+    //     polarity: SpiPolarity::IdleLow,
+    //     phase: SpiPhase::CaptureOnFirstTransition,
+    // }
 
     // Set up an SPI peripheral, running at 4Mhz, in SPI mode 0.
     let spi = Spi::new(
@@ -90,6 +94,12 @@ fn main() -> ! {
     spi.write(&write_buf).ok();
     spi.transfer(&mut read_buf).ok();
     defmt::info!("Data: {}", read_buf);
+
+    // Assign peripheral structs as global, so we can access them in interrupts.
+    free(|cs| {
+        DMA.borrow(cs).replace(Some(dma));
+        SPI.borrow(cs).replace(Some(spi));
+    });
 
     // Unmask the interrupt line. See the `DMA_CH2` and `DMA_CH3` interrupt handlers below.
     unsafe {

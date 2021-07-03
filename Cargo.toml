@@ -1,6 +1,6 @@
 [package]
 name = "stm32-hal2"
-version = "0.2.8"
+version = "0.2.9"
 authors = ["David O'Connor <david.alan.oconnor@gmail.com>"]
 description = "Hardware abstraction layer for the stm32 chips"
 keywords = ["no-std", "stm32", "embedded", "embedded-hal"]
@@ -38,9 +38,11 @@ stm32h7 = { version = "0.13.0", optional = true }
 stm32wb = { package = "stm32wb-stm32hal", version = "0.13.0", optional = true }
 #stm32wb = { path = "../../Desktop/stm32-rs/stm32wb", optional = true }
 stm32wl = { version = "0.13.0", optional = true }
+# todo: Custom WL depending on merging of apt PR.
+#stm32wl = { git = "https://github.com/munin-space/stm32-rs", branch = "master", optional = true }
 
 # Embedded traits
-embedded-hal = { version = "0.2.5", features = ["unproven"] }
+embedded-hal = { version = "0.2.5", features = ["unproven"], optional = true }
 rtcc = "0.2"  # Embedded datetime traits.
 
 # These USB and CAN crates are only imported if the `usb` feature is used.
@@ -61,6 +63,7 @@ paste = "1.0.4"  # Token pasting, to make macros easier
 [package.metadata.docs.rs]
 features = ["l4rt", "l4x3", "can", "usb"]
 targets = ["thumbv7em-none-eabihf"]
+rustdoc-args = ["--cfg", "docsrs"]  # todo: For bright "supported by crate feature only" text on `embedded-hal`?
 
 # Compile with one of these "runtime" features if the program
 # will be directly flashed to an MCU; ie not a library.
@@ -150,6 +153,7 @@ usb = ["stm32-usbd"]
 usbotg_fs = ["synopsys-usb-otg/fs"]
 usbotg_hs = ["synopsys-usb-otg/hs"]
 can = ["bxcan"]
+embedded_hal = ["embedded-hal"]
 
 # These features are used to featured gate sections of code that apply
 # to an entire family.
@@ -162,4 +166,6 @@ g4 = []
 h7 = []
 wb = []
 wl = []
+
+# todo: w feature to combine wb and wl since they often have feature parity?
 

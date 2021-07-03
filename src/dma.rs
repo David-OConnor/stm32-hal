@@ -16,9 +16,9 @@ use crate::pac::dma;
 #[cfg(not(feature = "g0"))]
 use crate::pac::dma1 as dma;
 
-#[cfg(any(feature = "l5", feature = "g0", feature = "g4"))]
+#[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "wl"))]
 use pac::DMAMUX;
-#[cfg(feature = "wb")]
+#[cfg(any(feature = "wb"))]
 use pac::DMAMUX1 as DMAMUX;
 
 // use embedded_dma::{ReadBuffer, WriteBuffer};
@@ -537,6 +537,9 @@ where
 
         // 3. Configure the total number of data to transfer in the DMA_CNDTRx register.
         // After each data transfer, this value is decremented.
+        #[cfg(feature = "wl")]
+        let num_data = num_data as u32;
+
         unsafe {
             match channel {
                 DmaChannel::C1 => {
@@ -1034,7 +1037,7 @@ where
 
     pub fn clear_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
         cfg_if! {
-            if #[cfg(feature = "g4")] {
+            if #[cfg(any(feature = "g4", feature = "wl"))] {
                 self.regs.ifcr.write(|w| match channel {
                     DmaChannel::C1 => match interrupt {
                         DmaInterrupt::TransferError => w.teif1().set_bit(),
@@ -1071,6 +1074,7 @@ where
                         DmaInterrupt::HalfTransfer => w.htif7().set_bit(),
                         DmaInterrupt::TransferComplete => w.tcif7().set_bit(),
                     }
+                    #[cfg(not(feature = "wl"))]
                     DmaChannel::C8 => match interrupt {
                         DmaInterrupt::TransferError => w.teif8().set_bit(),
                         DmaInterrupt::HalfTransfer => w.htif8().set_bit(),
@@ -1237,7 +1241,13 @@ where
 //     }
 // }
 
-#[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "wb"))]
+#[cfg(any(
+    feature = "l5",
+    feature = "g0",
+    feature = "g4",
+    feature = "wb",
+    feature = "wl"
+))]
 /// Configure a specific DMA channel to work with a specific peripheral.
 pub fn mux(channel: DmaChannel, input: DmaInput, mux: &DMAMUX) {
     // Note: This is similar in API and purpose to `channel_select` above,

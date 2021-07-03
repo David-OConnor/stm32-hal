@@ -12,7 +12,7 @@ use cfg_if::cfg_if;
 // todo: WB is missing second LSI2, and perhaps other things.
 // todo: Mix H7 clocks into this module.
 
-#[cfg(not(feature = "g0"))]
+#[cfg(not(any(feature = "g0", feature = "wl")))]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum Clk48Src {
@@ -52,7 +52,7 @@ pub enum PllSrc {
     Hse(u32),
 }
 
-#[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
+#[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 /// Select the system clock used when exiting Stop mode
@@ -70,8 +70,9 @@ enum WaitState {
     W0 = 0,
     W1 = 1,
     W2 = 2,
+    #[cfg(not(feature = "wl"))]
     W3 = 3,
-    #[cfg(not(feature = "wb"))]
+    #[cfg(not(any(feature = "wb", feature = "wl")))]
     W4 = 4,
     #[cfg(feature = "l5")]
     W5 = 5,
@@ -80,6 +81,7 @@ enum WaitState {
 impl PllSrc {
     /// Required due to numerical value on non-uniform discrim being experimental.
     /// (ie, can't set on `Pll(Pllsrc)`.
+    /// Sets PLLCFGR reg (PLLSYSCFGR on G0), PLLSRC field.
     pub fn bits(&self) -> u8 {
         // L4 RM, 6.4.4
         #[cfg(not(any(feature = "g0", feature = "g4")))]
@@ -439,9 +441,9 @@ pub struct Clocks {
     pub input_src: InputSrc, //
     pub pllm: Pllm, // PLL divider
     pub plln: u8,   // PLL multiplier. Valid range of 7 to 86.
-    #[cfg(not(any(feature = "g0", feature = "g4")))]
+    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
     pub pll_sai1_mul: u8, // PLL SAI1 multiplier. Valid range of 7 to 86.
-    #[cfg(not(any(feature = "g0", feature = "g4")))]
+    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
     pub pll_sai2_mul: u8, // PLL SAI2 multiplier. Valid range of 7 to 86.
     pub pllr: Pllr,
     pub pllq: Pllr,
@@ -450,6 +452,9 @@ pub struct Clocks {
     #[cfg(feature = "wb")]
     /// The value to divide SYSCLK by for HCLK2. (CPU2)
     pub hclk2_prescaler: HclkPrescaler,
+    #[cfg(feature = "wl")]
+    /// The value to divide SYSCLK by for HCLK3.
+    pub hclk3_prescaler: HclkPrescaler,
     #[cfg(feature = "wb")]
     /// The value to divide SYSCLK by for HCLK4.
     pub hclk4_prescaler: HclkPrescaler,
@@ -460,21 +465,21 @@ pub struct Clocks {
     pub apb2_prescaler: ApbPrescaler,
     // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     // frees up the pin for use as GPIO.
-    #[cfg(not(any(feature = "g0")))]
+    #[cfg(not(any(feature = "g0", feature = "wl")))]
     /// The input source for the 48Mhz clock used by USB.
     pub clk48_src: Clk48Src,
-    #[cfg(not(any(feature = "g0", feature = "g4")))]
+    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
     pub sai1_enabled: bool,
-    #[cfg(not(any(feature = "g0", feature = "g4")))]
+    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
     pub sai2_enabled: bool,
     /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     /// frees up the pin for use as GPIO.
     pub hse_bypass: bool,
     pub security_system: bool,
-    #[cfg(not(feature = "g0"))]
+    #[cfg(not(any(feature = "g0", feature = "wl")))]
     /// Enable the HSI48. For L4, this is only applicable for some devices.
     pub hsi48_on: bool,
-    #[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
+    #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
     /// Select the input source to use after waking up from `stop` mode. Eg HSI or MSI.
     pub stop_wuck: StopWuck,
 }
@@ -498,6 +503,8 @@ impl Clocks {
         cfg_if! {
             if #[cfg(feature = "wb")] {
                 let hclk = sysclk / self.hclk4_prescaler.value() as u32;
+            } else if #[cfg(feature = "wl")] {
+                let hclk = sysclk / self.hclk3_prescaler.value() as u32;
             } else {
                 let hclk = sysclk / self.hclk_prescaler.value() as u32;
             }
@@ -560,6 +567,17 @@ impl Clocks {
                         w.latency().bits(WaitState::W3 as u8)
                     }
                 });
+            } else if #[cfg(any(feature = "wb", feature = "wl"))] {  // WL. RM section 3.3.4, Table 5.
+            // Note: This applies to HCLK3 HCLK. (See HCLK3 used above for hclk var.)
+                flash.acr.modify(|_, w| unsafe {
+                    if hclk <= 18_000_000 {
+                        w.latency().bits(WaitState::W0 as u8)
+                    } else if hclk <= 36_000_000 {
+                        w.latency().bits(WaitState::W1 as u8)
+                    } else {
+                        w.latency().bits(WaitState::W2 as u8)
+                    }
+                });
             } else {  // G4. RM section 3.3.3
                 flash.acr.modify(|_, w| unsafe {
                     if hclk <= 34_000_000 {
@@ -606,7 +624,7 @@ impl Clocks {
 
                 rcc.cr.modify(|_, w| unsafe {
                     w.msirange().bits(range as u8);
-                    #[cfg(not(feature = "wb"))]
+                    #[cfg(not(any(feature = "wb", feature = "wl")))]
                     w.msirgsel().set_bit();
                     w.msion().set_bit()
                 });
@@ -630,7 +648,7 @@ impl Clocks {
                     PllSrc::Msi(range) => {
                         rcc.cr.modify(|_, w| unsafe {
                             w.msirange().bits(range as u8);
-                            #[cfg(not(feature = "wb"))]
+                            #[cfg(not(any(feature = "wb", feature = "wl")))]
                             w.msirgsel().set_bit();
                             w.msion().set_bit()
                         });
@@ -713,7 +731,7 @@ impl Clocks {
             rcc.cr.modify(|_, w| w.pllon().set_bit());
 
             cfg_if! {
-                if #[cfg(not(any(feature = "g0", feature = "g4")))] {
+                if #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))] {
                     if self.sai1_enabled {
                         rcc.cr.modify(|_, w| w.pllsai1on().set_bit());
                         while rcc.cr.read().pllsai1rdy().bit_is_clear() {}
@@ -794,6 +812,10 @@ impl Clocks {
             w.shdhpre().bits(self.hclk4_prescaler as u8)
         });
 
+        #[cfg(feature = "wl")]
+        rcc.extcfgr
+            .modify(|_, w| unsafe { w.shdhpre().bits(self.hclk3_prescaler as u8) });
+
         rcc.cr.modify(|_, w| w.csson().bit(self.security_system));
 
         #[cfg(any(feature = "l4", feature = "g4"))]
@@ -806,7 +828,7 @@ impl Clocks {
 
         // Enable the HSI48 as required, which is used for USB, RNG, etc.
         // Only valid for some devices (On at least L4, and G4.)
-        #[cfg(not(feature = "g0"))]
+        #[cfg(not(any(feature = "g0", feature = "wl")))]
         if self.hsi48_on {
             rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
             while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
@@ -850,8 +872,8 @@ impl Clocks {
 
         // Enable and reset System Configuration Controller, ie for interrupts.
         // todo: Is this the right module to do this in?
-        #[cfg(not(feature = "wb"))] // todo: Do interrupts work without enabling syscfg on wb, which
-                                    // todo doesn't have this?
+        #[cfg(not(any(feature = "wb", feature = "wl")))] // todo: Do interrupts work without enabling syscfg on wb, which
+                                                         // todo doesn't have this?
         rcc_en_reset!(apb2, syscfg, rcc);
 
         Ok(())
@@ -1116,9 +1138,9 @@ impl ClockCfg for Clocks {
     }
 
     cfg_if! {
-        if #[cfg(feature = "g0")] {
+        if #[cfg(any(feature = "g0", feature = "wl"))] {
             fn usb(&self) -> u32 {
-                unimplemented!("No USB on G0");
+                unimplemented!("No USB on G0 or WL");
             }
         } else if #[cfg(feature = "g4")] {
             fn usb(&self) -> u32 {
@@ -1194,6 +1216,9 @@ impl ClockCfg for Clocks {
         #[cfg(feature = "wb")]
         let max_clock = 64_000_000;
 
+        #[cfg(feature = "wl")]
+        let max_clock = 48_000_000;
+
         // todo: L4+ (ie R, S, P, Q) can go up to 120_000.
 
         #[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
@@ -1262,9 +1287,11 @@ impl Default for Clocks {
             plln: 85,
             #[cfg(feature = "wb")]
             plln: 64,
-            #[cfg(not(any(feature = "g0", feature = "g4")))]
+            #[cfg(feature = "wl")]
+            plln: 24,
+            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
             pll_sai1_mul: 8,
-            #[cfg(not(any(feature = "g0", feature = "g4")))]
+            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
             pll_sai2_mul: 8,
             #[cfg(not(feature = "wb"))]
             pllr: Pllr::Div2,
@@ -1274,22 +1301,24 @@ impl Default for Clocks {
             hclk_prescaler: HclkPrescaler::Div1,
             #[cfg(feature = "wb")]
             hclk2_prescaler: HclkPrescaler::Div2,
+            #[cfg(feature = "wl")]
+            hclk3_prescaler: HclkPrescaler::Div1,
             #[cfg(feature = "wb")]
             hclk4_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div1,
             #[cfg(not(feature = "g0"))]
             apb2_prescaler: ApbPrescaler::Div1,
-            #[cfg(not(feature = "g0"))]
+            #[cfg(not(any(feature = "g0", feature = "wl")))]
             clk48_src: Clk48Src::Hsi48,
-            #[cfg(not(any(feature = "g0", feature = "g4")))]
+            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
             sai1_enabled: false,
-            #[cfg(not(any(feature = "g0", feature = "g4")))]
+            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
             sai2_enabled: false,
             hse_bypass: false,
             security_system: false,
-            #[cfg(not(feature = "g0"))]
+            #[cfg(not(any(feature = "g0", feature = "wl")))]
             hsi48_on: false,
-            #[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
+            #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
             stop_wuck: StopWuck::Msi,
         }
     }

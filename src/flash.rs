@@ -16,6 +16,8 @@
 use crate::pac::FLASH;
 use core;
 
+use cfg_if::cfg_if;
+
 const FLASH_KEY1: u32 = 0x4567_0123;
 const FLASH_KEY2: u32 = 0xCDEF_89AB;
 
@@ -61,7 +63,7 @@ pub enum Error {
 fn check_illegal(flash: &FLASH) -> Result<(), Error> {
     // todo: QC this fn and its l5 variant.
     let sr = flash.sr.read();
-    cfg_if::cfg_if! {
+    cfg_if! {
         if #[cfg(any(feature = "f3"))] {
             if sr.pgerr().bit_is_set() || sr.wrprterr().bit_is_set() {
                 return Err(Error::Illegal);
@@ -205,7 +207,7 @@ impl Flash {
         // Note that `STM32L4` includes the `.bker()` bit to select banks for all variants, but
         // some variants only have 1 memory bank; eg ones with a smaller amount of memory.
 
-        cfg_if::cfg_if! {
+        cfg_if! {
             if #[cfg(feature = "f3")] {
                 // F3 RM: "Erase procedure"
                 // Set the PER bit in the FLASH_CR register
@@ -223,7 +225,7 @@ impl Flash {
                     w.snb().bits(page as u8) // todo: Probably not right?
                 });
 
-            } else if #[cfg(any(feature = "g0", feature = "g4", feature = "wb"))] {
+            } else if #[cfg(any(feature = "g0", feature = "g4", feature = "wb", feature = "wl"))] {
                  self.regs.cr.modify(|_, w| unsafe {
                     w.pnb()
                     .bits(page as u8)
@@ -255,8 +257,8 @@ impl Flash {
         }
 
         // 4. Set the STRT bit in the FLASH_CR register.
-        cfg_if::cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4", feature = "wb"))] {
+        cfg_if! {
+            if #[cfg(any(feature = "f3", feature = "f4", feature = "wb", feature = "wl"))] {
                 self.regs.cr.modify(|_, w| w.strt().set_bit());
             } else {
                 #[cfg(any(feature = "g0", feature = "g4"))]
@@ -270,7 +272,7 @@ impl Flash {
         while self.regs.sr.read().bsy().bit_is_set() {}
 
         // todo on F3: "Read the erased option bytes and verify" as final step
-        cfg_if::cfg_if! {
+        cfg_if! {
             if #[cfg(any(feature = "f3", feature = "f4"))] {
                 // Check the EOP flag in the FLASH_SR register (it is set when the erase operation has
                 // succeeded), and then clear it by software. (todo)
@@ -428,8 +430,8 @@ impl Flash {
         // 3. Set the MER1 bit or/and MER2 (depending on the bank) in the Flash control register
         // (FLASH_CR). Both banks can be selected in the same operation.
 
-        cfg_if::cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4", feature = "wb"))] {
+        cfg_if! {
+            if #[cfg(any(feature = "f3", feature = "f4", feature = "wb", feature = "wl"))] {
                 self.regs.cr.modify(|_, w| w.mer().clear_bit());
 
                 // 4. Set the STRT bit in the FLASH_CR register.
@@ -453,7 +455,7 @@ impl Flash {
                 }
 
                 // 4. Set the STRT bit in the FLASH_CR register.
-                #[cfg(feature = "g4")]
+                #[cfg(any(feature = "g4", feature = "wl"))]
                 self.regs.cr.modify(|_, w| w.strt().set_bit());
                 #[cfg(not(feature = "g4"))]
                 self.regs.cr.modify(|_, w| w.start().set_bit());

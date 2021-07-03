@@ -3,6 +3,7 @@
 use cast::{u16, u8};
 use core::ops::Deref;
 
+#[cfg(feature = "embedded-hal")]
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 use crate::{
@@ -13,7 +14,13 @@ use crate::{
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
-#[cfg(any(feature = "f3", feature = "l4", feature = "g4", feature = "wb"))]
+#[cfg(any(
+    feature = "f3",
+    feature = "l4",
+    feature = "g4",
+    feature = "wb",
+    feature = "wl"
+))]
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
@@ -525,6 +532,8 @@ where
     }
 }
 
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> Write for I2c<R>
 where
     R: Deref<Target = pac::i2c1::RegisterBlock>,
@@ -536,6 +545,8 @@ where
     }
 }
 
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> Read for I2c<R>
 where
     R: Deref<Target = pac::i2c1::RegisterBlock>,
@@ -547,6 +558,8 @@ where
     }
 }
 
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> WriteRead for I2c<R>
 where
     R: Deref<Target = pac::i2c1::RegisterBlock>,

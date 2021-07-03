@@ -21,6 +21,7 @@ use crate::pac::dma1 as dma_p;
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
 use crate::dma::{self, Dma, DmaChannel, DmaInput};
 
+#[cfg(feature = "embedded-hal")]
 use embedded_hal::{
     blocking,
     serial::{Read, Write},
@@ -661,6 +662,8 @@ pub enum Error {
     Parity,
 }
 
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<U> Read<u8> for Usart<U>
 where
     U: Deref<Target = pac::usart1::RegisterBlock>,
@@ -690,6 +693,8 @@ where
     }
 }
 
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> Write<u8> for Usart<R>
 where
     R: Deref<Target = pac::usart1::RegisterBlock>,
@@ -738,6 +743,8 @@ where
     }
 }
 
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> blocking::serial::Write<u8> for Usart<R>
 where
     R: Deref<Target = pac::usart1::RegisterBlock>,

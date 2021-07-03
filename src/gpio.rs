@@ -12,6 +12,7 @@ use crate::{
 #[cfg(not(any(feature = "l5", feature = "g0")))]
 use crate::pac::SYSCFG;
 
+#[cfg(feature = "embedded-hal")]
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
 
 use cfg_if::cfg_if;
@@ -232,7 +233,7 @@ macro_rules! set_exti {
                                 $exti.c1imr1.modify(|_, w| w.[<mr $num>]().set_bit());
                             }else if #[cfg(any(feature = "g4"))] {
                                 $exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());
-                            } else if #[cfg(feature = "wb")] {
+                            } else if #[cfg(feature = "wb", feature = "wl")] {
                                 // todo: Do the rename in WB pac, then merge this section with g4 above.
                                 $exti.c1imr1.modify(|_, w| w.[<im $num>]().set_bit());
                                 // todo: Core 2 interrupts for wb.
@@ -242,10 +243,10 @@ macro_rules! set_exti {
                         }
 
                         cfg_if! {
-                            if #[cfg(any(feature = "g4", feature = "wb"))] {
+                            if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
                                 $exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($trigger));
                                 $exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit(!$trigger));
-                            // } else if #[cfg(feature = "wb")] {
+                            // } else if #[cfg(any(feature = "wb", feature = "wl"))] {
                             //     // todo: Missing in PAC, so we read+write. https://github.com/stm32-rs/stm32-rs/issues/570
                             //     let val_r =  $exti.rtsr1.read().bits();
                             //     $exti.rtsr1.write(|w| unsafe { w.bits(val_r | (1 << $num)) });
@@ -344,9 +345,9 @@ macro_rules! set_alt {
                     $(
                         $num => {
                             $regs.moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(AltFn::Af0).val()));
-                            #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
+                            #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl"))]
                             $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val as u8));
-                            #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
+                            #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl")))]
                             $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val as u8));
                         }
                     )+
@@ -471,7 +472,7 @@ macro_rules! make_pin {
             /// Set up a pin's alternate function. We set this up initially using `mode()`.
             fn alt_fn(&mut self, value: AltFn, regs: &mut pac::[<GPIO $Port>]) {
                 cfg_if! {
-                    if #[cfg(any(feature = "l5", feature = "g0", feature = "wb"))] {
+                    if #[cfg(any(feature = "l5", feature = "g0", feature = "wb", feature = "wl"))] {
                         set_alt!(self.pin, regs, afsel, value, [(0, l), (1, l), (2, l),
                             (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                             (13, h), (14, h), (15, h)])
@@ -665,6 +666,8 @@ macro_rules! make_pin {
             }
         }
 
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         // Implement `embedded-hal` traits. We use raw pointers, since these traits can't
         // accept a register block.
         impl InputPin for [<Gpio $Port Pin>] {
@@ -679,6 +682,8 @@ macro_rules! make_pin {
             }
         }
 
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl OutputPin for [<Gpio $Port Pin>] {
             type Error = Infallible;
 
@@ -693,6 +698,8 @@ macro_rules! make_pin {
             }
         }
 
+        #[cfg(feature = "embedded-hal")]
+        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl ToggleableOutputPin for [<Gpio $Port Pin>] {
             type Error = Infallible;
 
@@ -728,7 +735,7 @@ cfg_if! {
 
 cfg_if! {
     // note: WB has port E, but is missing some field values etc. Not sure if in PAC or actual.
-    if #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb")))] {
+    if #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))] {
         make_port!(E, e);
         make_pin!(E);
     }
@@ -743,7 +750,8 @@ cfg_if! {
     feature = "l4x2",
     feature = "l412",
     feature = "l4x3",
-    feature = "wb"
+    feature = "wb",
+    feature = "wl"
     )))] {
         make_port!(F, f);
         make_pin!(F);
@@ -761,6 +769,7 @@ cfg_if! {
         feature = "g0",
         feature = "g4",
         feature = "wb",
+        feature = "wl"
     )))] {
         make_port!(H, h);
         make_pin!(H);
