@@ -270,7 +270,7 @@ pub mod gpio;
 #[cfg(feature = "wb")]
 pub mod hsem;
 
-#[cfg(not(any(feature = "f4", feature = "f3x4")))]
+#[cfg(not(feature = "f4"))]
 pub mod i2c;
 #[cfg(feature = "f4")]
 pub mod i2c_f4;

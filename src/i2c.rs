@@ -80,28 +80,28 @@ pub enum Error {
 #[derive(Clone, Copy)]
 pub enum I2cDevice {
     One,
-    #[cfg(not(feature = "wb"))]
+    #[cfg(not(any(feature = "wb", feature = "f3x4")))]
     Two,
     #[cfg(any(feature = "h7", feature = "wb"))]
     Three,
 }
 
 /// Represents an Inter-Integrated Circuit (I2C) peripheral.
-pub struct I2c<I> {
-    regs: I,
+pub struct I2c<R> {
+    regs: R,
     device: I2cDevice,
     // mode: I2cMode,
     /// SMBUS features like PEC enabled.
     smbus: bool,
 }
 
-impl<I> I2c<I>
+impl<R> I2c<R>
 where
-    I: Deref<Target = pac::i2c1::RegisterBlock>,
+    R: Deref<Target = pac::i2c1::RegisterBlock>,
 {
     /// Configures the I2C peripheral. `freq` is in Hz. Doesn't check pin config.
     pub fn new<C: ClockCfg>(
-        regs: I,
+        regs: R,
         device: I2cDevice,
         freq: u32, // todo: Set a division manually, like you do with SPI.
         clocks: &C,
@@ -111,7 +111,7 @@ where
             I2cDevice::One => {
                 rcc_en_reset!(apb1, i2c1, rcc);
             }
-            #[cfg(not(feature = "wb"))]
+            #[cfg(not(any(feature = "wb", feature = "f3x4")))]
             I2cDevice::Two => {
                 rcc_en_reset!(apb1, i2c2, rcc);
             }
@@ -393,7 +393,7 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
             I2cDevice::One => DmaInput::I2c1Tx.dma1_channel(),
-            #[cfg(not(feature = "wb"))]
+            #[cfg(not(any(feature = "wb", feature = "f3x4")))]
             I2cDevice::Two => DmaInput::I2c2Tx.dma1_channel(),
             #[cfg(any(feature = "h7", feature = "wb"))]
             I2cDevice::Three => DmaInput::I2c3Tx.dma1_channel(),
@@ -478,7 +478,7 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
             I2cDevice::One => DmaInput::I2c1Rx.dma1_channel(),
-            #[cfg(not(feature = "wb"))]
+            #[cfg(not(any(feature = "wb", feature = "f3x4")))]
             I2cDevice::Two => DmaInput::I2c2Rx.dma1_channel(),
             #[cfg(any(feature = "h7", feature = "wb"))]
             I2cDevice::Three => DmaInput::I231Rx.dma1_channel(),

@@ -5,8 +5,6 @@
 // the `Dac` struct doesn't accept a trait of its reg block. We may have to
 // change this later as we find exceptions.
 
-// Some MCUs (F3 and G4?) use a second DAC interface - this is currently not
-// implemented.
 
 use core::ops::Deref;
 
@@ -22,6 +20,8 @@ cfg_if! {
         use crate::pac::dac as dac_p;
     }
 }
+
+// Todo: The 4 MCR register modes.
 
 use cfg_if::cfg_if;
 
@@ -48,7 +48,7 @@ pub enum DacChannel {
 }
 
 #[derive(Clone, Copy)]
-/// Three options are available to set DAC precision.
+/// Three options are available to set DAC precision. Sets the DHR8R1 etc register contents.
 pub enum DacBits {
     /// Eight bit precision, right-aligned.
     EightR,
@@ -103,6 +103,8 @@ pub struct Dac<R> {
     vref: f32,
 }
 
+// todo: Calculate the VDDA vref, as you do with onboard ADCs!
+
 impl<R> Dac<R>
 where
     R: Deref<Target = dac_p::RegisterBlock>,
@@ -151,10 +153,10 @@ where
         #[cfg(not(any(feature = "l5", feature = "g4")))]
         let cr = &self.regs.cr;
 
-        match channel {
-            DacChannel::C1 => cr.modify(|_, w| w.en1().set_bit()),
-            DacChannel::C2 => cr.modify(|_, w| w.en2().set_bit()),
-        }
+        cr.modify(|_, w| match channel {
+            DacChannel::C1 => w.en1().set_bit(),
+            DacChannel::C2 => w.en2().set_bit(),
+        });
     }
 
     /// Disable the DAC
@@ -164,14 +166,27 @@ where
         #[cfg(not(any(feature = "l5", feature = "g4")))]
         let cr = &self.regs.cr;
 
-        match channel {
-            DacChannel::C1 => cr.modify(|_, w| w.en1().clear_bit()),
-            DacChannel::C2 => cr.modify(|_, w| w.en2().clear_bit()),
-        }
+        cr.modify(|_, w| match channel {
+            DacChannel::C1 => w.en1().clear_bit(),
+            DacChannel::C2 => w.en2().clear_bit(),
+        });
     }
 
     /// Set the DAC value as an integer.
     pub fn set_value(&mut self, channel: DacChannel, val: u32) {
+        // RM: DAC conversion
+        // The DAC_DORx cannot be written directly and any data transfer to the DAC channelx must
+        // be performed by loading the DAC_DHRx register (write operation to DAC_DHR8Rx,
+        // DAC_DHR12Lx, DAC_DHR12Rx, DAC_DHR8RD, DAC_DHR12RD or DAC_DHR12LD).
+        // Data stored in the DAC_DHRx register are automatically transferred to the DAC_DORx
+        // register after one APB1 clock cycle, if no hardware trigger is selected (TENx bit in DAC_CR
+        // register is reset). However, when a hardware trigger is selected (TENx bit in DAC_CR
+        // register is set) and a trigger occurs, the transfer is performed three APB1 clock cycles after
+        // the trigger signal.
+        // When DAC_DORx is loaded with the DAC_DHRx contents, the analog output voltage
+        // becomes available after a time tSETTLING that depends on the power supply voltage and the
+        // analog output load.
+
         #[cfg(any(feature = "l5", feature = "g4"))]
         match channel {
             DacChannel::C1 => match self.bits {
@@ -203,12 +218,13 @@ where
 
     /// Set the DAC voltage. `v` is in Volts.
     pub fn set_voltage(&mut self, channel: DacChannel, volts: f32) {
-        let val = match self.bits {
-            DacBits::EightR => ((volts / self.vref) * 255.) as u32,
-            DacBits::TwelveL => ((volts / self.vref) * 4_095.) as u32,
-            DacBits::TwelveR => ((volts / self.vref) * 4_095.) as u32,
+        let max_word = match self.bits {
+            DacBits::EightR => 255.,
+            DacBits::TwelveL => 4_095.,
+            DacBits::TwelveR => 4_095.,
         };
 
+        let val = ((volts / self.vref) * max_word) as u32;
         self.set_value(channel, val);
     }
 
@@ -292,5 +308,26 @@ where
         }
         self.set_trigger(channel, trigger);
         self.set_value(channel, data);
+    }
+
+    /// Enable the DMA Underrun interrupt - the only interrupt available.
+    pub fn enable_interrupt(&mut self, channel: DacChannel) {
+        #[cfg(any(feature = "l5", feature = "g4"))]
+        let cr = &self.regs.dac_cr;
+        #[cfg(not(any(feature = "l5", feature = "g4")))]
+        let cr = &self.regs.cr;
+
+        cr.modify(|_, w| match channel {
+            DacChannel::C1 => w.dmaudrie1().set_bit(),
+            DacChannel::C2 => w.dmaudrie2().set_bit(),
+        });
+    }
+
+    /// Clear the DMA Underrun interrupt - the only interrupt available.
+    pub fn clear_interrupt(&mut self, channel: DacChannel) {
+        self.regs.sr.modify(|_, w| match channel {
+            DacChannel::C1 => w.dmaudr1().set_bit(),
+            DacChannel::C2 => w.dmaudr2().set_bit(),
+        });
     }
 }
