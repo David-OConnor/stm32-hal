@@ -122,11 +122,10 @@ cfg_if::cfg_if! {
             wfi();
         }
 
-        /// Enter `Standby` mode: the lowest-power of the 3 low-power states avail on the
-        /// STM32f3.
+        /// Enter `Standby` mode.
         /// To exit: WKUP pin rising edge, RTC alarm event’s rising edge, external Reset in
         /// NRST pin, IWDG Reset.
-        /// Ref man, table 21.
+        /// F303 Ref man, table 21.
         /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
         pub fn standby(scb: &mut SCB, pwr: &mut PWR) {
             // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
@@ -172,14 +171,17 @@ cfg_if::cfg_if! {
         }
 
 
-        /// Enter `Standby` mode. See L4 table 30. G4 table 47.
+        /// Enter `Standby` mode. See L44 RM table 28. G4 table 47.
         /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
         pub fn standby(scb: &mut SCB, pwr: &mut PWR) {
             // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
             scb.set_sleepdeep();
+
             // – No interrupt (for WFI) or event (for WFE) is pending
+
             // – LPMS = “011” in PWR_CR1
             pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(0b011) });
+
             // – WUFx bits are cleared in power status register 1 (PWR_SR1)
             // (Clear by setting cwfuf bits in `pwr_scr`.)
             cfg_if! {
@@ -223,6 +225,7 @@ cfg_if::cfg_if! {
             // – WUFx bits are cleared in power status register 1 (PWR_SR1)
             // – The RTC flag corresponding to the chosen wakeup source (RTC Alarm
             // A, RTC Alarm B, RTC wakeup, tamper or timestamp flags) is cleared
+
             wfi();
         }
 

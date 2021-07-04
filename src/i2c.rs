@@ -1,4 +1,5 @@
-//! Inter-Integrated Circuit (I2C) bus. Also supports SMBUS. Implements traits from `embedded-hal`.
+//! Inter-Integrated Circuit (I2C) bus. Also supports SMBUS. Provides APIs to configure, read, and write from
+//! I2C, with blocking, nonblocking, and DMA functionality.
 
 use cast::{u16, u8};
 use core::ops::Deref;

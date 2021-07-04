@@ -1,4 +1,5 @@
-//! Serial Peripheral Interface (SPI) bus. Implements traits from `embedded-hal`.
+//! Serial Peripheral Interface (SPI) bus. Provides APIs to configure, read, and write from
+//! SPI, with blocking, nonblocking, and DMA functionality.
 
 use core::{
     ops::Deref,
@@ -510,7 +511,8 @@ where
         }
     }
 
-    /// Write multiple bytes, blocking.
+    /// Write multiple bytes on the SPI line, blocking until complete.
+    /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
     pub fn write(&mut self, words: &[u8]) -> Result<(), Error> {
         for word in words {
             nb::block!(self.write_one(word.clone()))?;
@@ -520,7 +522,8 @@ where
         Ok(())
     }
 
-    /// Read multiple bytes to a buffer, blocking.
+    /// Read multiple bytes to a buffer, blocking until complete.
+    /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
     pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<(), Error> {
         for word in words.iter_mut() {
             nb::block!(self.write_one(word.clone()))?;
@@ -718,7 +721,9 @@ where
     }
 
     #[cfg(not(feature = "h7"))]
-    /// Enable an interrupt
+    /// Enable an interrupt. Note that unlike on other peripherals, there's no explicit way to
+    /// clear these. RM: "Writing to the transmit data register always clears the TXE bit.
+    /// The TXE flag is set by hardware."
     pub fn enable_interrupt(&mut self, interrupt_type: SpiInterrupt) {
         self.regs.cr2.modify(|_, w| match interrupt_type {
             SpiInterrupt::TxBufEmpty => w.txeie().set_bit(),
@@ -726,16 +731,6 @@ where
             SpiInterrupt::Error => w.errie().set_bit(),
         });
     }
-
-    // // todo: Not sure how to clear SPI interrupts. No ICR, and SR is read only?
-    // /// Clear an interrupt flag.
-    // pub fn clear_interrupt(&mut self, interrupt_type: SpiInterrupt) {
-    //     match interrupt_type {
-    //         SpiInterrupt::TxBufEmpty => self.regs.cr2.modify(|_, w| w.txeie.set_bit()),
-    //         SpiInterrupt::RxBufNotEmpty => self.regs.cr2.modify(|_, w| w.rxneie.set_bit()),
-    //         SpiInterrupt::Error => self.regs.cr2.modify(|_, w| w.erreie.set_bit()),
-    //     }
-    // }
 }
 
 #[cfg(feature = "embedded-hal")]

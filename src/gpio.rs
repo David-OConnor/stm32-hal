@@ -1,6 +1,6 @@
 //! This module provides functionality for General Purpose Input and Output (GPIO) pins,
-//! including all GPIOx register functions, and interrupts.
-//! It includes implementations of `embedded-hal` pin abstraction.
+//! including all GPIOx register functions. It also configures GPIO interrupts using SYSCFG and EXTI
+//! registers as appropriate.
 
 use core::convert::Infallible;
 
@@ -357,6 +357,441 @@ macro_rules! set_alt {
         }
     }
 }
+
+// Get a reference to a register block pointer, from a port
+// macro_rules! get_reg_ptr {
+//     (A) => {
+//         &(*pac::GPIOA::ptr())
+//     }
+//
+//     ($port:expr) => {
+//         &(*pac::pPort::ptr())
+//     };
+// }
+
+// /// Represents a single GPIO pin. Provides methods that, when passed a mutable reference
+// /// to its port's register block, can change and read various properties of the pin.
+// pub struct Pin {
+//     pub port: PortLetter,
+//     pub pin: u8,
+// }
+//
+// impl Pin {
+//     /// Set pin mode.
+//     pub fn mode(&mut self, value: PinMode) {
+//         let regs = unsafe { get_reg_ptr!(PortLetter) };
+//
+//         set_field!(
+//             self.pin,
+//             regs,
+//             moder,
+//             moder,
+//             bits,
+//             value.val(),
+//             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+//         );
+//
+//         if let PinMode::Alt(alt) = value {
+//             self.alt_fn(alt);
+//         }
+//     }
+//
+//     /// Set output type.
+//     pub fn output_type(&mut self, value: OutputType) {
+//         let regs = unsafe { get_reg_ptr!(PortLetter) };
+//
+//         set_field!(
+//             self.pin,
+//             regs,
+//             otyper,
+//             ot,
+//             bit,
+//             value as u8 != 0,
+//             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+//         );
+//     }
+//
+//     /// Set output speed.
+//     pub fn output_speed(&mut self, value: OutputSpeed) {
+//         let regs = unsafe { get_reg_ptr!(PortLetter) };
+//
+//         set_field!(
+//             self.pin,
+//             regs,
+//             ospeedr,
+//             ospeedr,
+//             bits,
+//             value as u8,
+//             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+//         );
+//     }
+//
+//     /// Set internal pull resistor: Pull up, pull down, or floating.
+//     pub fn pull(&mut self, value: Pull) {
+//         let regs = unsafe { get_reg_ptr!(PortLetter) };
+//
+//         set_field!(
+//             self.pin,
+//             regs,
+//             pupdr,
+//             pupdr,
+//             bits,
+//             value as u8,
+//             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+//         );
+//     }
+//
+//     /// Set the output_data register.
+//     pub fn output_data(&mut self, value: PinState) {
+//         let regs = unsafe { get_reg_ptr!(PortLetter) };
+//
+//         set_field!(
+//             self.pin,
+//             regs,
+//             odr,
+//             odr,
+//             bit,
+//             value as u8 != 0,
+//             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+//         );
+//     }
+//
+//     // It appears f373 doesn't have lckr on ports C or E.
+//     #[cfg(not(feature = "f373"))]
+//     /// Lock or unlock a port configuration.
+//     pub fn cfg_lock(&mut self, value: CfgLock) {
+//         let regs = unsafe { get_reg_ptr!(PortLetter) };
+//
+//         set_field!(
+//             self.pin,
+//             regs,
+//             lckr,
+//             lck,
+//             bit,
+//             value as u8 != 0,
+//             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+//         );
+//     }
+//
+//     /// Read the input data register.
+//     pub fn input_data(&mut self) -> PinState {
+//         let regs = unsafe { get_reg_ptr!(PortLetter) };
+//
+//         let reg_val = regs.idr.read();
+//         let val = match self.pin {
+//             0 => reg_val.idr0().bit_is_set(),
+//             1 => reg_val.idr1().bit_is_set(),
+//             2 => reg_val.idr2().bit_is_set(),
+//             3 => reg_val.idr3().bit_is_set(),
+//             4 => reg_val.idr4().bit_is_set(),
+//             5 => reg_val.idr5().bit_is_set(),
+//             6 => reg_val.idr6().bit_is_set(),
+//             7 => reg_val.idr7().bit_is_set(),
+//             8 => reg_val.idr8().bit_is_set(),
+//             9 => reg_val.idr9().bit_is_set(),
+//             10 => reg_val.idr10().bit_is_set(),
+//             11 => reg_val.idr11().bit_is_set(),
+//             12 => reg_val.idr12().bit_is_set(),
+//             13 => reg_val.idr13().bit_is_set(),
+//             14 => reg_val.idr14().bit_is_set(),
+//             15 => reg_val.idr15().bit_is_set(),
+//             _ => panic!("GPIO pins must be 0 - 15."),
+//         };
+//
+//         if val {
+//             PinState::High
+//         } else {
+//             PinState::Low
+//         }
+//     }
+//
+//     /// Set a pin state (ie set high or low output voltage level).
+//     pub fn set_state(&mut self, value: PinState) {
+//         let regs = unsafe { get_reg_ptr!(PortLetter) };
+//
+//         let offset = match value {
+//             PinState::Low => 16,
+//             PinState::High => 0,
+//         };
+//
+//         unsafe {
+//             regs.bsrr.write(|w| match self.pin {
+//                 0 => w.bits(1 << (offset + 0)),
+//                 1 => w.bits(1 << (offset + 1)),
+//                 2 => w.bits(1 << (offset + 2)),
+//                 3 => w.bits(1 << (offset + 3)),
+//                 4 => w.bits(1 << (offset + 4)),
+//                 5 => w.bits(1 << (offset + 5)),
+//                 6 => w.bits(1 << (offset + 6)),
+//                 7 => w.bits(1 << (offset + 7)),
+//                 8 => w.bits(1 << (offset + 8)),
+//                 9 => w.bits(1 << (offset + 9)),
+//                 10 => w.bits(1 << (offset + 10)),
+//                 11 => w.bits(1 << (offset + 11)),
+//                 12 => w.bits(1 << (offset + 12)),
+//                 13 => w.bits(1 << (offset + 13)),
+//                 14 => w.bits(1 << (offset + 14)),
+//                 15 => w.bits(1 << (offset + 15)),
+//                 _ => panic!("GPIO pins must be 0 - 15."),
+//             });
+//         }
+//     }
+//
+//     /// Set up a pin's alternate function. We set this up initially using `mode()`.
+//     fn alt_fn(&mut self, value: AltFn) {
+//         let regs = unsafe { get_reg_ptr!(PortLetter) };
+//
+//         cfg_if! {
+//             if #[cfg(any(feature = "l5", feature = "g0", feature = "wb", feature = "wl"))] {
+//                 set_alt!(self.pin, regs, afsel, value, [(0, l), (1, l), (2, l),
+//                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
+//                     (13, h), (14, h), (15, h)])
+//             } else if #[cfg(feature = "h7")] {
+//                 set_alt!(self.pin, regs, afr, value, [(0, l), (1, l), (2, l),
+//                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
+//                     (13, h), (14, h), (15, h)])
+//             } else {  // f3, f4, l4, g4
+//                 set_alt!(self.pin, regs, afr, value, [(0, l), (1, l), (2, l),
+//                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
+//                     (13, h), (14, h), (15, h)])
+//             }
+//         }
+//     }
+//
+//     // todo Error on these PACS, or are they missing BRR?
+//     #[cfg(not(any(feature = "l4", feature = "h7", feature = "f4")))]
+//     /// Reset an Output Data bit.
+//     pub fn reset(&mut self, value: ResetState) {
+//         let regs = unsafe { get_reg_ptr!(PortLetter) };
+//
+//         let offset = match value {
+//             ResetState::NoAction => 16,
+//             ResetState::Reset => 0,
+//         };
+//         unsafe {
+//             regs.brr.write(|w| match self.pin {
+//                 0 => w.bits(1 << (offset + 0)),
+//                 1 => w.bits(1 << (offset + 1)),
+//                 2 => w.bits(1 << (offset + 2)),
+//                 3 => w.bits(1 << (offset + 3)),
+//                 4 => w.bits(1 << (offset + 4)),
+//                 5 => w.bits(1 << (offset + 5)),
+//                 6 => w.bits(1 << (offset + 6)),
+//                 7 => w.bits(1 << (offset + 7)),
+//                 8 => w.bits(1 << (offset + 8)),
+//                 9 => w.bits(1 << (offset + 9)),
+//                 10 => w.bits(1 << (offset + 10)),
+//                 11 => w.bits(1 << (offset + 11)),
+//                 12 => w.bits(1 << (offset + 12)),
+//                 13 => w.bits(1 << (offset + 13)),
+//                 14 => w.bits(1 << (offset + 14)),
+//                 15 => w.bits(1 << (offset + 15)),
+//                 _ => panic!("GPIO pins must be 0 - 15."),
+//             });
+//         }
+//     }
+//
+//     // We split into 2 separate functions, so newer MCUs don't need to pass the SYSCFG register.
+//     cfg_if! {
+//         if #[cfg(any(feature = "g0", feature = "l5"))] {
+//             /// Configure this pin as an interrupt source.
+//             pub fn enable_interrupt(&mut self, edge: Edge, exti: &mut EXTI) {
+//                 let regs = unsafe { get_reg_ptr!(PortLetter) };
+//
+//                 // todo: On newer ones, don't accept SYSCFG for this function.
+//                 let rise_trigger = match edge {
+//                     Edge::Rising => {
+//                         // configure EXTI line to trigger on rising edge, disable trigger on falling edge.
+//                         true
+//                     }
+//                     Edge::Falling => {
+//                         // configure EXTI line to trigger on falling edge, disable trigger on rising edge.
+//                         false
+//                     }
+//                 };
+//
+//                 #[cfg(feature = "g0")]
+//                 set_exti_g0!(self.pin, exti, rise_trigger, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
+//                     (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
+//                     (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
+//                     (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]);
+//
+//                 #[cfg(feature = "l5")]
+//                 set_exti_l5!(self.pin, exti, rise_trigger, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
+//                     (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
+//                     (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
+//                     (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]);
+//
+//             }
+//         } else if #[cfg(not(feature = "f373"))] {
+//             /// Configure this pin as an interrupt source.
+//             pub fn enable_interrupt(&mut self, edge: Edge, exti: &mut EXTI, syscfg: &mut SYSCFG) {
+//                 let regs = unsafe { get_reg_ptr!(PortLetter) };
+//
+//                 // todo: On newer ones, don't accept SYSCFG for this function.
+//                 let rise_trigger = match edge {
+//                     Edge::Rising => {
+//                         // configure EXTI line to trigger on rising edge, disable trigger on falling edge.
+//                         true
+//                     }
+//                     Edge::Falling => {
+//                         // configure EXTI line to trigger on falling edge, disable trigger on rising edge.
+//                         false
+//                     }
+//                 };
+//
+//                 cfg_if! {
+//                     if #[cfg(feature = "f4")] {
+//                         set_exti_f4!(self.pin, exti, syscfg, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
+//                             (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
+//                             (13, 4), (14, 4), (15, 4)])
+//                     } else {
+//                         set_exti!(self.pin, exti, syscfg, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
+//                             (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
+//                             (13, 4), (14, 4), (15, 4)])
+//                     }
+//                 }
+//             }
+//         }
+//     }
+//
+//     /// Check if the pin's input voltage is high (VCC).
+//     pub fn is_high(&self) -> bool {
+//         // todo: DRy with `input_data`.
+//         let regs = unsafe { get_reg_ptr!(PortLetter) };
+//
+//         let reg_val = regs.idr.read();
+//         match self.pin {
+//             0 => reg_val.idr0().bit_is_set(),
+//             1 => reg_val.idr1().bit_is_set(),
+//             2 => reg_val.idr2().bit_is_set(),
+//             3 => reg_val.idr3().bit_is_set(),
+//             4 => reg_val.idr4().bit_is_set(),
+//             5 => reg_val.idr5().bit_is_set(),
+//             6 => reg_val.idr6().bit_is_set(),
+//             7 => reg_val.idr7().bit_is_set(),
+//             8 => reg_val.idr8().bit_is_set(),
+//             9 => reg_val.idr9().bit_is_set(),
+//             10 => reg_val.idr10().bit_is_set(),
+//             11 => reg_val.idr11().bit_is_set(),
+//             12 => reg_val.idr12().bit_is_set(),
+//             13 => reg_val.idr13().bit_is_set(),
+//             14 => reg_val.idr14().bit_is_set(),
+//             15 => reg_val.idr15().bit_is_set(),
+//             _ => panic!("GPIO pins must be 0 - 15."),
+//         }
+//     }
+//
+//     /// Check if the pin's input voltage is low (ground).
+//     pub fn is_low(&self) -> bool {
+//         !self.is_high()
+//     }
+//
+//     /// Set the pin's output voltage to high (VCC).
+//     pub fn set_high(&mut self) {
+//         // todo: DRY with self.set_low().
+//         let regs = unsafe { get_reg_ptr!(PortLetter) };
+//         let offset = 0;
+//
+//         unsafe {
+//             regs.bsrr.write(|w| match self.pin {
+//                 0 => w.bits(1 << (offset + 0)),
+//                 1 => w.bits(1 << (offset + 1)),
+//                 2 => w.bits(1 << (offset + 2)),
+//                 3 => w.bits(1 << (offset + 3)),
+//                 4 => w.bits(1 << (offset + 4)),
+//                 5 => w.bits(1 << (offset + 5)),
+//                 6 => w.bits(1 << (offset + 6)),
+//                 7 => w.bits(1 << (offset + 7)),
+//                 8 => w.bits(1 << (offset + 8)),
+//                 9 => w.bits(1 << (offset + 9)),
+//                 10 => w.bits(1 << (offset + 10)),
+//                 11 => w.bits(1 << (offset + 11)),
+//                 12 => w.bits(1 << (offset + 12)),
+//                 13 => w.bits(1 << (offset + 13)),
+//                 14 => w.bits(1 << (offset + 14)),
+//                 15 => w.bits(1 << (offset + 15)),
+//                 _ => panic!("GPIO pins must be 0 - 15."),
+//             });
+//         }
+//     }
+//
+//     /// Set the pin's output voltage to ground (low).
+//     pub fn set_low(&mut self) {
+//         // todo; DRY with `set_state`
+//         let regs = unsafe { get_reg_ptr!(PortLetter) };
+//         let offset = 16;
+//
+//         unsafe {
+//            regs.bsrr.write(|w| match self.pin {
+//                 0 => w.bits(1 << (offset + 0)),
+//                 1 => w.bits(1 << (offset + 1)),
+//                 2 => w.bits(1 << (offset + 2)),
+//                 3 => w.bits(1 << (offset + 3)),
+//                 4 => w.bits(1 << (offset + 4)),
+//                 5 => w.bits(1 << (offset + 5)),
+//                 6 => w.bits(1 << (offset + 6)),
+//                 7 => w.bits(1 << (offset + 7)),
+//                 8 => w.bits(1 << (offset + 8)),
+//                 9 => w.bits(1 << (offset + 9)),
+//                 10 => w.bits(1 << (offset + 10)),
+//                 11 => w.bits(1 << (offset + 11)),
+//                 12 => w.bits(1 << (offset + 12)),
+//                 13 => w.bits(1 << (offset + 13)),
+//                 14 => w.bits(1 << (offset + 14)),
+//                 15 => w.bits(1 << (offset + 15)),
+//                 _ => panic!("GPIO pins must be 0 - 15."),
+//             });
+//         }
+//     }
+// }
+//
+// #[cfg(feature = "embedded-hal")]
+// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+// // Implement `embedded-hal` traits. We use raw pointers, since these traits can't
+// // accept a register block.
+// impl InputPin for Pin {
+//     type Error = Infallible;
+//
+//     fn is_high(&self) -> Result<bool, Self::Error> {
+//         Pin::is_high(self)
+//     }
+//
+//     fn is_low(&self) -> Result<bool, Self::Error> {
+//         Pin::is_low(self)
+//     }
+// }
+//
+// #[cfg(feature = "embedded-hal")]
+// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+// impl OutputPin for Pin {
+//     type Error = Infallible;
+//
+//     fn set_low(&mut self) -> Result<(), Self::Error> {
+//         Pin::set_low(self);
+//         Ok(())
+//     }
+//
+//     fn set_high(&mut self) -> Result<(), Self::Error> {
+//         Pin::set_high(self);
+//         Ok(())
+//     }
+// }
+//
+// #[cfg(feature = "embedded-hal")]
+// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+// impl ToggleableOutputPin for Pin {
+//     type Error = Infallible;
+//
+//     fn toggle(&mut self) -> Result<(), Self::Error> {
+//         if self.is_high() {
+//             Pin::set_low(self);
+//         } else {
+//             Pin::set_high(self);
+//         }
+//         Ok(())
+//     }
+// }
 
 macro_rules! make_pin {
     ($Port:ident) => {

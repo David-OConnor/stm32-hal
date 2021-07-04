@@ -1,4 +1,4 @@
-//! API for the ADC (Analog to Digital Converter)
+//! Provides functionality for the ADC (Analog to Digital Converter).
 
 use cortex_m::asm;
 #[cfg(feature = "embedded-hal")]

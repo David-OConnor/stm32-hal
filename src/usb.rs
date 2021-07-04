@@ -1,8 +1,11 @@
 //! USB support, including for simulated COM ports. This module is a thin wrapper required to work with
 //! the `stm32_usbd` crate.
+//!
 //! Requires the `usb` feature.
-//! Used on F303, L4x2, L4x3, L5, G0, and G4. F4, L4x5, L4x6 and H7 use USB use the `usb_otg` module.
-//! For G0 series, only available on G0B0, G0B1, G0C1, which the PAC doesn't yet differentiate.
+//!
+//! Used on F303, L4x2, L4x3, L5, G0, and G4. F4, L4x5, L4x6 and H7 use the `usb_otg` module.
+//! For G0 series, USB is only available on G0B0, G0B1, G0C1, which the PAC doesn't yet differentiate,
+//! and this library doesn't yet support.
 
 use crate::{
     pac::{PWR, RCC},
@@ -19,7 +22,8 @@ use stm32_usbd::UsbPeripheral;
 
 use cfg_if::cfg_if;
 
-/// Represents a Universal Serial Bus (USB) peripheral.
+/// Represents a Universal Serial Bus (USB) peripheral. Functionality is implemented through the
+/// implemented `stm32_usbd::UsbPeripheral` trait.
 pub struct Peripheral {
     /// USB Register Block
     pub usb: USB,

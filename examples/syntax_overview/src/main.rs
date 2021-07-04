@@ -121,7 +121,7 @@ fn main() -> ! {
     let mut dma = Dma::new(&mut dp.DMA1, &mut dp.RCC);
 
     let spi_cfg = SpiConfig {
-        mode: SpiMode::mode3(),
+        mode: SpiMode::mode3(), // SpiConfig::default() uses mode 0.
         ..Default::default()
     };
 

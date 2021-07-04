@@ -1,5 +1,6 @@
 //! This module allows for serial communication using the STM32 USART module.
-//! Supports Embedded HAL `Read` and `Write` traits.
+//! Provides APIs to configure, read, and write from
+//! USART, with blocking, nonblocking, and DMA functionality.
 
 // todo: Synchronous mode.
 // todo: Auto baud

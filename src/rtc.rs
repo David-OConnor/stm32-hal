@@ -2,11 +2,10 @@
 //! For more details, see
 //! [ST AN4759](https:/www.st.com%2Fresource%2Fen%2Fapplication_note%2Fdm00226326-using-the-hardware-realtime-clock-rtc-and-the-tamper-management-unit-tamp-with-stm32-microcontrollers-stmicroelectronics.pdf&usg=AOvVaw3PzvL2TfYtwS32fw-Uv37h)
 
-// Based on `stm32f3xx-hal`.
-
 use crate::pac::{EXTI, PWR, RCC, RTC};
 use core::convert::TryInto;
-use rtcc::{Datelike, Hours, NaiveDate, NaiveDateTime, NaiveTime, Rtcc, Timelike};
+
+use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 
 use cfg_if::cfg_if;
 
@@ -577,14 +576,10 @@ impl Rtc {
         // This is safe, as the field accepts the full range of 8-bit values.
         self.regs.wpr.write(|w| unsafe { w.bits(0xFF) });
     }
-}
-
-impl Rtcc for Rtc {
-    type Error = Error;
 
     /// set time using NaiveTime (ISO 8601 time without timezone)
     /// Hour format is 24h
-    fn set_time(&mut self, time: &NaiveTime) -> Result<(), Self::Error> {
+    pub fn set_time(&mut self, time: &NaiveTime) -> Result<(), Error> {
         self.set_24h_fmt();
         let (ht, hu) = bcd2_encode(time.hour())?;
         let (mnt, mnu) = bcd2_encode(time.minute())?;
@@ -605,7 +600,7 @@ impl Rtcc for Rtc {
         Ok(())
     }
 
-    fn set_seconds(&mut self, seconds: u8) -> Result<(), Self::Error> {
+    pub fn set_seconds(&mut self, seconds: u8) -> Result<(), Error> {
         if seconds > 59 {
             return Err(Error::InvalidInputData);
         }
@@ -618,7 +613,7 @@ impl Rtcc for Rtc {
         Ok(())
     }
 
-    fn set_minutes(&mut self, minutes: u8) -> Result<(), Self::Error> {
+    pub fn set_minutes(&mut self, minutes: u8) -> Result<(), Error> {
         if minutes > 59 {
             return Err(Error::InvalidInputData);
         }
@@ -631,12 +626,8 @@ impl Rtcc for Rtc {
         Ok(())
     }
 
-    fn set_hours(&mut self, hours: Hours) -> Result<(), Self::Error> {
-        let (ht, hu) = hours_to_register(hours)?;
-        match hours {
-            Hours::H24(_h) => self.set_24h_fmt(),
-            Hours::AM(_h) | Hours::PM(_h) => self.set_12h_fmt(),
-        }
+    pub fn set_hours(&mut self, hours: u8) -> Result<(), Error> {
+        let (ht, hu) = bcd2_encode(hours as u32)?;
 
         self.edit_regs(true, |regs| {
             regs.tr
@@ -646,7 +637,7 @@ impl Rtcc for Rtc {
         Ok(())
     }
 
-    fn set_weekday(&mut self, weekday: u8) -> Result<(), Self::Error> {
+    pub fn set_weekday(&mut self, weekday: u8) -> Result<(), Error> {
         if !(1..=7).contains(&weekday) {
             return Err(Error::InvalidInputData);
         }
@@ -657,7 +648,7 @@ impl Rtcc for Rtc {
         Ok(())
     }
 
-    fn set_day(&mut self, day: u8) -> Result<(), Self::Error> {
+    pub fn set_day(&mut self, day: u8) -> Result<(), Error> {
         if !(1..=31).contains(&day) {
             return Err(Error::InvalidInputData);
         }
@@ -670,7 +661,7 @@ impl Rtcc for Rtc {
         Ok(())
     }
 
-    fn set_month(&mut self, month: u8) -> Result<(), Self::Error> {
+    pub fn set_month(&mut self, month: u8) -> Result<(), Error> {
         if !(1..=12).contains(&month) {
             return Err(Error::InvalidInputData);
         }
@@ -683,7 +674,7 @@ impl Rtcc for Rtc {
         Ok(())
     }
 
-    fn set_year(&mut self, year: u16) -> Result<(), Self::Error> {
+    pub fn set_year(&mut self, year: u16) -> Result<(), Error> {
         if !(1970..=2038).contains(&year) {
             return Err(Error::InvalidInputData);
         }
@@ -698,7 +689,7 @@ impl Rtcc for Rtc {
 
     /// Set the date using NaiveDate (ISO 8601 calendar date without timezone).
     /// WeekDay is set using the `set_weekday` method
-    fn set_date(&mut self, date: &NaiveDate) -> Result<(), Self::Error> {
+    pub fn set_date(&mut self, date: &NaiveDate) -> Result<(), Error> {
         if date.year() < 1970 {
             return Err(Error::InvalidInputData);
         }
@@ -721,7 +712,7 @@ impl Rtcc for Rtc {
         Ok(())
     }
 
-    fn set_datetime(&mut self, date: &NaiveDateTime) -> Result<(), Self::Error> {
+    pub fn set_datetime(&mut self, date: &NaiveDateTime) -> Result<(), Error> {
         if date.year() < 1970 {
             return Err(Error::InvalidInputData);
         }
@@ -761,93 +752,68 @@ impl Rtcc for Rtc {
         Ok(())
     }
 
-    fn get_seconds(&mut self) -> Result<u8, Self::Error> {
+    pub fn get_seconds(&mut self) -> u8 {
         let tr = self.regs.tr.read();
-        let seconds = bcd2_decode(tr.st().bits(), tr.su().bits());
-        Ok(seconds as u8)
+        bcd2_decode(tr.st().bits(), tr.su().bits()) as u8
     }
 
-    fn get_minutes(&mut self) -> Result<u8, Self::Error> {
+    pub fn get_minutes(&mut self) -> u8 {
         let tr = self.regs.tr.read();
-        let minutes = bcd2_decode(tr.mnt().bits(), tr.mnu().bits());
-        Ok(minutes as u8)
+        bcd2_decode(tr.mnt().bits(), tr.mnu().bits()) as u8
     }
 
-    fn get_hours(&mut self) -> Result<Hours, Self::Error> {
+    pub fn get_hours(&mut self) -> u8 {
         let tr = self.regs.tr.read();
-        let hours = bcd2_decode(tr.ht().bits(), tr.hu().bits());
-        if self.is_24h_fmt() {
-            return Ok(Hours::H24(hours as u8));
-        }
-        if !tr.pm().bit() {
-            return Ok(Hours::AM(hours as u8));
-        }
-        Ok(Hours::PM(hours as u8))
+        bcd2_decode(tr.ht().bits(), tr.hu().bits()) as u8
     }
 
-    fn get_time(&mut self) -> Result<NaiveTime, Self::Error> {
-        self.set_24h_fmt();
-        let seconds = self.get_seconds()?;
-        let minutes = self.get_minutes()?;
-        let hours = hours_to_u8(self.get_hours()?)?;
-
-        Ok(NaiveTime::from_hms(
-            hours.into(),
-            minutes.into(),
-            seconds.into(),
-        ))
+    pub fn get_time(&mut self) -> NaiveTime {
+        NaiveTime::from_hms(
+            self.get_hours().into(),
+            self.get_minutes().into(),
+            self.get_seconds().into(),
+        )
     }
 
-    fn get_weekday(&mut self) -> Result<u8, Self::Error> {
+    pub fn get_weekday(&mut self) -> u8 {
         let dr = self.regs.dr.read();
-        let weekday = bcd2_decode(dr.wdu().bits(), 0x00);
-        Ok(weekday as u8)
+        bcd2_decode(dr.wdu().bits(), 0x00) as u8
     }
 
-    fn get_day(&mut self) -> Result<u8, Self::Error> {
+    pub fn get_day(&mut self) -> u8 {
         let dr = self.regs.dr.read();
-        let day = bcd2_decode(dr.dt().bits(), dr.du().bits());
-        Ok(day as u8)
+        bcd2_decode(dr.dt().bits(), dr.du().bits()) as u8
     }
 
-    fn get_month(&mut self) -> Result<u8, Self::Error> {
+    pub fn get_month(&mut self) -> u8 {
         let dr = self.regs.dr.read();
         let mt: u8 = if dr.mt().bit() { 1 } else { 0 };
-        let month = bcd2_decode(mt, dr.mu().bits());
-        Ok(month as u8)
+        bcd2_decode(mt, dr.mu().bits()) as u8
     }
 
-    fn get_year(&mut self) -> Result<u16, Self::Error> {
+    pub fn get_year(&mut self) -> u16 {
         let dr = self.regs.dr.read();
-        let year = bcd2_decode(dr.yt().bits(), dr.yu().bits());
-        Ok(year as u16)
+        bcd2_decode(dr.yt().bits(), dr.yu().bits()) as u16
     }
 
-    fn get_date(&mut self) -> Result<NaiveDate, Self::Error> {
-        let day = self.get_day()?;
-        let month = self.get_month()?;
-        let year = self.get_year()?;
-
-        Ok(NaiveDate::from_ymd(year.into(), month.into(), day.into()))
+    pub fn get_date(&mut self) -> NaiveDate {
+        NaiveDate::from_ymd(
+            self.get_year().into(),
+            self.get_month().into(),
+            self.get_day().into(),
+        )
     }
 
-    fn get_datetime(&mut self) -> Result<NaiveDateTime, Self::Error> {
-        self.set_24h_fmt();
-
-        let day = self.get_day()?;
-        let month = self.get_month()?;
-        let year = self.get_year()?;
-
-        let seconds = self.get_seconds()?;
-        let minutes = self.get_minutes()?;
-        let hours = hours_to_u8(self.get_hours()?)?;
-
-        Ok(
-            NaiveDate::from_ymd(year.into(), month.into(), day.into()).and_hms(
-                hours.into(),
-                minutes.into(),
-                seconds.into(),
-            ),
+    pub fn get_datetime(&mut self) -> NaiveDateTime {
+        NaiveDate::from_ymd(
+            self.get_year().into(),
+            self.get_month().into(),
+            self.get_day().into(),
+        )
+        .and_hms(
+            self.get_hours().into(),
+            self.get_minutes().into(),
+            self.get_seconds().into(),
         )
     }
 }
@@ -877,20 +843,4 @@ fn bcd2_encode(word: u32) -> Result<(u8, u8), Error> {
 
 fn bcd2_decode(fst: u8, snd: u8) -> u32 {
     (fst * 10 + snd).into()
-}
-
-fn hours_to_register(hours: Hours) -> Result<(u8, u8), Error> {
-    match hours {
-        Hours::H24(h) => Ok(bcd2_encode(h as u32))?,
-        Hours::AM(h) => Ok(bcd2_encode((h - 1) as u32))?,
-        Hours::PM(h) => Ok(bcd2_encode((h + 11) as u32))?,
-    }
-}
-
-fn hours_to_u8(hours: Hours) -> Result<u8, Error> {
-    if let Hours::H24(h) = hours {
-        Ok(h)
-    } else {
-        Err(Error::InvalidInputData)
-    }
 }

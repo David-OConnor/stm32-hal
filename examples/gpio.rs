@@ -25,7 +25,10 @@ use stm32_hal2::{
 // `prelude` module to simplify this syntax, and accessing it later.
 // Arguments are a list of (global name to store as, type) tuples.
 // This macro is imported in the prelude.
-setup_globals!((EXAMPLE_OUTPUT, GpioBPin));
+make_globals!(
+    (EXAMPLE_OUTPUT, GpioBPin),
+    (DEBOUNCE_TIMER, Timer<pac::TIM15>),
+);
 
 /// This function includes type signature examples using `GpioPin`s from this library,
 /// and generic ones that implemented `embedded-hal` traits.
@@ -107,6 +110,12 @@ fn main() -> ! {
     let mut example_output = gpiob.new_pin(5, PinMode::Output);
     let mut example_input = gpiob.new_pin(6, PinMode::Input);
 
+    // A simple button debounce: Use a timer with a period between the maximum bouncing
+    // time you expect, and the minimum time bewteen actuations. In this time, we've chosen 5Hz,
+    // or 200ms. Note that there are other approaches as well.
+    let mut debounce_timer = Timer::new_tim15(dp.TIM15, 5., &clock_cfg, &mut dp.RCC);
+    debounce_timer.enable_interrupt(TimerInterrupt::Update);
+
     example_type_sigs(&mut example_output, &mut example_input);
 
     // Set high.
@@ -115,9 +124,16 @@ fn main() -> ! {
     // Unmask interrupt lines associated with the input pins we've configured interrupts
     // for in `setup_pins`.
     unsafe {
-        NVIC::unmask(interrupt::EXTI3);
-        NVIC::unmask(interrupt::EXTI4);
+        NVIC::unmask(pac::Interrupt::EXTI3);
+        NVIC::unmask(pac::Interrupt::EXTI4);
+        NVIC::unmask(pac::Interrupt::TIM15);
     }
+
+    // Make the debounce timer global, so we can acccess it in interrupt contexts.
+    free(|cs| {
+        EXAMPLE_OUTPUT.borrow(cs).replace(Some(example_output));
+        DEBOUNCE_TIMER.borrow(cs).replace(Some(debounce_timer));
+    });
 
     loop {
         low_power::sleep_now(&mut SCB);
@@ -131,11 +147,18 @@ fn EXTI3() {
         // Clear the interrupt flag, to prevent continous firing.
         unsafe { (*EXTI::ptr()).pr1.modify(|_, w| w.pr3().bit(true)) }
 
-        // A helper macro to access the pin we stored in a mutex.
+        // A helper macro to access the pin and timer we stored in mutexes.
+        access_global!(DEBOUNCE_TIMER, debounce_timer, cs);
+        if debounce_timer.is_enabled() {
+            return;
+        }
+
         access_global!(EXAMPLE_OUTPUT, example_output, cs);
 
         // Set a pin high;
         example_output.set_high();
+
+        debounce_timer.enable();
     });
 }
 
@@ -146,11 +169,31 @@ fn EXTI4() {
         // Clear the interrupt flag, to prevent continous firing.
         unsafe { (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr4().set_bit()) }
 
+        access_global!(DEBOUNCE_TIMER, debounce_timer, cs);
+        if debounce_timer.is_enabled() {
+            return;
+        }
+
         // This accomplishes the same as `access_global!`, and demonstrates
         // what that macro does.
         let mut p = EXAMPLE_OUTPUT.borrow(cs).borrow_mut();
         let mut example_output = p.as_mut().unwrap();
 
         example_output.set_low();
+
+        debounce_timer.enable();
+    });
+}
+
+#[interrupt]
+/// We use tim15 for button debounce.
+fn TIM15() {
+    free(|cs| {
+        access_global!(DEBOUNCE_TIMER, debounce_timer, cs);
+        // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
+        debounce_timer.clear_interrupt(TimerInterrupt::Update);
+
+        // Disable the timer until next time you press a button.
+        debounce_timer.disable();
     });
 }

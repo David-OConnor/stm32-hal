@@ -1,4 +1,7 @@
-//! Timers. Includes initialization, countdown functionality, interrupts, and PWM features.
+//! Provides support for timers. Includes initialization, countdown functionality, interrupts,
+//! and PWM features.
+//!
+//! Low-power timers (LPTIM) are not yet supported.
 
 use num_traits::float::Float;
 

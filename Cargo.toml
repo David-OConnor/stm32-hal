@@ -17,10 +17,7 @@ exclude = [".gitignore"]
 edition = "2018"
 
 [dependencies]
-# We are waiting for the 0.7.3 release of `cortex-m`, which removes need for `embedded-hal` in Delay.
-#cortex-m = "0.7.3"
-cortex-m = "0.7.2"
-#cortex-m = {  git = "https://github.com/rust-embedded/cortex-m" }
+cortex-m = "0.7.3"
 
 # Peripheral Access Crates
 stm32f3 = { version = "0.13.2", optional = true }
@@ -30,7 +27,6 @@ stm32f4 = { version = "0.13.0", optional = true }
 # Github and/or crates.io release.
 #stm32l4 = { path = "../../Desktop/stm32-rs/stm32l4", optional = true }
 stm32l4 = { package = "stm32l4-stm32hal", version = "0.13.0", optional = true }
-#stm32l4 = { git = "https://github.com/David-OConnor/stm32-rs/stm32l4", branch = "misc_fixes", optional = true }
 stm32l5 = { version = "0.13.0", optional = true }
 stm32g0 = { version = "0.13.0", optional = true }
 stm32g4 = { version = "0.13.0", optional = true }
@@ -41,11 +37,15 @@ stm32wl = { version = "0.13.0", optional = true }
 # todo: Custom WL depending on merging of apt PR.
 #stm32wl = { git = "https://github.com/munin-space/stm32-rs", branch = "master", optional = true }
 
-# Embedded traits
+# Embedded traits. Featured-gated with `embedded-hal`.
 embedded-hal = { version = "0.2.5", features = ["unproven"], optional = true }
-rtcc = "0.2"  # Embedded datetime traits.
+# Embedded date and time traits. Featured-gated with `embedded-hal`.
 
-# These USB and CAN crates are only imported if the `usb` feature is used.
+# Chrono allows for basic time and date functionality, for use with the Rtc.
+chrono = { version = "0.4.19", default-features = false }
+
+# These USB and CAN crates are only imported if one of the `can`, `usb`, `usbotg_fs`, or `usbotg_hs`
+# features are used.
 stm32-usbd = { version = "0.6.0", optional = true }
 synopsys-usb-otg = { version = "0.2.4", optional = true }
 bxcan = { version = "0.5.0", optional = true }

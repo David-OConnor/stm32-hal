@@ -27,6 +27,7 @@ of these peripherals using public methods [1]
 - Use both peripheral struct methods, and `embedded-hal` trait implementations for non-DMA interfaces; use additional
  struct methods for DMA interfaces [4, 5, 7]
 - Favor functionality, ergonomics, and explicit interfaces [6]
+- Provide examples and documentation that demonstrate peripheral use with interrupts and DMA [6]
 
 
 **Current family support**: F3, F4, L4, L5, G0, G4, H7, and WB. U5 is planned once its SVD files and PAC
@@ -221,8 +222,11 @@ where
 
 ## STM32WB radio
 This library doesn't include any radio functionality for the STM32WB. If you'd like to use it
-with bluetooth, use this HAL  in conjuction with with Epun's [stm32wb55](https://github.com/eupn/stm32wb55)
+with bluetooth, use this HAL in conjuction with with Epun's [stm32wb55](https://github.com/eupn/stm32wb55)
 bluetooth library.
+
+STM32WL radio support is WIP, and will be provided through interaction withnewAM's 
+[stm32wl-hal](https://github.com/newAM/stm32wl-hal) library.
 
 
 ## Errata
@@ -243,4 +247,5 @@ bluetooth library.
 - ADC unimplemented on F4
 - ADC3 unimplemented on H7
 - Low power modes beyond sleep and cstop aren't implemented for H7
-- WB is missing features relating to second core operations
+- WB and WL are missing features relating to second core operations and RF
+- WL is missing support for many peripherals.

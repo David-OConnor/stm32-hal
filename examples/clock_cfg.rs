@@ -34,7 +34,17 @@ fn main() -> ! {
     let clock_cfg = Clocks {
         input_src: InputSrc::Hsi,
         stop_wuck: StopWuck::Hsi,
-        ..Clocks::default()
+        ..Default::default()
+    };
+
+    // Here's an example clock config, where you're using a 16Mhz SMD oscillator, and are using
+    // the internal HSI48 for USB:
+    let clock_cfg = Clocks {
+        input_src: InputSrc::Pll(PllSrc::Hse(16_000_000)),
+        hse_bypass: true,
+        hsi48_on: true,
+        clk48_src: Clk48Src::Hsi48,
+        ..Default::default()
     };
 
     // Set it up to use the HSI, with no PLL. This will result in a reduced speed:
