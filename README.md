@@ -64,7 +64,7 @@ use stm32_hal2::{
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
-    timer::{Event::TimeOut, Timer},
+    timer::{Timer, TimerInterrupt},
 };
 
 #[entry]

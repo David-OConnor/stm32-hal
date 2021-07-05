@@ -330,13 +330,12 @@ impl Ipcc {
         match core {
             Core::C1 => {
                 match channel {
-                    // todo: Once you fix the PAC, change syntax, ie "toc2sr". Currently not sure how to fix it.
-                    IpccChannel::C1 => self.regs.c1to2sr.read().ch1f(),
-                    IpccChannel::C2 => self.regs.c1to2sr.read().ch2f(),
-                    IpccChannel::C3 => self.regs.c1to2sr.read().ch3f(),
-                    IpccChannel::C4 => self.regs.c1to2sr.read().ch4f(),
-                    IpccChannel::C5 => self.regs.c1to2sr.read().ch5f(),
-                    IpccChannel::C6 => self.regs.c1to2sr.read().ch6f(),
+                    IpccChannel::C1 => self.regs.c1toc2sr.read().ch1f(),
+                    IpccChannel::C2 => self.regs.c1toc2sr.read().ch2f(),
+                    IpccChannel::C3 => self.regs.c1toc2sr.read().ch3f(),
+                    IpccChannel::C4 => self.regs.c1toc2sr.read().ch4f(),
+                    IpccChannel::C5 => self.regs.c1toc2sr.read().ch5f(),
+                    IpccChannel::C6 => self.regs.c1toc2sr.read().ch6f(),
                 }
             }
             Core::C2 => match channel {

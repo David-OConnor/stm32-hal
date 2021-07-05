@@ -798,6 +798,7 @@ pwm_features!(TIM2, u32);
 #[cfg(not(any(
     feature = "f301",
     feature = "l4x1",
+    feature = "l412",
     feature = "l4x3",
     feature = "f410",
     feature = "wb",

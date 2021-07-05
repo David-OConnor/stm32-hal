@@ -42,8 +42,8 @@ jobs:
       matrix:
         mcu:
           - l4x1
-#          - l4x2 commented out until we sort out the USB interrupt in PAC patching.
-#          - l412
+          - l4x2
+          - l412
           - l4x3
           - l4x5
           - l4x6
