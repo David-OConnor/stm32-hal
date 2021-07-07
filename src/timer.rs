@@ -91,7 +91,8 @@ pub enum CountDir {
 }
 
 /// Capture/Compare selection.
-/// This bit-field defines the direction of the channel (input/output) as well as the used input.
+/// This field defines the direction of the channel (input/output) as well as the used input.
+/// It affects the TIMx_CCMR1 register, CCxS fields.
 #[repr(u8)]
 #[derive(Clone, Copy)]
 pub enum CaptureCompare {

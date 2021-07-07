@@ -20,6 +20,8 @@ use stm32_hal2::{
     prelude::*,
 };
 
+use embedded_hal::digital::OutputPin;
+
 // Set up an output pin in a globally-accessible mutex. This is useful for accessing
 // peripherals in interrupt contexts. We use a macro imported in the
 // `prelude` module to simplify this syntax, and accessing it later.
@@ -35,7 +37,9 @@ make_globals!(
 fn example_type_sigs<O: OutputPin>(pin1: &mut O, pin2: &mut GpioBPin) {
     let setting = pin2.is_high();
 
-    pin1.set_low();
+    // If using `embedded-hal` traits, you need to append `.unwrap()`, or `.ok()`, since these
+    // traits are fallible, even though our stm32 implementation is not.
+    pin1.set_low().ok();
 }
 
 /// An example function to set up the pins that don't need to be interacted with directly later.

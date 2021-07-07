@@ -1,3 +1,79 @@
+//! This library provides high-level access to STM32 peripherals. It supports the following STM32 families:
+//! F3, F4, L4, L5, G0, G4, H7, WB, and WL. It's designed to be used in real-world projects, and favors
+//! functionality, ergonomics, and explicit interfaces.
+//!
+//! Please see the [Readme](https://github.com/David-OConnor/stm32-hal/blob/main/README.md) for a detailed overview,
+//! and the [examples folder on Github](https://github.com/David-OConnor/stm32-hal/tree/main/examples)
+//! for example code and project structure.
+//!
+//! ## Getting started
+//! Review the [syntax overview example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/syntax_overview)
+//! for example uses of many of this library's features. Copy and paste its whole folder (It's set up
+//! using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml`
+//! and `main.rs` as required.
+//!
+//! When specifying this crate as a dependency in `Cargo.toml`, you need to specify a feature
+//! representing your MCU. If this is for code that runs on an MCU directly (ie not a library), also
+//! include a run-time feature, following the template `l4rt`. For example:
+//! ```toml
+//! cortex-m = "0.7.3"
+//! cortex-m-rt = "0.6.13"
+//! stm32-hal2 = { version = "^0.2.9", features = ["l4x3", "l4rt"]}
+//! ```
+//!
+//! If you need `embedded-hal` traits, include the `embedded-hal` feature.
+//!
+//! You can review [this section of Cargo.toml](https://github.com/David-OConnor/stm32-hal/blob/main/Cargo.toml#L61)
+//! to see which MCU and runtime features are available.
+//!
+//! ### Example highlights:
+//!
+//! ```rust
+//! use cortex_m;
+//! use cortex_m_rt::entry;
+//! use stm32_hal2::{
+//!     clocks::Clocks,
+//!     gpio::{GpioB, PinMode, OutputType, AltFn},
+//!     i2c::{I2c, I2cDevice},
+//!     low_power,
+//!     pac,
+//!     timer::{Timer, TimerInterrupt},
+//! };
+//!
+//! #[entry]
+//! fn main() -> ! {
+//!     let mut cp = cortex_m::Peripherals::take().unwrap();
+//!     let mut dp = pac::Peripherals::take().unwrap();
+//!
+//!     let clock_cfg = Clocks::default();
+//!     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
+//!
+//!     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
+//!     let mut pb15 = gpiob.new_pin(15, PinMode::Output);
+//!     pb15.set_high();
+//!
+//!     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
+//!     timer.enable_interrupt(TimerInterrupt::Update);
+//!
+//!     let mut scl = gpiob.new_pin(6, PinMode::Alt(AltFn::Af4));
+//!     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
+//!
+//!     let mut sda = gpiob.new_pin(7, PinMode::Alt(AltFn::Af4));
+//!     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
+//!
+//!     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg, &mut dp.RCC);
+//!
+//!     loop {
+//!         low_power::sleep_now(&mut cp.SCB);
+//!     }
+//! }
+//! ```
+//!
+//! ## Docs caveat
+//! This Rust docs page is built for `STM32L4x3`, and some aspects are not accurate for other
+//! variants. We currently don't have a good solution to this problem, and may
+//! self-host docs in the future.
+
 // Some overall notes:
 // We generally don't use the named field methods provided by PACs, as these are inconsistently
 // implemented among PACs. Ie f3's may have a `'`.enabled()` method, but `l4` does not;

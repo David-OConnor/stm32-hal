@@ -217,6 +217,84 @@ macro_rules! set_field {
     }
 }
 
+// todo: Remove the old set_field in favor of this if you ditch the GpioAPin concept etc.
+//
+// /// Reduce DRY for setting fields.
+// macro_rules! set_field2 { // for Pin struct.
+//     ($pin:expr, $port_letter:expr, $reg:ident, $field:ident, $bit:ident, $val:expr, [$($num:expr),+]) => {
+//         paste! {
+//             unsafe {
+//                 match $port_letter {
+//                     PortLetter::A => {
+//                          match $pin {
+//                             $(
+//                                 $num => (*pac::GPIOA::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+//                             )+
+//                             _ => panic!("GPIO pins must be 0 - 15."),
+//                         }
+//                     }
+//                     PortLetter::B => {
+//                          match $pin {
+//                             $(
+//                                 $num => (*pac::GPIOB::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+//                             )+
+//                             _ => panic!("GPIO pins must be 0 - 15."),
+//                         }
+//                     }
+//                     PortLetter::C => {
+//                          match $pin {
+//                             $(
+//                                 $num => (*pac::GPIOC::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+//                             )+
+//                             _ => panic!("GPIO pins must be 0 - 15."),
+//                         }
+//                     }
+//                     PortLetter::D => {
+//                          match $pin {
+//                             $(
+//                                 $num => (*pac::GPIOD::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+//                             )+
+//                             _ => panic!("GPIO pins must be 0 - 15."),
+//                         }
+//                     }
+//                     PortLetter::E => {
+//                          match $pin {
+//                             $(
+//                                 $num => (*pac::GPIOE::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+//                             )+
+//                             _ => panic!("GPIO pins must be 0 - 15."),
+//                         }
+//                     }
+//                     PortLetter::F => {
+//                          match $pin {
+//                             $(
+//                                 $num => (*pac::GPIOF::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+//                             )+
+//                             _ => panic!("GPIO pins must be 0 - 15."),
+//                         }
+//                     }
+//                     PortLetter::G => {
+//                          match $pin {
+//                             $(
+//                                 $num => (*pac::GPIOG::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+//                             )+
+//                             _ => panic!("GPIO pins must be 0 - 15."),
+//                         }
+//                     }
+//                     PortLetter::H => {
+//                          match $pin {
+//                             $(
+//                                 $num => (*pac::GPIOH::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+//                             )+
+//                             _ => panic!("GPIO pins must be 0 - 15."),
+//                         }
+//                     }
+//                 }
+//             }
+//         }
+//     }
+// }
+
 // todo: Consolidate these exti macros
 
 /// Reduce DRY for setting up interrupts.
@@ -226,17 +304,14 @@ macro_rules! set_exti {
             match $pin {
                 $(
                     $num => {
+                    // todo: Core 2 interrupts for wb. (?)
                         cfg_if! {
                             if #[cfg(all(feature = "h7", not(any(feature = "h747cm4", feature = "h747cm7"))))] {
                                 $exti.cpuimr1.modify(|_, w| w.[<mr $num>]().set_bit());
                             } else if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
                                 $exti.c1imr1.modify(|_, w| w.[<mr $num>]().set_bit());
-                            }else if #[cfg(any(feature = "g4"))] {
+                            }else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
                                 $exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());
-                            } else if #[cfg(any(feature = "wb", feature = "wl"))] {
-                                // todo: Do the rename in WB pac, then merge this section with g4 above.
-                                $exti.c1imr1.modify(|_, w| w.[<im $num>]().set_bit());
-                                // todo: Core 2 interrupts for wb.
                             } else {
                                 $exti.imr1.modify(|_, w| w.[<mr $num>]().set_bit());
                             }
@@ -358,7 +433,7 @@ macro_rules! set_alt {
     }
 }
 
-// Get a reference to a register block pointer, from a port
+// ///Get a reference to a register block pointer, from a port
 // macro_rules! get_reg_ptr {
 //     (A) => {
 //         &(*pac::GPIOA::ptr())
@@ -366,9 +441,9 @@ macro_rules! set_alt {
 //
 //     ($port:expr) => {
 //         &(*pac::pPort::ptr())
-//     };
-// }
-
+// //     };
+// // }
+//
 // /// Represents a single GPIO pin. Provides methods that, when passed a mutable reference
 // /// to its port's register block, can change and read various properties of the pin.
 // pub struct Pin {
@@ -379,11 +454,9 @@ macro_rules! set_alt {
 // impl Pin {
 //     /// Set pin mode.
 //     pub fn mode(&mut self, value: PinMode) {
-//         let regs = unsafe { get_reg_ptr!(PortLetter) };
-//
-//         set_field!(
+//          set_field2!(
 //             self.pin,
-//             regs,
+//             self.port,
 //             moder,
 //             moder,
 //             bits,
@@ -392,17 +465,15 @@ macro_rules! set_alt {
 //         );
 //
 //         if let PinMode::Alt(alt) = value {
-//             self.alt_fn(alt);
+//             // self.alt_fn(alt); // todo put back
 //         }
 //     }
 //
 //     /// Set output type.
 //     pub fn output_type(&mut self, value: OutputType) {
-//         let regs = unsafe { get_reg_ptr!(PortLetter) };
-//
-//         set_field!(
+//         set_field2!(
 //             self.pin,
-//             regs,
+//             self.port,
 //             otyper,
 //             ot,
 //             bit,
@@ -413,11 +484,9 @@ macro_rules! set_alt {
 //
 //     /// Set output speed.
 //     pub fn output_speed(&mut self, value: OutputSpeed) {
-//         let regs = unsafe { get_reg_ptr!(PortLetter) };
-//
-//         set_field!(
+//         set_field2!(
 //             self.pin,
-//             regs,
+//             self.port,
 //             ospeedr,
 //             ospeedr,
 //             bits,
@@ -428,11 +497,9 @@ macro_rules! set_alt {
 //
 //     /// Set internal pull resistor: Pull up, pull down, or floating.
 //     pub fn pull(&mut self, value: Pull) {
-//         let regs = unsafe { get_reg_ptr!(PortLetter) };
-//
-//         set_field!(
+//         set_field2!(
 //             self.pin,
-//             regs,
+//             self.port,
 //             pupdr,
 //             pupdr,
 //             bits,
@@ -443,11 +510,9 @@ macro_rules! set_alt {
 //
 //     /// Set the output_data register.
 //     pub fn output_data(&mut self, value: PinState) {
-//         let regs = unsafe { get_reg_ptr!(PortLetter) };
-//
-//         set_field!(
+//         set_field2!(
 //             self.pin,
-//             regs,
+//             self.port,
 //             odr,
 //             odr,
 //             bit,
@@ -455,56 +520,51 @@ macro_rules! set_alt {
 //             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 //         );
 //     }
+
+// // It appears f373 doesn't have lckr on ports C or E. (PAC error?)
+// #[cfg(not(feature = "f373"))]
+// /// Lock or unlock a port configuration.
+// pub fn cfg_lock(&mut self, value: CfgLock) {
+//     set_field2!(
+//         self.pin,
+//         self.port,
+//         lckr,
+//         lck,
+//         bit,
+//         value as u8 != 0,
+//         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+//     );
+// }
+
+// /// Read the input data register.
+// pub fn input_data(&mut self) -> PinState {
+//     let val = match self.pin {
+//         0 => reg_val.idr0().bit_is_set(),
+//         1 => reg_val.idr1().bit_is_set(),
+//         2 => reg_val.idr2().bit_is_set(),
+//         3 => reg_val.idr3().bit_is_set(),
+//         4 => reg_val.idr4().bit_is_set(),
+//         5 => reg_val.idr5().bit_is_set(),
+//         6 => reg_val.idr6().bit_is_set(),
+//         7 => reg_val.idr7().bit_is_set(),
+//         8 => reg_val.idr8().bit_is_set(),
+//         9 => reg_val.idr9().bit_is_set(),
+//         10 => reg_val.idr10().bit_is_set(),
+//         11 => reg_val.idr11().bit_is_set(),
+//         12 => reg_val.idr12().bit_is_set(),
+//         13 => reg_val.idr13().bit_is_set(),
+//         14 => reg_val.idr14().bit_is_set(),
+//         15 => reg_val.idr15().bit_is_set(),
+//         _ => panic!("GPIO pins must be 0 - 15."),
+//     };
 //
-//     // It appears f373 doesn't have lckr on ports C or E.
-//     #[cfg(not(feature = "f373"))]
-//     /// Lock or unlock a port configuration.
-//     pub fn cfg_lock(&mut self, value: CfgLock) {
-//         let regs = unsafe { get_reg_ptr!(PortLetter) };
-//
-//         set_field!(
-//             self.pin,
-//             regs,
-//             lckr,
-//             lck,
-//             bit,
-//             value as u8 != 0,
-//             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-//         );
+//     if val {
+//         PinState::High
+//     } else {
+//         PinState::Low
 //     }
-//
-//     /// Read the input data register.
-//     pub fn input_data(&mut self) -> PinState {
-//         let regs = unsafe { get_reg_ptr!(PortLetter) };
-//
-//         let reg_val = regs.idr.read();
-//         let val = match self.pin {
-//             0 => reg_val.idr0().bit_is_set(),
-//             1 => reg_val.idr1().bit_is_set(),
-//             2 => reg_val.idr2().bit_is_set(),
-//             3 => reg_val.idr3().bit_is_set(),
-//             4 => reg_val.idr4().bit_is_set(),
-//             5 => reg_val.idr5().bit_is_set(),
-//             6 => reg_val.idr6().bit_is_set(),
-//             7 => reg_val.idr7().bit_is_set(),
-//             8 => reg_val.idr8().bit_is_set(),
-//             9 => reg_val.idr9().bit_is_set(),
-//             10 => reg_val.idr10().bit_is_set(),
-//             11 => reg_val.idr11().bit_is_set(),
-//             12 => reg_val.idr12().bit_is_set(),
-//             13 => reg_val.idr13().bit_is_set(),
-//             14 => reg_val.idr14().bit_is_set(),
-//             15 => reg_val.idr15().bit_is_set(),
-//             _ => panic!("GPIO pins must be 0 - 15."),
-//         };
-//
-//         if val {
-//             PinState::High
-//         } else {
-//             PinState::Low
-//         }
-//     }
-//
+// }
+
 //     /// Set a pin state (ie set high or low output voltage level).
 //     pub fn set_state(&mut self, value: PinState) {
 //         let regs = unsafe { get_reg_ptr!(PortLetter) };
@@ -723,7 +783,7 @@ macro_rules! set_alt {
 //         let offset = 16;
 //
 //         unsafe {
-//            regs.bsrr.write(|w| match self.pin {
+//             regs.bsrr.write(|w| match self.pin {
 //                 0 => w.bits(1 << (offset + 0)),
 //                 1 => w.bits(1 << (offset + 1)),
 //                 2 => w.bits(1 << (offset + 2)),
