@@ -7,6 +7,8 @@
 use crate::pac::{EXTI, PWR, RCC, RTC};
 use core::convert::TryInto;
 
+use cortex_m::interrupt::free;
+
 use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 
 use cfg_if::cfg_if;
@@ -116,7 +118,7 @@ impl Rtc {
     /// doesn't connect to `OSC32_IN`, such as a MEMS resonator.
     /// Note that if using HSE as the clock source, we assume you've already enabled it, eg
     /// in clock config.
-    pub fn new(regs: RTC, rcc: &mut RCC, pwr: &mut PWR, config: RtcConfig) -> Self {
+    pub fn new(regs: RTC, pwr: &mut PWR, config: RtcConfig) -> Self {
         let mut result = Self { regs, config };
 
         // Enable the peripheral clock for communication
@@ -127,82 +129,85 @@ impl Rtc {
         // field here.
 
         // See L4 RM, `Backup domain access` section.
+        free(|cs| {
+            let mut rcc = unsafe { &(*RCC::ptr()) };
 
-        cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4"))] {
-                rcc.apb1enr.modify(|_, w| w.pwren().set_bit());
-                pwr.cr.read(); // read to allow the pwr clock to enable
-                pwr.cr.modify(|_, w| w.dbp().set_bit());
-                while pwr.cr.read().dbp().bit_is_clear() {}
-            } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "l412", feature = "wb", feature = "wl"))] {
-                // 1. Enable the power interface clock by setting the PWREN bits in the Section 6.4.18:
-                // APB1 peripheral clock enable register 1 (RCC_APB1ENR1)
-                #[cfg(not(any(feature = "wb", feature = "wl")))]
-                rcc.apb1enr1.modify(|_, w| {
-                    w.pwren().set_bit();
-                    w.rtcapben().set_bit()
-                });
-                #[cfg(any(feature = "wb", feature = "wl"))]
-                rcc.apb1enr1.modify(|_, w| w.rtcapben().set_bit());
+            cfg_if! {
+                if #[cfg(any(feature = "f3", feature = "f4"))] {
+                    rcc.apb1enr.modify(|_, w| w.pwren().set_bit());
+                    pwr.cr.read(); // read to allow the pwr clock to enable
+                    pwr.cr.modify(|_, w| w.dbp().set_bit());
+                    while pwr.cr.read().dbp().bit_is_clear() {}
+                } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "l412", feature = "wb", feature = "wl"))] {
+                    // 1. Enable the power interface clock by setting the PWREN bits in the Section 6.4.18:
+                    // APB1 peripheral clock enable register 1 (RCC_APB1ENR1)
+                    #[cfg(not(any(feature = "wb", feature = "wl")))]
+                    rcc.apb1enr1.modify(|_, w| {
+                        w.pwren().set_bit();
+                        w.rtcapben().set_bit()
+                    });
+                    #[cfg(any(feature = "wb", feature = "wl"))]
+                    rcc.apb1enr1.modify(|_, w| w.rtcapben().set_bit());
 
-                rcc.apb1smenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
-                pwr.cr1.read(); // Read to allow the pwr clock to enable
-                // 2. Set the DBP bit in the Power control register 1 (PWR_CR1) to enable access to the
-                // backup domain
-                pwr.cr1.modify( | _, w| w.dbp().set_bit()); // Unlock the backup domain
-                while pwr.cr1.read().dbp().bit_is_clear() {}
-            } else if #[cfg(any(feature = "g0"))] {
-                rcc.apbenr1.modify(|_, w| {
-                    w.pwren().set_bit();
-                    w.rtcapben().set_bit()
-                });
-                rcc.apbsmenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
-                pwr.cr1.read();
-                pwr.cr1.modify( | _, w| w.dbp().set_bit());
-                while pwr.cr1.read().dbp().bit_is_clear() {}
-            } else { // eg h7
-                rcc.apb4enr.modify(|_, w| w.rtcapben().set_bit());
-                rcc.apb4lpenr.modify(|_, w| w.rtcapblpen().set_bit());  // In sleep and stop modes.
-                pwr.cr1.read(); // read to allow the pwr clock to enable
-                pwr.cr1.modify( | _, w| w.dbp().set_bit());
-                while pwr.cr1.read().dbp().bit_is_clear() {}
-            }
-        }
-
-        // Reset the backup domain.
-        rcc.bdcr.modify(|_, w| w.bdrst().set_bit());
-        rcc.bdcr.modify(|_, w| w.bdrst().clear_bit());
-
-        // Set up the LSI or LSE as required.
-        match config.clock_source {
-            RtcClockSource::Lsi => {
-                cfg_if! {
-                    if #[cfg(any(feature = "wb", feature = "wl"))] {
-                    // todo: LSI2?
-                        rcc.csr.modify(|_, w| w.lsi1on().set_bit());
-                        while rcc.csr.read().lsi1rdy().bit_is_clear() {}
-                    } else {
-                        rcc.csr.modify(|_, w| w.lsion().set_bit());
-                        while rcc.csr.read().lsirdy().bit_is_clear() {}
-                    }
+                    rcc.apb1smenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
+                    pwr.cr1.read(); // Read to allow the pwr clock to enable
+                    // 2. Set the DBP bit in the Power control register 1 (PWR_CR1) to enable access to the
+                    // backup domain
+                    pwr.cr1.modify( | _, w| w.dbp().set_bit()); // Unlock the backup domain
+                    while pwr.cr1.read().dbp().bit_is_clear() {}
+                } else if #[cfg(any(feature = "g0"))] {
+                    rcc.apbenr1.modify(|_, w| {
+                        w.pwren().set_bit();
+                        w.rtcapben().set_bit()
+                    });
+                    rcc.apbsmenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
+                    pwr.cr1.read();
+                    pwr.cr1.modify( | _, w| w.dbp().set_bit());
+                    while pwr.cr1.read().dbp().bit_is_clear() {}
+                } else { // eg h7
+                    rcc.apb4enr.modify(|_, w| w.rtcapben().set_bit());
+                    rcc.apb4lpenr.modify(|_, w| w.rtcapblpen().set_bit());  // In sleep and stop modes.
+                    pwr.cr1.read(); // read to allow the pwr clock to enable
+                    pwr.cr1.modify( | _, w| w.dbp().set_bit());
+                    while pwr.cr1.read().dbp().bit_is_clear() {}
                 }
             }
-            RtcClockSource::Lse => {
-                // Can only set lsebyp when lse is off, so do this as a separate step.
-                rcc.bdcr
-                    .modify(|_, w| w.lsebyp().bit(config.bypass_lse_output));
-                rcc.bdcr.modify(|_, w| w.lseon().set_bit());
-                while rcc.bdcr.read().lserdy().bit_is_clear() {}
-            }
-            _ => (),
-        }
 
-        // 3. Select the RTC clock source in the Backup domain control register (RCC_BDCR).
-        // 4. Enable the RTC clock by setting the RTCEN [15] bit in the Backup domain control
-        // register (RCC_BDCR)
-        rcc.bdcr.modify(|_, w| {
-            unsafe { w.rtcsel().bits(result.config.clock_source as u8) };
-            w.rtcen().set_bit()
+            // Reset the backup domain.
+            rcc.bdcr.modify(|_, w| w.bdrst().set_bit());
+            rcc.bdcr.modify(|_, w| w.bdrst().clear_bit());
+
+            // Set up the LSI or LSE as required.
+            match config.clock_source {
+                RtcClockSource::Lsi => {
+                    cfg_if! {
+                        if #[cfg(any(feature = "wb", feature = "wl"))] {
+                        // todo: LSI2?
+                            rcc.csr.modify(|_, w| w.lsi1on().set_bit());
+                            while rcc.csr.read().lsi1rdy().bit_is_clear() {}
+                        } else {
+                            rcc.csr.modify(|_, w| w.lsion().set_bit());
+                            while rcc.csr.read().lsirdy().bit_is_clear() {}
+                        }
+                    }
+                }
+                RtcClockSource::Lse => {
+                    // Can only set lsebyp when lse is off, so do this as a separate step.
+                    rcc.bdcr
+                        .modify(|_, w| w.lsebyp().bit(config.bypass_lse_output));
+                    rcc.bdcr.modify(|_, w| w.lseon().set_bit());
+                    while rcc.bdcr.read().lserdy().bit_is_clear() {}
+                }
+                _ => (),
+            }
+
+            // 3. Select the RTC clock source in the Backup domain control register (RCC_BDCR).
+            // 4. Enable the RTC clock by setting the RTCEN [15] bit in the Backup domain control
+            // register (RCC_BDCR)
+            rcc.bdcr.modify(|_, w| {
+                unsafe { w.rtcsel().bits(result.config.clock_source as u8) };
+                w.rtcen().set_bit()
+            });
         });
 
         result.edit_regs(false, |regs| {
@@ -254,8 +259,8 @@ impl Rtc {
     // pub fn set_alarm(&mut self, exti: &mut EXTI) {
     // note: STM3241x and 42x have diff addresses, and are PAC incompatible!
     //     exti.imr1.modify(|_, w| w.mr18().unmasked());
-    //     exti.rtsr1.modify(|_, w| w.tr18().bit(true));
-    //     exti.ftsr1.modify(|_, w| w.tr18().bit(false));
+    //     exti.rtsr1.modify(|_, w| w.tr18().set_bit());
+    //     exti.ftsr1.modify(|_, w| w.tr18().clear_bit());
     //
     //     self.edit_regs(false, |regs| {
     //         regs.cr.modify(|_, w| w.alrae().clear_bit());
@@ -390,29 +395,29 @@ impl Rtc {
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "l4"))] {
                 exti.imr1.modify(|_, w| w.mr20().unmasked());
-                exti.rtsr1.modify(|_, w| w.tr20().bit(true));
-                exti.ftsr1.modify(|_, w| w.tr20().bit(false));
+                exti.rtsr1.modify(|_, w| w.tr20().set_bit());
+                exti.ftsr1.modify(|_, w| w.tr20().clear_bit());
             } else if #[cfg(feature = "f4")] {
                 exti.imr.modify(|_, w| w.mr20().unmasked());
-                exti.rtsr.modify(|_, w| w.tr20().bit(true));
-                exti.ftsr.modify(|_, w| w.tr20().bit(false));
+                exti.rtsr.modify(|_, w| w.tr20().set_bit());
+                exti.ftsr.modify(|_, w| w.tr20().clear_bit());
             } else if #[cfg(feature = "g4")]{
                 exti.imr1.modify(|_, w| w.im20().unmasked());
-                exti.rtsr1.modify(|_, w| w.rt20().bit(true));
-                exti.ftsr1.modify(|_, w| w.ft20().bit(false));
+                exti.rtsr1.modify(|_, w| w.rt20().set_bit());
+                exti.ftsr1.modify(|_, w| w.ft20().clear_bit());
             } else if #[cfg(any(feature = "l5", feature = "g0", feature = "wb", feature = "wl"))] {
                 // exti.imr1.modify(|_, w| w.mr20().unmasked());
-                // exti.rtsr1.modify(|_, w| w.rt20().bit(true));
-                // exti.ftsr1.modify(|_, w| w.ft20().bit(false));
+                // exti.rtsr1.modify(|_, w| w.rt20().set_bit());
+                // exti.ftsr1.modify(|_, w| w.ft20().clear_bit());
 
            } else if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
                 exti.c1imr1.modify(|_, w| w.mr20().unmasked());
-                exti.rtsr1.modify(|_, w| w.tr20().bit(true));
-                exti.ftsr1.modify(|_, w| w.tr20().bit(false));
+                exti.rtsr1.modify(|_, w| w.tr20().set_bit());
+                exti.ftsr1.modify(|_, w| w.tr20().clear_bit());
            } else { // H7
                 exti.cpuimr1.modify(|_, w| w.mr20().unmasked());
-                exti.rtsr1.modify(|_, w| w.tr20().bit(true));
-                exti.ftsr1.modify(|_, w| w.tr20().bit(false));
+                exti.rtsr1.modify(|_, w| w.tr20().set_bit());
+                exti.ftsr1.modify(|_, w| w.tr20().clear_bit());
             }
         }
 

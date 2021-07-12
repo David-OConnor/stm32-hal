@@ -1,6 +1,7 @@
 //! Provides functionality for the ADC (Analog to Digital Converter).
 
-use cortex_m::asm;
+use cortex_m::{asm, interrupt::free};
+
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::adc::{Channel, OneShot};
 
@@ -252,7 +253,6 @@ macro_rules! hal {
                     common_regs : &mut pac::$ADC_COMMON,
                     ckmode: ClockMode,
                     clocks: &C,
-                    rcc: &mut RCC,
                 ) -> Self {
                     let mut result = Self {
                         regs,
@@ -264,7 +264,7 @@ macro_rules! hal {
                         vdda_calibrated: 0.
                     };
 
-                    result.enable_clock(common_regs, rcc);
+                    result.enable_clock(common_regs);
                     result.set_align(Align::default());
 
                     result.advregen_enable(clocks);
@@ -294,23 +294,29 @@ macro_rules! hal {
             }
 
             /// Enable the ADC clock, and set the clock mode.
-            fn enable_clock(&self, regs_common: &mut pac::$ADC_COMMON, rcc: &mut RCC) {
-                paste! {
-                    cfg_if! {
-                        if #[cfg(any(feature = "f3", feature = "h7"))] {
-                            rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
-                        } else if #[cfg(feature = "f4")] {
-                            rcc_en_reset!(2, [<adc $rcc_num>], rcc);
-                        } else if #[cfg(any(feature = "h7"))] {
-                        // todo: 1 and 2 are on ahb1enr etc. 3 is on ahb4. 3 won't work here.
-                            rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
-                        } else if #[cfg(any(feature = "g4"))] {
-                            rcc_en_reset!(ahb2, [<adc $rcc_num>], rcc);
-                        } else {  // ie L4, L5, G0(?)
-                            rcc_en_reset!(ahb2, adc, rcc);
+            fn enable_clock(&self, regs_common: &mut pac::$ADC_COMMON) {
+            // todo: Consider merging this code into `new`, as we do in other modules.
+                free(|cs| {
+                    let mut rcc = unsafe { &(*RCC::ptr()) };
+
+                    paste! {
+                        cfg_if! {
+                            if #[cfg(any(feature = "f3", feature = "h7"))] {
+                                rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
+                            } else if #[cfg(feature = "f4")] {
+                                rcc_en_reset!(2, [<adc $rcc_num>], rcc);
+                            } else if #[cfg(any(feature = "h7"))] {
+                            // todo: 1 and 2 are on ahb1enr etc. 3 is on ahb4. 3 won't work here.
+                                rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
+                            } else if #[cfg(any(feature = "g4"))] {
+                                rcc_en_reset!(ahb2, [<adc $rcc_num>], rcc);
+                            } else {  // ie L4, L5, G0(?)
+                                rcc_en_reset!(ahb2, adc, rcc);
+                            }
                         }
                     }
-                }
+                });
+
                 regs_common.ccr.modify(|_, w| unsafe { w.ckmode().bits(self.ckmode as u8) });
 
             }
@@ -716,7 +722,6 @@ macro_rules! hal {
                         &mut common_regs,
                         ClockMode::default(),
                         clocks,
-                        &mut dp.RCC,
                     );
                     adc1.set_sample_time(0, SampleTime::T601);
                     let reading = adc1.read(0);

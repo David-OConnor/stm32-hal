@@ -104,8 +104,8 @@ fn main() -> ! {
     };
 
     // Set up ports for GpioA and GpioB.
-    let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
-    let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
+    let mut gpioa = GpioA::new(dp.GPIOA);
+    let mut gpiob = GpioB::new(dp.GPIOB);
 
     // Call a function we've made to help organize our pin setup code.
     setup_pins(&mut gpia, &mut gpiob, &mut dp.exti, &mut dp.syscfg);
@@ -117,7 +117,7 @@ fn main() -> ! {
     // A simple button debounce: Use a timer with a period between the maximum bouncing
     // time you expect, and the minimum time bewteen actuations. In this time, we've chosen 5Hz,
     // or 200ms. Note that there are other approaches as well.
-    let mut debounce_timer = Timer::new_tim15(dp.TIM15, 5., &clock_cfg, &mut dp.RCC);
+    let mut debounce_timer = Timer::new_tim15(dp.TIM15, 5., &clock_cfg);
     debounce_timer.enable_interrupt(TimerInterrupt::Update);
 
     example_type_sigs(&mut example_output, &mut example_input);

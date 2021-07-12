@@ -4,6 +4,8 @@
 
 use core::convert::Infallible;
 
+use cortex_m::interrupt::free;
+
 use crate::{
     pac::{self, EXTI, RCC},
     rcc_en_reset,
@@ -160,26 +162,29 @@ macro_rules! make_port {
             }
 
             impl [<Gpio $Port>] {
-                pub fn new(regs: pac::[<GPIO $Port>], rcc: &mut RCC) -> Self {
+                pub fn new(regs: pac::[<GPIO $Port>]) -> Self {
                     // Enable the peripheral clock of a GPIO port
+                    free(|cs| {
+                        let mut rcc = unsafe { &(*RCC::ptr()) };
 
-                    cfg_if! {
-                        if #[cfg(feature = "f3")] {
-                            rcc_en_reset!(ahb1, [<iop $port>], rcc);
-                        } else if #[cfg(feature = "h7")] {
-                            rcc.ahb4enr.modify(|_, w| w.[<gpio $port en>]().set_bit());
-                            rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
-                            rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
-                        } else if #[cfg(feature = "f4")] {
-                            rcc_en_reset!(ahb1, [<gpio $port>], rcc);
-                        } else if #[cfg(feature = "g0")] {
-                            rcc.iopenr.modify(|_, w| w.[<iop $port en>]().set_bit());
-                            rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().set_bit());
-                            rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().clear_bit());
-                        } else { // L4, L5, G4
-                            rcc_en_reset!(ahb2, [<gpio $port>], rcc);
+                        cfg_if! {
+                            if #[cfg(feature = "f3")] {
+                                rcc_en_reset!(ahb1, [<iop $port>], rcc);
+                            } else if #[cfg(feature = "h7")] {
+                                rcc.ahb4enr.modify(|_, w| w.[<gpio $port en>]().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
+                            } else if #[cfg(feature = "f4")] {
+                                rcc_en_reset!(ahb1, [<gpio $port>], rcc);
+                            } else if #[cfg(feature = "g0")] {
+                                rcc.iopenr.modify(|_, w| w.[<iop $port en>]().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().clear_bit());
+                            } else { // L4, L5, G4
+                                rcc_en_reset!(ahb2, [<gpio $port>], rcc);
+                            }
                         }
-                    }
+                    });
 
                     Self { regs }
                 }
@@ -218,82 +223,22 @@ macro_rules! set_field {
 }
 
 // todo: Remove the old set_field in favor of this if you ditch the GpioAPin concept etc.
-//
-// /// Reduce DRY for setting fields.
-// macro_rules! set_field2 { // for Pin struct.
-//     ($pin:expr, $port_letter:expr, $reg:ident, $field:ident, $bit:ident, $val:expr, [$($num:expr),+]) => {
-//         paste! {
-//             unsafe {
-//                 match $port_letter {
-//                     PortLetter::A => {
-//                          match $pin {
-//                             $(
-//                                 $num => (*pac::GPIOA::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-//                             )+
-//                             _ => panic!("GPIO pins must be 0 - 15."),
-//                         }
-//                     }
-//                     PortLetter::B => {
-//                          match $pin {
-//                             $(
-//                                 $num => (*pac::GPIOB::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-//                             )+
-//                             _ => panic!("GPIO pins must be 0 - 15."),
-//                         }
-//                     }
-//                     PortLetter::C => {
-//                          match $pin {
-//                             $(
-//                                 $num => (*pac::GPIOC::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-//                             )+
-//                             _ => panic!("GPIO pins must be 0 - 15."),
-//                         }
-//                     }
-//                     PortLetter::D => {
-//                          match $pin {
-//                             $(
-//                                 $num => (*pac::GPIOD::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-//                             )+
-//                             _ => panic!("GPIO pins must be 0 - 15."),
-//                         }
-//                     }
-//                     PortLetter::E => {
-//                          match $pin {
-//                             $(
-//                                 $num => (*pac::GPIOE::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-//                             )+
-//                             _ => panic!("GPIO pins must be 0 - 15."),
-//                         }
-//                     }
-//                     PortLetter::F => {
-//                          match $pin {
-//                             $(
-//                                 $num => (*pac::GPIOF::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-//                             )+
-//                             _ => panic!("GPIO pins must be 0 - 15."),
-//                         }
-//                     }
-//                     PortLetter::G => {
-//                          match $pin {
-//                             $(
-//                                 $num => (*pac::GPIOG::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-//                             )+
-//                             _ => panic!("GPIO pins must be 0 - 15."),
-//                         }
-//                     }
-//                     PortLetter::H => {
-//                          match $pin {
-//                             $(
-//                                 $num => (*pac::GPIOH::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-//                             )+
-//                             _ => panic!("GPIO pins must be 0 - 15."),
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
+
+/// Reduce DRY for setting fields.
+macro_rules! set_field2 { // for Pin struct.
+    ($pin:expr, $port_letter:ident, $reg:ident, $field:ident, $bit:ident, $val:expr, [$($num:expr),+]) => {
+        paste! {
+            unsafe {
+                match $pin {
+                    $(
+                        $num => (*pac::<[ GPIOA $port_letter>]::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+                    )+
+                    _ => panic!("GPIO pins must be 0 - 15."),
+                }
+            }
+        }
+    }
+}
 
 // todo: Consolidate these exti macros
 
@@ -450,7 +395,7 @@ macro_rules! set_alt {
 //     pub port: PortLetter,
 //     pub pin: u8,
 // }
-//
+
 // impl Pin {
 //     /// Set pin mode.
 //     pub fn mode(&mut self, value: PinMode) {

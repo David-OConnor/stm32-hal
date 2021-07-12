@@ -5,6 +5,8 @@
 
 use num_traits::float::Float;
 
+use cortex_m::interrupt::free;
+
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::{
     blocking::delay::{DelayMs, DelayUs},
@@ -207,9 +209,14 @@ macro_rules! hal {
         impl Timer<pac::$TIMX> {
             paste! {
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn [<new_ $tim>]<C: ClockCfg>(tim: pac::$TIMX, freq: f32, clocks: &C, rcc: &mut RCC) -> Self {
-                    // `freq` is in Hz.
-                    rcc_en_reset!([<apb $apb>], $tim, rcc);
+                pub fn [<new_ $tim>]<C: ClockCfg>(tim: pac::$TIMX, freq: f32, clocks: &C) -> Self {
+
+                    free(|cs| {
+                        let mut rcc = unsafe { &(*RCC::ptr()) };
+
+                        // `freq` is in Hz.
+                        rcc_en_reset!([<apb $apb>], $tim, rcc);
+                    });
 
                     let clock_speed = match $apb {
                         1 => clocks.apb1_timer(),
@@ -290,11 +297,11 @@ macro_rules! hal {
             /// in the constructor. If you use `center` aligned PWM, make sure to
             /// enter twice the freq you normally would.
             pub fn set_freq(&mut self, freq: f32) -> Result<(), ValueError> {
-               // todo: Take into account settings like Center alignment, and
-               // todo the `tim1sw` bit in RCC CFGR3, which change how the
-               // todo freq behaves. Center alignment halves the frequency;
-               // todo: Double `freq` here to compensate.
-               let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;
+                // todo: Take into account settings like Center alignment, and
+                // todo the `tim1sw` bit in RCC CFGR3, which change how the
+                // todo freq behaves. Center alignment halves the frequency;
+                // todo: Double `freq` here to compensate.
+                let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;
 
                 self.tim.arr.write(|w| unsafe { w.bits(arr.into()) });
                 self.tim.psc.write(|w| unsafe { w.bits(psc.into()) });
@@ -388,7 +395,7 @@ macro_rules! hal {
 
             fn start<T>(&mut self, timeout: T)
             where
-                T: Into<f32>,  // Hz.
+                T: Into<f32>, // Hz.
             {
                 self.disable();
 
@@ -415,7 +422,7 @@ macro_rules! hal {
                 }
             }
         }
-    }
+    };
 }
 
 /// Calculate values required to set the timer frequency: `PSC` and `ARR`. This can be

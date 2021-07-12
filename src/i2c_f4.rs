@@ -4,6 +4,7 @@
 // Based on `stm32f4xx-hal`.
 
 use core::ops::Deref;
+
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 

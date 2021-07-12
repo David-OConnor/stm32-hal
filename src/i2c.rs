@@ -4,6 +4,8 @@
 use cast::{u16, u8};
 use core::ops::Deref;
 
+use cortex_m::interrupt::free;
+
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
@@ -113,21 +115,24 @@ where
         device: I2cDevice,
         freq: u32, // todo: Set a division manually, like you do with SPI.
         clocks: &C,
-        rcc: &mut RCC,
     ) -> Self {
-        match device {
-            I2cDevice::One => {
-                rcc_en_reset!(apb1, i2c1, rcc);
+        free(|cs| {
+            let mut rcc = unsafe { &(*RCC::ptr()) };
+
+            match device {
+                I2cDevice::One => {
+                    rcc_en_reset!(apb1, i2c1, rcc);
+                }
+                #[cfg(not(any(feature = "wb", feature = "f3x4")))]
+                I2cDevice::Two => {
+                    rcc_en_reset!(apb1, i2c2, rcc);
+                }
+                #[cfg(any(feature = "h7", feature = "wb"))]
+                I2cDevice::Three => {
+                    rcc_en_reset!(apb1, i2c3, rcc);
+                }
             }
-            #[cfg(not(any(feature = "wb", feature = "f3x4")))]
-            I2cDevice::Two => {
-                rcc_en_reset!(apb1, i2c2, rcc);
-            }
-            #[cfg(any(feature = "h7", feature = "wb"))]
-            I2cDevice::Three => {
-                rcc_en_reset!(apb1, i2c3, rcc);
-            }
-        }
+        });
 
         assert!(freq <= 1_000_000);
         // Make sure the I2C unit is disabled so we can configure it

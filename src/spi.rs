@@ -7,6 +7,8 @@ use core::{
     sync::atomic::{self, Ordering},
 };
 
+use cortex_m::interrupt::free;
+
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::spi::FullDuplex;
 
@@ -215,42 +217,40 @@ where
     R: Deref<Target = pac::spi1::RegisterBlock>,
 {
     /// Configures the SPI peripheral to operate in full duplex master mode
-    pub fn new(
-        regs: R,
-        device: SpiDevice,
-        cfg: SpiConfig,
-        baud_rate: BaudRate,
-        rcc: &mut RCC,
-    ) -> Self {
-        match device {
-            SpiDevice::One => {
-                #[cfg(not(feature = "f301"))] // todo: Not sure what's going on  here.
-                rcc_en_reset!(apb2, spi1, rcc);
-            }
-            #[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
-            SpiDevice::Two => {
-                rcc_en_reset!(apb1, spi2, rcc);
-            }
-            #[cfg(not(any(
-                feature = "f3x4",
-                feature = "f410",
-                feature = "g0",
-                feature = "wb",
-                feature = "wl"
-            )))]
-            SpiDevice::Three => {
-                cfg_if! {
-                    // Note `sp3en` mixed with `spi3rst`; why we can't use the usual macro.
-                    if #[cfg(any(feature = "l4x3", feature = "l5"))] {
-                        rcc.apb1enr1.modify(|_, w| w.sp3en().set_bit());
-                        rcc.apb1rstr1.modify(|_, w| w.spi3rst().set_bit());
-                        rcc.apb1rstr1.modify(|_, w| w.spi3rst().clear_bit());
-                    } else {
-                        rcc_en_reset!(apb1, spi3, rcc);
+    pub fn new(regs: R, device: SpiDevice, cfg: SpiConfig, baud_rate: BaudRate) -> Self {
+        free(|cs| {
+            let mut rcc = unsafe { &(*RCC::ptr()) };
+
+            match device {
+                SpiDevice::One => {
+                    #[cfg(not(feature = "f301"))] // todo: Not sure what's going on  here.
+                    rcc_en_reset!(apb2, spi1, rcc);
+                }
+                #[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
+                SpiDevice::Two => {
+                    rcc_en_reset!(apb1, spi2, rcc);
+                }
+                #[cfg(not(any(
+                    feature = "f3x4",
+                    feature = "f410",
+                    feature = "g0",
+                    feature = "wb",
+                    feature = "wl"
+                )))]
+                SpiDevice::Three => {
+                    cfg_if! {
+                        // Note `sp3en` mixed with `spi3rst`; why we can't use the usual macro.
+                        if #[cfg(any(feature = "l4x3", feature = "l5"))] {
+                            rcc.apb1enr1.modify(|_, w| w.sp3en().set_bit());
+                            rcc.apb1rstr1.modify(|_, w| w.spi3rst().set_bit());
+                            rcc.apb1rstr1.modify(|_, w| w.spi3rst().clear_bit());
+                        } else {
+                            rcc_en_reset!(apb1, spi3, rcc);
+                        }
                     }
                 }
             }
-        }
+        });
 
         cfg_if! {
             if #[cfg(feature = "h7")] {

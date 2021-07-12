@@ -37,7 +37,7 @@ fn main() -> ! {
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
     // Enable the GPIOB port.
-    let mut gpioa = GpioA::new(dp.GPIOB, &mut dp.RCC);
+    let mut gpioa = GpioA::new(dp.GPIOB);
 
     // Configure pins for Spi
     let _sck = gpioa.new_pin(5, PinMode::Alt(AltFn::Af5));
@@ -63,7 +63,6 @@ fn main() -> ! {
         SpiDevice::One,
         spi_cfg,
         BaudRate::Div32, // Eg 80Mhz apb clock / 32 = 2.5Mhz SPI clock.
-        &mut dp.RCC,
     );
 
     // Set up DMA, for nonblocking (generally faster) conversion transfers:

@@ -28,8 +28,8 @@ fn main() -> ! {
 
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
-    // Enable the GPIOB port.
-    let mut gpioa = GpioA::new(dp.GPIOB, &mut dp.RCC);
+    // Enable the GPIOA port.
+    let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
 
     // Set up a PWM pin
     let _pwm_pin = gpioa.new_pin(0, PinMode::Alt(AltFn::Af1));

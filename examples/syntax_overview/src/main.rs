@@ -108,7 +108,7 @@ fn main() -> ! {
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
     // Set up an I2C peripheral, running at 100Khz.
-    let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg, &mut dp.RCC);
+    let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg);
 
     // Configure pins for I2c.
     let _sck = gpioa.new_pin(5, PinMode::Alt(AltFn::Af5));
@@ -116,7 +116,7 @@ fn main() -> ! {
     let _mosi = gpioa.new_pin(7, PinMode::Alt(AltFn::Af5));
 
     // Configure DMA, to be used by peripherals.
-    let mut dma = Dma::new(&mut dp.DMA1, &mut dp.RCC);
+    let mut dma = Dma::new(&mut dp.DMA1);
 
     let spi_cfg = SpiConfig {
         mode: SpiMode::mode3(), // SpiConfig::default() uses mode 0.
@@ -129,7 +129,6 @@ fn main() -> ! {
         SpiDevice::One,
         spi_cfg,
         BadRate::Div32,  // Eg 80Mhz apb clock / 32 = 2.5Mhz SPI clock.
-        &mut dp.RCC,
     );
 
     // Configure pins for UART.
@@ -144,7 +143,6 @@ fn main() -> ! {
         9_600,
         UsartConfig::default(),
         &clock_cfg,
-        &mut dp.RCC,
     );
 
     // Or, to set a custom USART config:
@@ -159,7 +157,6 @@ fn main() -> ! {
         9_600,
         usart_cfg,
         &clock_cfg,
-        &mut dp.RCC,
     );
 
     // Write a byte array to the UART
@@ -182,7 +179,6 @@ fn main() -> ! {
         &mut dp.ADC_COMMON,
         adc::ClockMode::default(),
         &clock_cfg,
-        &mut dp.RCC,
     );
 
     // Take a reading from ADC channel 1.
@@ -190,11 +186,11 @@ fn main() -> ! {
 
     // Set up the Digital-to-analog converter
     let mut dac_pin = gpioa.new_pin(12, PinMode::Analog);
-    let mut dac = Dac::new(dp.DAC1, DacDevice::One, Bits::TwelveR, 3.3, &mut dp.RCC);
+    let mut dac = Dac::new(dp.DAC1, DacDevice::One, Bits::TwelveR, 3.3);
     dac.enable(DacChannel::C1);
 
     // Set up and start a timer; set it to fire interrupts at 5Hz.
-    let mut timer = Timer::new_tim1(dp.TIM1, 0.2, &clock_cfg, &mut dp.RCC);
+    let mut timer = Timer::new_tim1(dp.TIM1, 0.2, &clock_cfg);
     timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
     timer.enable();
 

@@ -6,6 +6,8 @@ use core::{
     sync::atomic::{self, Ordering},
 };
 
+use cortex_m::interrupt::free;
+
 use crate::{
     pac::{self, RCC},
     rcc_en_reset,
@@ -116,7 +118,8 @@ impl DmaInput {
     }
 
     #[cfg(feature = "l4")]
-    /// Find the channel select value for a given DMA input. See L44 RM, Table 41.
+    /// Find the value to set in the DMA_CSELR register, for L4. Ie, channel select value for a given DMA input.
+    /// See L44 RM, Table 41.
     pub fn dma1_channel_select(&self) -> u8 {
         match self {
             Self::Adc1 => 0b000,
@@ -334,18 +337,20 @@ impl<D> Dma<D>
 where
     D: Deref<Target = dma::RegisterBlock>,
 {
-    pub fn new(regs: D, rcc: &mut RCC) -> Self {
+    pub fn new(regs: D) -> Self {
         // todo: Enable RCC for DMA 2 etc!
-
-        cfg_if! {
-            if #[cfg(feature = "f3")] {
-                rcc.ahbenr.modify(|_, w| w.dma1en().set_bit()); // no dmarst on F3.
-            } else if #[cfg(feature = "g0")] {
-                rcc_en_reset!(ahb1, dma, rcc);
-            } else {
-                rcc_en_reset!(ahb1, dma1, rcc);
+        free(|cs| {
+            let mut rcc = unsafe { &(*RCC::ptr()) };
+            cfg_if! {
+                if #[cfg(feature = "f3")] {
+                    rcc.ahbenr.modify(|_, w| w.dma1en().set_bit()); // no dmarst on F3.
+                } else if #[cfg(feature = "g0")] {
+                    rcc_en_reset!(ahb1, dma, rcc);
+                } else {
+                    rcc_en_reset!(ahb1, dma1, rcc);
+                }
             }
-        }
+        });
 
         Self { regs }
     }

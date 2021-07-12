@@ -13,6 +13,7 @@ This library provides high-level access to STM32 peripherals.
 5. Support both DMA and non-DMA interfaces
 6. Be suitable for commercial projects
 7. Implement [embedded-hal](https://github.com/rust-embedded/embedded-hal) traits for all applicable peripherals
+8. Provide a clear, concise API
 
 
 ## Specifications
@@ -26,7 +27,7 @@ of these peripherals using public methods [1]
  where large differences exist [2, 3]
 - Use both peripheral struct methods, and `embedded-hal` trait implementations for non-DMA interfaces; use additional
  struct methods for DMA interfaces [4, 5, 7]
-- Favor functionality, ergonomics, and explicit interfaces [6]
+- Favor functionality, ergonomics, and explicit interfaces [6, 8]
 - Provide examples and documentation that demonstrate peripheral use with interrupts and DMA [6]
 
 
@@ -75,11 +76,11 @@ fn main() -> ! {
     let clock_cfg = Clocks::default();
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
-    let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
+    let mut gpiob = GpioB::new(dp.GPIOB);
     let mut pb15 = gpiob.new_pin(15, PinMode::Output);
     pb15.set_high();
 
-    let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
+    let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg);
     timer.enable_interrupt(TimerInterrupt::Update);
 
     let mut scl = gpiob.new_pin(6, PinMode::Alt(AltFn::Af4));
@@ -88,7 +89,7 @@ fn main() -> ! {
     let mut sda = gpiob.new_pin(7, PinMode::Alt(AltFn::Af4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg, &mut dp.RCC);
+    let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg);
 
     loop {
         low_power::sleep_now(&mut cp.SCB);
@@ -122,8 +123,7 @@ in the implementation, eg:
 to identify when we can take advantage of this.
 - If config fields are complicated, we use a separate `PeriphConfig` struct owned by the peripheral struct.
 This struct impls `Default`.
-- Use raw pointers only when necessary. For example, pass `&mut dp.RCC` to methods when able.
-- A constructor named `new` that performs setup code, including RCC peripheral enable and reset
+- A constructor named `new` that performs setup code
 - `enable_interrupt` and `clear_interrupt` functions, which accept an enum of interrupt type
 - Add `embedded-hal` implementations as required, that call native methods. Note that
 we design APIs based on STM32 capabilities, and apply EH traits as applicable. We only
@@ -162,7 +162,10 @@ where
     R: Deref<Target = pac::fcrdr1::RegisterBlock>,
 {
     pub fn new(regs: R, prf: Prf, rcc: &mut pac::RCC) -> Self {
-        rcc_en_reset!(apb1, fcradar1, rcc);
+        free(|cs| {
+            let mut rcc = unsafe { &(*RCC::ptr()) };
+            rcc_en_reset!(apb1, fcradar1, rcc);
+        });
 
         regs.cr.modify(|_, w| w.prf().bit(prf as u8 != 0));        
 

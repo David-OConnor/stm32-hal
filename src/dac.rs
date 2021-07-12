@@ -7,6 +7,8 @@
 
 use core::ops::Deref;
 
+use cortex_m::interrupt::free;
+
 use crate::{
     pac::{self, RCC},
     rcc_en_reset,
@@ -114,30 +116,34 @@ where
     R: Deref<Target = dac_p::RegisterBlock>,
 {
     /// Create a new DAC instance.
-    pub fn new(regs: R, device: DacDevice, bits: DacBits, vref: f32, rcc: &mut RCC) -> Self {
-        cfg_if! {
-            if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
-                rcc_en_reset!(apb1, dac12, rcc);
-            } else if #[cfg(feature = "f3")] {
-                match device {
-                    DacDevice::One => { rcc_en_reset!(apb1, dac1, rcc); }
-                    #[cfg(any(feature = "f303", feature = "f373", feature = "f3x4", feature = "f4", feature = "g4"))]
-                    DacDevice::Two => { rcc_en_reset!(apb1, dac2, rcc); }
-                };
-            } else if #[cfg(feature = "g4")] {
-                match device {
-                    DacDevice::One => { rcc_en_reset!(ahb2, dac1, rcc); }
-                    DacDevice::Two => { rcc_en_reset!(ahb2, dac2, rcc); }
-                    DacDevice::Three => { rcc_en_reset!(ahb2, dac3, rcc); }
-                    DacDevice::Four => { rcc_en_reset!(ahb2, dac4, rcc); }
-                };
-            } else if #[cfg(feature = "f4")] {
-                // F4 only uses 1 enable, despite having 2 devices. (each with 1 channel)
-                rcc_en_reset!(apb1, dac, rcc);
-            } else {
-                rcc_en_reset!(apb1, dac1, rcc);
+    pub fn new(regs: R, device: DacDevice, bits: DacBits, vref: f32) -> Self {
+        free(|cs| {
+            let mut rcc = unsafe { &(*RCC::ptr()) };
+
+            cfg_if! {
+                if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
+                    rcc_en_reset!(apb1, dac12, rcc);
+                } else if #[cfg(feature = "f3")] {
+                    match device {
+                        DacDevice::One => { rcc_en_reset!(apb1, dac1, rcc); }
+                        #[cfg(any(feature = "f303", feature = "f373", feature = "f3x4", feature = "f4", feature = "g4"))]
+                        DacDevice::Two => { rcc_en_reset!(apb1, dac2, rcc); }
+                    };
+                } else if #[cfg(feature = "g4")] {
+                    match device {
+                        DacDevice::One => { rcc_en_reset!(ahb2, dac1, rcc); }
+                        DacDevice::Two => { rcc_en_reset!(ahb2, dac2, rcc); }
+                        DacDevice::Three => { rcc_en_reset!(ahb2, dac3, rcc); }
+                        DacDevice::Four => { rcc_en_reset!(ahb2, dac4, rcc); }
+                    };
+                } else if #[cfg(feature = "f4")] {
+                    // F4 only uses 1 enable, despite having 2 devices. (each with 1 channel)
+                    rcc_en_reset!(apb1, dac, rcc);
+                } else {
+                    rcc_en_reset!(apb1, dac1, rcc);
+                }
             }
-        }
+        });
 
         Self {
             regs,
