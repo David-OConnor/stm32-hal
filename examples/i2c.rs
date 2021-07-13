@@ -37,10 +37,10 @@ fn main() -> ! {
     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
 
     // Configure pins for I2c.
-    let mut scl = gpiob.new_pin(6, PinMode::Alt(AltFn::Af4));
+    let mut scl = gpiob.new_pin(6, PinMode::Alt(4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let mut sda = gpiob.new_pin(7, PinMode::Alt(AltFn::Af4));
+    let mut sda = gpiob.new_pin(7, PinMode::Alt(4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
     // Set up an I2C peripheral, running at 100Khz.

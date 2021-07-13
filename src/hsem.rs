@@ -3,6 +3,8 @@
 
 use crate::pac::{self, HSEM, RCC};
 
+use cortex_m::interrupt::free;
+
 use paste::paste;
 
 #[derive(Clone, Copy)]
@@ -29,18 +31,22 @@ macro_rules! set_register_sem {
         }
     };
 }
-
+1
 /// Represents an Hardware Semiphore (HSEM) peripheral.
 impl Hsem {
-    pub fn new(regs: HSEM, rcc: &mut RCC) -> Self {
-        rcc.ahb3enr.modify(|_, w| w.hsemen().set_bit());
-        rcc.ahb3rstr.modify(|_, w| w.hsemrst().set_bit());
-        rcc.ahb3rstr.modify(|_, w| w.hsemrst().clear_bit());
+    pub fn new(regs: HSEM) -> Self {
+        free(|cs| {
+            let mut rcc = unsafe { &(*RCC::ptr()) };
 
-        // todo: Why are these missing here and on IPCC `new`?
-        // rcc.ahb4enr.modify(|_, w| w.hsemen().set_bit());
-        // rcc.ahb4rstr.modify(|_, w| w.hsemrst().set_bit());
-        // rcc.ahb4rstr.modify(|_, w| w.hsemrst().clear_bit());
+            rcc.ahb3enr.modify(|_, w| w.hsemen().set_bit());
+            rcc.ahb3rstr.modify(|_, w| w.hsemrst().set_bit());
+            rcc.ahb3rstr.modify(|_, w| w.hsemrst().clear_bit());
+
+            // todo: Why are these missing here and on IPCC `new`?
+            // rcc.ahb4enr.modify(|_, w| w.hsemen().set_bit());
+            // rcc.ahb4rstr.modify(|_, w| w.hsemrst().set_bit());
+            // rcc.ahb4rstr.modify(|_, w| w.hsemrst().clear_bit());
+        });
 
         Self { regs }
     }

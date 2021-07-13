@@ -42,24 +42,23 @@ fn main() -> ! {
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
     // Enable the GPIOA port.
-    let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
+    let mut gpioa = GpioA::new(dp.GPIOA);
 
     // Configure PA0 to trigger a GPIO interrupt.
     let mut button = gpioa.new_pin(0, PinMode::Input);
     button.enable_interrupt(Edge::Falling, &mut dp.EXTI, &mut dp.SYSCFG);
 
     // Set up and start a timer; set it to fire interrupts every 5 seconds.
-    let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
+    let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg);
     timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
     timer.enable();
 
-    let mut debounce_timer = Timer::new_tim15(dp.TIM15, 5., &clock_cfg, &mut dp.RCC);
+    let mut debounce_timer = Timer::new_tim15(dp.TIM15, 5., &clock_cfg);
     debounce_timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
 
     // Set up the realtime clock.
     let mut rtc = Rtc::new(
         dp.RTC,
-        &mut dp.RCC,
         &mut dp.PWR,
         RtcConfig {
             clock_source: RtcClockSource::Lse,
@@ -75,7 +74,6 @@ fn main() -> ! {
         &mut dp.ADC_COMMON,
         adc::CkMode::default(),
         &clock_cfg,
-        &mut dp.RCC,
     );
 
     // Set up our ADC as a global variable accessible in interrupts, now that it's initialized.
@@ -104,7 +102,6 @@ fn main() -> ! {
             &mut dp.PWR,
             low_power::StopMode::Two,
             &clock_cfg,
-            &mut dp.RCC,
         );
 
         // Turn back on the PLL.

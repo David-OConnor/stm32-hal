@@ -83,10 +83,10 @@ fn main() -> ! {
     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg);
     timer.enable_interrupt(TimerInterrupt::Update);
 
-    let mut scl = gpiob.new_pin(6, PinMode::Alt(AltFn::Af4));
+    let mut scl = gpiob.new_pin(6, PinMode::Alt(4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let mut sda = gpiob.new_pin(7, PinMode::Alt(AltFn::Af4));
+    let mut sda = gpiob.new_pin(7, PinMode::Alt(4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg);
@@ -161,7 +161,9 @@ impl<F> FcRadar<R>
 where
     R: Deref<Target = pac::fcrdr1::RegisterBlock>,
 {
-    pub fn new(regs: R, prf: Prf, rcc: &mut pac::RCC) -> Self {
+    pub fn new(regs: R, prf: Prf) -> Self {
+        // A critical section here prevents race conditions, while avoiding preventing
+        // the user from needing to pass RCC in explicitly.
         free(|cs| {
             let mut rcc = unsafe { &(*RCC::ptr()) };
             rcc_en_reset!(apb1, fcradar1, rcc);

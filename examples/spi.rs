@@ -40,9 +40,9 @@ fn main() -> ! {
     let mut gpioa = GpioA::new(dp.GPIOB);
 
     // Configure pins for Spi
-    let _sck = gpioa.new_pin(5, PinMode::Alt(AltFn::Af5));
-    let _miso = gpioa.new_pin(6, PinMode::Alt(AltFn::Af5));
-    let _mosi = gpioa.new_pin(7, PinMode::Alt(AltFn::Af5));
+    let _sck = gpioa.new_pin(5, PinMode::Alt(5));
+    let _miso = gpioa.new_pin(6, PinMode::Alt(5));
+    let _mosi = gpioa.new_pin(7, PinMode::Alt(5));
 
     let cs = gpioa.new_pin(1, PinMode::Output);
 

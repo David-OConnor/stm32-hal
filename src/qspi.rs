@@ -8,6 +8,8 @@ use crate::{
 
 use core::ptr;
 
+use cortex_m::interrupt::free;
+
 use cfg_if::cfg_if;
 
 // todo: Status-polling mode.
@@ -126,25 +128,29 @@ pub struct Qspi {
 }
 
 impl Qspi {
-    pub fn new<C: ClockCfg>(regs: QUADSPI, cfg: QspiConfig, clocks: &C, rcc: &mut RCC) -> Self {
+    pub fn new<C: ClockCfg>(regs: QUADSPI, cfg: QspiConfig, clocks: &C) -> Self {
         assert!(
             cfg.dummy_cycles < 32,
             "Dumy cycles must be between 0 and 31."
         );
-        // cfg_if! {
-        //     if #[cfg(any(feature = "l4", feature = "l5", feature = "")] {
-        //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
-        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
-        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
-        //     } else { // G and H7
-        //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
-        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
-        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
-        //     }
-        // }
-        rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
-        rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
-        rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
+
+        free(|cs| {
+            let mut rcc = unsafe { &(*RCC::ptr()) };
+            // cfg_if! {
+            //     if #[cfg(any(feature = "l4", feature = "l5", feature = "")] {
+            //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
+            //         rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+            //         rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
+            //     } else { // G and H7
+            //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
+            //         rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+            //         rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
+            //     }
+            // }
+            rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
+            rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+            rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
+        });
 
         // Disable QUADSPI before configuring it.
         regs.cr.write(|w| w.en().clear_bit());

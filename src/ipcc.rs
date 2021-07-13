@@ -3,6 +3,8 @@
 
 use crate::pac::{self, IPCC, RCC};
 
+use cortex_m::interrupt::free;
+
 // todo: C1_1 and C2_1 etc for channels instead of separate core enum?
 // todo: Consider macros to reduce DRY here, re Core and Channel matching.
 // todo: Consolidate match arms to reduce DRY match statements for the diff steps
@@ -48,15 +50,18 @@ pub struct Ipcc {
 
 impl Ipcc {
     /// Configures the I2C peripheral. `freq` is in Hz. Doesn't check pin config.
-    pub fn new(regs: IPCC, rcc: &mut RCC) -> Self {
-        rcc.ahb3enr.modify(|_, w| w.ipccen().set_bit());
-        rcc.ahb3rstr.modify(|_, w| w.ipccrst().set_bit());
-        rcc.ahb3rstr.modify(|_, w| w.ipccrst().clear_bit());
+    pub fn new(regs: IPCC) -> Self {
+        free(|cs| {
+            let mut rcc = unsafe { &(*RCC::ptr()) };
+            rcc.ahb3enr.modify(|_, w| w.ipccen().set_bit());
+            rcc.ahb3rstr.modify(|_, w| w.ipccrst().set_bit());
+            rcc.ahb3rstr.modify(|_, w| w.ipccrst().clear_bit());
 
-        // todo?
-        // rcc.ahb4enr.modify(|_, w| w.ipccen().set_bit());
-        // rcc.ahb4rstr.modify(|_, w| w.ipccrst().set_bit());
-        // rcc.ahb4rstr.modify(|_, w| w.ipccrst().clear_bit());
+            // todo?
+            // rcc.ahb4enr.modify(|_, w| w.ipccen().set_bit());
+            // rcc.ahb4rstr.modify(|_, w| w.ipccrst().set_bit());
+            // rcc.ahb4rstr.modify(|_, w| w.ipccrst().clear_bit());
+        });
         Self { regs }
     }
 

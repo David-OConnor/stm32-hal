@@ -29,14 +29,14 @@ fn main() -> ! {
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
     // Enable the GPIOA port.
-    let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
+    let mut gpioa = GpioA::new(dp.GPIOA);
 
     // Set up a PWM pin
-    let _pwm_pin = gpioa.new_pin(0, PinMode::Alt(AltFn::Af1));
+    let _pwm_pin = gpioa.new_pin(0, PinMode::Alt(1));
 
     // Set up a PWM timer that will output to PA0, run at 2400Hz in edge-aligned mode,
     // count up, with a 50% duty cycle.
-    let mut pwm_timer = Timer::new_tim2(dp.TIM2, 2_400., &clock_cfg, &mut dp.RCC);
+    let mut pwm_timer = Timer::new_tim2(dp.TIM2, 2_400., &clock_cfg);
     pwm_timer.enable_pwm_output(TimChannel::C1, OutputCompare::Pwm1, CountDir::Up, 0.5);
     // Setting auto reload preload allow changing frequency (period) while the timer is running.
     pwm_timer.set_auto_reload_preload(true);
@@ -45,7 +45,7 @@ fn main() -> ! {
     // Change the duty cycle.
     pwm_timer.set_duty(TimChannel::C1, 100);
 
-    let mut countdown_timer = Timer::new_tim3(dp.TIM3, 0.5, &clock_cfg, &mut dp.RCC);
+    let mut countdown_timer = Timer::new_tim3(dp.TIM3, 0.5, &clock_cfg);
     countdown_timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
     countdown_timer.enable();
 

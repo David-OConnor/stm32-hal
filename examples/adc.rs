@@ -38,7 +38,7 @@ fn main() -> ! {
     let chan_num = 2;
 
     // Enable the GPIOB port.
-    let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
+    let mut gpiob = GpioB::new(dp.GPIOB);
 
     // Configure the ADC pin in analog mode. (This is the default state for some STM32 families,
     // but not all)
@@ -50,7 +50,6 @@ fn main() -> ! {
         &mut dp.ADC_COMMON,
         ClockMode::default(),
         &clock_cfg,
-        &mut dp.RCC,
     );
 
     // 1: Confiuration options:

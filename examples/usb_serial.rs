@@ -47,8 +47,8 @@ fn main() -> ! {
     let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
 
     // Set up USB pins.
-    let _usb_dm = gpioa.new_pin(11, PinMode::Alt(AltFn::Af14));
-    let _usb_dp = gpioa.new_pin(12, PinMode::Alt(AltFn::Af14));
+    let _usb_dm = gpioa.new_pin(11, PinMode::Alt(14));
+    let _usb_dp = gpioa.new_pin(12, PinMode::Alt(14));
 
     let usb = Peripheral { usb: dp.USB };
     let usb_bus = UsbBus::new(usb);

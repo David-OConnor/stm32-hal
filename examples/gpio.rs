@@ -52,24 +52,24 @@ pub fn setup_pins(
     syscfg: &mut pac::SYSCFG,
 ) {
     // Set up I2C pins
-    let mut scl = gpiob.new_pin(6, PinMode::Alt(AltFn::Af4));
+    let mut scl = gpiob.new_pin(6, PinMode::Alt(4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let mut sda = gpiob.new_pin(7, PinMode::Alt(AltFn::Af4));
+    let mut sda = gpiob.new_pin(7, PinMode::Alt(4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
     // Set up SPI pins
-    let _sck = gpioa.new_pin(5, PinMode::Alt(AltFn::Af5));
-    let _miso = gpioa.new_pin(6, PinMode::Alt(AltFn::Af5));
-    let _mosi = gpioa.new_pin(7, PinMode::Alt(AltFn::Af5));
+    let _sck = gpioa.new_pin(5, PinMode::Alt(5));
+    let _miso = gpioa.new_pin(6, PinMode::Alt(5));
+    let _mosi = gpioa.new_pin(7, PinMode::Alt(5));
 
     // Set up UART pins
-    let _uart_tx = gpioa.new_pin(9, PinMode::Alt(AltFn::Af7));
-    let _uart_rx = gpioa.new_pin(10, PinMode::Alt(AltFn::Af7));
+    let _uart_tx = gpioa.new_pin(9, PinMode::Alt(7));
+    let _uart_rx = gpioa.new_pin(10, PinMode::Alt(7));
 
     // Set up USB pins
-    let _usb_dm = gpioa.new_pin(11, PinMode::Alt(AltFn::Af14));
-    let _usb_dp = gpioa.new_pin(12, PinMode::Alt(AltFn::Af14));
+    let _usb_dm = gpioa.new_pin(11, PinMode::Alt(14));
+    let _usb_dp = gpioa.new_pin(12, PinMode::Alt(14));
 
     // Set the ADC pin to analog mode, to prevent parasitic power use.
     let _adc_pin = gpiob.new_pin(0, PinMode::Analog);
@@ -78,7 +78,7 @@ pub fn setup_pins(
     let _dac_pin = gpioa.new_pin(4, PinMode::Analog);
 
     // Set up PWM.  // Timer 2, channel 1.
-    let _pwm_pin = gpioa.new_pin(0, PinMode::Alt(AltFn::Af1));
+    let _pwm_pin = gpioa.new_pin(0, PinMode::Alt(1));
 
     // Set up buttons, with pull-up resistors that trigger on the falling edge.
     let mut up_btn = gpiob.new_pin(3, PinMode::Input);

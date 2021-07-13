@@ -14,6 +14,8 @@ use crate::{
 };
 use core::ops::Deref;
 
+use cortex_m::interrupt::free;
+
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(feature = "f3", feature = "l4", feature = "g4", feature = "wb"))]
@@ -155,26 +157,27 @@ where
         baud: u32,
         config: UsartConfig,
         clock_cfg: &C,
-        rcc: &mut RCC,
     ) -> Self {
-        match device {
-            UsartDevice::One => {
-                rcc_en_reset!(apb2, usart1, rcc);
-            }
-            #[cfg(not(feature = "wb"))]
-            UsartDevice::Two => {
-                cfg_if! {
-                    if #[cfg(not(feature = "f4"))] {
-                        rcc_en_reset!(apb1, usart2, rcc);
-                    } else {
-                        // Notice the `usart` vs `uart` asymmetry.
-                        rcc.apb1enr.modify(|_, w| w.usart2en().set_bit());
-                        rcc.apb1rstr.modify(|_, w| w.uart2rst().set_bit());
-                        rcc.apb1rstr.modify(|_, w| w.uart2rst().clear_bit());
+        free(|cs| {
+            let mut rcc = unsafe { &(*RCC::ptr()) };
+            match device {
+                UsartDevice::One => {
+                    rcc_en_reset!(apb2, usart1, rcc);
+                }
+                #[cfg(not(feature = "wb"))]
+                UsartDevice::Two => {
+                    cfg_if! {
+                        if #[cfg(not(feature = "f4"))] {
+                            rcc_en_reset!(apb1, usart2, rcc);
+                        } else {
+                            // Notice the `usart` vs `uart` asymmetry.
+                            rcc.apb1enr.modify(|_, w| w.usart2en().set_bit());
+                            rcc.apb1rstr.modify(|_, w| w.uart2rst().set_bit());
+                            rcc.apb1rstr.modify(|_, w| w.uart2rst().clear_bit());
+                        }
                     }
                 }
-            }
-            #[cfg(not(any(
+                #[cfg(not(any(
                 feature = "f401",
                 feature = "f410",
                 feature = "f411",
@@ -183,24 +186,25 @@ where
                 feature = "l4x1",
                 feature = "g0",
                 feature = "wb",
-            )))]
-            UsartDevice::Three => {
-                cfg_if! {
-                    if #[cfg(not(feature = "f4"))] {
-                        rcc_en_reset!(apb1, usart3, rcc);
-                    } else {
-                        rcc.apb1enr.modify(|_, w| w.usart3en().set_bit());
-                        rcc.apb1rstr.modify(|_, w| w.uart3rst().set_bit());
-                        rcc.apb1rstr.modify(|_, w| w.uart3rst().clear_bit());
+                )))]
+                UsartDevice::Three => {
+                    cfg_if! {
+                        if #[cfg(not(feature = "f4"))] {
+                            rcc_en_reset!(apb1, usart3, rcc);
+                        } else {
+                            rcc.apb1enr.modify(|_, w| w.usart3en().set_bit());
+                            rcc.apb1rstr.modify(|_, w| w.uart3rst().set_bit());
+                            rcc.apb1rstr.modify(|_, w| w.uart3rst().clear_bit());
+                        }
                     }
-                }
-            } // UsartDevice::Four => {
-              //     rcc_en_reset!(apb1, uart4, rcc);
-              // }
-              // UsartDevice::Five => {
-              //     rcc_en_reset!(apb1, usart5, rcc);
-              // }
-        }
+                } // UsartDevice::Four => {
+                //     rcc_en_reset!(apb1, uart4, rcc);
+                // }
+                // UsartDevice::Five => {
+                //     rcc_en_reset!(apb1, usart5, rcc);
+                // }
+            }
+        });
 
         let mut result = Self {
             regs,

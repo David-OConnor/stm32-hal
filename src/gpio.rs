@@ -26,7 +26,7 @@ use paste::paste;
 pub enum PinMode {
     Input,
     Output,
-    Alt(AltFn),
+    Alt(u8),
     Analog,
 }
 
@@ -85,27 +85,27 @@ pub enum CfgLock {
     Locked = 1,
 }
 
-#[derive(Copy, Clone)]
-#[repr(u8)]
-/// Values for `GPIOx_AFRL` and `GPIOx_AFRH`.
-pub enum AltFn {
-    Af0 = 0,
-    Af1 = 1,
-    Af2 = 2,
-    Af3 = 3,
-    Af4 = 4,
-    Af5 = 5,
-    Af6 = 6,
-    Af7 = 7,
-    Af8 = 8,
-    Af9 = 9,
-    Af10 = 10,
-    Af11 = 11,
-    Af12 = 12,
-    Af13 = 13,
-    Af14 = 14,
-    Af15 = 15,
-}
+// #[derive(Copy, Clone)]
+// #[repr(u8)]
+// /// Values for `GPIOx_AFRL` and `GPIOx_AFRH`.
+// pub enum AltFn {
+//     Af0 = 0,
+//     Af1 = 1,
+//     Af2 = 2,
+//     Af3 = 3,
+//     Af4 = 4,
+//     Af5 = 5,
+//     Af6 = 6,
+//     Af7 = 7,
+//     Af8 = 8,
+//     Af9 = 9,
+//     Af10 = 10,
+//     Af11 = 11,
+//     Af12 = 12,
+//     Af13 = 13,
+//     Af14 = 14,
+//     Af15 = 15,
+// }
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
@@ -364,11 +364,11 @@ macro_rules! set_alt {
                 match $pin {
                     $(
                         $num => {
-                            $regs.moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(AltFn::Af0).val()));
+                            $regs.moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
                             #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl"))]
-                            $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val as u8));
+                            $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
                             #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl")))]
-                            $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val as u8));
+                            $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
                         }
                     )+
                     _ => panic!("GPIO pins must be 0 - 15."),
@@ -543,7 +543,8 @@ macro_rules! set_alt {
 //     }
 //
 //     /// Set up a pin's alternate function. We set this up initially using `mode()`.
-//     fn alt_fn(&mut self, value: AltFn) {
+//     fn alt_fn(&mut self, value: u8) {
+//         assert!(altfn <= 15, "Alt function must be 0 to 15.");
 //         let regs = unsafe { get_reg_ptr!(PortLetter) };
 //
 //         cfg_if! {
@@ -910,7 +911,8 @@ macro_rules! make_pin {
             }
 
             /// Set up a pin's alternate function. We set this up initially using `mode()`.
-            fn alt_fn(&mut self, value: AltFn, regs: &mut pac::[<GPIO $Port>]) {
+            fn alt_fn(&mut self, value: u8, regs: &mut pac::[<GPIO $Port>]) {
+                assert!(value <= 15, "Alt function must be 0 to 15.");
                 cfg_if! {
                     if #[cfg(any(feature = "l5", feature = "g0", feature = "wb", feature = "wl"))] {
                         set_alt!(self.pin, regs, afsel, value, [(0, l), (1, l), (2, l),

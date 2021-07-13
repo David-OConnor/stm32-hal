@@ -50,7 +50,7 @@ fn main() -> ! {
     // This line is required to prevent the debugger from disconnecting on entering WFI.
     // This appears to be a limitation of many STM32 families. Not required in production code,
     // and significantly increases power consumption in low-power modes.
-    stm32_hal2::debug_workaround(&mut dp.DBGMCU, &mut dp.RCC);
+    stm32_hal2::debug_workaround();
 
     // Create an initial clock configuration that uses the MCU's internal oscillator (HSI),
     // sets the MCU to its maximum system clock speed.
@@ -71,7 +71,6 @@ fn main() -> ! {
     // from most low-power modes.
     let mut rtc = Rtc::new(
         dp.RTC,
-        &mut dp.RCC,
         &mut dp.PWR,
         RtcConfig {
             clock_source: RtcClockSource::Lse,
@@ -91,8 +90,8 @@ fn main() -> ! {
     let flash_contents = flash.read(10, 0);
 
     // Enable the GPIOA and GPIOB ports.
-    let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
-    let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
+    let mut gpioa = GpioA::new(dp.GPIOA);
+    let mut gpiob = GpioB::new(dp.GPIOB);
 
     // An example GPIO pin, configured in output mode.
     let mut pa15 = gpioa.new_pin(15, PinMode::Output);
@@ -101,19 +100,19 @@ fn main() -> ! {
     pa15.enable_interrupt(Edge::Rising, &mut dp.EXTI, &mut dp.SYSCFG);
 
     // Configure pins for I2c.
-    let mut scl = gpiob.new_pin(6, PinMode::Alt(AltFn::Af4));
+    let mut scl = gpiob.new_pin(6, PinMode::Alt(4));
     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
-    let mut sda = gpiob.new_pin(7, PinMode::Alt(AltFn::Af4));
+    let mut sda = gpiob.new_pin(7, PinMode::Alt(4));
     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 
     // Set up an I2C peripheral, running at 100Khz.
     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg);
 
     // Configure pins for I2c.
-    let _sck = gpioa.new_pin(5, PinMode::Alt(AltFn::Af5));
-    let _miso = gpioa.new_pin(6, PinMode::Alt(AltFn::Af5));
-    let _mosi = gpioa.new_pin(7, PinMode::Alt(AltFn::Af5));
+    let _sck = gpioa.new_pin(5, PinMode::Alt(5));
+    let _miso = gpioa.new_pin(6, PinMode::Alt(5));
+    let _mosi = gpioa.new_pin(7, PinMode::Alt(5));
 
     // Configure DMA, to be used by peripherals.
     let mut dma = Dma::new(&mut dp.DMA1);
@@ -132,8 +131,8 @@ fn main() -> ! {
     );
 
     // Configure pins for UART.
-    let _uart_tx = gpioa.new_pin(9, PinMode::Alt(AltFn::Af7));
-    let _uart_rx = gpioa.new_pin(10, PinMode::Alt(AltFn::Af7));
+    let _uart_tx = gpioa.new_pin(9, PinMode::Alt(7));
+    let _uart_rx = gpioa.new_pin(10, PinMode::Alt(7));
 
     // Set up a UART peripheral.
     // Setup UART for connecting to the host
@@ -197,7 +196,7 @@ fn main() -> ! {
     // For pins that aren't called directly (Like the ones we set up for I2C, SPI, UART, ADC, and DAC),
     // consider a separate function:
     // fn setup_pins(gpioa: &mut GpioA, gpiob: &mut GpioB, exti: &mut EXTI, syscfg: &mut SYSCFG) {
-    //     let mut scl = gpiob.new_pin(6, PinMode::Alt(AltFn::Af4));
+    //     let mut scl = gpiob.new_pin(6, PinMode::Alt(4));
     //     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
     //     // ...
     // }

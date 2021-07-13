@@ -40,11 +40,11 @@ fn main() -> ! {
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
     // Set up the GPIOA port.
-    let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
+    let mut gpioa = GpioA::new(dp.GPIOA);
 
     // Configure pins for UART, according to the user manual.
-    let _uart_tx = gpioa.new_pin(9, PinMode::Alt(AltFn::Af7));
-    let _uart_rx = gpioa.new_pin(10, PinMode::Alt(AltFn::Af7));
+    let _uart_tx = gpioa.new_pin(9, PinMode::Alt(7));
+    let _uart_rx = gpioa.new_pin(10, PinMode::Alt(7));
 
     // Set up the USART1 peripheral.
     let uart = Usart::new(
@@ -53,7 +53,6 @@ fn main() -> ! {
         9_600,
         UsartConfig::default(),
         &clock_cfg,
-        &mut dp.RCC,
     );
 
     unsafe {

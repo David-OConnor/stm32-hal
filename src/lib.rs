@@ -55,10 +55,10 @@
 //!     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
 //!     timer.enable_interrupt(TimerInterrupt::Update);
 //!
-//!     let mut scl = gpiob.new_pin(6, PinMode::Alt(AltFn::Af4));
+//!     let mut scl = gpiob.new_pin(6, PinMode::Alt(4));
 //!     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 //!
-//!     let mut sda = gpiob.new_pin(7, PinMode::Alt(AltFn::Af4));
+//!     let mut sda = gpiob.new_pin(7, PinMode::Alt(4));
 //!     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
 //!
 //!     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg, &mut dp.RCC);
@@ -465,7 +465,8 @@ macro_rules! make_simple_globals {
     };
 }
 
-// todo: Remove this function on MCUs that don't require it. Ie, is this required on G4? G0?
+// todo: Remove this debug_workaroudn function on MCUs that don't require it. Ie, is this required on G4? G0?
+use cortex_m::interrupt::free;
 
 #[cfg(not(any(feature = "g0", feature = "h7")))]
 /// Workaround due to debugger disconnecting in WFI (and low-power) modes.
@@ -473,20 +474,28 @@ macro_rules! make_simple_globals {
 /// devices that don't use DMA, consider removing this, to prevent power
 /// use by the DMA clock.
 /// For why we enable the DMA clock, see STM32F446 errata, section 2.1.1.
-pub fn debug_workaround(dbgmcu: &mut pac::DBGMCU, rcc: &mut pac::RCC) {
-    #[cfg(not(feature = "l5"))]
-    dbgmcu.cr.modify(|_, w| w.dbg_sleep().set_bit());
-    dbgmcu.cr.modify(|_, w| w.dbg_stop().set_bit());
-    dbgmcu.cr.modify(|_, w| w.dbg_standby().set_bit());
+pub fn debug_workaround() {
+    free(|cs| {
+        let mut dbgmcu = unsafe { &(*pac::DBGMCU::ptr()) };
 
-    // todo Some MCUs may need the dbgmcu lines, but not DMA enabled.
-    // todo: Remove this part on MCUs not affected. F4 and L4 are confirmed affected.
+        #[cfg(not(feature = "l5"))]
+        dbgmcu.cr.modify(|_, w| w.dbg_sleep().set_bit());
+        dbgmcu.cr.modify(|_, w| w.dbg_stop().set_bit());
+        dbgmcu.cr.modify(|_, w| w.dbg_standby().set_bit());
+    });
 
-    #[cfg(feature = "f3")]
-    rcc.ahbenr.modify(|_, w| w.dma1en().set_bit());
+    free(|cs| {
+        let mut rcc = unsafe { &(*pac::RCC::ptr()) };
 
-    #[cfg(not(feature = "f3"))]
-    rcc.ahb1enr.modify(|_, w| w.dma1en().set_bit());
+        // todo Some MCUs may need the dbgmcu lines, but not DMA enabled.
+        // todo: Remove this part on MCUs not affected. F4 and L4 are confirmed affected.
+
+        #[cfg(feature = "f3")]
+        rcc.ahbenr.modify(|_, w| w.dma1en().set_bit());
+
+        #[cfg(not(feature = "f3"))]
+        rcc.ahb1enr.modify(|_, w| w.dma1en().set_bit());
+    })
 }
 
 /// In the prelude, we export helper macros.
