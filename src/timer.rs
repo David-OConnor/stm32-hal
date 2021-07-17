@@ -18,9 +18,9 @@ use void::Void;
 // todo: LPTIM (low-power timers)
 
 use crate::{
+    clocks::Clocks,
     pac::{self, RCC},
     rcc_en_reset,
-    traits::ClockCfg,
 };
 
 use cfg_if::cfg_if;
@@ -209,7 +209,7 @@ macro_rules! hal {
         impl Timer<pac::$TIMX> {
             paste! {
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn [<new_ $tim>]<C: ClockCfg>(tim: pac::$TIMX, freq: f32, clocks: &C) -> Self {
+                pub fn [<new_ $tim>](tim: pac::$TIMX, freq: f32, clocks: &Clocks) -> Self {
 
                     free(|cs| {
                         let mut rcc = unsafe { &(*RCC::ptr()) };
@@ -472,6 +472,8 @@ macro_rules! pwm_features {
                 dir: CountDir,
                 duty: f32,
             ) {
+                // todo: duty as an f32 is good from an API perspective, but forces the
+                // todo use of software floats on non-FPU MCUs. How should we handle this?
                 self.set_preload(channel, true);
                 self.set_output_compare(channel, compare);
                 self.set_duty(channel, (self.get_max_duty() as f32 * duty) as $res);
@@ -601,7 +603,8 @@ macro_rules! pwm_features {
                 }
             }
 
-            /// Set the duty cycle, as a portion of `get_max_duty()`.
+            /// Set the duty cycle, as a portion of ARR (`get_max_duty()`). Note that this
+            /// needs to be re-run if you change ARR at any point.
             pub fn set_duty(&mut self, channel: TimChannel, duty: $res) {
                 cfg_if! {
                     if #[cfg(feature = "g0")] {

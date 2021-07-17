@@ -15,7 +15,7 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     adc::{Adc, AdcChannel, Align, CkMode, InputType, OperationMode},
     clocks::Clocks,
-    gpio::{AltFn, Edge, GpioA, GpioAPin, GpioB, GpioBPin, PinMode, PinState},
+    gpio::{Edge, GpioA, GpioAPin, GpioB, GpioBPin, PinMode, PinState},
     low_power, pac,
     prelude::*,
 };

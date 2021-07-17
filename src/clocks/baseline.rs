@@ -1,10 +1,9 @@
 //! Clock config for STM32L, G, and W-series MCUs
 
 use crate::{
-    clocks::SpeedError,
+    clocks::{ClocksValid, SpeedError},
     pac::{self, FLASH, RCC},
     rcc_en_reset,
-    traits::{ClockCfg, ClocksValid},
 };
 
 use cfg_if::cfg_if;
@@ -1120,20 +1119,17 @@ impl Clocks {
     pub fn pll_is_enabled(&self, rcc: &mut RCC) -> bool {
         rcc.cr.read().pllon().bit_is_set()
     }
-}
 
-// todo: Some extra calculations here, vice doing it once and caching.
-impl ClockCfg for Clocks {
-    fn sysclk(&self) -> u32 {
+    pub fn sysclk(&self) -> u32 {
         let (_, sysclk) = self.calc_sysclock();
         sysclk
     }
 
-    fn hclk(&self) -> u32 {
+    pub fn hclk(&self) -> u32 {
         self.sysclk() / self.hclk_prescaler.value() as u32
     }
 
-    fn systick(&self) -> u32 {
+    pub fn systick(&self) -> u32 {
         self.hclk()
     }
 
@@ -1158,11 +1154,11 @@ impl ClockCfg for Clocks {
         }
     }
 
-    fn apb1(&self) -> u32 {
+    pub fn apb1(&self) -> u32 {
         self.hclk() / self.apb1_prescaler.value() as u32
     }
 
-    fn apb1_timer(&self) -> u32 {
+    pub fn apb1_timer(&self) -> u32 {
         // L4 RM, 6.2.14: The timer clock frequencies are automatically defined by hardware. There are two cases:
         // 1. If the APB prescaler equals 1, the timer clock frequencies are set to the same
         // frequency as that of the APB domain.
@@ -1176,19 +1172,19 @@ impl ClockCfg for Clocks {
 
     cfg_if! {
         if #[cfg(feature = "g0")] {
-            fn apb2(&self) -> u32 {
+            pub fn apb2(&self) -> u32 {
                 unimplemented!("No apb2 on G0");
             }
 
-            fn apb2_timer(&self) -> u32 {
+            pub fn apb2_timer(&self) -> u32 {
                 unimplemented!("No apb2 on G0");
             }
         } else {
-            fn apb2(&self) -> u32 {
+            pub fn apb2(&self) -> u32 {
                 self.hclk() / self.apb2_prescaler.value() as u32
             }
 
-            fn apb2_timer(&self) -> u32 {
+            pub fn apb2_timer(&self) -> u32 {
                 if let ApbPrescaler::Div1 = self.apb2_prescaler {
                     self.apb2()
                 } else {
@@ -1198,7 +1194,7 @@ impl ClockCfg for Clocks {
         }
     }
 
-    fn validate_speeds(&self) -> ClocksValid {
+    pub fn validate_speeds(&self) -> ClocksValid {
         let mut result = ClocksValid::Valid;
 
         #[cfg(feature = "l4")]

@@ -1,8 +1,7 @@
 use crate::{
-    clocks::SpeedError,
+    clocks::{ClocksValid, SpeedError},
     pac::{FLASH, RCC},
     rcc_en_reset,
-    traits::{ClockCfg, ClocksValid},
 };
 
 use cfg_if::cfg_if;
@@ -613,33 +612,31 @@ impl Clocks {
     pub fn pll_is_enabled(&self, rcc: &mut RCC) -> bool {
         rcc.cr.read().pllon().bit_is_set()
     }
-}
 
-impl ClockCfg for Clocks {
-    fn sysclk(&self) -> u32 {
+    pub fn sysclk(&self) -> u32 {
         return self.calc_sysclock();
     }
 
-    fn hclk(&self) -> u32 {
+    pub fn hclk(&self) -> u32 {
         self.sysclk() / self.hclk_prescaler.value() as u32
     }
 
-    fn systick(&self) -> u32 {
+    pub fn systick(&self) -> u32 {
         self.hclk()
     }
 
-    fn usb(&self) -> u32 {
+    pub fn usb(&self) -> u32 {
         #[cfg(feature = "f3")]
         return self.sysclk() / self.usb_pre.value() as u32;
         #[cfg(feature = "f4")]
         return 0; // todo
     }
 
-    fn apb1(&self) -> u32 {
+    pub fn apb1(&self) -> u32 {
         self.hclk() / self.apb1_prescaler.value() as u32
     }
 
-    fn apb1_timer(&self) -> u32 {
+    pub fn apb1_timer(&self) -> u32 {
         if let ApbPrescaler::Div1 = self.apb1_prescaler {
             self.apb1()
         } else {
@@ -647,11 +644,11 @@ impl ClockCfg for Clocks {
         }
     }
 
-    fn apb2(&self) -> u32 {
+    pub fn apb2(&self) -> u32 {
         self.hclk() / self.apb2_prescaler.value() as u32
     }
 
-    fn apb2_timer(&self) -> u32 {
+    pub fn apb2_timer(&self) -> u32 {
         if let ApbPrescaler::Div1 = self.apb2_prescaler {
             self.apb2()
         } else {
@@ -659,7 +656,7 @@ impl ClockCfg for Clocks {
         }
     }
 
-    fn validate_speeds(&self) -> ClocksValid {
+    pub fn validate_speeds(&self) -> ClocksValid {
         let mut result = ClocksValid::Valid;
 
         #[cfg(feature = "f3")]

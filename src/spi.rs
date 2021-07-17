@@ -15,9 +15,9 @@ use embedded_hal::spi::FullDuplex;
 use nb::block;
 
 use crate::{
+    clocks::Clocks,
     pac::{self, RCC},
     rcc_en_reset,
-    traits::ClockCfg,
 };
 
 #[cfg(feature = "g0")]

@@ -31,7 +31,7 @@ macro_rules! set_register_sem {
         }
     };
 }
-1
+
 /// Represents an Hardware Semiphore (HSEM) peripheral.
 impl Hsem {
     pub fn new(regs: HSEM) -> Self {

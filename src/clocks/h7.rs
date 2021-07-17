@@ -2,9 +2,8 @@
 // todo: Probably not in usable state yet; need to cross-check RM and clock tree.
 
 use crate::{
-    clocks::SpeedError,
+    clocks::{ClocksValid, SpeedError},
     pac::{FLASH, RCC},
-    traits::{ClockCfg, ClocksValid},
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -422,36 +421,32 @@ impl Clocks {
     pub fn pll_is_enabled(&self, rcc: &mut RCC) -> bool {
         rcc.cr.read().pll1on().bit_is_set()
     }
-}
 
-// todo: Some extra calculations here, vice doing it once and caching.
-// todo: This is all wrong; haven't adapted for H7. Fix it!
-impl ClockCfg for Clocks {
-    fn sysclk(&self) -> u32 {
+    pub fn sysclk(&self) -> u32 {
         let (_, sysclk) = self.calc_sysclock();
         sysclk
     }
 
-    fn hclk(&self) -> u32 {
+    pub fn hclk(&self) -> u32 {
         self.sysclk() / self.d1_core_prescaler as u32 / self.hclk_prescaler as u32
     }
 
-    fn systick(&self) -> u32 {
+    pub fn systick(&self) -> u32 {
         // todo: There's an optional /8 divider we're not taking into account here.
         self.hclk()
     }
 
-    fn usb(&self) -> u32 {
+    pub fn usb(&self) -> u32 {
         // let (input_freq, _) = calc_sysclock(self.input_src, self.divm1, self.divn1, self.divp1);
         // (input_freq * 1_000_000) as u32 / self.divm1 as u32 * self.pll_sai1_mul as u32 / 2
         0 // todo
     }
 
-    fn apb1(&self) -> u32 {
+    pub fn apb1(&self) -> u32 {
         self.hclk() / self.d2_prescaler1.value() as u32
     }
 
-    fn apb1_timer(&self) -> u32 {
+    pub fn apb1_timer(&self) -> u32 {
         if let ApbPrescaler::Div1 = self.d2_prescaler1 {
             self.apb1()
         } else {
@@ -459,11 +454,11 @@ impl ClockCfg for Clocks {
         }
     }
 
-    fn apb2(&self) -> u32 {
+    pub fn apb2(&self) -> u32 {
         self.hclk() / self.d2_prescaler2.value() as u32
     }
 
-    fn apb2_timer(&self) -> u32 {
+    pub fn apb2_timer(&self) -> u32 {
         if let ApbPrescaler::Div1 = self.d2_prescaler2 {
             self.apb2()
         } else {
@@ -471,7 +466,7 @@ impl ClockCfg for Clocks {
         }
     }
 
-    fn validate_speeds(&self) -> ClocksValid {
+    pub fn validate_speeds(&self) -> ClocksValid {
         let mut result = ClocksValid::Valid;
 
         // todo: This depends on variant

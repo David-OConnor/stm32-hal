@@ -61,7 +61,7 @@ use cortex_m;
 use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::Clocks,
-    gpio::{GpioB, PinMode, OutputType, AltFn},
+    gpio::{GpioB, PinMode, OutputType},
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
@@ -131,7 +131,7 @@ expose these implementations if the `embedded-hal` feature is selected.
 - When available, base setup and usage steps on instructions provided in Reference Manuals.
 These steps are copy+pasted in comments before the code that performs each one.
 - Don't use PAC convenience field settings; they're implemented inconsistently across PACs.
-(eg don't use something like `en.enabled()` - use `en.set_bit()`.)
+(eg don't use something like `en.enabled()`; use `en.set_bit()`.)
 
 
 ### Example module structure:
@@ -162,7 +162,7 @@ where
     R: Deref<Target = pac::fcrdr1::RegisterBlock>,
 {
     pub fn new(regs: R, prf: Prf) -> Self {
-        // A critical section here prevents race conditions, while avoiding preventing
+        // A critical section here prevents race conditions, while preventing
         // the user from needing to pass RCC in explicitly.
         free(|cs| {
             let mut rcc = unsafe { &(*RCC::ptr()) };
@@ -235,7 +235,6 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 
 
 ## Errata
-
 - SAI, SDIO, ethernet unimplemented
 - DMA unimplemented on F4 and H7
 - The DMA2 peripheral is unimplemented
@@ -253,4 +252,5 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - ADC3 unimplemented on H7
 - Low power modes beyond sleep and cstop aren't implemented for H7
 - WB and WL are missing features relating to second core operations and RF
-- WL is missing support for many peripherals.
+- WL is missing support for many peripherals
+- L4+ MCUs not supported

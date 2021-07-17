@@ -9,8 +9,8 @@ use core::ops::Deref;
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 use crate::{
+    clocks::Clocks,
     pac::{self, i2c1, RCC},
-    traits::ClockCfg,
 };
 
 use paste::paste;
@@ -77,8 +77,7 @@ impl<I2C> I2c<I2C>
 where
     I2C: Instance,
 {
-    pub fn new<C: ClockCfg>(i2c: I2C, speed: u32, clocks: &C, rcc: &mut RCC) -> Self
-where {
+    pub fn new(i2c: I2C, speed: u32, clocks: &Clocks, rcc: &mut RCC) -> Self {
         unsafe {
             // Enable and reset clock.
             I2C::enable_clock(rcc);

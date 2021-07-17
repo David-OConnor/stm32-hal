@@ -303,8 +303,6 @@ pub use stm32wl::stm32wle5 as pac;
 
 // todo: U5 once SVD is out.
 
-pub mod traits;
-
 #[cfg(not(any(feature = "f301", feature = "f302")))]
 pub mod adc;
 

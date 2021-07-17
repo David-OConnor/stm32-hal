@@ -32,3 +32,10 @@ cfg_if::cfg_if! {
 /// Speed out of limits.
 #[derive(Debug)]
 pub struct SpeedError {}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum ClocksValid {
+    Valid,
+    NotValid,
+}

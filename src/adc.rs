@@ -8,9 +8,9 @@ use embedded_hal::adc::{Channel, OneShot};
 use core::{ops::Deref, ptr};
 
 use crate::{
+    clocks::Clocks,
     pac::{self, RCC},
     rcc_en_reset,
-    traits::ClockCfg,
 };
 
 use cfg_if::cfg_if;
@@ -247,12 +247,12 @@ macro_rules! hal {
                 /// * the clocksetting is not well defined.
                 /// * the clock was already enabled with a different setting
                 ///
-                pub fn [<new_ $adc>]<C: ClockCfg>(
+                pub fn [<new_ $adc>](
                     regs: pac::$ADC,
                     device: AdcDevice,
                     common_regs : &mut pac::$ADC_COMMON,
                     ckmode: ClockMode,
-                    clocks: &C,
+                    clocks: &Clocks,
                 ) -> Self {
                     let mut result = Self {
                         regs,
@@ -431,7 +431,7 @@ macro_rules! hal {
             }
 
             /// Enable the voltage regulator, and exit deep sleep mode (some MCUs)
-            pub fn advregen_enable<C: ClockCfg>(&mut self, clocks: &C){
+            pub fn advregen_enable(&mut self, clocks: &Clocks){
                 cfg_if! {
                     if #[cfg(feature = "f3")] {
                         // `F303 RM, 15.3.6:
@@ -483,7 +483,7 @@ macro_rules! hal {
             /// Wait for the advregen to startup.
             ///
             /// This is based on the MAX_ADVREGEN_STARTUP_US of the device.
-            fn wait_advregen_startup<C: ClockCfg>(&self, clocks: &C) {
+            fn wait_advregen_startup(&self, clocks: &Clocks) {
                 let mut delay = (MAX_ADVREGEN_STARTUP_US * 1_000_000) / clocks.sysclk();
                 // https://github.com/rust-embedded/cortex-m/pull/328
                 if delay < 2 {  // Work around a bug in cortex-m.
@@ -495,7 +495,7 @@ macro_rules! hal {
             /// Calibrate. See L4 RM, 16.5.8, or F404 RM, section 15.3.8.
             /// Stores calibration values, which can be re-inserted later,
             /// eg after entering ADC deep sleep mode, or MCU STANDBY or VBAT.
-            pub fn calibrate<C: ClockCfg>(&mut self, input_type: InputType, clocks: &C) {
+            pub fn calibrate(&mut self, input_type: InputType, clocks: &Clocks) {
                 // 1. Ensure DEEPPWD=0, ADVREGEN=1 and that ADC voltage regulator startup time has
                 // elapsed.
                 if !self.is_advregen_enabled() {
@@ -665,7 +665,7 @@ macro_rules! hal {
 
             /// Set up the internal voltage reference, to improve conversion from reading
             /// to voltage accuracy. See L44 RM, section 16.4.34: "Monitoring the internal voltage reference"
-            fn setup_vdda<C: ClockCfg>(&mut self, regs_common: &mut pac::$ADC_COMMON, clocks: &C) {
+            fn setup_vdda(&mut self, regs_common: &mut pac::$ADC_COMMON, clocks: &Clocks) {
                 // todo: Using ints intead of floats here and in read_voltage, for use on Cortex M0s?
                 // todo: May need to use mv.
                 regs_common.ccr.modify(|_, w| w.vrefen().set_bit());

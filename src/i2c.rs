@@ -10,9 +10,9 @@ use cortex_m::interrupt::free;
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 use crate::{
+    clocks::Clocks,
     pac::{self, RCC},
     rcc_en_reset,
-    traits::ClockCfg,
 };
 
 #[cfg(feature = "g0")]
@@ -110,11 +110,11 @@ where
     R: Deref<Target = pac::i2c1::RegisterBlock>,
 {
     /// Configures the I2C peripheral. `freq` is in Hz. Doesn't check pin config.
-    pub fn new<C: ClockCfg>(
+    pub fn new(
         regs: R,
         device: I2cDevice,
         freq: u32, // todo: Set a division manually, like you do with SPI.
-        clocks: &C,
+        clocks: &Clocks,
     ) -> Self {
         free(|cs| {
             let mut rcc = unsafe { &(*RCC::ptr()) };

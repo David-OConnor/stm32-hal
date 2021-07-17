@@ -29,7 +29,7 @@ use stm32_hal2::{
     dac::{Dac, DacChannel, DacDevice, DacBits},
     dma::{Dma, DmaChannel, DmaInterrupt, DmaReadBuf, DmaWriteBuf},
     flash::Flash,
-    gpio::{GpioA, GpioB, Edge, PinMode, OutputType, AltFn, Pull},
+    gpio::{GpioA, GpioB, Edge, PinMode, OutputType, Pull},
     i2c::{I2c, I2cDevice},
     low_power,
     pac,
@@ -37,7 +37,6 @@ use stm32_hal2::{
     usart::{Usart, UsartDevice, UsartInterrupt, UsartConfig},
     spi::{self, BaudRate, Spi, SpiConfig, SpiDevice, SpiMode},
     timer::{Timer, TimerInterrupt},
-    traits::ClockCfg,
 };
 
 #[entry]

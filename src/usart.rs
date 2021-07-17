@@ -8,9 +8,9 @@
 // todo: Missing some features (like additional interrupts) on the USARTv3 peripheral . (L5, G etc)
 
 use crate::{
+    clocks::Clocks,
     pac::{self, RCC},
     rcc_en_reset,
-    traits::ClockCfg,
 };
 use core::ops::Deref;
 
@@ -151,12 +151,12 @@ impl<R> Usart<R>
 where
     R: Deref<Target = pac::usart1::RegisterBlock>,
 {
-    pub fn new<C: ClockCfg>(
+    pub fn new(
         regs: R,
         device: UsartDevice,
         baud: u32,
         config: UsartConfig,
-        clock_cfg: &C,
+        clock_cfg: &Clocks,
     ) -> Self {
         free(|cs| {
             let mut rcc = unsafe { &(*RCC::ptr()) };
@@ -178,14 +178,14 @@ where
                     }
                 }
                 #[cfg(not(any(
-                feature = "f401",
-                feature = "f410",
-                feature = "f411",
-                feature = "f412",
-                feature = "f413",
-                feature = "l4x1",
-                feature = "g0",
-                feature = "wb",
+                    feature = "f401",
+                    feature = "f410",
+                    feature = "f411",
+                    feature = "f412",
+                    feature = "f413",
+                    feature = "l4x1",
+                    feature = "g0",
+                    feature = "wb",
                 )))]
                 UsartDevice::Three => {
                     cfg_if! {
@@ -198,11 +198,11 @@ where
                         }
                     }
                 } // UsartDevice::Four => {
-                //     rcc_en_reset!(apb1, uart4, rcc);
-                // }
-                // UsartDevice::Five => {
-                //     rcc_en_reset!(apb1, usart5, rcc);
-                // }
+                  //     rcc_en_reset!(apb1, uart4, rcc);
+                  // }
+                  // UsartDevice::Five => {
+                  //     rcc_en_reset!(apb1, usart5, rcc);
+                  // }
             }
         });
 
@@ -274,7 +274,7 @@ where
 
     /// Set the BAUD rate. Called during init, and can be called later to change BAUD
     /// during program execution.
-    pub fn set_baud<C: ClockCfg>(&mut self, baud: u32, clock_cfg: &C) {
+    pub fn set_baud(&mut self, baud: u32, clock_cfg: &Clocks) {
         let originally_enabled = self.regs.cr1.read().ue().bit_is_set();
 
         if originally_enabled {
