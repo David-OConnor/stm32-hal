@@ -15,7 +15,7 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     adc::{Adc, AdcChannel, Align, CkMode, InputType, OperationMode},
     clocks::Clocks,
-    gpio::{Edge, GpioA, GpioAPin, GpioB, Pin, PinMode, PinState},
+    gpio::{Edge, GpioA, GpioAPin, GpioB, OutputSpeed, Pin, PinMode, PinState},
     low_power, pac,
     prelude::*,
 };
@@ -105,6 +105,9 @@ fn main() -> ! {
     // Example pins PB5 and PB6.
     let mut example_output = gpiob.new_pin(5, PinMode::Output);
     let mut example_input = gpiob.new_pin(6, PinMode::Input);
+
+    // Set the output speed.
+    example_output.output_speed(OutputSpeed::Medium);
 
     // A simple button debounce: Use a timer with a period between the maximum bouncing
     // time you expect, and the minimum time bewteen actuations. In this time, we've chosen 5Hz,

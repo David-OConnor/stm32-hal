@@ -793,10 +793,182 @@ pub struct Pin {
     pub pin: u8,
 }
 
+// todo: Critical sections on unsafe calls to avoid race conditions?
+
 impl Pin {
-    // /// Create a new pin, with a specific mode.
+    // /// Create a new pin, with a specific mode. Enables the RCC peripheral clock to the port,
+    // /// if not already enabled.
     // pub fn new(port: PortLetter, pin: u8, mode: PinMode) -> Self {
     //     assert!(pin <= 15, "Pin must be 0 - 15.");
+    //
+    //     match port {
+    //         PortLetter::A => {
+    //             cfg_if! {
+    //                 if #[cfg(feature = "f3")] {
+    //                     rcc_en_reset!(ahb1, iopa, rcc);
+    //                 } else if #[cfg(feature = "h7")] {
+    //                     rcc.ahb4enr.modify(|_, w| w.gpioaen().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpioarst().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpioarst().clear_bit());
+    //                 } else if #[cfg(feature = "f4")] {
+    //                     rcc_en_reset!(ahb1, gpioa, rcc);
+    //                 } else if #[cfg(feature = "g0")] {
+    //                     rcc.iopenr.modify(|_, w| w.iopaen().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.ioparst().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.ioparst().clear_bit());
+    //                 } else { // L4, L5, G4
+    //                     rcc_en_reset!(ahb2, gpioa, rcc);
+    //                 }
+    //             }
+    //         }
+    //         PortLetter::B => {
+    //             cfg_if! {
+    //                 if #[cfg(feature = "f3")] {
+    //                     rcc_en_reset!(ahb1, iopa, rcc);
+    //                 } else if #[cfg(feature = "h7")] {
+    //                     rcc.ahb4enr.modify(|_, w| w.gpioben().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpiobrst().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpiobrst().clear_bit());
+    //                 } else if #[cfg(feature = "f4")] {
+    //                     rcc_en_reset!(ahb1, gpiob, rcc);
+    //                 } else if #[cfg(feature = "g0")] {
+    //                     rcc.iopenr.modify(|_, w| w.iopben().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.iopbrst().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.iopbrst().clear_bit());
+    //                 } else { // L4, L5, G4
+    //                     rcc_en_reset!(ahb2, gpiob, rcc);
+    //                 }
+    //             }
+    //         }
+    //         PortLetter::C => {
+    //             cfg_if! {
+    //                 if #[cfg(feature = "f3")] {
+    //                     rcc_en_reset!(ahb1, iopa, rcc);
+    //                 } else if #[cfg(feature = "h7")] {
+    //                     rcc.ahb4enr.modify(|_, w| w.gpiocen().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpiocrst().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpiocrst().clear_bit());
+    //                 } else if #[cfg(feature = "f4")] {
+    //                     rcc_en_reset!(ahb1, gpioc, rcc);
+    //                 } else if #[cfg(feature = "g0")] {
+    //                     rcc.iopenr.modify(|_, w| w.iopcen().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.iopcrst().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.iopcrst().clear_bit());
+    //                 } else { // L4, L5, G4
+    //                     rcc_en_reset!(ahb2, gpioc, rcc);
+    //                 }
+    //             }
+    //         }
+    //         PortLetter::D => {
+    //             cfg_if! {
+    //                 if #[cfg(feature = "f3")] {
+    //                     rcc_en_reset!(ahb1, iopa, rcc);
+    //                 } else if #[cfg(feature = "h7")] {
+    //                     rcc.ahb4enr.modify(|_, w| w.gpioden().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpiodrst().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpiodrst().clear_bit());
+    //                 } else if #[cfg(feature = "f4")] {
+    //                     rcc_en_reset!(ahb1, gpiod, rcc);
+    //                 } else if #[cfg(feature = "g0")] {
+    //                     rcc.iopenr.modify(|_, w| w.iopden().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.iopdrst().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.iopdrst().clear_bit());
+    //                 } else { // L4, L5, G4
+    //                     rcc_en_reset!(ahb2, gpiod, rcc);
+    //                 }
+    //             }
+    //         }
+    //         PortLetter::E => {
+    //             cfg_if! {
+    //                 if #[cfg(feature = "f3")] {
+    //                     rcc_en_reset!(ahb1, iopa, rcc);
+    //                 } else if #[cfg(feature = "h7")] {
+    //                     rcc.ahb4enr.modify(|_, w| w.gpioeen().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpioerst().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpioerst().clear_bit());
+    //                 } else if #[cfg(feature = "f4")] {
+    //                     rcc_en_reset!(ahb1, gpioe, rcc);
+    //                 } else if #[cfg(feature = "g0")] {
+    //                     rcc.iopenr.modify(|_, w| w.iopeen().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.ioperst().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.ioperst().clear_bit());
+    //                 } else { // L4, L5, G4
+    //                     rcc_en_reset!(ahb2, gpioe, rcc);
+    //                 }
+    //             }
+    //         }
+    //         #[cfg(not(any(
+    //         feature = "f401",
+    //         feature = "f410",
+    //         feature = "f411",
+    //         feature = "l4x1",
+    //         feature = "l4x2",
+    //         feature = "l412",
+    //         feature = "l4x3",
+    //         feature = "wb",
+    //         feature = "wl"
+    //         )))]
+    //         PortLetter::F => {
+    //             cfg_if! {
+    //                 if #[cfg(feature = "f3")] {
+    //                     rcc_en_reset!(ahb1, iopa, rcc);
+    //                 } else if #[cfg(feature = "h7")] {
+    //                     rcc.ahb4enr.modify(|_, w| w.gpiofen().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpiofrst().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpiofrst().clear_bit());
+    //                 } else if #[cfg(feature = "f4")] {
+    //                     rcc_en_reset!(ahb1, gpiof, rcc);
+    //                 } else if #[cfg(feature = "g0")] {
+    //                     rcc.iopenr.modify(|_, w| w.iopfen().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.iopfrst().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.iopfrst().clear_bit());
+    //                 } else { // L4, L5, G4
+    //                     rcc_en_reset!(ahb2, gpiof, rcc);
+    //                 }
+    //             }
+    //         }
+    //         PortLetter::H => {
+    //             cfg_if! {
+    //                 if #[cfg(feature = "f3")] {
+    //                     rcc_en_reset!(ahb1, iopa, rcc);
+    //                 } else if #[cfg(feature = "h7")] {
+    //                     rcc.ahb4enr.modify(|_, w| w.gpiohen().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpiohrst().set_bit());
+    //                     rcc.ahb4rstr.modify(|_, w| w.gpiohrst().clear_bit());
+    //                 } else if #[cfg(feature = "f4")] {
+    //                     rcc_en_reset!(ahb1, gpioh, rcc);
+    //                 } else if #[cfg(feature = "g0")] {
+    //                     rcc.iopenr.modify(|_, w| w.iophen().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.iophrst().set_bit());
+    //                     rcc.ioprstr.modify(|_, w| w.iophrst().clear_bit());
+    //                 } else { // L4, L5, G4
+    //                     rcc_en_reset!(ahb2, gpioa, rcc);
+    //                 }
+    //             }
+    //         }
+    //     }
+    //
+    //     free(|cs| {
+    //         let mut rcc = unsafe { &(*RCC::ptr()) };
+    //         cfg_if! {
+    //             if #[cfg(feature = "f3")] {
+    //                 rcc_en_reset!(ahb1, [<iop $port>], rcc);
+    //             } else if #[cfg(feature = "h7")] {
+    //                 rcc.ahb4enr.modify(|_, w| w.[<gpio $port en>]().set_bit());
+    //                 rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
+    //                 rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
+    //             } else if #[cfg(feature = "f4")] {
+    //                 rcc_en_reset!(ahb1, [<gpio $port>], rcc);
+    //             } else if #[cfg(feature = "g0")] {
+    //                 rcc.iopenr.modify(|_, w| w.[<iop $port en>]().set_bit());
+    //                 rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().set_bit());
+    //                 rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().clear_bit());
+    //             } else { // L4, L5, G4
+    //                 rcc_en_reset!(ahb2, [<gpio $port>], rcc);
+    //             }
+    //         }
+    //     });
+    //
     //     Self { port, pin }
     // }
 
@@ -967,63 +1139,43 @@ impl Pin {
     //         }
     //     }
     //
-    // We split into 2 separate functions, so newer MCUs don't need to pass the SYSCFG register.
-    cfg_if! {
-        if #[cfg(any(feature = "g0", feature = "l5"))] {
-            /// Configure this pin as an interrupt source.
-            pub fn enable_interrupt(&mut self, edge: Edge) {
-                // todo: On newer ones, don't accept SYSCFG for this function.
-                let rise_trigger = match edge {
-                    Edge::Rising => {
-                        // configure EXTI line to trigger on rising edge, disable trigger on falling edge.
-                        true
-                    }
-                    Edge::Falling => {
-                        // configure EXTI line to trigger on falling edge, disable trigger on rising edge.
-                        false
-                    }
-                };
-
-                #[cfg(feature = "g0")]
-                set_exti_g0!(self.pin, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
-                    (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
-                    (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
-                    (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]);
-
-                #[cfg(feature = "l5")]
-                set_exti_l5!(self.pin, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
-                    (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
-                    (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
-                    (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]);
-
+    #[cfg(not(feature = "f373"))]
+    /// Configure this pin as an interrupt source.
+    pub fn enable_interrupt(&mut self, edge: Edge) {
+        let rise_trigger = match edge {
+            Edge::Rising => {
+                // configure EXTI line to trigger on rising edge, disable trigger on falling edge.
+                true
             }
-        } else if #[cfg(not(feature = "f373"))] {
-            /// Configure this pin as an interrupt source.
-            pub fn enable_interrupt(&mut self, edge: Edge) {
+            Edge::Falling => {
+                // configure EXTI line to trigger on falling edge, disable trigger on rising edge.
+                false
+            }
+        };
 
-                // todo: On newer ones, don't accept SYSCFG for this function.
-                let rise_trigger = match edge {
-                    Edge::Rising => {
-                        // configure EXTI line to trigger on rising edge, disable trigger on falling edge.
-                        true
-                    }
-                    Edge::Falling => {
-                        // configure EXTI line to trigger on falling edge, disable trigger on rising edge.
-                        false
-                    }
-                };
-
-                cfg_if! {
-                    if #[cfg(feature = "f4")] {
-                        set_exti_f4!(self.pin, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
-                            (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
-                            (13, 4), (14, 4), (15, 4)])
-                    } else {
-                        set_exti!(self.pin, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
-                            (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
-                            (13, 4), (14, 4), (15, 4)])
-                    }
-                }
+        cfg_if! {
+            if #[cfg(feature = "g0")] {
+                set_exti_g0!(self.pin, rise_trigger, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
+                    (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
+                    (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
+                    (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]
+                );
+            } else if #[cfg(feature = "l5")] {
+                set_exti_l5!(self.pin, rise_trigger, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
+                    (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
+                    (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
+                    (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]
+                );
+            } else if #[cfg(feature = "f4")] {
+                set_exti_f4!(self.pin, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
+                        (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
+                        (13, 4), (14, 4), (15, 4)]
+                );
+            } else {
+                set_exti!(self.pin, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
+                    (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
+                    (13, 4), (14, 4), (15, 4)]
+                );
             }
         }
     }
