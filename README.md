@@ -47,7 +47,7 @@ representing your MCU. If this is for code that runs on an MCU directly (ie not 
 ```toml
 cortex-m = "0.7.3"
 cortex-m-rt = "0.6.13"
-stm32-hal2 = { version = "^0.2.9", features = ["l4x3", "l4rt"]}
+stm32-hal2 = { version = "^0.2.10", features = ["l4x3", "l4rt"]}
 ```
 
 If you need `embedded-hal` traits, include the `embedded-hal` feature.
@@ -64,7 +64,6 @@ use stm32_hal2::{
     gpio::{GpioB, PinMode, OutputType},
     i2c::{I2c, I2cDevice},
     low_power,
-    pac,
     timer::{Timer, TimerInterrupt},
 };
 

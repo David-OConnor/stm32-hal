@@ -13,6 +13,7 @@ use embedded_hal::{
     timer::{CountDown, Periodic},
 };
 
+#[cfg(feature = "embedded-hal")]
 use void::Void;
 
 // todo: LPTIM (low-power timers)

@@ -288,26 +288,202 @@ macro_rules! set_field2 { // for `Pin` struct.
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
+                    _ => (),  // todo avoid an extra set of feature gates on the enum variants.
+                }
+            }
+        }
+    }
+}
+
+// todo: DRY on port feature gates for these macros
+
+/// Reduce DRY getting input data
+macro_rules! get_input_data { // for `Pin` struct.
+    ($pin:expr, $port_letter:expr, [$($num:expr),+]) => {
+        paste! {
+            unsafe {
+                match $port_letter {
+                    PortLetter::A => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOA::ptr()).idr.read().[<idr $num>]().bit_is_set(),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    PortLetter::B => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOB::ptr()).idr.read().[<idr $num>]().bit_is_set(),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    PortLetter::C => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOC::ptr()).idr.read().[<idr $num>]().bit_is_set(),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    #[cfg(not(any(feature = "f410")))]
+                    PortLetter::D => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOD::ptr()).idr.read().[<idr $num>]().bit_is_set(),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
+                    PortLetter::E => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOE::ptr()).idr.read().[<idr $num>]().bit_is_set(),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    #[cfg(not(any(
+                        feature = "f401",
+                        feature = "f410",
+                        feature = "f411",
+                        feature = "l4x1",
+                        feature = "l4x2",
+                        feature = "l412",
+                        feature = "l4x3",
+                        feature = "wb",
+                        feature = "wl"
+                        )))]
+                    PortLetter::F => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOF::ptr()).idr.read().[<idr $num>]().bit_is_set(),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    #[cfg(not(any(
+                        feature = "f373",
+                        feature = "f301",
+                        feature = "f3x4",
+                        feature = "f410",
+                        feature = "l4",
+                        feature = "g0",
+                        feature = "g4",
+                        feature = "wb",
+                        feature = "wl"
+                    )))]
+                    PortLetter::H => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOH::ptr()).idr.read().[<idr $num>]().bit_is_set(),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    _ => false, // todo
+                }
+            }
+        }
+    }
+}
+
+
+/// Reduce DRY setting pin state
+macro_rules! set_state { // for `Pin` struct.
+    ($pin:expr, $port_letter:expr, $offset: expr, [$($num:expr),+]) => {
+        paste! {
+            unsafe {
+                match $port_letter {
+                    PortLetter::A => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOA::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    PortLetter::B => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOB::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    PortLetter::C => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOC::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    #[cfg(not(any(feature = "f410")))]
+                    PortLetter::D => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOD::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
+                    PortLetter::E => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOE::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    #[cfg(not(any(
+                        feature = "f401",
+                        feature = "f410",
+                        feature = "f411",
+                        feature = "l4x1",
+                        feature = "l4x2",
+                        feature = "l412",
+                        feature = "l4x3",
+                        feature = "wb",
+                        feature = "wl"
+                        )))]
+                    PortLetter::F => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOF::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    #[cfg(not(any(
+                        feature = "f373",
+                        feature = "f301",
+                        feature = "f3x4",
+                        feature = "f410",
+                        feature = "l4",
+                        feature = "g0",
+                        feature = "g4",
+                        feature = "wb",
+                        feature = "wl"
+                    )))]
+                    PortLetter::H => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOH::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
                     _ => (),
                 }
             }
         }
     }
 }
-// macro_rules! set_field2 { // for `Pin` struct.
-//     ($pin:expr, $port_letter:ident, $reg:ident, $field:ident, $bit:ident, $val:expr, [$($num:expr),+]) => {
-//         paste! {
-//             unsafe {
-//                 match $pin {
-//                     $(
-//                         $num => (*pac::<[ GPIOA $port_letter>]::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-//                     )+
-//                     _ => panic!("GPIO pins must be 0 - 15."),
-//                 }
-//             }
-//         }
-//     }
-// }
+
 
 // todo: Consolidate these exti macros
 
@@ -551,66 +727,25 @@ impl Pin {
         );
     }
 
-// /// Read the input data register.
-// pub fn input_data(&mut self) -> PinState {
-//     let val = match self.pin {
-//         0 => reg_val.idr0().bit_is_set(),
-//         1 => reg_val.idr1().bit_is_set(),
-//         2 => reg_val.idr2().bit_is_set(),
-//         3 => reg_val.idr3().bit_is_set(),
-//         4 => reg_val.idr4().bit_is_set(),
-//         5 => reg_val.idr5().bit_is_set(),
-//         6 => reg_val.idr6().bit_is_set(),
-//         7 => reg_val.idr7().bit_is_set(),
-//         8 => reg_val.idr8().bit_is_set(),
-//         9 => reg_val.idr9().bit_is_set(),
-//         10 => reg_val.idr10().bit_is_set(),
-//         11 => reg_val.idr11().bit_is_set(),
-//         12 => reg_val.idr12().bit_is_set(),
-//         13 => reg_val.idr13().bit_is_set(),
-//         14 => reg_val.idr14().bit_is_set(),
-//         15 => reg_val.idr15().bit_is_set(),
-//         _ => panic!("GPIO pins must be 0 - 15."),
-//     };
-//
-//     if val {
-//         PinState::High
-//     } else {
-//         PinState::Low
-//     }
-// }
+/// Read the input data register.
+pub fn input_data(&mut self) -> PinState {
+    let val = get_input_data!(self.pin, self.port, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    if val {
+        PinState::High
+    } else {
+        PinState::Low
+    }
+}
 
-//     /// Set a pin state (ie set high or low output voltage level).
-//     pub fn set_state(&mut self, value: PinState) {
-//         let regs = unsafe { get_reg_ptr!(PortLetter) };
-//
-//         let offset = match value {
-//             PinState::Low => 16,
-//             PinState::High => 0,
-//         };
-//
-//         unsafe {
-//             regs.bsrr.write(|w| match self.pin {
-//                 0 => w.bits(1 << (offset + 0)),
-//                 1 => w.bits(1 << (offset + 1)),
-//                 2 => w.bits(1 << (offset + 2)),
-//                 3 => w.bits(1 << (offset + 3)),
-//                 4 => w.bits(1 << (offset + 4)),
-//                 5 => w.bits(1 << (offset + 5)),
-//                 6 => w.bits(1 << (offset + 6)),
-//                 7 => w.bits(1 << (offset + 7)),
-//                 8 => w.bits(1 << (offset + 8)),
-//                 9 => w.bits(1 << (offset + 9)),
-//                 10 => w.bits(1 << (offset + 10)),
-//                 11 => w.bits(1 << (offset + 11)),
-//                 12 => w.bits(1 << (offset + 12)),
-//                 13 => w.bits(1 << (offset + 13)),
-//                 14 => w.bits(1 << (offset + 14)),
-//                 15 => w.bits(1 << (offset + 15)),
-//                 _ => panic!("GPIO pins must be 0 - 15."),
-//             });
-//         }
-//     }
+    /// Set a pin state (ie set high or low output voltage level).
+    pub fn set_state(&mut self, value: PinState) {
+        let offset = match value {
+            PinState::Low => 16,
+            PinState::High => 0,
+        };
+
+        set_state!(self.pin, self.port, offset, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    }
 //
 //     /// Set up a pin's alternate function. We set this up initially using `mode()`.
 //     fn alt_fn(&mut self, value: u8) {
@@ -731,143 +866,71 @@ impl Pin {
 //         }
 //     }
 //
-//     /// Check if the pin's input voltage is high (VCC).
-//     pub fn is_high(&self) -> bool {
-//         // todo: DRy with `input_data`.
-//         let regs = unsafe { get_reg_ptr!(PortLetter) };
-//
-//         let reg_val = regs.idr.read();
-//         match self.pin {
-//             0 => reg_val.idr0().bit_is_set(),
-//             1 => reg_val.idr1().bit_is_set(),
-//             2 => reg_val.idr2().bit_is_set(),
-//             3 => reg_val.idr3().bit_is_set(),
-//             4 => reg_val.idr4().bit_is_set(),
-//             5 => reg_val.idr5().bit_is_set(),
-//             6 => reg_val.idr6().bit_is_set(),
-//             7 => reg_val.idr7().bit_is_set(),
-//             8 => reg_val.idr8().bit_is_set(),
-//             9 => reg_val.idr9().bit_is_set(),
-//             10 => reg_val.idr10().bit_is_set(),
-//             11 => reg_val.idr11().bit_is_set(),
-//             12 => reg_val.idr12().bit_is_set(),
-//             13 => reg_val.idr13().bit_is_set(),
-//             14 => reg_val.idr14().bit_is_set(),
-//             15 => reg_val.idr15().bit_is_set(),
-//             _ => panic!("GPIO pins must be 0 - 15."),
-//         }
-//     }
-//
-//     /// Check if the pin's input voltage is low (ground).
-//     pub fn is_low(&self) -> bool {
-//         !self.is_high()
-//     }
-//
-//     /// Set the pin's output voltage to high (VCC).
-//     pub fn set_high(&mut self) {
-//         // todo: DRY with self.set_low().
-//         let regs = unsafe { get_reg_ptr!(PortLetter) };
-//         let offset = 0;
-//
-//         unsafe {
-//             regs.bsrr.write(|w| match self.pin {
-//                 0 => w.bits(1 << (offset + 0)),
-//                 1 => w.bits(1 << (offset + 1)),
-//                 2 => w.bits(1 << (offset + 2)),
-//                 3 => w.bits(1 << (offset + 3)),
-//                 4 => w.bits(1 << (offset + 4)),
-//                 5 => w.bits(1 << (offset + 5)),
-//                 6 => w.bits(1 << (offset + 6)),
-//                 7 => w.bits(1 << (offset + 7)),
-//                 8 => w.bits(1 << (offset + 8)),
-//                 9 => w.bits(1 << (offset + 9)),
-//                 10 => w.bits(1 << (offset + 10)),
-//                 11 => w.bits(1 << (offset + 11)),
-//                 12 => w.bits(1 << (offset + 12)),
-//                 13 => w.bits(1 << (offset + 13)),
-//                 14 => w.bits(1 << (offset + 14)),
-//                 15 => w.bits(1 << (offset + 15)),
-//                 _ => panic!("GPIO pins must be 0 - 15."),
-//             });
-//         }
-//     }
-//
-//     /// Set the pin's output voltage to ground (low).
-//     pub fn set_low(&mut self) {
-//         // todo; DRY with `set_state`
-//         let regs = unsafe { get_reg_ptr!(PortLetter) };
-//         let offset = 16;
-//
-//         unsafe {
-//             regs.bsrr.write(|w| match self.pin {
-//                 0 => w.bits(1 << (offset + 0)),
-//                 1 => w.bits(1 << (offset + 1)),
-//                 2 => w.bits(1 << (offset + 2)),
-//                 3 => w.bits(1 << (offset + 3)),
-//                 4 => w.bits(1 << (offset + 4)),
-//                 5 => w.bits(1 << (offset + 5)),
-//                 6 => w.bits(1 << (offset + 6)),
-//                 7 => w.bits(1 << (offset + 7)),
-//                 8 => w.bits(1 << (offset + 8)),
-//                 9 => w.bits(1 << (offset + 9)),
-//                 10 => w.bits(1 << (offset + 10)),
-//                 11 => w.bits(1 << (offset + 11)),
-//                 12 => w.bits(1 << (offset + 12)),
-//                 13 => w.bits(1 << (offset + 13)),
-//                 14 => w.bits(1 << (offset + 14)),
-//                 15 => w.bits(1 << (offset + 15)),
-//                 _ => panic!("GPIO pins must be 0 - 15."),
-//             });
-//         }
-//     }
+    /// Check if the pin's input voltage is high (VCC).
+    pub fn is_high(&self) -> bool {
+        get_input_data!(self.pin, self.port, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+    }
+
+    /// Check if the pin's input voltage is low (ground).
+    pub fn is_low(&self) -> bool {
+        !self.is_high()
+    }
+
+    /// Set the pin's output voltage to high (VCC).
+    pub fn set_high(&mut self) {
+       set_state!(self.pin, self.port, 0, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    }
+
+    /// Set the pin's output voltage to ground (low).
+    pub fn set_low(&mut self) {
+       set_state!(self.pin, self.port, 16, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    }
 }
 //
-// #[cfg(feature = "embedded-hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
-// // Implement `embedded-hal` traits. We use raw pointers, since these traits can't
-// // accept a register block.
-// impl InputPin for Pin {
-//     type Error = Infallible;
-//
-//     fn is_high(&self) -> Result<bool, Self::Error> {
-//         Pin::is_high(self)
-//     }
-//
-//     fn is_low(&self) -> Result<bool, Self::Error> {
-//         Pin::is_low(self)
-//     }
-// }
-//
-// #[cfg(feature = "embedded-hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
-// impl OutputPin for Pin {
-//     type Error = Infallible;
-//
-//     fn set_low(&mut self) -> Result<(), Self::Error> {
-//         Pin::set_low(self);
-//         Ok(())
-//     }
-//
-//     fn set_high(&mut self) -> Result<(), Self::Error> {
-//         Pin::set_high(self);
-//         Ok(())
-//     }
-// }
-//
-// #[cfg(feature = "embedded-hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
-// impl ToggleableOutputPin for Pin {
-//     type Error = Infallible;
-//
-//     fn toggle(&mut self) -> Result<(), Self::Error> {
-//         if self.is_high() {
-//             Pin::set_low(self);
-//         } else {
-//             Pin::set_high(self);
-//         }
-//         Ok(())
-//     }
-// }
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+impl InputPin for Pin {
+    type Error = Infallible;
+
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        Ok(Pin::is_high(self))
+    }
+
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        Ok(Pin::is_low(self))
+    }
+}
+
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+impl OutputPin for Pin {
+    type Error = Infallible;
+
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        Pin::set_low(self);
+        Ok(())
+    }
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        Pin::set_high(self);
+        Ok(())
+    }
+}
+
+#[cfg(feature = "embedded-hal")]
+#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+impl ToggleableOutputPin for Pin {
+    type Error = Infallible;
+
+    fn toggle(&mut self) -> Result<(), Self::Error> {
+        if self.is_high() {
+            Pin::set_low(self);
+        } else {
+            Pin::set_high(self);
+        }
+        Ok(())
+    }
+}
 
 macro_rules! make_pin {
     ($Port:ident) => {
