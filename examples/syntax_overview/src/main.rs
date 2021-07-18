@@ -96,14 +96,14 @@ fn main() -> ! {
     let mut pa15 = gpioa.new_pin(15, PinMode::Output);
     pa15.set_high();
 
-    pa15.enable_interrupt(Edge::Rising, &mut dp.EXTI, &mut dp.SYSCFG);
+    pa15.enable_interrupt(Edge::Rising);
 
     // Configure pins for I2c.
     let mut scl = gpiob.new_pin(6, PinMode::Alt(4));
-    scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
+    scl.output_type(OutputType::OpenDrain);
 
     let mut sda = gpiob.new_pin(7, PinMode::Alt(4));
-    sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
+    sda.output_type(OutputType::OpenDrain);
 
     // Set up an I2C peripheral, running at 100Khz.
     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg);
@@ -196,7 +196,7 @@ fn main() -> ! {
     // consider a separate function:
     // fn setup_pins(gpioa: &mut GpioA, gpiob: &mut GpioB, exti: &mut EXTI, syscfg: &mut SYSCFG) {
     //     let mut scl = gpiob.new_pin(6, PinMode::Alt(4));
-    //     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
+    //     scl.output_type(OutputType::OpenDrain);
     //     // ...
     // }
 

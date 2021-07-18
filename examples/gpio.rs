@@ -15,7 +15,7 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     adc::{Adc, AdcChannel, Align, CkMode, InputType, OperationMode},
     clocks::Clocks,
-    gpio::{Edge, GpioA, GpioAPin, GpioB, GpioBPin, PinMode, PinState},
+    gpio::{Edge, GpioA, GpioAPin, GpioB, Pin, PinMode, PinState},
     low_power, pac,
     prelude::*,
 };
@@ -27,14 +27,11 @@ use embedded_hal::digital::OutputPin;
 // `prelude` module to simplify this syntax, and accessing it later.
 // Arguments are a list of (global name to store as, type) tuples.
 // This macro is imported in the prelude.
-make_globals!(
-    (EXAMPLE_OUTPUT, GpioBPin),
-    (DEBOUNCE_TIMER, Timer<pac::TIM15>),
-);
+make_globals!((EXAMPLE_OUTPUT, Pin), (DEBOUNCE_TIMER, Timer<pac::TIM15>),);
 
 /// This function includes type signature examples using `GpioPin`s from this library,
 /// and generic ones that implemented `embedded-hal` traits.
-fn example_type_sigs<O: OutputPin>(pin1: &mut O, pin2: &mut GpioBPin) {
+fn example_type_sigs<O: OutputPin>(pin1: &mut O, pin2: &mut Pin) {
     let setting = pin2.is_high();
 
     // If using `embedded-hal` traits, you need to append `.unwrap()`, or `.ok()`, since these
@@ -45,18 +42,13 @@ fn example_type_sigs<O: OutputPin>(pin1: &mut O, pin2: &mut GpioBPin) {
 /// An example function to set up the pins that don't need to be interacted with directly later.
 /// For example, ones used with buses (eg I2C, SPI, UART), USB, ADC, and DAC pins.
 /// This may also include input pins that trigger interrupts, and aren't polled.
-pub fn setup_pins(
-    gpioa: &mut GpioA,
-    gpiob: &mut GpioB,
-    exti: &mut pac::EXTI,
-    syscfg: &mut pac::SYSCFG,
-) {
+pub fn setup_pins(gpioa: &mut GpioA, gpiob: &mut GpioB) {
     // Set up I2C pins
     let mut scl = gpiob.new_pin(6, PinMode::Alt(4));
-    scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
+    scl.output_type(OutputType::OpenDrain);
 
     let mut sda = gpiob.new_pin(7, PinMode::Alt(4));
-    sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
+    sda.output_type(OutputType::OpenDrain);
 
     // Set up SPI pins
     let _sck = gpioa.new_pin(5, PinMode::Alt(5));
@@ -82,12 +74,12 @@ pub fn setup_pins(
 
     // Set up buttons, with pull-up resistors that trigger on the falling edge.
     let mut up_btn = gpiob.new_pin(3, PinMode::Input);
-    up_btn.pull(Pull::Up, &mut gpiob.regs);
-    up_btn.enable_interrupt(Edge::Falling, exti, syscfg);
+    up_btn.pull(Pull::Up);
+    up_btn.enable_interrupt(Edge::Falling);
 
     let mut dn_btn = gpioa.new_pin(4, PinMode::Input);
-    dn_btn.pull(Pull::Up, &mut gpioa.regs);
-    dn_btn.enable_interrupt(Edge::Falling, exti, syscfg);
+    dn_btn.pull(Pull::Up);
+    dn_btn.enable_interrupt(Edge::Falling);
 }
 
 #[entry]
@@ -108,7 +100,7 @@ fn main() -> ! {
     let mut gpiob = GpioB::new(dp.GPIOB);
 
     // Call a function we've made to help organize our pin setup code.
-    setup_pins(&mut gpia, &mut gpiob, &mut dp.exti, &mut dp.syscfg);
+    setup_pins(&mut gpia, &mut gpiob);
 
     // Example pins PB5 and PB6.
     let mut example_output = gpiob.new_pin(5, PinMode::Output);

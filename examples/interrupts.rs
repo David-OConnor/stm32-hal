@@ -46,7 +46,7 @@ fn main() -> ! {
 
     // Configure PA0 to trigger a GPIO interrupt.
     let mut button = gpioa.new_pin(0, PinMode::Input);
-    button.enable_interrupt(Edge::Falling, &mut dp.EXTI, &mut dp.SYSCFG);
+    button.enable_interrupt(Edge::Falling);
 
     // Set up and start a timer; set it to fire interrupts every 5 seconds.
     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg);
