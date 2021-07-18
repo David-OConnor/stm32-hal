@@ -2,8 +2,8 @@
 //! high-speed communications with external flash memory.
 
 use crate::{
+    clocks::Clocks,
     pac::{QUADSPI, RCC},
-    traits::ClockCfg,
 };
 
 use core::ptr;
@@ -128,7 +128,7 @@ pub struct Qspi {
 }
 
 impl Qspi {
-    pub fn new<C: ClockCfg>(regs: QUADSPI, cfg: QspiConfig, clocks: &C) -> Self {
+    pub fn new(regs: QUADSPI, cfg: QspiConfig, clocks: &Clocks) -> Self {
         assert!(
             cfg.dummy_cycles < 32,
             "Dumy cycles must be between 0 and 31."

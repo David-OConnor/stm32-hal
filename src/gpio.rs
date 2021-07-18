@@ -203,20 +203,111 @@ macro_rules! set_field {
 // todo: Remove the old set_field in favor of this if you ditch the GpioAPin concept etc.
 
 /// Reduce DRY for setting fields.
-macro_rules! set_field2 { // for Pin struct.
-    ($pin:expr, $port_letter:ident, $reg:ident, $field:ident, $bit:ident, $val:expr, [$($num:expr),+]) => {
+macro_rules! set_field2 { // for `Pin` struct.
+    ($pin:expr, $port_letter:expr, $reg:ident, $field:ident, $bit:ident, $val:expr, [$($num:expr),+]) => {
         paste! {
             unsafe {
-                match $pin {
-                    $(
-                        $num => (*pac::<[ GPIOA $port_letter>]::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-                    )+
-                    _ => panic!("GPIO pins must be 0 - 15."),
+                match $port_letter {
+                    PortLetter::A => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOA::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    PortLetter::B => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOB::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    PortLetter::C => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOC::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    #[cfg(not(any(feature = "f410")))]
+                    PortLetter::D => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOD::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
+                    PortLetter::E => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOE::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    #[cfg(not(any(
+                        feature = "f401",
+                        feature = "f410",
+                        feature = "f411",
+                        feature = "l4x1",
+                        feature = "l4x2",
+                        feature = "l412",
+                        feature = "l4x3",
+                        feature = "wb",
+                        feature = "wl"
+                        )))]
+                    PortLetter::F => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOF::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    #[cfg(not(any(
+                        feature = "f373",
+                        feature = "f301",
+                        feature = "f3x4",
+                        feature = "f410",
+                        feature = "l4",
+                        feature = "g0",
+                        feature = "g4",
+                        feature = "wb",
+                        feature = "wl"
+                    )))]
+                    PortLetter::H => {
+                        match $pin {
+                            $(
+                                $num => (*pac::GPIOH::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+                            )+
+                            _ => panic!("GPIO pins must be 0 - 15."),
+                        }
+                    }
+                    _ => (),
                 }
             }
         }
     }
 }
+// macro_rules! set_field2 { // for `Pin` struct.
+//     ($pin:expr, $port_letter:ident, $reg:ident, $field:ident, $bit:ident, $val:expr, [$($num:expr),+]) => {
+//         paste! {
+//             unsafe {
+//                 match $pin {
+//                     $(
+//                         $num => (*pac::<[ GPIOA $port_letter>]::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+//                     )+
+//                     _ => panic!("GPIO pins must be 0 - 15."),
+//                 }
+//             }
+//         }
+//     }
+// }
 
 // todo: Consolidate these exti macros
 
@@ -367,97 +458,98 @@ macro_rules! set_alt {
 // //     };
 // // }
 //
-// /// Represents a single GPIO pin. Provides methods that, when passed a mutable reference
-// /// to its port's register block, can change and read various properties of the pin.
-// pub struct Pin {
-//     pub port: PortLetter,
-//     pub pin: u8,
-// }
+/// Represents a single GPIO pin. Provides methods that, when passed a mutable reference
+/// to its port's register block, can change and read various properties of the pin.
+/// THIS IS EXPERIMENTAL. PLEASE USE GpioAPin etc instead.
+pub struct Pin {
+    pub port: PortLetter,
+    pub pin: u8,
+}
 
-// impl Pin {
-//     /// Set pin mode.
-//     pub fn mode(&mut self, value: PinMode) {
-//          set_field2!(
-//             self.pin,
-//             self.port,
-//             moder,
-//             moder,
-//             bits,
-//             value.val(),
-//             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-//         );
-//
-//         if let PinMode::Alt(alt) = value {
-//             // self.alt_fn(alt); // todo put back
-//         }
-//     }
-//
-//     /// Set output type.
-//     pub fn output_type(&mut self, value: OutputType) {
-//         set_field2!(
-//             self.pin,
-//             self.port,
-//             otyper,
-//             ot,
-//             bit,
-//             value as u8 != 0,
-//             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-//         );
-//     }
-//
-//     /// Set output speed.
-//     pub fn output_speed(&mut self, value: OutputSpeed) {
-//         set_field2!(
-//             self.pin,
-//             self.port,
-//             ospeedr,
-//             ospeedr,
-//             bits,
-//             value as u8,
-//             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-//         );
-//     }
-//
-//     /// Set internal pull resistor: Pull up, pull down, or floating.
-//     pub fn pull(&mut self, value: Pull) {
-//         set_field2!(
-//             self.pin,
-//             self.port,
-//             pupdr,
-//             pupdr,
-//             bits,
-//             value as u8,
-//             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-//         );
-//     }
-//
-//     /// Set the output_data register.
-//     pub fn output_data(&mut self, value: PinState) {
-//         set_field2!(
-//             self.pin,
-//             self.port,
-//             odr,
-//             odr,
-//             bit,
-//             value as u8 != 0,
-//             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-//         );
-//     }
+impl Pin {
+    /// Set pin mode.
+    pub fn mode(&mut self, value: PinMode) {
+        set_field2!(
+            self.pin,
+            self.port,
+            moder,
+            moder,
+            bits,
+            value.val(),
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        );
 
-// // It appears f373 doesn't have lckr on ports C or E. (PAC error?)
-// #[cfg(not(feature = "f373"))]
-// /// Lock or unlock a port configuration.
-// pub fn cfg_lock(&mut self, value: CfgLock) {
-//     set_field2!(
-//         self.pin,
-//         self.port,
-//         lckr,
-//         lck,
-//         bit,
-//         value as u8 != 0,
-//         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-//     );
-// }
+        if let PinMode::Alt(alt) = value {
+            // self.alt_fn(alt); // todo put back
+        }
+    }
+
+    /// Set output type.
+    pub fn output_type(&mut self, value: OutputType) {
+        set_field2!(
+            self.pin,
+            self.port,
+            otyper,
+            ot,
+            bit,
+            value as u8 != 0,
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        );
+    }
+
+    /// Set output speed.
+    pub fn output_speed(&mut self, value: OutputSpeed) {
+        set_field2!(
+            self.pin,
+            self.port,
+            ospeedr,
+            ospeedr,
+            bits,
+            value as u8,
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        );
+    }
+
+    /// Set internal pull resistor: Pull up, pull down, or floating.
+    pub fn pull(&mut self, value: Pull) {
+        set_field2!(
+            self.pin,
+            self.port,
+            pupdr,
+            pupdr,
+            bits,
+            value as u8,
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        );
+    }
+
+    /// Set the output_data register.
+    pub fn output_data(&mut self, value: PinState) {
+        set_field2!(
+            self.pin,
+            self.port,
+            odr,
+            odr,
+            bit,
+            value as u8 != 0,
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        );
+    }
+
+    // It appears f373 doesn't have lckr on ports C or E. (PAC error?)
+    #[cfg(not(feature = "f373"))]
+    /// Lock or unlock a port configuration.
+    pub fn cfg_lock(&mut self, value: CfgLock) {
+        set_field2!(
+            self.pin,
+            self.port,
+            lckr,
+            lck,
+            bit,
+            value as u8 != 0,
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        );
+    }
 
 // /// Read the input data register.
 // pub fn input_data(&mut self) -> PinState {
@@ -728,7 +820,7 @@ macro_rules! set_alt {
 //             });
 //         }
 //     }
-// }
+}
 //
 // #[cfg(feature = "embedded-hal")]
 // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
