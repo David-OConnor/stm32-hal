@@ -17,7 +17,6 @@ use stm32_hal::{
     gpio::{Edge, Pin, Port, PinMode},
     low_power,
     pac::{self, ADC1, EXTI},
-    prelude::*,
     rtc::{Rtc, RtcClockSource, RtcConfig},
     timer::{Timer, TimerInterrupt},
 };

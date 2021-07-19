@@ -16,7 +16,7 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     clocks::Clocks,
-    gpio::{AltFn, Edge, GpioA, PinMode},
+    gpio::{Port, Pin, PinMode},
     low_power, pac,
     usart::{Usart, UsartConfig, UsartDevice, UsartInterrupt},
 };
@@ -39,12 +39,9 @@ fn main() -> ! {
     let clock_cfg = Clocks::default();
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
-    // Set up the GPIOA port.
-    let mut gpioa = GpioA::new(dp.GPIOA);
-
     // Configure pins for UART, according to the user manual.
-    let _uart_tx = gpioa.new_pin(9, PinMode::Alt(7));
-    let _uart_rx = gpioa.new_pin(10, PinMode::Alt(7));
+    let _uart_tx = Pin::new(Port::A, 9, PinMode::Alt(7));
+    let _uart_rx = Pin::new(Port::A, 10, PinMode::Alt(7));
 
     // Set up the USART1 peripheral.
     let uart = Usart::new(

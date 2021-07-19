@@ -130,6 +130,8 @@ expose these implementations if the `embedded-hal` feature is selected.
 These steps are copy+pasted in comments before the code that performs each one.
 - Don't use PAC convenience field settings; they're implemented inconsistently across PACs.
 (eg don't use something like `en.enabled()`; use `en.set_bit()`.)
+- If using a commonly-named configuration enum like `Mode`, prefix it with the peripheral type,
+eg use `RadarMode` instead. This prevents namespace conflicts when importing the enums directly.
 
 
 ### Example module structure:
