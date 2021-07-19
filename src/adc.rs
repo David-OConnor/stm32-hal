@@ -296,8 +296,8 @@ macro_rules! hal {
             /// Enable the ADC clock, and set the clock mode.
             fn enable_clock(&self, regs_common: &mut pac::$ADC_COMMON) {
             // todo: Consider merging this code into `new`, as we do in other modules.
-                free(|cs| {
-                    let mut rcc = unsafe { &(*RCC::ptr()) };
+                free(|_| {
+                    let rcc = unsafe { &(*RCC::ptr()) };
 
                     paste! {
                         cfg_if! {
@@ -704,7 +704,7 @@ macro_rules! hal {
                         return
                     }
 
-                    let mut dp = unsafe { pac::Peripherals::steal() };
+                    let dp = unsafe { pac::Peripherals::steal() };
 
                     cfg_if! {
                         if #[cfg(feature = "f3")] {

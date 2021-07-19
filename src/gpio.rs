@@ -93,30 +93,79 @@ pub enum ResetState {
     Reset = 1,
 }
 
+// todo: If you get rid of Port struct, rename this enum Port
 #[derive(Copy, Clone)]
 /// GPIO port letter
-pub enum PortLetter {
+pub enum Port {
     A,
     B,
     C,
+    #[cfg(not(any(feature = "f410")))]
     D,
+    #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
     E,
+    #[cfg(not(any(
+    feature = "f401",
+    feature = "f410",
+    feature = "f411",
+    feature = "l4x1",
+    feature = "l4x2",
+    feature = "l412",
+    feature = "l4x3",
+    feature = "wb",
+    feature = "wl"
+    )))]
     F,
-    G,
+    // G,
+    #[cfg(not(any(
+        feature = "f373",
+        feature = "f301",
+        feature = "f3x4",
+        feature = "f410",
+        feature = "l4",
+        feature = "g0",
+        feature = "g4",
+        feature = "wb",
+        feature = "wl"
+    )))]
     H,
 }
 
-impl PortLetter {
+impl Port {
     /// See F3 ref manual section 12.1.3: each reg has an associated value
     fn cr_val(&self) -> u8 {
         match self {
             Self::A => 0,
             Self::B => 1,
             Self::C => 2,
+            #[cfg(not(any(feature = "f410")))]
             Self::D => 3,
+            #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
             Self::E => 4,
+            #[cfg(not(any(
+                feature = "f401",
+                feature = "f410",
+                feature = "f411",
+                feature = "l4x1",
+                feature = "l4x2",
+                feature = "l412",
+                feature = "l4x3",
+                feature = "wb",
+                feature = "wl"
+                )))]
             Self::F => 5,
-            Self::G => 6,
+            // Self::G => 6,
+            #[cfg(not(any(
+                feature = "f373",
+                feature = "f301",
+                feature = "f3x4",
+                feature = "f410",
+                feature = "l4",
+                feature = "g0",
+                feature = "g4",
+                feature = "wb",
+                feature = "wl"
+            )))]
             Self::H => 7,
         }
     }
@@ -128,68 +177,68 @@ pub enum Edge {
     Rising,
     Falling,
 }
-
-macro_rules! make_port {
-    ($Port:ident, $port:ident) => {
-        paste! {
-            /// Represents a single GPIO port, and owns its register block. Provides
-            /// methods to enable the port. To change pin properties, pass its `regs`
-            /// field as a mutable reference to `GpioXPin` methods.
-            pub struct [<Gpio $Port>] {
-                pub regs: pac::[<GPIO $Port>],
-            }
-
-            impl [<Gpio $Port>] {
-                pub fn new(regs: pac::[<GPIO $Port>]) -> Self {
-                    // Enable the peripheral clock of a GPIO port
-                    free(|cs| {
-                        let mut rcc = unsafe { &(*RCC::ptr()) };
-
-                        cfg_if! {
-                            if #[cfg(feature = "f3")] {
-                                rcc_en_reset!(ahb1, [<iop $port>], rcc);
-                            } else if #[cfg(feature = "h7")] {
-                                rcc.ahb4enr.modify(|_, w| w.[<gpio $port en>]().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
-                            } else if #[cfg(feature = "f4")] {
-                                rcc_en_reset!(ahb1, [<gpio $port>], rcc);
-                            } else if #[cfg(feature = "g0")] {
-                                rcc.iopenr.modify(|_, w| w.[<iop $port en>]().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().clear_bit());
-                            } else { // L4, L5, G4
-                                rcc_en_reset!(ahb2, [<gpio $port>], rcc);
-                            }
-                        }
-                    });
-
-                    Self { regs }
-                }
-
-                // pub fn new_pin(&mut self, pin: u8, mode: PinMode) -> [<Gpio $Port Pin>] {
-                pub fn new_pin(&mut self, pin: u8, mode: PinMode) -> Pin {
-                    assert!(pin <= 15, "Pin must be 0 - 15.");
-
-                    // let mut result = [<Gpio $Port Pin>] {
-                    //     port: PortLetter::[<$Port>],
-                    //     pin,
-                    // };
-                    // result.mode(mode, &mut self.regs);
-
-                    let mut result = Pin {
-                        port: PortLetter::[<$Port>],
-                        pin,
-                    };
-
-                    result.mode(mode);
-
-                    result
-                }
-            }
-        }
-    };
-}
+//
+// macro_rules! make_port {
+//     ($Port:ident, $port:ident) => {
+//         paste! {
+//             /// Represents a single GPIO port, and owns its register block. Provides
+//             /// methods to enable the port. To change pin properties, pass its `regs`
+//             /// field as a mutable reference to `GpioXPin` methods.
+//             pub struct [<Gpio $Port>] {
+//                 pub regs: pac::[<GPIO $Port>],
+//             }
+//
+//             impl [<Gpio $Port>] {
+//                 pub fn new(regs: pac::[<GPIO $Port>]) -> Self {
+//                     // Enable the peripheral clock of a GPIO port
+//                     free(|_| {
+//                         let rcc = unsafe { &(*RCC::ptr()) };
+//
+//                         cfg_if! {
+//                             if #[cfg(feature = "f3")] {
+//                                 rcc_en_reset!(ahb1, [<iop $port>], rcc);
+//                             } else if #[cfg(feature = "h7")] {
+//                                 rcc.ahb4enr.modify(|_, w| w.[<gpio $port en>]().set_bit());
+//                                 rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
+//                                 rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
+//                             } else if #[cfg(feature = "f4")] {
+//                                 rcc_en_reset!(ahb1, [<gpio $port>], rcc);
+//                             } else if #[cfg(feature = "g0")] {
+//                                 rcc.iopenr.modify(|_, w| w.[<iop $port en>]().set_bit());
+//                                 rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().set_bit());
+//                                 rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().clear_bit());
+//                             } else { // L4, L5, G4
+//                                 rcc_en_reset!(ahb2, [<gpio $port>], rcc);
+//                             }
+//                         }
+//                     });
+//
+//                     Self { regs }
+//                 }
+//
+//                 // pub fn new_pin(&mut self, pin: u8, mode: PinMode) -> [<Gpio $Port Pin>] {
+//                 pub fn new_pin(&mut self, pin: u8, mode: PinMode) -> Pin {
+//                     assert!(pin <= 15, "Pin must be 0 - 15.");
+//
+//                     // let mut result = [<Gpio $Port Pin>] {
+//                     //     port: Port::[<$Port>],
+//                     //     pin,
+//                     // };
+//                     // result.mode(mode, &mut self.regs);
+//
+//                     let mut result = Pin {
+//                         port: Port::[<$Port>],
+//                         pin,
+//                     };
+//
+//                     result.mode(mode);
+//
+//                     result
+//                 }
+//             }
+//         }
+//     };
+// }
 
 // Reduce DRY for setting fields.
 // macro_rules! set_field {
@@ -216,7 +265,7 @@ macro_rules! set_field2 { // for `Pin` struct.
         paste! {
             unsafe {
                 match $port_letter {
-                    PortLetter::A => {
+                    Port::A => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOA::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
@@ -224,7 +273,7 @@ macro_rules! set_field2 { // for `Pin` struct.
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    PortLetter::B => {
+                    Port::B => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOB::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
@@ -232,7 +281,7 @@ macro_rules! set_field2 { // for `Pin` struct.
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    PortLetter::C => {
+                    Port::C => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOC::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
@@ -241,7 +290,7 @@ macro_rules! set_field2 { // for `Pin` struct.
                         }
                     }
                     #[cfg(not(any(feature = "f410")))]
-                    PortLetter::D => {
+                    Port::D => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOD::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
@@ -250,7 +299,7 @@ macro_rules! set_field2 { // for `Pin` struct.
                         }
                     }
                     #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
-                    PortLetter::E => {
+                    Port::E => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOE::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
@@ -269,7 +318,7 @@ macro_rules! set_field2 { // for `Pin` struct.
                         feature = "wb",
                         feature = "wl"
                         )))]
-                    PortLetter::F => {
+                    Port::F => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOF::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
@@ -288,7 +337,7 @@ macro_rules! set_field2 { // for `Pin` struct.
                         feature = "wb",
                         feature = "wl"
                     )))]
-                    PortLetter::H => {
+                    Port::H => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOH::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
@@ -296,7 +345,6 @@ macro_rules! set_field2 { // for `Pin` struct.
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    _ => (),  // todo avoid an extra set of feature gates on the enum variants.
                 }
             }
         }
@@ -309,7 +357,7 @@ macro_rules! set_alt2 { // for `Pin` struct.
         paste! {
             unsafe {
                 match $port_letter {
-                    PortLetter::A => {
+                    Port::A => {
                         match $pin {
                             $(
                                 $num => {
@@ -323,7 +371,7 @@ macro_rules! set_alt2 { // for `Pin` struct.
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    PortLetter::B => {
+                    Port::B => {
                         match $pin {
                             $(
                                 $num => {
@@ -337,7 +385,7 @@ macro_rules! set_alt2 { // for `Pin` struct.
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    PortLetter::C => {
+                    Port::C => {
                         match $pin {
                             $(
                                 $num => {
@@ -352,7 +400,7 @@ macro_rules! set_alt2 { // for `Pin` struct.
                         }
                     }
                     #[cfg(not(any(feature = "f410")))]
-                    PortLetter::D => {
+                    Port::D => {
                         match $pin {
                             $(
                                 $num => {
@@ -367,7 +415,7 @@ macro_rules! set_alt2 { // for `Pin` struct.
                         }
                     }
                     #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
-                    PortLetter::E => {
+                    Port::E => {
                         match $pin {
                             $(
                                 $num => {
@@ -392,7 +440,7 @@ macro_rules! set_alt2 { // for `Pin` struct.
                         feature = "wb",
                         feature = "wl"
                         )))]
-                    PortLetter::F => {
+                    Port::F => {
                         match $pin {
                             $(
                                 $num => {
@@ -417,7 +465,7 @@ macro_rules! set_alt2 { // for `Pin` struct.
                         feature = "wb",
                         feature = "wl"
                     )))]
-                    PortLetter::H => {
+                    Port::H => {
                         match $pin {
                             $(
                                 $num => {
@@ -431,7 +479,6 @@ macro_rules! set_alt2 { // for `Pin` struct.
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    _ => (),  // todo avoid an extra set of feature gates on the enum variants.
                 }
             }
         }
@@ -446,7 +493,7 @@ macro_rules! get_input_data { // for `Pin` struct.
         paste! {
             unsafe {
                 match $port_letter {
-                    PortLetter::A => {
+                    Port::A => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOA::ptr()).idr.read().[<idr $num>]().bit_is_set(),
@@ -454,7 +501,7 @@ macro_rules! get_input_data { // for `Pin` struct.
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    PortLetter::B => {
+                    Port::B => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOB::ptr()).idr.read().[<idr $num>]().bit_is_set(),
@@ -462,7 +509,7 @@ macro_rules! get_input_data { // for `Pin` struct.
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    PortLetter::C => {
+                    Port::C => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOC::ptr()).idr.read().[<idr $num>]().bit_is_set(),
@@ -471,7 +518,7 @@ macro_rules! get_input_data { // for `Pin` struct.
                         }
                     }
                     #[cfg(not(any(feature = "f410")))]
-                    PortLetter::D => {
+                    Port::D => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOD::ptr()).idr.read().[<idr $num>]().bit_is_set(),
@@ -480,7 +527,7 @@ macro_rules! get_input_data { // for `Pin` struct.
                         }
                     }
                     #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
-                    PortLetter::E => {
+                    Port::E => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOE::ptr()).idr.read().[<idr $num>]().bit_is_set(),
@@ -499,7 +546,7 @@ macro_rules! get_input_data { // for `Pin` struct.
                         feature = "wb",
                         feature = "wl"
                         )))]
-                    PortLetter::F => {
+                    Port::F => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOF::ptr()).idr.read().[<idr $num>]().bit_is_set(),
@@ -518,7 +565,7 @@ macro_rules! get_input_data { // for `Pin` struct.
                         feature = "wb",
                         feature = "wl"
                     )))]
-                    PortLetter::H => {
+                    Port::H => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOH::ptr()).idr.read().[<idr $num>]().bit_is_set(),
@@ -526,7 +573,6 @@ macro_rules! get_input_data { // for `Pin` struct.
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    _ => false, // todo
                 }
             }
         }
@@ -539,7 +585,7 @@ macro_rules! set_state { // for `Pin` struct.
         paste! {
             unsafe {
                 match $port_letter {
-                    PortLetter::A => {
+                    Port::A => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOA::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
@@ -547,7 +593,7 @@ macro_rules! set_state { // for `Pin` struct.
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    PortLetter::B => {
+                    Port::B => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOB::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
@@ -555,7 +601,7 @@ macro_rules! set_state { // for `Pin` struct.
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    PortLetter::C => {
+                    Port::C => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOC::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
@@ -564,7 +610,7 @@ macro_rules! set_state { // for `Pin` struct.
                         }
                     }
                     #[cfg(not(any(feature = "f410")))]
-                    PortLetter::D => {
+                    Port::D => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOD::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
@@ -573,7 +619,7 @@ macro_rules! set_state { // for `Pin` struct.
                         }
                     }
                     #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
-                    PortLetter::E => {
+                    Port::E => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOE::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
@@ -592,7 +638,7 @@ macro_rules! set_state { // for `Pin` struct.
                         feature = "wb",
                         feature = "wl"
                         )))]
-                    PortLetter::F => {
+                    Port::F => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOF::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
@@ -611,7 +657,7 @@ macro_rules! set_state { // for `Pin` struct.
                         feature = "wb",
                         feature = "wl"
                     )))]
-                    PortLetter::H => {
+                    Port::H => {
                         match $pin {
                             $(
                                 $num => (*pac::GPIOH::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
@@ -619,7 +665,6 @@ macro_rules! set_state { // for `Pin` struct.
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    _ => (),
                 }
             }
         }
@@ -751,228 +796,285 @@ macro_rules! set_exti_g0 {
     }
 }
 
-/// Reduce DRY for setting up alternate functions. Note that there are at least 3
-/// different names for the `afrl` field to modify based on variants.
-macro_rules! set_alt {
-    ($pin:expr, $regs:expr, $field_af:ident, $val:expr, [$(($num:expr, $lh:ident)),+]) => {
-        paste! {
-            unsafe {
-                match $pin {
-                    $(
-                        $num => {
-                            $regs.moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                            #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl"))]
-                            $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                            #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl")))]
-                            $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
-                        }
-                    )+
-                    _ => panic!("GPIO pins must be 0 - 15."),
-                }
-            }
-        }
-    }
-}
-
-// ///Get a reference to a register block pointer, from a port
-// macro_rules! get_reg_ptr {
-//     (A) => {
-//         &(*pac::GPIOA::ptr())
+// /// Reduce DRY for setting up alternate functions. Note that there are at least 3
+// /// different names for the `afrl` field to modify based on variants.
+// macro_rules! set_alt {
+//     ($pin:expr, $regs:expr, $field_af:ident, $val:expr, [$(($num:expr, $lh:ident)),+]) => {
+//         paste! {
+//             unsafe {
+//                 match $pin {
+//                     $(
+//                         $num => {
+//                             $regs.moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
+//                             #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl"))]
+//                             $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
+//                             #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl")))]
+//                             $regs.[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
+//                         }
+//                     )+
+//                     _ => panic!("GPIO pins must be 0 - 15."),
+//                 }
+//             }
+//         }
 //     }
-//
-//     ($port:expr) => {
-//         &(*pac::pPort::ptr())
-// //     };
-// // }
-//
-/// Represents a single GPIO pin. Provides methods that, when passed a mutable reference
-/// to its port's register block, can change and read various properties of the pin.
-/// Create with `GpioxPort::new_pin()`; this ensures the port RCC clock has been enabled.
+// }
+
+
+/// Represents a single GPIO pin. Allows configuration, and reading/setting state.
 pub struct Pin {
-    pub port: PortLetter,
+    pub port: Port,
     pub pin: u8,
 }
 
 // todo: Critical sections on unsafe calls to avoid race conditions?
 
 impl Pin {
-    // /// Create a new pin, with a specific mode. Enables the RCC peripheral clock to the port,
-    // /// if not already enabled.
-    // pub fn new(port: PortLetter, pin: u8, mode: PinMode) -> Self {
-    //     assert!(pin <= 15, "Pin must be 0 - 15.");
-    //
-    //     match port {
-    //         PortLetter::A => {
-    //             cfg_if! {
-    //                 if #[cfg(feature = "f3")] {
-    //                     rcc_en_reset!(ahb1, iopa, rcc);
-    //                 } else if #[cfg(feature = "h7")] {
-    //                     rcc.ahb4enr.modify(|_, w| w.gpioaen().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpioarst().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpioarst().clear_bit());
-    //                 } else if #[cfg(feature = "f4")] {
-    //                     rcc_en_reset!(ahb1, gpioa, rcc);
-    //                 } else if #[cfg(feature = "g0")] {
-    //                     rcc.iopenr.modify(|_, w| w.iopaen().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.ioparst().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.ioparst().clear_bit());
-    //                 } else { // L4, L5, G4
-    //                     rcc_en_reset!(ahb2, gpioa, rcc);
-    //                 }
-    //             }
-    //         }
-    //         PortLetter::B => {
-    //             cfg_if! {
-    //                 if #[cfg(feature = "f3")] {
-    //                     rcc_en_reset!(ahb1, iopa, rcc);
-    //                 } else if #[cfg(feature = "h7")] {
-    //                     rcc.ahb4enr.modify(|_, w| w.gpioben().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpiobrst().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpiobrst().clear_bit());
-    //                 } else if #[cfg(feature = "f4")] {
-    //                     rcc_en_reset!(ahb1, gpiob, rcc);
-    //                 } else if #[cfg(feature = "g0")] {
-    //                     rcc.iopenr.modify(|_, w| w.iopben().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.iopbrst().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.iopbrst().clear_bit());
-    //                 } else { // L4, L5, G4
-    //                     rcc_en_reset!(ahb2, gpiob, rcc);
-    //                 }
-    //             }
-    //         }
-    //         PortLetter::C => {
-    //             cfg_if! {
-    //                 if #[cfg(feature = "f3")] {
-    //                     rcc_en_reset!(ahb1, iopa, rcc);
-    //                 } else if #[cfg(feature = "h7")] {
-    //                     rcc.ahb4enr.modify(|_, w| w.gpiocen().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpiocrst().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpiocrst().clear_bit());
-    //                 } else if #[cfg(feature = "f4")] {
-    //                     rcc_en_reset!(ahb1, gpioc, rcc);
-    //                 } else if #[cfg(feature = "g0")] {
-    //                     rcc.iopenr.modify(|_, w| w.iopcen().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.iopcrst().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.iopcrst().clear_bit());
-    //                 } else { // L4, L5, G4
-    //                     rcc_en_reset!(ahb2, gpioc, rcc);
-    //                 }
-    //             }
-    //         }
-    //         PortLetter::D => {
-    //             cfg_if! {
-    //                 if #[cfg(feature = "f3")] {
-    //                     rcc_en_reset!(ahb1, iopa, rcc);
-    //                 } else if #[cfg(feature = "h7")] {
-    //                     rcc.ahb4enr.modify(|_, w| w.gpioden().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpiodrst().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpiodrst().clear_bit());
-    //                 } else if #[cfg(feature = "f4")] {
-    //                     rcc_en_reset!(ahb1, gpiod, rcc);
-    //                 } else if #[cfg(feature = "g0")] {
-    //                     rcc.iopenr.modify(|_, w| w.iopden().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.iopdrst().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.iopdrst().clear_bit());
-    //                 } else { // L4, L5, G4
-    //                     rcc_en_reset!(ahb2, gpiod, rcc);
-    //                 }
-    //             }
-    //         }
-    //         PortLetter::E => {
-    //             cfg_if! {
-    //                 if #[cfg(feature = "f3")] {
-    //                     rcc_en_reset!(ahb1, iopa, rcc);
-    //                 } else if #[cfg(feature = "h7")] {
-    //                     rcc.ahb4enr.modify(|_, w| w.gpioeen().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpioerst().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpioerst().clear_bit());
-    //                 } else if #[cfg(feature = "f4")] {
-    //                     rcc_en_reset!(ahb1, gpioe, rcc);
-    //                 } else if #[cfg(feature = "g0")] {
-    //                     rcc.iopenr.modify(|_, w| w.iopeen().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.ioperst().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.ioperst().clear_bit());
-    //                 } else { // L4, L5, G4
-    //                     rcc_en_reset!(ahb2, gpioe, rcc);
-    //                 }
-    //             }
-    //         }
-    //         #[cfg(not(any(
-    //         feature = "f401",
-    //         feature = "f410",
-    //         feature = "f411",
-    //         feature = "l4x1",
-    //         feature = "l4x2",
-    //         feature = "l412",
-    //         feature = "l4x3",
-    //         feature = "wb",
-    //         feature = "wl"
-    //         )))]
-    //         PortLetter::F => {
-    //             cfg_if! {
-    //                 if #[cfg(feature = "f3")] {
-    //                     rcc_en_reset!(ahb1, iopa, rcc);
-    //                 } else if #[cfg(feature = "h7")] {
-    //                     rcc.ahb4enr.modify(|_, w| w.gpiofen().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpiofrst().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpiofrst().clear_bit());
-    //                 } else if #[cfg(feature = "f4")] {
-    //                     rcc_en_reset!(ahb1, gpiof, rcc);
-    //                 } else if #[cfg(feature = "g0")] {
-    //                     rcc.iopenr.modify(|_, w| w.iopfen().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.iopfrst().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.iopfrst().clear_bit());
-    //                 } else { // L4, L5, G4
-    //                     rcc_en_reset!(ahb2, gpiof, rcc);
-    //                 }
-    //             }
-    //         }
-    //         PortLetter::H => {
-    //             cfg_if! {
-    //                 if #[cfg(feature = "f3")] {
-    //                     rcc_en_reset!(ahb1, iopa, rcc);
-    //                 } else if #[cfg(feature = "h7")] {
-    //                     rcc.ahb4enr.modify(|_, w| w.gpiohen().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpiohrst().set_bit());
-    //                     rcc.ahb4rstr.modify(|_, w| w.gpiohrst().clear_bit());
-    //                 } else if #[cfg(feature = "f4")] {
-    //                     rcc_en_reset!(ahb1, gpioh, rcc);
-    //                 } else if #[cfg(feature = "g0")] {
-    //                     rcc.iopenr.modify(|_, w| w.iophen().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.iophrst().set_bit());
-    //                     rcc.ioprstr.modify(|_, w| w.iophrst().clear_bit());
-    //                 } else { // L4, L5, G4
-    //                     rcc_en_reset!(ahb2, gpioa, rcc);
-    //                 }
-    //             }
-    //         }
-    //     }
-    //
-    //     free(|cs| {
-    //         let mut rcc = unsafe { &(*RCC::ptr()) };
-    //         cfg_if! {
-    //             if #[cfg(feature = "f3")] {
-    //                 rcc_en_reset!(ahb1, [<iop $port>], rcc);
-    //             } else if #[cfg(feature = "h7")] {
-    //                 rcc.ahb4enr.modify(|_, w| w.[<gpio $port en>]().set_bit());
-    //                 rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().set_bit());
-    //                 rcc.ahb4rstr.modify(|_, w| w.[<gpio $port rst>]().clear_bit());
-    //             } else if #[cfg(feature = "f4")] {
-    //                 rcc_en_reset!(ahb1, [<gpio $port>], rcc);
-    //             } else if #[cfg(feature = "g0")] {
-    //                 rcc.iopenr.modify(|_, w| w.[<iop $port en>]().set_bit());
-    //                 rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().set_bit());
-    //                 rcc.ioprstr.modify(|_, w| w.[<iop $port rst>]().clear_bit());
-    //             } else { // L4, L5, G4
-    //                 rcc_en_reset!(ahb2, [<gpio $port>], rcc);
-    //             }
-    //         }
-    //     });
-    //
-    //     Self { port, pin }
-    // }
+    /// Create a new pin, with a specific mode. Enables the RCC peripheral clock to the port,
+    /// if not already enabled.
+    pub fn new(port: Port, pin: u8, mode: PinMode) -> Self {
+        assert!(pin <= 15, "Pin must be 0 - 15.");
 
-    /// Set pin mode.
+        free(|_| {
+            let rcc = unsafe { &(*RCC::ptr()) };
+
+            match port {
+                Port::A => {
+                    cfg_if! {
+                        if #[cfg(feature = "f3")] {
+                            if rcc.ahbenr.read().iopaen().bit_is_clear() {
+                                rcc_en_reset!(ahb1, iopa, rcc);
+                            }
+                        } else if #[cfg(feature = "h7")] {
+                            if rcc.ahb4enr.read().gpioaen().bit_is_clear() {
+                                rcc.ahb4enr.modify(|_, w| w.gpioaen().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpioarst().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpioarst().clear_bit());
+                            }
+                        } else if #[cfg(feature = "f4")] {
+                            if rcc.ahb1enr.read().gpioaen().bit_is_clear() {
+                                rcc_en_reset!(ahb1, gpioa, rcc);
+                            }
+                        } else if #[cfg(feature = "g0")] {
+                            if rcc.iopenr.read().iopaen().bit_is_clear() {
+                                rcc.iopenr.modify(|_, w| w.iopaen().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.ioparst().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.ioparst().clear_bit());
+                            }
+                        } else { // L4, L5, G4
+                            if rcc.ahb2enr.read().gpioaen().bit_is_clear() {
+                                rcc_en_reset!(ahb2, gpioa, rcc);
+                            }
+                        }
+                    }
+                }
+                Port::B => {
+                    cfg_if! {
+                        if #[cfg(feature = "f3")] {
+                            if rcc.ahbenr.read().iopben().bit_is_clear() {
+                                rcc_en_reset!(ahb1, iopa, rcc);
+                            }
+                        } else if #[cfg(feature = "h7")] {
+                            if rcc.ahb4enr.read().gpioben().bit_is_clear() {
+                                rcc.ahb4enr.modify(|_, w| w.gpioben().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiobrst().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiobrst().clear_bit());
+                            }
+                        } else if #[cfg(feature = "f4")] {
+                            if rcc.ahb1enr.read().gpioben().bit_is_clear() {
+                                rcc_en_reset!(ahb1, gpiob, rcc);
+                            }
+                        } else if #[cfg(feature = "g0")] {
+                            if rcc.iopenr.read().iopben().bit_is_clear() {
+                                rcc.iopenr.modify(|_, w| w.iopben().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iopbrst().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iopbrst().clear_bit());
+                            }
+                        } else { // L4, L5, G4
+                            if rcc.ahb2enr.read().gpioben().bit_is_clear() {
+                                rcc_en_reset!(ahb2, gpiob, rcc);
+                            }
+                        }
+                    }
+                }
+                Port::C => {
+                    cfg_if! {
+                        if #[cfg(feature = "f3")] {
+                            if rcc.ahbenr.read().iopcen().bit_is_clear() {
+                                rcc_en_reset!(ahb1, iopa, rcc);
+                            }
+                        } else if #[cfg(feature = "h7")] {
+                            if rcc.ahb4enr.read().gpiocen().bit_is_clear() {
+                                rcc.ahb4enr.modify(|_, w| w.gpiocen().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiocrst().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiocrst().clear_bit());
+                            }
+                        } else if #[cfg(feature = "f4")] {
+                            if rcc.ahb1enr.read().gpiocen().bit_is_clear() {
+                                rcc_en_reset!(ahb1, gpioc, rcc);
+                            }
+                        } else if #[cfg(feature = "g0")] {
+                            if rcc.iopenr.read().iopcen().bit_is_clear() {
+                                rcc.iopenr.modify(|_, w| w.iopcen().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iopcrst().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iopcrst().clear_bit());
+                            }
+                        } else { // L4, L5, G4
+                            if rcc.ahb2enr.read().gpiocen().bit_is_clear() {
+                                rcc_en_reset!(ahb2, gpioc, rcc);
+                            }
+                        }
+                    }
+                }
+                #[cfg(not(any(feature = "f410")))]
+                Port::D => {
+                    cfg_if! {
+                        if #[cfg(feature = "f3")] {
+                            if rcc.ahbenr.read().iopden().bit_is_clear() {
+                                rcc_en_reset!(ahb1, iopa, rcc);
+                            }
+                        } else if #[cfg(feature = "h7")] {
+                            if rcc.ahb4enr.read().gpioden().bit_is_clear() {
+                                rcc.ahb4enr.modify(|_, w| w.gpioden().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiodrst().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiodrst().clear_bit());
+                            }
+                        } else if #[cfg(feature = "f4")] {
+                            if rcc.ahb1enr.read().gpioden().bit_is_clear() {
+                                rcc_en_reset!(ahb1, gpiod, rcc);
+                            }
+                        } else if #[cfg(feature = "g0")] {
+                            if rcc.iopenr.read().iopden().bit_is_clear() {
+                                rcc.iopenr.modify(|_, w| w.iopden().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iopdrst().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iopdrst().clear_bit());
+                            }
+                        } else { // L4, L5, G4
+                            if rcc.ahb2enr.read().gpioden().bit_is_clear() {
+                                rcc_en_reset!(ahb2, gpiod, rcc);
+                            }
+                        }
+                    }
+                }
+                #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
+                Port::E => {
+                    cfg_if! {
+                        if #[cfg(feature = "f3")] {
+                            if rcc.ahbenr.read().iopeen().bit_is_clear() {
+                                rcc_en_reset!(ahb1, iopa, rcc);
+                            }
+                        } else if #[cfg(feature = "h7")] {
+                            if rcc.ahb4enr.read().gpioeen().bit_is_clear() {
+                                rcc.ahb4enr.modify(|_, w| w.gpioeen().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpioerst().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpioerst().clear_bit());
+                            }
+                        } else if #[cfg(feature = "f4")] {
+                            if rcc.ahb1enr.read().gpioeen().bit_is_clear() {
+                                rcc_en_reset!(ahb1, gpioe, rcc);
+                            }
+                        } else if #[cfg(feature = "g0")] {
+                            if rcc.iopenr.read().iopeen().bit_is_clear() {
+                                rcc.iopenr.modify(|_, w| w.iopeen().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.ioperst().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.ioperst().clear_bit());
+                            }
+                        } else { // L4, L5, G4
+                            if rcc.ahb2enr.read().gpioeen().bit_is_clear() {
+                                rcc_en_reset!(ahb2, gpioe, rcc);
+                            }
+                        }
+                    }
+                }
+                #[cfg(not(any(
+                feature = "f401",
+                feature = "f410",
+                feature = "f411",
+                feature = "l4x1",
+                feature = "l4x2",
+                feature = "l412",
+                feature = "l4x3",
+                feature = "wb",
+                feature = "wl"
+                )))]
+                Port::F => {
+                    cfg_if! {
+                        if #[cfg(feature = "f3")] {
+                            if rcc.ahbenr.read().iopfen().bit_is_clear() {
+                                rcc_en_reset!(ahb1, iopa, rcc);
+                            }
+                        } else if #[cfg(feature = "h7")] {
+                            if rcc.ahb4enr.read().gpiofen().bit_is_clear() {
+                                rcc.ahb4enr.modify(|_, w| w.gpiofen().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiofrst().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiofrst().clear_bit());
+                            }
+                        } else if #[cfg(feature = "f4")] {
+                            if rcc.ahb1enr.read().gpiofen().bit_is_clear() {
+                                rcc_en_reset!(ahb1, gpiof, rcc);
+                            }
+                        } else if #[cfg(feature = "g0")] {
+                            if rcc.iopenr.read().iopfen().bit_is_clear() {
+                                rcc.iopenr.modify(|_, w| w.iopfen().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iopfrst().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iopfrst().clear_bit());
+                            }
+                        } else { // L4, L5, G4
+                            if rcc.ahb2enr.read().gpiofen().bit_is_clear() {
+                                rcc_en_reset!(ahb2, gpiof, rcc);
+                            }
+                        }
+                    }
+                }
+                #[cfg(not(any(
+                    feature = "f373",
+                    feature = "f301",
+                    feature = "f3x4",
+                    feature = "f410",
+                    feature = "l4",
+                    feature = "g0",
+                    feature = "g4",
+                    feature = "wb",
+                    feature = "wl"
+                )))]
+                Port::H => {
+                    cfg_if! {
+                        if #[cfg(feature = "f3")] {
+                            if rcc.ahbenr.read().iophen().bit_is_clear() {
+                                rcc_en_reset!(ahb1, iopa, rcc);
+                            }
+                        } else if #[cfg(feature = "h7")] {
+                            if rcc.ahb4enr.read().gpiohen().bit_is_clear() {
+                                rcc.ahb4enr.modify(|_, w| w.gpiohen().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiohrst().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiohrst().clear_bit());
+                            }
+                        } else if #[cfg(feature = "f4")] {
+                            if rcc.ahb1enr.read().gpiohen().bit_is_clear() {
+                                rcc_en_reset!(ahb1, gpioh, rcc);
+                            }
+                        } else if #[cfg(feature = "g0")] {
+                            if rcc.iopenr.read().iophen().bit_is_clear() {
+                                rcc.iopenr.modify(|_, w| w.iophen().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iophrst().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iophrst().clear_bit());
+                            }
+                        } else { // L4, L5, G4
+                            if rcc.ahb2enr.read().gpiohen().bit_is_clear() {
+                                rcc_en_reset!(ahb2, gpioa, rcc);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        let mut result = Self { port, pin };
+        result.mode(mode);
+
+        result
+    }
+
+    /// Set pin mode. Eg, Output, Input, Analog, or Alt. Sets the `MODER` register.
     pub fn mode(&mut self, value: PinMode) {
         set_field2!(
             self.pin,
@@ -989,7 +1091,7 @@ impl Pin {
         }
     }
 
-    /// Set output type.
+    /// Set output type. Sets the `OTYPER` register.
     pub fn output_type(&mut self, value: OutputType) {
         set_field2!(
             self.pin,
@@ -1002,7 +1104,7 @@ impl Pin {
         );
     }
 
-    /// Set output speed.
+    /// Set output speed to Low, Medium, or High. Sets the `OSPEEDR` register.
     pub fn output_speed(&mut self, value: OutputSpeed) {
         set_field2!(
             self.pin,
@@ -1015,7 +1117,7 @@ impl Pin {
         );
     }
 
-    /// Set internal pull resistor: Pull up, pull down, or floating.
+    /// Set internal pull resistor: Pull up, pull down, or floating. Sets the `PUPDR` register.
     pub fn pull(&mut self, value: Pull) {
         set_field2!(
             self.pin,
@@ -1028,7 +1130,9 @@ impl Pin {
         );
     }
 
-    /// Set the output_data register.
+    /// Set the output_data register, eg set the pin to low or high. See also `set_high()` and
+    /// `set_low()`. Sets the `ODR` register. Compared to `set_state`, `set_high()`, and `set_low()`,
+    /// this is non-atomic.
     pub fn output_data(&mut self, value: PinState) {
         set_field2!(
             self.pin,
@@ -1043,7 +1147,7 @@ impl Pin {
 
     // It appears f373 doesn't have lckr on ports C or E. (PAC error?)
     #[cfg(not(feature = "f373"))]
-    /// Lock or unlock a port configuration.
+    /// Lock or unlock a port configuration. Sets the `LCKR` register.
     pub fn cfg_lock(&mut self, value: CfgLock) {
         set_field2!(
             self.pin,
@@ -1056,7 +1160,8 @@ impl Pin {
         );
     }
 
-    /// Read the input data register.
+    /// Read the input data register. Eg determine if the pin is high or low. See also `is_high()`
+    /// and `is_low()`. Reads from the `IDR` register.
     pub fn input_data(&mut self) -> PinState {
         let val = get_input_data!(
             self.pin,
@@ -1070,7 +1175,9 @@ impl Pin {
         }
     }
 
-    /// Set a pin state (ie set high or low output voltage level).
+    /// Set a pin state (ie set high or low output voltage level). See also `set_high()` and
+    /// `set_low()` functions. Sets the `BSRR` register. Compared to `output_data`, this is
+    /// atomic.
     pub fn set_state(&mut self, value: PinState) {
         let offset = match value {
             PinState::Low => 16,
@@ -1105,12 +1212,12 @@ impl Pin {
             }
         }
     }
-    // todo: Put in reset.
+    // todo: Implement.
     //     // todo Error on these PACS, or are they missing BRR?
     //     #[cfg(not(any(feature = "l4", feature = "h7", feature = "f4")))]
-    //     /// Reset an Output Data bit.
+    //     /// Reset an Output Data bit. Sets the `BRR` register.
     //     pub fn reset(&mut self, value: ResetState) {
-    //         let regs = unsafe { get_reg_ptr!(PortLetter) };
+    //         let regs = unsafe { get_reg_ptr!(Port) };
     //
     //         let offset = match value {
     //             ResetState::NoAction => 16,
@@ -1140,7 +1247,7 @@ impl Pin {
     //     }
     //
     #[cfg(not(feature = "f373"))]
-    /// Configure this pin as an interrupt source.
+    /// Configure this pin as an interrupt source. Set the edge as Rising or Falling.
     pub fn enable_interrupt(&mut self, edge: Edge) {
         let rise_trigger = match edge {
             Edge::Rising => {
@@ -1180,7 +1287,7 @@ impl Pin {
         }
     }
 
-    /// Check if the pin's input voltage is high (VCC).
+    /// Check if the pin's input voltage is high. Reads from the `IDR` register.
     pub fn is_high(&self) -> bool {
         get_input_data!(
             self.pin,
@@ -1189,12 +1296,12 @@ impl Pin {
         )
     }
 
-    /// Check if the pin's input voltage is low (ground).
+    /// Check if the pin's input voltage is low. Reads from the `IDR` register.
     pub fn is_low(&self) -> bool {
         !self.is_high()
     }
 
-    /// Set the pin's output voltage to high (VCC).
+    /// Set the pin's output voltage to high. Sets the `BSRR` register.
     pub fn set_high(&mut self) {
         set_state!(
             self.pin,
@@ -1204,7 +1311,7 @@ impl Pin {
         );
     }
 
-    /// Set the pin's output voltage to ground (low).
+    /// Set the pin's output voltage to low. Sets the `BSRR` register.
     pub fn set_low(&mut self) {
         set_state!(
             self.pin,
@@ -1267,7 +1374,7 @@ impl ToggleableOutputPin for Pin {
 //         /// Represents a single GPIO pin. Provides methods that, when passed a mutable reference
 //         /// to its port's register block, can change and read various properties of the pin.
 //         pub struct [<Gpio $Port Pin>] {
-//             pub port: PortLetter,
+//             pub port: Port,
 //             pub pin: u8,
 //         }
 //
@@ -1620,61 +1727,61 @@ impl ToggleableOutputPin for Pin {
 // }
 
 // todo: Missing EFGH impls on some variants that have them.
-
-make_port!(A, a);
-make_port!(B, b);
-make_port!(C, c);
-
-// make_pin!(A);
-// make_pin!(B);
-// make_pin!(C);
-
-cfg_if! {
-    if #[cfg(not(any(feature = "f410")))] {
-        make_port! (D, d);
-        // make_pin!(D);
-    }
-}
-
-cfg_if! {
-    // note: WB has port E, but is missing some field values etc. Not sure if in PAC or actual.
-    if #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))] {
-        make_port!(E, e);
-        // make_pin!(E);
-    }
-}
-
-cfg_if! {
-    if #[cfg(not(any(
-    feature = "f401",
-    feature = "f410",
-    feature = "f411",
-    feature = "l4x1",
-    feature = "l4x2",
-    feature = "l412",
-    feature = "l4x3",
-    feature = "wb",
-    feature = "wl"
-    )))] {
-        make_port!(F, f);
-        // make_pin!(F);
-    }
-}
-
-// todo: WB (and others?) have GPIOH 0-1 and 3. How can we fit that into this module layout?
-cfg_if! {
-    if #[cfg(not(any(
-        feature = "f373",
-        feature = "f301",
-        feature = "f3x4",
-        feature = "f410",
-        feature = "l4",
-        feature = "g0",
-        feature = "g4",
-        feature = "wb",
-        feature = "wl"
-    )))] {
-        make_port!(H, h);
-        // make_pin!(H);
-    }
-}
+//
+// make_port!(A, a);
+// make_port!(B, b);
+// make_port!(C, c);
+//
+// // make_pin!(A);
+// // make_pin!(B);
+// // make_pin!(C);
+//
+// cfg_if! {
+//     if #[cfg(not(any(feature = "f410")))] {
+//         make_port! (D, d);
+//         // make_pin!(D);
+//     }
+// }
+//
+// cfg_if! {
+//     // note: WB has port E, but is missing some field values etc. Not sure if in PAC or actual.
+//     if #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))] {
+//         make_port!(E, e);
+//         // make_pin!(E);
+//     }
+// }
+//
+// cfg_if! {
+//     if #[cfg(not(any(
+//     feature = "f401",
+//     feature = "f410",
+//     feature = "f411",
+//     feature = "l4x1",
+//     feature = "l4x2",
+//     feature = "l412",
+//     feature = "l4x3",
+//     feature = "wb",
+//     feature = "wl"
+//     )))] {
+//         make_port!(F, f);
+//         // make_pin!(F);
+//     }
+// }
+//
+// // todo: WB (and others?) have GPIOH 0-1 and 3. How can we fit that into this module layout?
+// cfg_if! {
+//     if #[cfg(not(any(
+//         feature = "f373",
+//         feature = "f301",
+//         feature = "f3x4",
+//         feature = "f410",
+//         feature = "l4",
+//         feature = "g0",
+//         feature = "g4",
+//         feature = "wb",
+//         feature = "wl"
+//     )))] {
+//         make_port!(H, h);
+//         // make_pin!(H);
+//     }
+// }

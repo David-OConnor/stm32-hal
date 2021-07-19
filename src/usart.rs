@@ -158,8 +158,8 @@ where
         config: UsartConfig,
         clock_cfg: &Clocks,
     ) -> Self {
-        free(|cs| {
-            let mut rcc = unsafe { &(*RCC::ptr()) };
+        free(|_| {
+            let rcc = unsafe { &(*RCC::ptr()) };
             match device {
                 UsartDevice::One => {
                     rcc_en_reset!(apb2, usart1, rcc);

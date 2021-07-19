@@ -129,8 +129,8 @@ impl Rtc {
         // field here.
 
         // See L4 RM, `Backup domain access` section.
-        free(|cs| {
-            let mut rcc = unsafe { &(*RCC::ptr()) };
+        free(|_| {
+            let rcc = unsafe { &(*RCC::ptr()) };
 
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "f4"))] {

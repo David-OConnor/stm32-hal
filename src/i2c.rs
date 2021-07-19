@@ -116,8 +116,8 @@ where
         freq: u32, // todo: Set a division manually, like you do with SPI.
         clocks: &Clocks,
     ) -> Self {
-        free(|cs| {
-            let mut rcc = unsafe { &(*RCC::ptr()) };
+        free(|_| {
+            let rcc = unsafe { &(*RCC::ptr()) };
 
             match device {
                 I2cDevice::One => {

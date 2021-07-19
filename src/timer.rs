@@ -212,8 +212,8 @@ macro_rules! hal {
                 /// Configures a TIM peripheral as a periodic count down timer
                 pub fn [<new_ $tim>](tim: pac::$TIMX, freq: f32, clocks: &Clocks) -> Self {
 
-                    free(|cs| {
-                        let mut rcc = unsafe { &(*RCC::ptr()) };
+                    free(|_| {
+                        let rcc = unsafe { &(*RCC::ptr()) };
 
                         // `freq` is in Hz.
                         rcc_en_reset!([<apb $apb>], $tim, rcc);

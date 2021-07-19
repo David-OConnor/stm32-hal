@@ -217,8 +217,8 @@ where
 {
     /// Configures the SPI peripheral to operate in full duplex master mode
     pub fn new(regs: R, device: SpiDevice, cfg: SpiConfig, baud_rate: BaudRate) -> Self {
-        free(|cs| {
-            let mut rcc = unsafe { &(*RCC::ptr()) };
+        free(|_| {
+            let rcc = unsafe { &(*RCC::ptr()) };
 
             match device {
                 SpiDevice::One => {

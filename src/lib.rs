@@ -473,8 +473,8 @@ use cortex_m::interrupt::free;
 /// use by the DMA clock.
 /// For why we enable the DMA clock, see STM32F446 errata, section 2.1.1.
 pub fn debug_workaround() {
-    free(|cs| {
-        let mut dbgmcu = unsafe { &(*pac::DBGMCU::ptr()) };
+    free(|_| {
+        let dbgmcu = unsafe { &(*pac::DBGMCU::ptr()) };
 
         #[cfg(not(feature = "l5"))]
         dbgmcu.cr.modify(|_, w| w.dbg_sleep().set_bit());
@@ -483,7 +483,7 @@ pub fn debug_workaround() {
     });
 
     free(|cs| {
-        let mut rcc = unsafe { &(*pac::RCC::ptr()) };
+        let rcc = unsafe { &(*pac::RCC::ptr()) };
 
         // todo Some MCUs may need the dbgmcu lines, but not DMA enabled.
         // todo: Remove this part on MCUs not affected. F4 and L4 are confirmed affected.

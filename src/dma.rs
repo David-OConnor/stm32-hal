@@ -339,8 +339,8 @@ where
 {
     pub fn new(regs: D) -> Self {
         // todo: Enable RCC for DMA 2 etc!
-        free(|cs| {
-            let mut rcc = unsafe { &(*RCC::ptr()) };
+        free(|_| {
+            let rcc = unsafe { &(*RCC::ptr()) };
             cfg_if! {
                 if #[cfg(feature = "f3")] {
                     rcc.ahbenr.modify(|_, w| w.dma1en().set_bit()); // no dmarst on F3.

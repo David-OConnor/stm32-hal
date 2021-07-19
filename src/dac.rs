@@ -117,8 +117,8 @@ where
 {
     /// Create a new DAC instance.
     pub fn new(regs: R, device: DacDevice, bits: DacBits, vref: f32) -> Self {
-        free(|cs| {
-            let mut rcc = unsafe { &(*RCC::ptr()) };
+        free(|_| {
+            let rcc = unsafe { &(*RCC::ptr()) };
 
             cfg_if! {
                 if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {

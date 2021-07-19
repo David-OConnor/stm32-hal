@@ -61,7 +61,7 @@ use cortex_m;
 use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::Clocks,
-    gpio::{GpioB, PinMode, OutputType},
+    gpio::{Pin, Port, PinMode, OutputType},
     i2c::{I2c, I2cDevice},
     low_power,
     timer::{Timer, TimerInterrupt},
@@ -75,17 +75,16 @@ fn main() -> ! {
     let clock_cfg = Clocks::default();
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
-    let mut gpiob = GpioB::new(dp.GPIOB);
-    let mut pb15 = gpiob.new_pin(15, PinMode::Output);
+    let mut pb15 = Pin::new(Port::B, 15, PinMode::Output);
     pb15.set_high();
 
     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg);
     timer.enable_interrupt(TimerInterrupt::Update);
 
-    let mut scl = gpiob.new_pin(6, PinMode::Alt(4));
+    let mut scl = Pin::new(Port::B, 6, PinMode::Alt(4));
     scl.output_type(OutputType::OpenDrain);
 
-    let mut sda = gpiob.new_pin(7, PinMode::Alt(4));
+    let mut sda = Pin::new(Port::B, 7, PinMode::Alt(4));
     sda.output_type(OutputType::OpenDrain);
 
     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg);
