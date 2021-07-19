@@ -14,7 +14,7 @@ use cortex_m_rt::entry;
 use stm32_hal::{
     adc::{Adc, AdcChannel},
     clocks::Clocks,
-    gpio::{Edge, GpioA, PinMode},
+    gpio::{Edge, Pin, Port, PinMode},
     low_power,
     pac::{self, ADC1, EXTI},
     prelude::*,
@@ -41,11 +41,8 @@ fn main() -> ! {
 
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
-    // Enable the GPIOA port.
-    let mut gpioa = GpioA::new(dp.GPIOA);
-
     // Configure PA0 to trigger a GPIO interrupt.
-    let mut button = gpioa.new_pin(0, PinMode::Input);
+    let mut button = Pin::new(Port::A, 0, PinMode::Input);
     button.enable_interrupt(Edge::Falling);
 
     // Set up and start a timer; set it to fire interrupts every 5 seconds.

@@ -11,7 +11,7 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     clocks::{Clocks, CrsSyncSr},
-    gpio::{AltFn, GpioA, PinMode},
+    gpio::{Pin, PinMode, Port},
     pac,
     usb::{Peripheral, UsbBus, UsbBusType},
 };
@@ -42,9 +42,6 @@ fn main() -> ! {
     dp.RCC.apb1enr1.modify(|_, w| w.pwren().set_bit());
     // Enable USB power, on applicable MCUs like L4.
     usb::enable_usb_pwr(&mut dp.PWR, &mut dp.RCC);
-
-    // Enable the GPIOA port.
-    let mut gpioa = GpioA::new(dp.GPIOA, &mut dp.RCC);
 
     // Set up USB pins.
     let _usb_dm = gpioa.new_pin(11, PinMode::Alt(14));

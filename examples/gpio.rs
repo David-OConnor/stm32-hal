@@ -15,7 +15,7 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     adc::{Adc, AdcChannel, Align, CkMode, InputType, OperationMode},
     clocks::Clocks,
-    gpio::{Edge, GpioA, GpioAPin, GpioB, OutputSpeed, Pin, PinMode, PinState},
+    gpio::{Edge, OutputSpeed, Pin, PinMode, PinState, Port},
     low_power, pac,
     prelude::*,
 };
@@ -42,42 +42,42 @@ fn example_type_sigs<O: OutputPin>(pin1: &mut O, pin2: &mut Pin) {
 /// An example function to set up the pins that don't need to be interacted with directly later.
 /// For example, ones used with buses (eg I2C, SPI, UART), USB, ADC, and DAC pins.
 /// This may also include input pins that trigger interrupts, and aren't polled.
-pub fn setup_pins(gpioa: &mut GpioA, gpiob: &mut GpioB) {
+pub fn setup_pins() {
     // Set up I2C pins
-    let mut scl = gpiob.new_pin(6, PinMode::Alt(4));
+    let mut scl = Pin::new(Port::B, 6, PinMode::Alt(4));
     scl.output_type(OutputType::OpenDrain);
 
-    let mut sda = gpiob.new_pin(7, PinMode::Alt(4));
+    let mut sda = Pin::new(Port::B, 7, PinMode::Alt(4));
     sda.output_type(OutputType::OpenDrain);
 
     // Set up SPI pins
-    let _sck = gpioa.new_pin(5, PinMode::Alt(5));
-    let _miso = gpioa.new_pin(6, PinMode::Alt(5));
-    let _mosi = gpioa.new_pin(7, PinMode::Alt(5));
+    let _sck = Pin::new(Port::A, 5, PinMode::Alt(5));
+    let _miso = Pin::new(Port::A, 6, PinMode::Alt(5));
+    let _mosi = Pin::new(Port::A, 7, PinMode::Alt(5));
 
     // Set up UART pins
-    let _uart_tx = gpioa.new_pin(9, PinMode::Alt(7));
-    let _uart_rx = gpioa.new_pin(10, PinMode::Alt(7));
+    let _uart_tx = Pin::new(Port::A, 9, PinMode::Alt(7));
+    let _uart_rx = Pin::new(Port::A, 10, PinMode::Alt(7));
 
     // Set up USB pins
-    let _usb_dm = gpioa.new_pin(11, PinMode::Alt(14));
-    let _usb_dp = gpioa.new_pin(12, PinMode::Alt(14));
+    let _usb_dm = Pin::new(Port::A, 11, PinMode::Alt(14));
+    let _usb_dp = Pin::new(Port::A, 12, PinMode::Alt(14));
 
     // Set the ADC pin to analog mode, to prevent parasitic power use.
-    let _adc_pin = gpiob.new_pin(0, PinMode::Analog);
+    let _adc_pin = Pin::new(Port::B, 0, PinMode::Analog);
 
     // Set DAC pin to analog mode, to prevent parasitic power use.
-    let _dac_pin = gpioa.new_pin(4, PinMode::Analog);
+    let _dac_pin = Pin::new(Port::A, 4, PinMode::Analog);
 
     // Set up PWM.  // Timer 2, channel 1.
-    let _pwm_pin = gpioa.new_pin(0, PinMode::Alt(1));
+    let _pwm_pin = Pin::new(Port::A, 0, PinMode::Alt(1));
 
     // Set up buttons, with pull-up resistors that trigger on the falling edge.
-    let mut up_btn = gpiob.new_pin(3, PinMode::Input);
+    let mut up_btn = Pin::new(Port::B, 3, PinMode::Input);
     up_btn.pull(Pull::Up);
     up_btn.enable_interrupt(Edge::Falling);
 
-    let mut dn_btn = gpioa.new_pin(4, PinMode::Input);
+    let mut dn_btn = Pin::new(Port::A, 4, PinMode::Input);
     dn_btn.pull(Pull::Up);
     dn_btn.enable_interrupt(Edge::Falling);
 }
@@ -95,16 +95,12 @@ fn main() -> ! {
         defmt::error!("Unable to configure clocks due to a speed error.")
     };
 
-    // Set up ports for GpioA and GpioB.
-    let mut gpioa = GpioA::new(dp.GPIOA);
-    let mut gpiob = GpioB::new(dp.GPIOB);
-
     // Call a function we've made to help organize our pin setup code.
-    setup_pins(&mut gpia, &mut gpiob);
+    setup_pins();
 
     // Example pins PB5 and PB6.
-    let mut example_output = gpiob.new_pin(5, PinMode::Output);
-    let mut example_input = gpiob.new_pin(6, PinMode::Input);
+    let mut example_output = Pin::new(Port::B, 5, PinMode::Output);
+    let mut example_input = Pin::new(Port::B, 6, PinMode::Input);
 
     // Set the output speed.
     example_output.output_speed(OutputSpeed::Medium);

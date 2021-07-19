@@ -17,7 +17,7 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::Clocks,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
-    gpio::{Edge, PinMode},
+    gpio::{Pin, PinMode, Port},
     low_power, pac,
     prelude::*,
     spi::{self, BaudRate, Spi, SpiConfig, SpiDevice, SpiMode},
@@ -36,15 +36,12 @@ fn main() -> ! {
 
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
-    // Enable the GPIOB port.
-    let mut gpioa = GpioA::new(dp.GPIOB);
-
     // Configure pins for Spi
-    let _sck = gpioa.new_pin(5, PinMode::Alt(5));
-    let _miso = gpioa.new_pin(6, PinMode::Alt(5));
-    let _mosi = gpioa.new_pin(7, PinMode::Alt(5));
+    let _sck = Pin::new(Port::A, 5, PinMode::Alt(5));
+    let _miso = Pin::new(Port::A, 6, PinMode::Alt(5));
+    let _mosi = Pin::new(Port::A, 7, PinMode::Alt(5));
 
-    let cs = gpioa.new_pin(1, PinMode::Output);
+    let cs = Pin::new(Port::A, 1, PinMode::Output);
 
     let spi_cfg = SpiConfig {
         mode: SpiMode::mode1(),

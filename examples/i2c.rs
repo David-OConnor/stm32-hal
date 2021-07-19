@@ -17,7 +17,7 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::Clocks,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
-    gpio::{Edge, PinMode},
+    gpio::{Pin, PinMode, Port},
     i2c::{I2c, I2cDevice},
     low_power, pac,
 };
@@ -33,14 +33,11 @@ fn main() -> ! {
 
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
-    // Enable the GPIOB port.
-    let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
-
     // Configure pins for I2c.
-    let mut scl = gpiob.new_pin(6, PinMode::Alt(4));
+    let mut scl = Pin::new(Port::B, 6, PinMode::Alt(4));
     scl.output_type(OutputType::OpenDrain);
 
-    let mut sda = gpiob.new_pin(7, PinMode::Alt(4));
+    let mut sda = Pin::new(Port::B, 7, PinMode::Alt(4));
     sda.output_type(OutputType::OpenDrain);
 
     // Set up an I2C peripheral, running at 100Khz.

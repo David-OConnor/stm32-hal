@@ -102,18 +102,25 @@ pub enum Port {
     C,
     #[cfg(not(any(feature = "f410")))]
     D,
-    #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
+    #[cfg(not(any(
+        feature = "f301",
+        feature = "f3x4",
+        feature = "f410",
+        feature = "g0",
+        feature = "wb",
+        feature = "wl"
+    )))]
     E,
     #[cfg(not(any(
-    feature = "f401",
-    feature = "f410",
-    feature = "f411",
-    feature = "l4x1",
-    feature = "l4x2",
-    feature = "l412",
-    feature = "l4x3",
-    feature = "wb",
-    feature = "wl"
+        feature = "f401",
+        feature = "f410",
+        feature = "f411",
+        feature = "l4x1",
+        feature = "l4x2",
+        feature = "l412",
+        feature = "l4x3",
+        feature = "wb",
+        feature = "wl"
     )))]
     F,
     // G,
@@ -140,7 +147,14 @@ impl Port {
             Self::C => 2,
             #[cfg(not(any(feature = "f410")))]
             Self::D => 3,
-            #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
+            #[cfg(not(any(
+                feature = "f301",
+                feature = "f3x4",
+                feature = "f410",
+                feature = "g0",
+                feature = "wb",
+                feature = "wl"
+            )))]
             Self::E => 4,
             #[cfg(not(any(
                 feature = "f401",
@@ -152,7 +166,7 @@ impl Port {
                 feature = "l4x3",
                 feature = "wb",
                 feature = "wl"
-                )))]
+            )))]
             Self::F => 5,
             // Self::G => 6,
             #[cfg(not(any(
@@ -819,7 +833,6 @@ macro_rules! set_exti_g0 {
 //     }
 // }
 
-
 /// Represents a single GPIO pin. Allows configuration, and reading/setting state.
 pub struct Pin {
     pub port: Port,
@@ -955,7 +968,14 @@ impl Pin {
                         }
                     }
                 }
-                #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
+                #[cfg(not(any(
+                    feature = "f301",
+                    feature = "f3x4",
+                    feature = "f410",
+                    feature = "g0",
+                    feature = "wb",
+                    feature = "wl"
+                )))]
                 Port::E => {
                     cfg_if! {
                         if #[cfg(feature = "f3")] {
@@ -986,15 +1006,15 @@ impl Pin {
                     }
                 }
                 #[cfg(not(any(
-                feature = "f401",
-                feature = "f410",
-                feature = "f411",
-                feature = "l4x1",
-                feature = "l4x2",
-                feature = "l412",
-                feature = "l4x3",
-                feature = "wb",
-                feature = "wl"
+                    feature = "f401",
+                    feature = "f410",
+                    feature = "f411",
+                    feature = "l4x1",
+                    feature = "l4x2",
+                    feature = "l412",
+                    feature = "l4x3",
+                    feature = "wb",
+                    feature = "wl"
                 )))]
                 Port::F => {
                     cfg_if! {

@@ -12,7 +12,7 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     clocks::Clocks,
-    gpio::{Edge, PinMode},
+    gpio::{Edge, Pin, PinMode, Port},
     low_power, pac,
     timer::{CountDir, OutputCompare, TimChannel, Timer, TimerInterrupt},
 };
@@ -28,11 +28,8 @@ fn main() -> ! {
 
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
-    // Enable the GPIOA port.
-    let mut gpioa = GpioA::new(dp.GPIOA);
-
     // Set up a PWM pin
-    let _pwm_pin = gpioa.new_pin(0, PinMode::Alt(1));
+    let _pwm_pin = Pin::new(Port::A, 0, PinMode::Alt(1));
 
     // Set up a PWM timer that will output to PA0, run at 2400Hz in edge-aligned mode,
     // count up, with a 50% duty cycle.

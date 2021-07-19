@@ -17,7 +17,7 @@ use stm32_hal2::{
     adc::{Adc, AdcChannel, AdcDevice, AdcInterrupt, Align, ClockMode, InputType, OperationMode},
     clocks::Clocks,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
-    gpio::{Edge, PinMode},
+    gpio::{Pin, PinMode, Port},
     low_power, pac,
     traits::ClockCfg,
 };
@@ -37,12 +37,9 @@ fn main() -> ! {
 
     let chan_num = 2;
 
-    // Enable the GPIOB port.
-    let mut gpiob = GpioB::new(dp.GPIOB);
-
     // Configure the ADC pin in analog mode. (This is the default state for some STM32 families,
     // but not all)
-    let _adc_pin = gpiob.new_pin(0, PinMode::Analog);
+    let _adc_pin = Pin::new(Port::B, 0, PinMode::Analog);
 
     let mut adc = Adc::new_adc1(
         dp.ADC1,
