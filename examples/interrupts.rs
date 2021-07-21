@@ -14,7 +14,7 @@ use cortex_m_rt::entry;
 use stm32_hal::{
     adc::{Adc, AdcChannel},
     clocks::Clocks,
-    gpio::{Edge, Pin, Port, PinMode},
+    gpio::{Edge, Pin, PinMode, Port},
     low_power,
     pac::{self, ADC1, EXTI},
     rtc::{Rtc, RtcClockSource, RtcConfig},

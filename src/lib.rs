@@ -23,7 +23,7 @@
 //!
 //! If you need `embedded-hal` traits, include the `embedded-hal` feature.
 //!
-//! You can review [this section of Cargo.toml](https://github.com/David-OConnor/stm32-hal/blob/main/Cargo.toml#L61)
+//! You can review [this section of Cargo.toml](https://github.com/David-OConnor/stm32-hal/blob/main/Cargo.toml#L82)
 //! to see which MCU and runtime features are available.
 //!
 //! ### Example highlights:

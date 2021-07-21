@@ -121,11 +121,12 @@ pub enum UsartInterrupt {
     TransmitEmpty,
 }
 
+/// Configuration for Usart. Can be used with default::Default.
 pub struct UsartConfig {
-    word_len: WordLen,
-    stop_bits: StopBits,
-    oversampling: OverSampling,
-    parity: Parity,
+    pub word_len: WordLen,
+    pub stop_bits: StopBits,
+    pub oversampling: OverSampling,
+    pub parity: Parity,
 }
 
 impl Default for UsartConfig {
@@ -151,6 +152,8 @@ impl<R> Usart<R>
 where
     R: Deref<Target = pac::usart1::RegisterBlock>,
 {
+    /// Initialize a U[s]ART peripheral, including configuration register writes, and enabling and
+    /// resetting its RCC peripheral clock.
     pub fn new(
         regs: R,
         device: UsartDevice,

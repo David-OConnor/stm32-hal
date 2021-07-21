@@ -40,8 +40,10 @@ stm32wl = { version = "0.13.0", optional = true }
 
 # Embedded traits. Featured-gated with `embedded-hal`.
 embedded-hal = { version = "0.2.5", features = ["unproven"], optional = true }
-# Embedded date and time traits. Featured-gated with `embedded-hal`.
 
+# nb is a non-blocking abstraction, eg for reading or writing one word at a time.
+# It's mainly for embedded-hal, and a few of our APIs that mimick it.
+nb = "1.0.0"
 # Chrono allows for basic time and date functionality, for use with the Rtc.
 chrono = { version = "0.4.19", default-features = false }
 
@@ -53,7 +55,6 @@ bxcan = { version = "0.5.0", optional = true }
 
 # Misc features
 cast = { version = "0.2.2", default-features = false }
-nb = "1.0.0"
 num-traits = { version = "0.2.14", default-features = false, features=["libm"] }  # For sqrt in timers
 void = { version = "1.0.2", default-features = false }  # One off in `timer.rs`. Remove it A/R.
 
@@ -62,9 +63,10 @@ cfg-if = "1.0.0"  # if/else blocks for feature-gating
 paste = "1.0.4"  # Token pasting, to make macros easier
 
 [package.metadata.docs.rs]
-features = ["l4rt", "l4x3", "can", "usb"]
+features = ["l4x3", "l4rt", "can", "usb", "embedded-hal"]
 targets = ["thumbv7em-none-eabihf"]
-rustdoc-args = ["--cfg", "docsrs"]  # todo: For bright "supported by crate feature only" text on `embedded-hal`?
+# For bright "supported by crate feature only" text on `embedded-hal`?
+rustdoc-args = ["--cfg", "docsrs"]
 
 # Compile with one of these "runtime" features if the program
 # will be directly flashed to an MCU; ie not a library.

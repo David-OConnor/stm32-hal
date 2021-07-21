@@ -1,4 +1,6 @@
 //! Read and write onboard flash memory.
+//! The Flash memory is organized as 72-bit wide memory cells (64 bits plus 8 ECC bits) that
+//! can be used for storing both code and data constants.
 
 // Note that most of the code for L5 and U5 is feature-gated due to different
 // register names, differentiating secure and non-secure. We keep them in the same file
@@ -44,6 +46,7 @@ pub enum BanksToErase {
 }
 
 #[derive(Copy, Clone, Debug)]
+/// Possible error states for flash operations.
 pub enum Error {
     /// Flash controller is not done yet
     Busy,
@@ -115,9 +118,8 @@ pub struct Flash {
     pub(crate) regs: FLASH,
 }
 
-/// The Flash memory is organized as 72-bit wide memory cells (64 bits plus 8 ECC bits) that
-/// can be used for storing both code and data constants.
 impl Flash {
+    /// Create a struct used to perform operations on Flash.
     pub fn new(regs: FLASH) -> Self {
         // todo: Implement and configure dual bank mode.
         Self { regs }

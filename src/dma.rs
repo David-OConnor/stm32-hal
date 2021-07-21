@@ -337,6 +337,8 @@ impl<D> Dma<D>
 where
     D: Deref<Target = dma::RegisterBlock>,
 {
+    /// Initialize a DMA peripheral, including enabling and resetting
+    /// its RCC peripheral clock.
     pub fn new(regs: D) -> Self {
         // todo: Enable RCC for DMA 2 etc!
         free(|_| {

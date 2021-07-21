@@ -1,4 +1,7 @@
 //! This module includes an overview of GPIO features available.
+//! Most functionality is included as methods to the
+//! [gpio::Pin struct](https://docs.rs/stm32-hal2/latest/stm32_hal2/gpio/struct.Pin.html).
+//!
 //! For project structure and debugging boilerplate, see the `synax_overview` example.
 
 #![no_main]
@@ -113,7 +116,11 @@ fn main() -> ! {
 
     example_type_sigs(&mut example_output, &mut example_input);
 
+    let state = example_input.get_state(); // eg `PinState::High` or `PinState::Low`
+    let state2 = example_input.is_high(); // eg `true` or `false`.
+
     // Set high.
+    example_output.set_state(PinState::High);
     example_output.set_high();
 
     // Unmask interrupt lines associated with the input pins we've configured interrupts

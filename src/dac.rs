@@ -115,7 +115,8 @@ impl<R> Dac<R>
 where
     R: Deref<Target = dac_p::RegisterBlock>,
 {
-    /// Create a new DAC instance.
+    /// Initialize a DAC peripheral, including  enabling and resetting
+    /// its RCC peripheral clock. `vref` is in volts.
     pub fn new(regs: R, device: DacDevice, bits: DacBits, vref: f32) -> Self {
         free(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
@@ -153,7 +154,7 @@ where
         }
     }
 
-    /// Enable the DAC.
+    /// Enable the DAC, for a specific channel.
     pub fn enable(&mut self, channel: DacChannel) {
         #[cfg(any(feature = "l5", feature = "g4"))]
         let cr = &self.regs.dac_cr;
@@ -167,7 +168,7 @@ where
         });
     }
 
-    /// Disable the DAC
+    /// Disable the DAC, for a specific channel.
     pub fn disable(&mut self, channel: DacChannel) {
         #[cfg(any(feature = "l5", feature = "g4"))]
         let cr = &self.regs.dac_cr;
@@ -181,7 +182,7 @@ where
         });
     }
 
-    /// Set the DAC value as an integer.
+    /// Set the DAC output word.
     pub fn set_value(&mut self, channel: DacChannel, val: u32) {
         // RM: DAC conversion
         // The DAC_DORx cannot be written directly and any data transfer to the DAC channelx must
@@ -195,6 +196,8 @@ where
         // When DAC_DORx is loaded with the DAC_DHRx contents, the analog output voltage
         // becomes available after a time tSETTLING that depends on the power supply voltage and the
         // analog output load.
+
+        // todo: Should we ensure the word doesn't overflow the set `bits` value?
 
         #[cfg(any(feature = "l5", feature = "g4"))]
         match channel {
@@ -227,7 +230,7 @@ where
         }
     }
 
-    /// Set the DAC voltage. `v` is in Volts.
+    /// Set the DAC output voltage.
     pub fn set_voltage(&mut self, channel: DacChannel, volts: f32) {
         let max_word = match self.bits {
             DacBits::EightR => 255.,

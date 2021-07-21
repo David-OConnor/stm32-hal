@@ -109,7 +109,8 @@ impl<R> I2c<R>
 where
     R: Deref<Target = pac::i2c1::RegisterBlock>,
 {
-    /// Configures the I2C peripheral. `freq` is in Hz. Doesn't check pin config.
+    /// Initialize a I2C peripheral, including configuration register writes, and enabling and resetting
+    /// its RCC peripheral clock. `freq` is in Hz.
     pub fn new(
         regs: R,
         device: I2cDevice,
@@ -243,7 +244,7 @@ where
         }
     }
 
-    /// Read multiple words.
+    /// Read multiple words to a buffer.
     pub fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus

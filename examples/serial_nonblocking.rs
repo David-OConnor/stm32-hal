@@ -16,7 +16,7 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     clocks::Clocks,
-    gpio::{Port, Pin, PinMode},
+    gpio::{Pin, PinMode, Port},
     low_power, pac,
     usart::{Usart, UsartConfig, UsartDevice, UsartInterrupt},
 };

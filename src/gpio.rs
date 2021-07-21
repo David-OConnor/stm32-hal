@@ -192,8 +192,8 @@ pub enum Edge {
     Falling,
 }
 
-/// Reduce DRY for setting fields.
-macro_rules! set_field2 { // for `Pin` struct.
+// Reduce DRY for setting fields.
+macro_rules! set_field {
     ($pin:expr, $port_letter:expr, $reg:ident, $field:ident, $bit:ident, $val:expr, [$($num:expr),+]) => {
         paste! {
             unsafe {
@@ -284,8 +284,8 @@ macro_rules! set_field2 { // for `Pin` struct.
     }
 }
 
-/// Reduce DRY for setting fields.
-macro_rules! set_alt2 { // for `Pin` struct.
+// Reduce DRY for setting fields.
+macro_rules! set_alt {
     ($pin:expr, $port_letter:expr, $field_af:ident, $val:expr, [$(($num:expr, $lh:ident)),+]) => {
         paste! {
             unsafe {
@@ -420,8 +420,8 @@ macro_rules! set_alt2 { // for `Pin` struct.
 
 // todo: DRY on port feature gates for these macros
 
-/// Reduce DRY getting input data
-macro_rules! get_input_data { // for `Pin` struct.
+// Reduce DRY getting input data
+macro_rules! get_input_data {
     ($pin:expr, $port_letter:expr, [$($num:expr),+]) => {
         paste! {
             unsafe {
@@ -512,8 +512,8 @@ macro_rules! get_input_data { // for `Pin` struct.
     }
 }
 
-/// Reduce DRY setting pin state
-macro_rules! set_state { // for `Pin` struct.
+// Reduce DRY setting pin state
+macro_rules! set_state {
     ($pin:expr, $port_letter:expr, $offset: expr, [$($num:expr),+]) => {
         paste! {
             unsafe {
@@ -657,7 +657,7 @@ macro_rules! set_exti {
 }
 
 #[cfg(feature = "f4")]
-/// Similar to `set_exti`, but with reg names sans `1`.
+// Similar to `set_exti`, but with reg names sans `1`.
 macro_rules! set_exti_f4 {
     ($pin:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr)),+]) => {
         let exti = unsafe { &(*pac::EXTI::ptr()) };
@@ -682,7 +682,7 @@ macro_rules! set_exti_f4 {
 }
 
 #[cfg(feature = "l5")]
-/// For L5 See `set_exti!`. Different method naming pattern for exticr.
+// For L5 See `set_exti!`. Different method naming pattern for exticr.
 macro_rules! set_exti_l5 {
     ($pin:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
         let exti = unsafe { &(*pac::EXTI::ptr()) };
@@ -706,7 +706,7 @@ macro_rules! set_exti_l5 {
 }
 
 #[cfg(feature = "g0")]
-/// ForG0. See `set_exti!`. Todo? Reduce DRY.
+// For G0. See `set_exti!`. Todo? Reduce DRY.
 macro_rules! set_exti_g0 {
     ($pin:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
         let exti = unsafe { &(*pac::EXTI::ptr()) };
@@ -992,7 +992,7 @@ impl Pin {
 
     /// Set pin mode. Eg, Output, Input, Analog, or Alt. Sets the `MODER` register.
     pub fn mode(&mut self, value: PinMode) {
-        set_field2!(
+        set_field!(
             self.pin,
             self.port,
             moder,
@@ -1009,7 +1009,7 @@ impl Pin {
 
     /// Set output type. Sets the `OTYPER` register.
     pub fn output_type(&mut self, value: OutputType) {
-        set_field2!(
+        set_field!(
             self.pin,
             self.port,
             otyper,
@@ -1022,7 +1022,7 @@ impl Pin {
 
     /// Set output speed to Low, Medium, or High. Sets the `OSPEEDR` register.
     pub fn output_speed(&mut self, value: OutputSpeed) {
-        set_field2!(
+        set_field!(
             self.pin,
             self.port,
             ospeedr,
@@ -1035,7 +1035,7 @@ impl Pin {
 
     /// Set internal pull resistor: Pull up, pull down, or floating. Sets the `PUPDR` register.
     pub fn pull(&mut self, value: Pull) {
-        set_field2!(
+        set_field!(
             self.pin,
             self.port,
             pupdr,
@@ -1046,26 +1046,11 @@ impl Pin {
         );
     }
 
-    /// Set the output_data register, eg set the pin to low or high. See also `set_high()` and
-    /// `set_low()`. Sets the `ODR` register. Compared to `set_state`, `set_high()`, and `set_low()`,
-    /// this is non-atomic.
-    pub fn output_data(&mut self, value: PinState) {
-        set_field2!(
-            self.pin,
-            self.port,
-            odr,
-            odr,
-            bit,
-            value as u8 != 0,
-            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-        );
-    }
-
     // It appears f373 doesn't have lckr on ports C or E. (PAC error?)
     #[cfg(not(feature = "f373"))]
     /// Lock or unlock a port configuration. Sets the `LCKR` register.
     pub fn cfg_lock(&mut self, value: CfgLock) {
-        set_field2!(
+        set_field!(
             self.pin,
             self.port,
             lckr,
@@ -1078,7 +1063,7 @@ impl Pin {
 
     /// Read the input data register. Eg determine if the pin is high or low. See also `is_high()`
     /// and `is_low()`. Reads from the `IDR` register.
-    pub fn input_data(&mut self) -> PinState {
+    pub fn get_state(&mut self) -> PinState {
         let val = get_input_data!(
             self.pin,
             self.port,
@@ -1092,8 +1077,7 @@ impl Pin {
     }
 
     /// Set a pin state (ie set high or low output voltage level). See also `set_high()` and
-    /// `set_low()`. Sets the `BSRR` register. Compared to `output_data`, this is
-    /// atomic.
+    /// `set_low()`. Sets the `BSRR` register. Atomic.
     pub fn set_state(&mut self, value: PinState) {
         let offset = match value {
             PinState::Low => 16,
@@ -1114,54 +1098,21 @@ impl Pin {
 
         cfg_if! {
             if #[cfg(any(feature = "l5", feature = "g0", feature = "wb", feature = "wl"))] {
-                set_alt2!(self.pin, self.port, afsel, value, [(0, l), (1, l), (2, l),
+                set_alt!(self.pin, self.port, afsel, value, [(0, l), (1, l), (2, l),
                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                     (13, h), (14, h), (15, h)])
             } else if #[cfg(feature = "h7")] {
-                set_alt2!(self.pin, self.port, afr, value, [(0, l), (1, l), (2, l),
+                set_alt!(self.pin, self.port, afr, value, [(0, l), (1, l), (2, l),
                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                     (13, h), (14, h), (15, h)])
             } else {  // f3, f4, l4, g4
-                set_alt2!(self.pin, self.port, afr, value, [(0, l), (1, l), (2, l),
+                set_alt!(self.pin, self.port, afr, value, [(0, l), (1, l), (2, l),
                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                     (13, h), (14, h), (15, h)])
             }
         }
     }
-    // todo: Implement.
-    //     // todo Error on these PACS, or are they missing BRR?
-    //     #[cfg(not(any(feature = "l4", feature = "h7", feature = "f4")))]
-    //     /// Reset an Output Data bit. Sets the `BRR` register.
-    //     pub fn reset(&mut self, value: ResetState) {
-    //         let regs = unsafe { get_reg_ptr!(Port) };
-    //
-    //         let offset = match value {
-    //             ResetState::NoAction => 16,
-    //             ResetState::Reset => 0,
-    //         };
-    //         unsafe {
-    //             regs.brr.write(|w| match self.pin {
-    //                 0 => w.bits(1 << (offset + 0)),
-    //                 1 => w.bits(1 << (offset + 1)),
-    //                 2 => w.bits(1 << (offset + 2)),
-    //                 3 => w.bits(1 << (offset + 3)),
-    //                 4 => w.bits(1 << (offset + 4)),
-    //                 5 => w.bits(1 << (offset + 5)),
-    //                 6 => w.bits(1 << (offset + 6)),
-    //                 7 => w.bits(1 << (offset + 7)),
-    //                 8 => w.bits(1 << (offset + 8)),
-    //                 9 => w.bits(1 << (offset + 9)),
-    //                 10 => w.bits(1 << (offset + 10)),
-    //                 11 => w.bits(1 << (offset + 11)),
-    //                 12 => w.bits(1 << (offset + 12)),
-    //                 13 => w.bits(1 << (offset + 13)),
-    //                 14 => w.bits(1 << (offset + 14)),
-    //                 15 => w.bits(1 << (offset + 15)),
-    //                 _ => panic!("GPIO pins must be 0 - 15."),
-    //             });
-    //         }
-    //     }
-    //
+
     #[cfg(not(feature = "f373"))]
     /// Configure this pin as an interrupt source. Set the edge as Rising or Falling.
     pub fn enable_interrupt(&mut self, edge: Edge) {
@@ -1217,24 +1168,14 @@ impl Pin {
         !self.is_high()
     }
 
-    /// Set the pin's output voltage to high. Sets the `BSRR` register.
+    /// Set the pin's output voltage to high. Sets the `BSRR` register. Atomic.
     pub fn set_high(&mut self) {
-        set_state!(
-            self.pin,
-            self.port,
-            0,
-            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-        );
+        self.set_state(PinState::High);
     }
 
-    /// Set the pin's output voltage to low. Sets the `BSRR` register.
+    /// Set the pin's output voltage to low. Sets the `BSRR` register. Atomic.
     pub fn set_low(&mut self) {
-        set_state!(
-            self.pin,
-            self.port,
-            16,
-            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-        );
+        self.set_state(PinState::Low);
     }
 }
 //

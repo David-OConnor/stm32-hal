@@ -15,7 +15,6 @@ use stm32_hal::{
     clocks::Clocks,
     low_power,
     rtc::{Rtc, RtcClockSource, RtcConfig},
-    timer::{Timer, TimerInterrupt},
 };
 
 #[entry]
@@ -35,7 +34,7 @@ fn main() -> ! {
         &mut dp.PWR,
         RtcConfig {
             clock_source: RtcClockSource::Lse,
-            bypass_lse_output: true,  // eg if using a SMD oscillator.
+            bypass_lse_output: true, // eg if using a SMD oscillator.
             ..Default::default()
         },
     );

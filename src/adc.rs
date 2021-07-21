@@ -238,15 +238,8 @@ macro_rules! hal {
     ($ADC:ident, $ADC_COMMON:ident, $adc:ident, $rcc_num:tt) => {
         impl Adc<pac::$ADC> {
             paste! {
-                /// Init a new ADC
-                ///
-                /// Enables the clock, performs a calibration and enables the ADC
-                ///
-                /// # Panics
-                /// If one of the following occurs:
-                /// * the clocksetting is not well defined.
-                /// * the clock was already enabled with a different setting
-                ///
+                /// Initialize an ADC peripheral, including configuration register writes, and enabling and resetting
+                /// its RCC peripheral clock.
                 pub fn [<new_ $adc>](
                     regs: pac::$ADC,
                     device: AdcDevice,
@@ -254,6 +247,27 @@ macro_rules! hal {
                     ckmode: ClockMode,
                     clocks: &Clocks,
                 ) -> Self {
+                    free(|_| {
+                        let rcc = unsafe { &(*RCC::ptr()) };
+
+                        paste! {
+                            cfg_if! {
+                                if #[cfg(any(feature = "f3", feature = "h7"))] {
+                                    rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
+                                } else if #[cfg(feature = "f4")] {
+                                    rcc_en_reset!(2, [<adc $rcc_num>], rcc);
+                                } else if #[cfg(any(feature = "h7"))] {
+                                // todo: 1 and 2 are on ahb1enr etc. 3 is on ahb4. 3 won't work here.
+                                    rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
+                                } else if #[cfg(any(feature = "g4"))] {
+                                    rcc_en_reset!(ahb2, [<adc $rcc_num>], rcc);
+                                } else {  // ie L4, L5, G0(?)
+                                    rcc_en_reset!(ahb2, adc, rcc);
+                                }
+                            }
+                        }
+                    });
+
                     let mut result = Self {
                         regs,
                         device,
@@ -264,7 +278,7 @@ macro_rules! hal {
                         vdda_calibrated: 0.
                     };
 
-                    result.enable_clock(common_regs);
+                    common_regs.ccr.modify(|_, w| unsafe { w.ckmode().bits(result.ckmode as u8) });
                     result.set_align(Align::default());
 
                     result.advregen_enable(clocks);
@@ -293,35 +307,7 @@ macro_rules! hal {
                 }
             }
 
-            /// Enable the ADC clock, and set the clock mode.
-            fn enable_clock(&self, regs_common: &mut pac::$ADC_COMMON) {
-            // todo: Consider merging this code into `new`, as we do in other modules.
-                free(|_| {
-                    let rcc = unsafe { &(*RCC::ptr()) };
-
-                    paste! {
-                        cfg_if! {
-                            if #[cfg(any(feature = "f3", feature = "h7"))] {
-                                rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
-                            } else if #[cfg(feature = "f4")] {
-                                rcc_en_reset!(2, [<adc $rcc_num>], rcc);
-                            } else if #[cfg(any(feature = "h7"))] {
-                            // todo: 1 and 2 are on ahb1enr etc. 3 is on ahb4. 3 won't work here.
-                                rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
-                            } else if #[cfg(any(feature = "g4"))] {
-                                rcc_en_reset!(ahb2, [<adc $rcc_num>], rcc);
-                            } else {  // ie L4, L5, G0(?)
-                                rcc_en_reset!(ahb2, adc, rcc);
-                            }
-                        }
-                    }
-                });
-
-                regs_common.ccr.modify(|_, w| unsafe { w.ckmode().bits(self.ckmode as u8) });
-
-            }
-
-            /// sets up adc in one shot mode for a single channel
+            /// Sets up adc in one shot mode for a single channel
             pub fn setup_oneshot(&mut self) {
                 self.regs.cr.modify(|_, w| w.adstp().set_bit());
                 self.regs.isr.modify(|_, w| w.ovr().clear_bit());
@@ -343,6 +329,7 @@ macro_rules! hal {
                 self.operation_mode = OperationMode::OneShot;
             }
 
+            /// Set the ADC conversion sequence length, between 1 and 16.
             pub fn set_sequence_len(&mut self, len: u8) {
                 if len - 1 >= 16 {
                     panic!("ADC sequence length must be in 1..=16")
@@ -351,6 +338,7 @@ macro_rules! hal {
                 self.regs.sqr1.modify(|_, w| unsafe { w.l().bits(len - 1) });
             }
 
+            /// Set the alignment mode.
             pub fn set_align(&self, align: Align) {
                 #[cfg(feature = "h7")]
                 self.regs.cfgr2.modify(|_, w| w.lshift().bits(align as u8));
@@ -416,11 +404,12 @@ macro_rules! hal {
             }
 
             /// Check if the ADC is enabled.
-            fn is_enabled(&self) -> bool {
+            pub fn is_enabled(&self) -> bool {
                 self.regs.cr.read().aden().bit_is_set()
             }
 
-            fn is_advregen_enabled(&self) -> bool {
+            /// Check if the ADC voltage regulator is enabled.
+            pub fn is_advregen_enabled(&self) -> bool {
                 cfg_if! {
                     if #[cfg(feature = "f3")] {
                         self.regs.cr.read().advregen().bits() == 1
@@ -430,7 +419,7 @@ macro_rules! hal {
                 }
             }
 
-            /// Enable the voltage regulator, and exit deep sleep mode (some MCUs)
+            /// Enable the ADC voltage regulator, and exit deep sleep mode (some MCUs)
             pub fn advregen_enable(&mut self, clocks: &Clocks){
                 cfg_if! {
                     if #[cfg(feature = "f3")] {

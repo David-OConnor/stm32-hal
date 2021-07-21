@@ -215,7 +215,8 @@ impl<R> Spi<R>
 where
     R: Deref<Target = pac::spi1::RegisterBlock>,
 {
-    /// Configures the SPI peripheral to operate in full duplex master mode
+    /// Initialize an SPI peripheral, including configuration register writes, and enabling and resetting
+    /// its RCC peripheral clock. `freq` is in Hz.
     pub fn new(regs: R, device: SpiDevice, cfg: SpiConfig, baud_rate: BaudRate) -> Self {
         free(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
@@ -378,7 +379,7 @@ where
         Spi { regs, device, cfg }
     }
 
-    /// Change the baud rate of the SPI
+    /// Change the SPI baud rate.
     pub fn reclock(&mut self, baud_rate: BaudRate) {
         self.regs.cr1.modify(|_, w| w.spe().clear_bit());
 

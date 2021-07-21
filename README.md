@@ -75,7 +75,7 @@ fn main() -> ! {
     let clock_cfg = Clocks::default();
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
-    let mut pb15 = Pin::new(Port::B, 15, PinMode::Output);
+    let mut pb15 = Pin::new(Port::A, 15, PinMode::Output);
     pb15.set_high();
 
     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg);
@@ -225,7 +225,7 @@ where
 ```
 
 
-## STM32WB radio
+## STM32WB and WL radio
 This library doesn't include any radio functionality for the STM32WB. If you'd like to use it
 with bluetooth, use this HAL in conjuction with with Epun's [stm32wb55](https://github.com/eupn/stm32wb55)
 bluetooth library.

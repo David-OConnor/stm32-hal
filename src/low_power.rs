@@ -24,7 +24,7 @@ pub enum StopMode {
     Two = 2,
 }
 
-/// Ref man, table 24
+/// L4 RM, table 24
 /// This assumes you're using MSI as the clock source, and changes speed by lowering the MSI speed.
 /// You must select an MSI speed of 2Mhz or lower. Note that you may need to adjust peripheral
 /// implementations that rely on system clock or APB speed.
@@ -39,7 +39,7 @@ pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange, rcc: &mut RCC, pwr: &
     pwr.cr1.modify(|_, w| w.lpr().set_bit())
 }
 
-/// Ref man, table 24
+/// L4 RM, table 24
 /// Return to normal run mode from low-power run. Requires you to increase the clock speed
 /// manually after running this.
 #[cfg(any(feature = "l4", feature = "l5"))]
@@ -54,7 +54,7 @@ pub fn return_from_low_power_run(pwr: &mut PWR) {
 }
 
 /// Place the system in sleep now mode. To enter `low-power sleep now`, enter low power mode
-/// (eg `low_power_mode()`) before running this. Ref man, table 25 and 26
+/// (eg `low_power_mode()`) before running this. RM, table 25 and 26
 pub fn sleep_now(scb: &mut SCB) {
     // WFI (Wait for Interrupt) (eg `cortext_m::asm::wfi()) or WFE (Wait for Event) while:
     // – SLEEPDEEP = 0
@@ -74,7 +74,7 @@ pub fn sleep_now(scb: &mut SCB) {
     wfi();
 }
 
-/// F303 Ref man, table 19.
+/// F303 RM, table 19.
 pub fn sleep_on_exit(scb: &mut SCB) {
     // WFI (Wait for Interrupt) (eg `cortext_m::asm::wfi()) or WFE (Wait for Event) while:
 
@@ -93,7 +93,7 @@ cfg_if::cfg_if! {
         /// STM32f3.
         /// To exit:  Any EXTI Line configured in Interrupt mode (the corresponding EXTI
         /// Interrupt vector must be enabled in the NVIC). Refer to Table 82.
-        /// F3 RM, table 20. F4 RM, Table 27. H742 RM, Table 38. (CSrtop on H7).
+        /// F303 RM, table 20. F4 RM, Table 27. H742 RM, Table 38. (CSrtop on H7).
         /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
         pub fn stop(scb: &mut SCB, pwr: &mut PWR) {
             // todo: On some F4 variants, you may need to `select voltage regulator
@@ -125,7 +125,7 @@ cfg_if::cfg_if! {
         /// Enter `Standby` mode.
         /// To exit: WKUP pin rising edge, RTC alarm event’s rising edge, external Reset in
         /// NRST pin, IWDG Reset.
-        /// F303 Ref man, table 21.
+        /// F303 RM, table 21.
         /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
         pub fn standby(scb: &mut SCB, pwr: &mut PWR) {
             // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
@@ -295,7 +295,7 @@ cfg_if::cfg_if! {
         // /// STM32f3.
         // /// To exit: WKUP pin rising edge, RTC alarm event’s rising edge, external Reset in
         // /// NRST pin, IWDG Reset.
-        // /// Ref man, table 21.
+        // /// RM, table 21.
         // /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
         // pub fn standby(scb: &mut SCB, pwr: &mut PWR) {
         //     // WFI (Wait for Interrupt) or WFE (Wait for Event) while:

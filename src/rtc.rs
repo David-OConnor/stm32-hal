@@ -110,14 +110,7 @@ impl Default for RtcConfig {
 }
 
 impl Rtc {
-    /// Create and enable a new RTC abstraction, and configure its clock source and prescalers.
-    /// From AN4759, Table 7, when using the LSE (The only clock source this module
-    /// supports currently), set `prediv_s` to 255, and `prediv_a` to 127 to get a
-    /// calendar clock of 1Hz.
-    /// The `bypass` argument is `true` if you're using an external oscillator that
-    /// doesn't connect to `OSC32_IN`, such as a MEMS resonator.
-    /// Note that if using HSE as the clock source, we assume you've already enabled it, eg
-    /// in clock config.
+    /// Initialize the RTC, including configuration register writes.
     pub fn new(regs: RTC, pwr: &mut PWR, config: RtcConfig) -> Self {
         let mut result = Self { regs, config };
 
@@ -469,7 +462,6 @@ impl Rtc {
     }
 
     /// Disable the wakeup timer.
-    /// // todo dry with enable.
     pub fn disable_wakeup(&mut self) {
         unsafe {
             self.regs.wpr.write(|w| w.bits(0xCA));
@@ -607,6 +599,7 @@ impl Rtc {
         Ok(())
     }
 
+    /// Set the seconds component of the RTC's current time.
     pub fn set_seconds(&mut self, seconds: u8) -> Result<(), Error> {
         if seconds > 59 {
             return Err(Error::InvalidInputData);
@@ -620,6 +613,7 @@ impl Rtc {
         Ok(())
     }
 
+    /// Set the minutes component of the RTC's current time.
     pub fn set_minutes(&mut self, minutes: u8) -> Result<(), Error> {
         if minutes > 59 {
             return Err(Error::InvalidInputData);
@@ -633,6 +627,7 @@ impl Rtc {
         Ok(())
     }
 
+    /// Set the hours component of the RTC's current time.
     pub fn set_hours(&mut self, hours: u8) -> Result<(), Error> {
         let (ht, hu) = bcd2_encode(hours as u32)?;
 
@@ -644,6 +639,7 @@ impl Rtc {
         Ok(())
     }
 
+    /// Set the weekday component of the RTC's current date.
     pub fn set_weekday(&mut self, weekday: u8) -> Result<(), Error> {
         if !(1..=7).contains(&weekday) {
             return Err(Error::InvalidInputData);
@@ -655,6 +651,7 @@ impl Rtc {
         Ok(())
     }
 
+    /// Set the day component of the RTC's current date.
     pub fn set_day(&mut self, day: u8) -> Result<(), Error> {
         if !(1..=31).contains(&day) {
             return Err(Error::InvalidInputData);
@@ -668,6 +665,7 @@ impl Rtc {
         Ok(())
     }
 
+    /// Set the month component of the RTC's current date.
     pub fn set_month(&mut self, month: u8) -> Result<(), Error> {
         if !(1..=12).contains(&month) {
             return Err(Error::InvalidInputData);
@@ -681,6 +679,7 @@ impl Rtc {
         Ok(())
     }
 
+    /// Set the year component of the RTC's current date.
     pub fn set_year(&mut self, year: u16) -> Result<(), Error> {
         if !(1970..=2038).contains(&year) {
             return Err(Error::InvalidInputData);
@@ -719,6 +718,7 @@ impl Rtc {
         Ok(())
     }
 
+    /// Set the current datetime.
     pub fn set_datetime(&mut self, date: &NaiveDateTime) -> Result<(), Error> {
         if date.year() < 1970 {
             return Err(Error::InvalidInputData);
@@ -759,21 +759,25 @@ impl Rtc {
         Ok(())
     }
 
+    /// Get the seconds component of the current time.
     pub fn get_seconds(&mut self) -> u8 {
         let tr = self.regs.tr.read();
         bcd2_decode(tr.st().bits(), tr.su().bits()) as u8
     }
 
+    /// Get the minutes component of the current time.
     pub fn get_minutes(&mut self) -> u8 {
         let tr = self.regs.tr.read();
         bcd2_decode(tr.mnt().bits(), tr.mnu().bits()) as u8
     }
 
+    /// Get the hours component of the current time.
     pub fn get_hours(&mut self) -> u8 {
         let tr = self.regs.tr.read();
         bcd2_decode(tr.ht().bits(), tr.hu().bits()) as u8
     }
 
+    /// Get the current time.
     pub fn get_time(&mut self) -> NaiveTime {
         NaiveTime::from_hms(
             self.get_hours().into(),
@@ -782,27 +786,32 @@ impl Rtc {
         )
     }
 
+    /// Get the weekday component of the current date.
     pub fn get_weekday(&mut self) -> u8 {
         let dr = self.regs.dr.read();
         bcd2_decode(dr.wdu().bits(), 0x00) as u8
     }
 
+    /// Get the day component of the current date.
     pub fn get_day(&mut self) -> u8 {
         let dr = self.regs.dr.read();
         bcd2_decode(dr.dt().bits(), dr.du().bits()) as u8
     }
 
+    /// Get the month component of the current date.
     pub fn get_month(&mut self) -> u8 {
         let dr = self.regs.dr.read();
         let mt: u8 = if dr.mt().bit() { 1 } else { 0 };
         bcd2_decode(mt, dr.mu().bits()) as u8
     }
 
+    /// Get the year component of the current date.
     pub fn get_year(&mut self) -> u16 {
         let dr = self.regs.dr.read();
         bcd2_decode(dr.yt().bits(), dr.yu().bits()) as u16
     }
 
+    /// Get the current date.
     pub fn get_date(&mut self) -> NaiveDate {
         NaiveDate::from_ymd(
             self.get_year().into(),
@@ -811,6 +820,7 @@ impl Rtc {
         )
     }
 
+    /// Get the current datetime.
     pub fn get_datetime(&mut self) -> NaiveDateTime {
         NaiveDate::from_ymd(
             self.get_year().into(),
