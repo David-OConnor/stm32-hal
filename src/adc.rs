@@ -65,7 +65,7 @@ pub enum AdcDevice {
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
-/// See L44 RM, section 16.5: ADC interrupts
+/// ADC interrupts. See L44 RM, section 16.5: ADC interrupts
 pub enum AdcInterrupt {
     Ready,
     EndOfConversion,

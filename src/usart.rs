@@ -313,7 +313,7 @@ where
         }
     }
 
-    /// Transmit data, as a sequence of u8.. See L44 RM, section 38.5.2: "Character transmission procedure"
+    /// Transmit data, as a sequence of u8. See L44 RM, section 38.5.2: "Character transmission procedure"
     pub fn write(&mut self, data: &[u8]) {
         // 7. Write the data to send in the USART_TDR register (this clears the TXE bit). Repeat this
         // for each data to be transmitted in case of single buffer.

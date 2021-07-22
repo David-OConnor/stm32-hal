@@ -216,7 +216,7 @@ where
     R: Deref<Target = pac::spi1::RegisterBlock>,
 {
     /// Initialize an SPI peripheral, including configuration register writes, and enabling and resetting
-    /// its RCC peripheral clock. `freq` is in Hz.
+    /// its RCC peripheral clock.
     pub fn new(regs: R, device: SpiDevice, cfg: SpiConfig, baud_rate: BaudRate) -> Self {
         free(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };

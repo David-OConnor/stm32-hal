@@ -2,6 +2,7 @@
 //! including all GPIOx register functions. It also configures GPIO interrupts using SYSCFG and EXTI
 //! registers as appropriate.
 
+#[cfg(feature = "embedded-hal")]
 use core::convert::Infallible;
 
 use cortex_m::interrupt::free;
@@ -139,7 +140,7 @@ pub enum Port {
 }
 
 impl Port {
-    /// See F3 ref manual section 12.1.3: each reg has an associated value
+    /// See F303 RM section 12.1.3: each reg has an associated value
     fn cr_val(&self) -> u8 {
         match self {
             Self::A => 0,
