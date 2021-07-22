@@ -27,7 +27,10 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, Dma, DmaChannel, DmaInput};
+use crate::dma::{self, Dma, DmaChannel};
+
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::dma::DmaInput;
 
 macro_rules! busy_wait {
     ($regs:expr, $flag:ident, $variant:ident) => {

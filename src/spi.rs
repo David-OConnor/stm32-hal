@@ -4,7 +4,7 @@
 use core::{
     ops::Deref,
     ptr,
-    sync::atomic::{self, Ordering},
+    // sync::atomic::{self, Ordering},
 };
 
 use cortex_m::interrupt::free;
@@ -31,7 +31,10 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
-use crate::dma::{self, Dma, DmaChannel, DmaInput};
+use crate::dma::{self, Dma, DmaChannel};
+
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::dma::DmaInput;
 
 use cfg_if::cfg_if;
 
