@@ -227,7 +227,7 @@ where
 
 ## STM32WB and WL radio
 This library doesn't include any radio functionality for the STM32WB. If you'd like to use it
-with bluetooth, use this HAL in conjuction with with Epun's [stm32wb55](https://github.com/eupn/stm32wb55)
+with bluetooth, use this HAL in conjuction with with @eupn's [stm32wb55](https://github.com/eupn/stm32wb55)
 bluetooth library.
 
 STM32WL radio support is WIP, and will be provided through interaction withnewAM's 
