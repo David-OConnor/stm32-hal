@@ -654,8 +654,11 @@ impl Clocks {
         #[cfg(feature = "f3")]
         let max_clock = 72_000_000;
 
-        #[cfg(any(feature = "f401", feature = "f411"))]
+        #[cfg(feature = "f401")]
         let max_pll_out = 84_000_000;
+
+        #[cfg(feature = "f411")]
+        let max_pll_out = 100_000_000;
 
         #[cfg(all(feature = "f4", not(any(feature = "f401", feature = "f411"))))]
         let max_pll_out = 168_000_000;
@@ -668,8 +671,23 @@ impl Clocks {
             return ClocksValid::NotValid;
         }
 
+        cfg_if! {
+            if #[cfg(any(feature = "f401", feature = "f405"))] {
+                let max_hclk = 42_000_000;
+            } else if #[cfg(feature = "f411")] {
+                let max_hclk = 50_000_000;
+            } else {
+                let max_hclk = sysclk(); // todo: placeholder.
+            }
+        }
+
         // todo: min clock? eg for apxb?
-        if self.sysclk() > max_clock {
+        if self.sysclk() > max_hclk {
+            return ClocksValid::NotValid;
+        }
+
+        #[cfg(feature = "f411")]
+        if self.hclk() > 50_000_000 {
             return ClocksValid::NotValid;
         }
 
@@ -714,8 +732,10 @@ impl Default for Clocks {
         Self {
             input_src: InputSrc::Pll(PllSrc::Hsi),
             pllm: 8,
-            #[cfg(any(feature = "f401", feature = "f411"))]
+            #[cfg(feature = "f401")]
             plln: 84,
+            #[cfg(feature = "f411")]
+            plln: 100,
             #[cfg(not(any(feature = "f401", feature = "f411")))]
             plln: 180,
             pllp: Pllp::Div2,

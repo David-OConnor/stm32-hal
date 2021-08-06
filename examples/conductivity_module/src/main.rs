@@ -122,11 +122,12 @@ fn main() -> ! {
     // set up the DAC, to control voltage into the conductivity circuit.
     let dac = Dac::new(dp.DAC1, DacDevice::One, DacBits::TwelveR, 3.3);
 
-    // `ec_timer` is used to
-    let mut ec_timer = Timer::new_tim2(dp.TIM2, 2_400., &clock_cfg);
-    ec_timer.set_auto_reload_preload(true);
-    ec_timer.enable_pwm_output(TimChannel::C1, OutputCompare::Pwm1, CountDir::Up, 0.5);
-    ec_timer.enable();
+    // `pwm_timer` is used to change polarity-switching rate of the excitation
+    // current across the probe terminals, using an analog switch.
+    let mut pwm_timer = Timer::new_tim2(dp.TIM2, 2_400., &clock_cfg);
+    pwm_timer.set_auto_reload_preload(true);
+    pwm_timer.enable_pwm_output(TimChannel::C1, OutputCompare::Pwm1, CountDir::Up, 0.5);
+    pwm_timer.enable();
 
     // Setup UART for connecting to the host
     let mut uart = Usart::new(
@@ -137,11 +138,12 @@ fn main() -> ! {
         &clock_cfg,
     );
 
+    // Trigger an interrupt if we receive our start character over UART.
     uart.enable_interrupt(UsartInterrupt::CharDetect(MSG_START_BYTES[0]));
 
     // Initialize to a 1.0 cell constant; will be changed by the user later with a command
     // if required.
-    let sensor = ec::EcSensor::new(dac, ec_timer, (gain0, gain1, gain2), 1.0);
+    let sensor = ec::EcSensor::new(dac, pwm_timer, (gain0, gain1, gain2), 1.0);
 
     // Set up the global static variables so we can access them during interrupts.
     free(|cs| {

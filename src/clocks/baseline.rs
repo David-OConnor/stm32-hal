@@ -1269,6 +1269,8 @@ impl Clocks {
             return ClocksValid::NotValid;
         }
 
+        // todo: What are the actual hclk limits? Not always sysclk?
+
         if self.hclk() > max_clock {
             return ClocksValid::NotValid;
         }

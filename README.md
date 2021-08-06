@@ -41,6 +41,10 @@ for example uses of many of this library's features. Copy and paste its whole fo
 using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml` 
 and `main.rs` as required.
 
+The [conductivity module example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/conductivity_module)
+is a complete example of simple firmware. It uses the DAC, I2C, Timer, and UART peripherals,
+with a simple interupt-based control flow.
+
 When specifying this crate as a dependency in `Cargo.toml`, you need to specify a feature
 representing your MCU. If this is for code that runs on an MCU directly (ie not a library), also
  include a run-time feature, following the template `l4rt`. For example: 

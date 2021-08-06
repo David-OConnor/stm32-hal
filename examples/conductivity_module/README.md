@@ -1,4 +1,4 @@
-# AnyLeaf conductivity module firmware
+# Conductivity module firmware
 
 This is the entry point for firmware for the
 [AnyLeaf conductivity](https://www.anyleaf.org/ec-module) module. This device connects
