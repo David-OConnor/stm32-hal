@@ -1,0 +1,63 @@
+[package]
+name = "anyleaf_ec_firmware"
+version = "0.1.0"
+authors = ["David O'Connor <david.alan.oconnor@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "anyleaf_ec_firmware"
+path = "src/lib.rs"
+
+[[bin]]
+name = "anyleaf_ec_firmware"
+path = "src/main.rs"
+
+[dependencies]
+cortex-m = { version = "0.7.3", optional = true }
+cortex-m-rt = { version = "0.6.14", optional = true }
+stm32-hal2 = "^0.2.11"
+defmt = "0.2.3"
+defmt-rtt = "0.2.0"
+panic-probe = { version = "0.2.0", features = ["print-defmt"] }
+
+
+[features]
+standalone = ["cortex-m", "cortex-m-rt", "stm32-hal2/l4rt"]
+
+# set logging levels here
+default = [
+  "defmt-default",
+  # "dependency-a/defmt-trace",
+]
+
+# do NOT modify these features
+defmt-default = []
+defmt-trace = []
+defmt-debug = []
+defmt-info = []
+defmt-warn = []
+defmt-error = []
+
+
+[profile.dev]
+codegen-units = 1
+debug = 2
+debug-assertions = true # <-
+incremental = false
+opt-level = 3 # <-
+overflow-checks = true # <-
+
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false # <-
+incremental = false
+lto = 'fat'
+opt-level = 3 # <-
+overflow-checks = false # <-
+
+## These settings reduce file size when compiled in release mode.
+#[profile.release]
+#codegen-units = 1
+#debug = true
+#lto = true
