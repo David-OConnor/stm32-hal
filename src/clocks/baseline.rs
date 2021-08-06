@@ -60,6 +60,18 @@ pub enum StopWuck {
     Hsi = 1,
 }
 
+#[cfg(feature = "wb")]
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// RF system wakeup clock source selection
+pub enum RfWakeupSrc {
+    NoClock = 0b00,
+    /// LSE oscillator clock used as RF system wakeup clock
+    Lse = 0b01,
+    /// HSE oscillator clock divided by 1024 used as RF system wakeup clock
+    Hse = 0b11,
+}
+
 // L4 uses 0 - 4 only. Others use 1 - 15, but it's not clear when you'd
 // set more than WS5 or so.
 #[derive(Clone, Copy)]
@@ -481,6 +493,9 @@ pub struct Clocks {
     #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
     /// Select the input source to use after waking up from `stop` mode. Eg HSI or MSI.
     pub stop_wuck: StopWuck,
+    #[cfg(feature = "wb")]
+    /// Select the RF wakeup source.
+    pub rf_wakeup_src: RfWakeupSrc,
 }
 
 // todo: On L4/5, add a way to enable the MSI for use as CLK48.
@@ -869,6 +884,10 @@ impl Clocks {
             }
         }
 
+        #[cfg(feature = "wb")]
+        rcc.csr
+            .modify(|_, w| unsafe { w.rfwkpsel().bits(self.rf_wakeup_src as u8) });
+
         // Enable and reset System Configuration Controller, ie for interrupts.
         // todo: Is this the right module to do this in?
         #[cfg(not(any(feature = "wb", feature = "wl")))] // todo: Do interrupts work without enabling syscfg on wb, which
@@ -1195,8 +1214,6 @@ impl Clocks {
     }
 
     pub fn validate_speeds(&self) -> ClocksValid {
-        let mut result = ClocksValid::Valid;
-
         #[cfg(feature = "l4")]
         let max_clock = 80_000_000;
 
@@ -1214,6 +1231,9 @@ impl Clocks {
 
         #[cfg(feature = "wl")]
         let max_clock = 48_000_000;
+
+        // todo: Check valid PLL output range as well. You can use Cube, mousing over the PLL
+        // todo speed to find these.
 
         // todo: L4+ (ie R, S, P, Q) can go up to 120_000.
 
@@ -1246,23 +1266,23 @@ impl Clocks {
         // todo: Note that this involves repeatedly calculating sysclk.
         // todo. We could work around thsi by calcing it once here.
         if self.sysclk() > max_clock {
-            result = ClocksValid::NotValid;
+            return ClocksValid::NotValid;
         }
 
         if self.hclk() > max_clock {
-            result = ClocksValid::NotValid;
+            return ClocksValid::NotValid;
         }
 
         if self.apb1() > max_clock {
-            result = ClocksValid::NotValid;
+            return ClocksValid::NotValid;
         }
 
         #[cfg(not(feature = "g0"))]
         if self.apb2() > max_clock {
-            result = ClocksValid::NotValid;
+            return ClocksValid::NotValid;
         }
 
-        result
+        ClocksValid::Valid
     }
 }
 
@@ -1316,6 +1336,8 @@ impl Default for Clocks {
             hsi48_on: false,
             #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
             stop_wuck: StopWuck::Msi,
+            #[cfg(feature = "wb")]
+            rf_wakeup_src: RfWakeupSrc::Lse,
         }
     }
 }

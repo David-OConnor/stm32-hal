@@ -1,5 +1,5 @@
 //! This, and all files in the `tl_mbox` folder are from
-//! [Epun's stm32wb-hal](https://github.com/eupn/stm32wb-hal)
+//! [Eupn's stm32wb-hal](https://github.com/eupn/stm32wb-hal)
 
 use core::mem::MaybeUninit;
 

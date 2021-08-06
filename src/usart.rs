@@ -156,7 +156,7 @@ where
     R: Deref<Target = pac::usart1::RegisterBlock>,
 {
     /// Initialize a U[s]ART peripheral, including configuration register writes, and enabling and
-    /// resetting its RCC peripheral clock.
+    /// resetting its RCC peripheral clock. `baud` is the baud rate, in bytes-per-second.
     pub fn new(
         regs: R,
         device: UsartDevice,

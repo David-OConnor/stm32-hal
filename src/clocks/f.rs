@@ -578,7 +578,7 @@ impl Clocks {
     }
 
     #[cfg(feature = "f4")]
-    /// Calculate the systick, and input frequency.
+    /// Calculate the systick, and input frequency, in  Hz.
     fn calc_sysclock(&self) -> u32 {
         let sysclk = match self.input_src {
             InputSrc::Hsi => 16_000_000,
@@ -589,13 +589,7 @@ impl Clocks {
                     PllSrc::Hse(freq) => freq,
                 };
                 input_freq / self.pllm as u32 * self.plln as u32 / self.pllp.value() as u32
-            } // InputSrc::Pllr(pll_src) => {
-              //     let input_freq = match pll_src {
-              //         PllSrc::Hsi => 16_000_000,
-              //         PllSrc::Hse(freq) => freq,
-              //     };
-              //     input_freq / self.pllm as u32 * self.plln as u32 / self.pllr.value() as u32
-              // }
+            }
         };
 
         sysclk
@@ -657,10 +651,14 @@ impl Clocks {
     }
 
     pub fn validate_speeds(&self) -> ClocksValid {
-        let mut result = ClocksValid::Valid;
-
         #[cfg(feature = "f3")]
         let max_clock = 72_000_000;
+
+        #[cfg(any(feature = "f401", feature = "f411"))]
+        let max_pll_out = 84_000_000;
+
+        #[cfg(all(feature = "f4"), not(any(feature = "f401", feature = "f411")))]
+        let max_pll_out = 168_000_000;
 
         #[cfg(feature = "f4")]
         let max_clock = 180_000_000;
@@ -672,22 +670,22 @@ impl Clocks {
 
         // todo: min clock? eg for apxb?
         if self.sysclk() > max_clock {
-            result = ClocksValid::NotValid;
+            return ClocksValid::NotValid;
         }
 
         if self.hclk() > max_clock {
-            result = ClocksValid::NotValid;
+            return ClocksValid::NotValid;
         }
 
         if self.apb1() > max_clock {
-            result = ClocksValid::NotValid;
+            return ClocksValid::NotValid;
         }
 
         if self.apb2() > max_clock {
-            result = ClocksValid::NotValid;
+            return ClocksValid::NotValid;
         }
 
-        result
+        ClocksValid::Valid
     }
 }
 
@@ -716,12 +714,21 @@ impl Default for Clocks {
         Self {
             input_src: InputSrc::Pll(PllSrc::Hsi),
             pllm: 8,
+            #[cfg(any(feature = "f401", feature = "f411"))]
+            plln: 84,
+            #[cfg(not(any(feature = "f401", feature = "f411")))]
             plln: 180,
             pllp: Pllp::Div2,
             pllq: Pllq::Div8, // Note that this produces an invalid USB speed.
             hclk_prescaler: HclkPrescaler::Div1,
+            #[cfg(any(feature = "f401", feature = "f411"))]
+            apb1_prescaler: ApbPrescaler::Div2,
+            #[cfg(not(any(feature = "f401", feature = "f411")))]
             apb1_prescaler: ApbPrescaler::Div4,
-            apb2_prescaler: ApbPrescaler::Div4,
+            #[cfg(any(feature = "f401", feature = "f411"))]
+            apb2_prescaler: ApbPrescaler::Div1,
+            #[cfg(not(any(feature = "f401", feature = "f411")))]
+            apb2_prescaler: ApbPrescaler::Div2,
             hse_bypass: false,
             security_system: false,
         }

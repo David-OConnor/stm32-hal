@@ -18,7 +18,8 @@ use stm32_hal2::{
     clocks::Clocks,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
-    low_power, pac,
+    low_power,
+    pac::{self, interrupt},
     prelude::*,
     spi::{self, BaudRate, Spi, SpiConfig, SpiDevice, SpiMode},
 };

@@ -16,7 +16,7 @@ use stm32_hal::{
     clocks::Clocks,
     gpio::{Edge, Pin, PinMode, Port},
     low_power,
-    pac::{self, ADC1, EXTI},
+    pac::{self, interrupt, ADC1, EXTI},
     rtc::{Rtc, RtcClockSource, RtcConfig},
     timer::{Timer, TimerInterrupt},
 };

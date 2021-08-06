@@ -54,10 +54,14 @@ pub enum OutputType {
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
-/// Values for `GPIOx_OSPEEDR`
+/// Values for `GPIOx_OSPEEDR`. This configures I/O output speed. See the user manual
+/// for your MCU for what speeds these are. Note that Fast speed (0b10) is not
+/// available on all STM32 families.
 pub enum OutputSpeed {
-    Low = 0,
+    Low = 0b00,
     Medium = 0b01,
+    #[cfg(not(feature = "f3"))]
+    Fast = 0b10,
     High = 0b11,
 }
 

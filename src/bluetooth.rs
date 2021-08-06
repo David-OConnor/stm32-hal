@@ -1,5 +1,5 @@
 //! WIP Bluetooth Host-Controller Interfface.
-//! Bsed on [Epun's STM32WB library](https://github.com/eupn/stm32wb55)
+//! Bsed on [Eupn's STM32WB library](https://github.com/eupn/stm32wb55)
 //! Uses https://github.com/danielgallagher0/bluetooth-hci as a dependency.
 
 //! Bluetooth HCI for STMicro's STM32WB5x Bluetooth controllers.

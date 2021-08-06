@@ -122,7 +122,7 @@ to identify when we can take advantage of this.
 - If config fields are complicated, we use a separate `PeriphConfig` struct owned by the peripheral struct.
 This struct impls `Default`.
 - A constructor named `new` that performs setup code
-- `enable_interrupt` and `clear_interrupt` functions, which accept an enum of interrupt type
+- `enable_interrupt` and `clear_interrupt` functions, which accept an enum of interrupt type.
 - Add `embedded-hal` implementations as required, that call native methods. Note that
 we design APIs based on STM32 capabilities, and apply EH traits as applicable. We only
 expose these implementations if the `embedded-hal` feature is selected.
