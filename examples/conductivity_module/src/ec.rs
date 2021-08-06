@@ -24,7 +24,7 @@ const CONV_REG: u8 = 0x0;
 #[derive(Debug, Clone, Copy)]
 /// Data for a single EC calibration point. Like with ORP, we use a single-point,
 /// linear model, with the other end of the line pinned to 0, 0. Temperature isn't
-/// (currently?) used in this model.
+/// (currently?) used in this model. This is used by the Water Monitor.
 pub struct CalPtEc {
     // todo: this struct is DRY with anyleaf-rust. Note that this isn't implemented
     // todo here directly, but is used in the Water Monitor. We maybe should use
@@ -239,7 +239,6 @@ impl EcSensor {
         let mut V_exc = V_EXC_INIT;
         self.dac.set_voltage(DacChannel::C1, V_exc);
 
-        // delay.delay_ms(VOLTAGE_SET_DELAY); // todo: See if you can get away with removing this.
         // Read ADC Input V+ and V-
         let readings = self.read_voltage(addr, read_cmd, i2c);
 
@@ -280,7 +279,6 @@ impl EcSensor {
             // .1V reading. <= 1.2V limit
 
             // Read ADC Input V+ and V-
-            // delay.delay_ms(VOLTAGE_SET_DELAY);
             let readings = self.read_voltage(addr, read_cmd, i2c);
 
             V_probe = (readings.0 + readings.1) / 2.;
@@ -292,8 +290,6 @@ impl EcSensor {
         let I = (V_exc - V_probe) / gain.resistance();
         V_exc = I * gain.resistance() + V_PROBE_TGT;
         self.dac.set_voltage(DacChannel::C1, V_exc);
-
-        // delay.delay_ms(VOLTAGE_SET_DELAY);
 
         (V_exc, gain)
     }
@@ -327,7 +323,6 @@ where {
         // Do this upstream, eg `sensors.rs` on Water Monitor, or `main.rs` here.
 
         // todo: Set ADC sample speed here?
-        // Delay to charge the sample and hold before reading.
         let (V_exc, gain) = self.set_range(addr, read_cmd, i2c);
 
         let mut v_p_cum = 0.;
@@ -335,7 +330,6 @@ where {
 
         for _ in 0..N_SAMPLES {
             let (v_p, v_m) = self.read_voltage(addr, read_cmd, i2c);
-            // delay.delay_ms(VOLTAGE_SET_DELAY);
             v_p_cum += v_p;
             v_m_cum += v_m;
         }
@@ -370,7 +364,6 @@ where {
     /// is performed downstream, eg in the `sensors` module here, or in the
     /// drivers for the standalone ec module.
     pub fn read(&mut self, addr: u8, read_cmd: u16, i2c: &mut I2c<I2C1>) -> Result<f32, ReadError> {
-        // let Y_sol = self.measure(addr, read_cmd, i2c, delay)?;
         let Y_sol = self.measure(addr, read_cmd, i2c)?;
         let result = Y_sol;
 

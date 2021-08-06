@@ -13,7 +13,6 @@ use core::{
 
 use cortex_m::{
     self,
-    delay::Delay,
     interrupt::{free, Mutex},
     peripheral::NVIC,
 };
@@ -41,7 +40,6 @@ mod ec;
 // Set up global mutable variables, as `Mutex<RefCell<Option<>>>`. We use a macro to simplify syntax.
 make_globals!(
     (I2C, I2c<I2C1>),
-    (DELAY, Delay),
     (SENSOR, ec::EcSensor),
     (UART, Usart<USART1>)
 );
@@ -102,8 +100,6 @@ fn main() -> ! {
     let clock_cfg = Clocks::default();
     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 
-    let delay = Delay::new(cp.SYST, clock_cfg.systick());
-
     // Set up pins with appropriate modes.
     setup_pins();
 
@@ -148,7 +144,6 @@ fn main() -> ! {
     // Set up the global static variables so we can access them during interrupts.
     free(|cs| {
         I2C.borrow(cs).replace(Some(i2c));
-        DELAY.borrow(cs).replace(Some(delay));
         SENSOR.borrow(cs).replace(Some(sensor));
         UART.borrow(cs).replace(Some(uart));
     });
@@ -195,15 +190,12 @@ fn USART1() {
         match msg[2] {
             10 => {
                 // Read conductivity
-                // access_global!(DELAY, delay, cs);
                 access_global!(SENSOR, sensor, cs);
                 access_global!(I2C, i2c, cs);
 
                 // Convert the raw reading to a 16-bit integer. It will be the reading in µS/cm / K.
-                // let rcc: pac::RCC = unsafe { mem::transmute(()) };
                 sensor.dac.enable(DacChannel::C1);
 
-                // let reading = sensor.read(0x48, EC_CMD, i2c, delay).unwrap_or(0.);
                 let reading = sensor.read(0x48, EC_CMD, i2c).unwrap_or(0.);
 
                 // todo: Use integers all the way instead of ADC word -> ec float -> int?

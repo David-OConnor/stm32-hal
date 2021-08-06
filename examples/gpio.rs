@@ -10,6 +10,7 @@
 use core::cell::{Cell, RefCell};
 
 use cortex_m::{
+    delay::Delay,
     interrupt::{self, free, Mutex},
     peripheral::NVIC,
 };
@@ -98,6 +99,8 @@ fn main() -> ! {
         defmt::error!("Unable to configure clocks due to a speed error.")
     };
 
+    let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
+
     // Call a function we've made to help organize our pin setup code.
     setup_pins();
 
@@ -121,7 +124,11 @@ fn main() -> ! {
 
     // Set high.
     example_output.set_state(PinState::High);
+
+    // Simpler syntax to set state, and use with a delay, provided by the Cortex-M systick.
     example_output.set_high();
+    delay.delay_ms(500);
+    example_output.set_low();
 
     // Unmask interrupt lines associated with the input pins we've configured interrupts
     // for in `setup_pins`.
