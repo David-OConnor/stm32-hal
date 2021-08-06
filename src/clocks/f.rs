@@ -677,7 +677,7 @@ impl Clocks {
             } else if #[cfg(feature = "f411")] {
                 let max_hclk = 50_000_000;
             } else {
-                let max_hclk = sysclk(); // todo: placeholder.
+                let max_hclk = self.sysclk(); // todo: placeholder.
             }
         }
 
