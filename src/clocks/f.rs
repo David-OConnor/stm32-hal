@@ -657,7 +657,7 @@ impl Clocks {
         #[cfg(any(feature = "f401", feature = "f411"))]
         let max_pll_out = 84_000_000;
 
-        #[cfg(all(feature = "f4"), not(any(feature = "f401", feature = "f411")))]
+        #[cfg(all(feature = "f4", not(any(feature = "f401", feature = "f411"))))]
         let max_pll_out = 168_000_000;
 
         #[cfg(feature = "f4")]

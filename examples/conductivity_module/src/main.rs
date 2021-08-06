@@ -1,21 +1,6 @@
 //! This is the entry point for firmware for the
-//! [AnyLeaf conductivity](https://www.anyleaf.org/ec-module) module. This device connects
-//! to an electrical conductivity probe, and passes readings to a host over a UART serial
-//! connection. (Example host: Raspberry Pi) It uses a simplified version of Analog Device's
-//! [CN0411 reference design](https://www.analog.com/en/design-center/reference-designs/circuits-from-the-lab/cn0411.html),
-//! replacing some of the analog circuitry with software, and adapted for use with an STM32.
-//!
-//! Code in `ec.rs` is also used as a library for the same conductivity circuitry in the AnyLeaf
-//! Water Monitor.
-//!
-//! This is set up for use with an STM32L443, but can be adapted to other STM32s, mainly by changing
-//! the relevant lines in `Cargo.toml`, `memory.x`, `.cargo/config`. As standalone firmware,
-//! it may be more suitable for use on a simpler, low-cost device like Stm32G0 or Stm32G4.
-//! The main requirement limiting device selection is presense of a DAC.
-//!
-//! To flash, run `cargo b --release --features="standalone", or create a binary with `cargo-binutils`
-//! using `cargo objcopy --release -- -O binary target/firmware.bin`, then flash with a tool of your
-//! choice, eg dfu-util, or Stm32CubeProgrammer.
+//! [AnyLeaf conductivity](https://www.anyleaf.org/ec-module) module.
+//! Conductivity-measuring code is in `ec.rs`.
 
 #![no_main]
 #![no_std]
@@ -126,7 +111,7 @@ fn main() -> ! {
     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg);
 
     // todo: Once on new QFN MCU: Gain 0, 1, 2 -> PA6, PA7, PB0
-
+    // Set up pins used to control the gain-resistor-selecting multiplexer.
     let gain0 = Pin::new(Port::B, 0, PinMode::Output);
     let gain1 = Pin::new(Port::B, 1, PinMode::Output);
     let gain2 = Pin::new(Port::B, 2, PinMode::Output);
