@@ -41,8 +41,13 @@ for example uses of many of this library's features. Copy and paste its whole fo
 using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml` 
 and `main.rs` as required.
 
+The [blinky example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/blinky), written by
+[toudi](https://github.com/toudi), provides a detailed example and instructions for how to set up a blinking
+light (ie hello world) using an STM32F411 "blackpill" board. Its readme provides instructions for how to get
+started from scratch, and its code contains detailed comments explaining each part.
+
 The [conductivity module example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/conductivity_module)
-is a complete example of simple firmware. It uses the DAC, I2C, Timer, and UART peripherals,
+is a complete example of simple production firmware. It uses the DAC, I2C, Timer, and UART peripherals,
 with a simple interupt-based control flow.
 
 When specifying this crate as a dependency in `Cargo.toml`, you need to specify a feature
@@ -68,6 +73,7 @@ use stm32_hal2::{
     gpio::{Pin, Port, PinMode, OutputType},
     i2c::{I2c, I2cDevice},
     low_power,
+    pac,
     timer::{Timer, TimerInterrupt},
 };
 
@@ -94,6 +100,7 @@ fn main() -> ! {
     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg);
 
     loop {
+        i2c.write(0x50, &[1, 2, 3]);
         low_power::sleep_now(&mut cp.SCB);
     }
 }
