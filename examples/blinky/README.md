@@ -407,6 +407,7 @@ cargo run --release
 You will notice that the `debug` message was not shown. That is because `defmt-default` only shows `info` messages. If you want to see `debug` as well, you need to change `defmt-default` into `defmt-debug` in your `Cargo.toml`.
 
 Code optimizations, i.e. making the binary smaller
+--------------------------------------------------
 
 You can also apply the following changes to Cargo.toml to make the code smaller:
 
