@@ -69,7 +69,7 @@ fn main() -> ! {
 fn TIM3() {
     free(|cs| {
         // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
-        unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().set_bit()) }
+        unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().clear_bit()) }
         // If you have access to the timer variable, eg through a Mutex, you can do this instead:
         // countdown_timer_clear_interrupt(TimerInterrupt::Update);
 
