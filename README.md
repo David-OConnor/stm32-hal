@@ -50,6 +50,9 @@ The [conductivity module example](https://github.com/David-OConnor/stm32-hal/tre
 is a complete example of simple production firmware. It uses the DAC, I2C, Timer, and UART peripherals,
 with a simple interupt-based control flow.
 
+Additional examples in the [examples folder](https://github.com/David-OConnor/stm32-hal/tree/main/examples) demonstrate
+how to use various STM32 peripherals; most of these examples focus on a single peripheral.
+
 When specifying this crate as a dependency in `Cargo.toml`, you need to specify a feature
 representing your MCU. If this is for code that runs on an MCU directly (ie not a library), also
  include a run-time feature, following the template `l4rt`. For example: 

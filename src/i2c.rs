@@ -1,4 +1,5 @@
-//! Inter-Integrated Circuit (I2C) bus. Also supports SMBUS. Provides APIs to configure, read, and write from
+//! Support for the Inter-Integrated Circuit (I2C) bus peripheral. Also supports SMBUS.
+//! Provides APIs to configure, read, and write from
 //! I2C, with blocking, nonblocking, and DMA functionality.
 
 use cast::{u16, u8};

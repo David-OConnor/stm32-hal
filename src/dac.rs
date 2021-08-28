@@ -1,9 +1,4 @@
-//! Support for the digital to Analog converter peripheral.
-
-// Note that we don't use macros hereto the same extent as with other modules,
-// since all families appear to only have a single DAC register block. For example,
-// the `Dac` struct doesn't accept a trait of its reg block. We may have to
-// change this later as we find exceptions.
+//! Support for the digital to Analog converter (DAC) peripheral.
 
 use core::ops::Deref;
 

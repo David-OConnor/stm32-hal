@@ -1,4 +1,4 @@
-//! Direct Memory Access (DMA). This module handles initialization, and transfer
+//! Support for the Direct Memory Access (DMA) peripheral. This module handles initialization, and transfer
 //! configuration for DMA. The `Dma::cfg_channel` method is called by modules that use DMA.
 
 use core::{

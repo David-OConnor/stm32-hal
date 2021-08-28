@@ -1,4 +1,5 @@
-//! Serial Peripheral Interface (SPI) bus. Provides APIs to configure, read, and write from
+//! Support for the Serial Peripheral Interface (SPI) bus peripheral.
+//! Provides APIs to configure, read, and write from
 //! SPI, with blocking, nonblocking, and DMA functionality.
 
 use core::{

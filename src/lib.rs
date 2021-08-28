@@ -395,6 +395,9 @@ pub mod rtc;
 
 // #[cfg(not(any(feature = "f3")))]
 // pub mod sai;
+// todo: Temporary I2s SAI subset functionality for a specific project.
+#[cfg(feature = "h7")]
+pub mod i2s;
 
 pub mod spi;
 

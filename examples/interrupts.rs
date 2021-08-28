@@ -167,7 +167,7 @@ fn RTC_WKUP() {
 fn TIM3() {
     free(|cs| {
         // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
-        unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().set_bit()) }
+        unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().clear_bit()) }
 
         // Alternatively, if you have the timer set up in a global mutex:
         // access_global!(TIMER, timer, cs);
@@ -181,7 +181,7 @@ fn TIM3() {
 /// We use this timer for button debounce.
 fn TIM15() {
     free(|cs| {
-        unsafe { (*pac::TIM15::ptr()).sr.modify(|_, w| w.uif().set_bit()) }
+        unsafe { (*pac::TIM15::ptr()).sr.modify(|_, w| w.uif().clear_bit()) }
 
         BOUNCING.borrow(cs).set(false);
 

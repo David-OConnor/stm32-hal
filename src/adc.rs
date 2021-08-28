@@ -1,4 +1,4 @@
-//! Provides functionality for the ADC (Analog to Digital Converter).
+//! Support for the ADC (Analog to Digital Converter) peripheral.
 
 use cortex_m::{asm, interrupt::free};
 

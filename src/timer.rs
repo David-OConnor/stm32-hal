@@ -238,7 +238,7 @@ macro_rules! hal {
                     timer
                 }
             }
-            /// Starts listening for an `event`. Used to enable interrupts.
+            /// Enable a specific type of ADC interrupt.
             pub fn enable_interrupt(&mut self, interrupt: TimerInterrupt) {
                 match interrupt {
                     TimerInterrupt::Update => self.tim.dier.modify(|_, w| w.uie().set_bit()),
@@ -298,6 +298,7 @@ macro_rules! hal {
             /// in the constructor. If you use `center` aligned PWM, make sure to
             /// enter twice the freq you normally would.
             pub fn set_freq(&mut self, freq: f32) -> Result<(), ValueError> {
+                assert!(freq > 0.);
                 // todo: Take into account settings like Center alignment, and
                 // todo the `tim1sw` bit in RCC CFGR3, which change how the
                 // todo freq behaves. Center alignment halves the frequency;
@@ -394,10 +395,7 @@ macro_rules! hal {
         impl CountDown for Timer<pac::$TIMX> {
             type Time = f32;
 
-            fn start<T>(&mut self, timeout: T)
-            where
-                T: Into<f32>, // Hz.
-            {
+            fn start<F: Into<f32>>(&mut self, freq: F) {
                 self.disable();
 
                 self.set_freq(timeout.into()).ok();

@@ -470,33 +470,43 @@ impl Clocks {
         let mut result = ClocksValid::Valid;
 
         // todo: This depends on variant
-        let max_clock = 550_000_000;
+        // let max_clock = 550_000_000;
+        // #[cfg(feature = "h743")]
+        let max_sysclk = 480_000_000;
+        // #[cfg(feature = "h743")]
+        let max_hclk = 240_000_000;
+        // #[cfg(feature = "h743")]
+        let max_apb = 120_000_000; // todo: Different depending on apb
 
         // todo: L4+ (ie R, S, P, Q) can go up to 120_000.
 
         // todo: Are these valid for all H7 configs?
-        if self.divm1 > 63 || self.divn1 > 512 || self.divp1 > 128 {
+        if self.divm1 > 63 || self.divn1 > 512 || self.divp1 > 128 || self.divp < 2 {
             return ClocksValid::NotValid;
         }
+
+        // todo: More work on this, including feature gates
 
         // todo: QC these limits
         // todo: Note that this involves repeatedly calculating sysclk.
         // todo. We could work around thsi by calcing it once here.
-        if self.sysclk() > max_clock {
+        if self.sysclk() > max_sysclk {
             result = ClocksValid::NotValid;
         }
 
-        if self.hclk() > max_clock {
+        if self.hclk() > max_hclk {
             result = ClocksValid::NotValid;
         }
 
-        if self.apb1() > max_clock {
+        if self.apb1() > max_apb {
             result = ClocksValid::NotValid;
         }
 
-        if self.apb2() > max_clock {
+        if self.apb2() > max_apb {
             result = ClocksValid::NotValid;
         }
+
+        // todo: Apb3/4?
 
         result
     }
@@ -504,20 +514,27 @@ impl Clocks {
 
 impl Default for Clocks {
     /// This default configures common with a HSE, a 32Mhz sysclck. All peripheral common are at
-    /// 32 Mhz.
+    /// 64 Mhz. 300Mhz speed.
     /// HSE output is not bypassed.
     fn default() -> Self {
+        // todo: Feature-gate based on variant. Ie the 5xxMhz ones, the 240Mhz ones, and dual cores.
+        // todo: To get 480, You need to have the correct voltage scale (VOS) which affects the maximum clock directly.
+        // todo To clock this device at 480MHz.
+        // todo: Make this setting available!
         Self {
             input_src: InputSrc::Pll1(PllSrc::Hsi(HsiDiv::Div1)),
-            divm1: 32,
-            divn1: 129,
-            divp1: 1,
+            divm1: 16,
+            // #[cfg(feature = "h743")]
+            // divn1: 240, // todo: For 480Mhz with right vco set.
+            // #[cfg(feature = "h743")]
+            divn1: 150,
+            divp1: 2,
             d1_core_prescaler: HclkPrescaler::Div1,
             d1_prescaler: ApbPrescaler::Div1,
-            hclk_prescaler: HclkPrescaler::Div1,
-            d2_prescaler1: ApbPrescaler::Div1,
-            d2_prescaler2: ApbPrescaler::Div1,
-            d3_prescaler: ApbPrescaler::Div1,
+            hclk_prescaler: HclkPrescaler::Div2,
+            d2_prescaler1: ApbPrescaler::Div2,
+            d2_prescaler2: ApbPrescaler::Div2,
+            d3_prescaler: ApbPrescaler::Div2,
             hse_bypass: false,
             security_system: false,
             hsi48_on: false,
