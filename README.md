@@ -258,6 +258,7 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - USART synchronous mode, and auto-baud-rate detection unimplemented
 - USART interrupts unimplemented on F4
 - H7 clocks are missing advanced features
+- H7 clock default is suitable for single-core 480Mhz variants only.
 - PWM input unimplemented
 - CRC unimplemented for L5, F4, G0, and G4
 - Flash read/write unimplemented on H7

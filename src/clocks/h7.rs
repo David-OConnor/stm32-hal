@@ -3,7 +3,7 @@
 
 use crate::{
     clocks::{ClocksValid, SpeedError},
-    pac::{FLASH, RCC},
+    pac::{FLASH, PWR, RCC, SYSCFG},
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -154,6 +154,66 @@ impl HsiDiv {
     }
 }
 
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// Range for the VSO. See H743 RM, section 6.8.6: PWR D3 domain control register. Sets PWR_D3CR,
+/// `VOS` field.
+pub enum VosRange {
+    /// 1.26 V - 1.40 V
+    VOS0 = 0, // This will actually be VOS1, but note that we handle the case of VOS0 activation
+    // differntly than the others, using its special activation sequence.
+    /// 1.15 V - 1.26 V
+    VOS1 = 0b11,
+    /// 1.05 V - 1.15 V
+    VOS2 = 0b10,
+    /// 0.95 V - 1.05 V
+    VOS3 = 0b01,
+}
+
+impl VosRange {
+    /// Choose the wait states based on VSO range and hclk frequency.. See H743 RM, Table 17: FLASH
+    /// recommended number of wait states and programming delay. Returns a tuple of (number of wait states,
+    /// programming delay) (FLASH ACR_LATENCY, WRHIGHFREQ) values respectively.
+    pub fn wait_states(&self, hclk: u32) -> (u8, u8) {
+        // todo: Feature gate for other H7 variants. This is likely only valid on H743 and/or
+        // todo 480MHz single-core variants.
+        match self {
+            Self::VOS0 => match hclk {
+                0..=70_000_000 => (0, 0),
+                70_000_001..=140_000_000 => (1, 1),
+                140_000_001..=185_000_000 => (2, 1),
+                185_000_001..=210_000_000 => (2, 2),
+                210_000_001..=225_000_000 => (3, 2),
+                225_000_001..=240_000_000 => (4, 2),
+                _ => panic!("Can't set higher than 240Mhz HCLK with VSO0 range."),
+            },
+            Self::VOS1 => match hclk {
+                0..=70_000_000 => (0, 0),
+                70_000_001..=140_000_000 => (1, 1),
+                140_000_001..=185_000_000 => (2, 1),
+                185_000_001..=210_000_000 => (2, 2),
+                210_000_001..=225_000_000 => (3, 2),
+                _ => panic!("Can't set higher than 225Mhz HCLK with VOS1 range."),
+            },
+            Self::VOS2 => match hclk {
+                0..=55_000_000 => (0, 0),
+                55_000_001..=110_000_000 => (1, 1),
+                110_000_001..=165_000_000 => (2, 1),
+                165_000_001..=225_000_000 => (3, 2),
+                _ => panic!("Can't set higher than 225Mhz HCLK with VSO2 range."),
+            },
+            Self::VOS3 => match hclk {
+                0..=45_000_000 => (0, 0),
+                45_000_001..=90_000_000 => (1, 1),
+                90_000_001..=135_000_000 => (2, 1),
+                135_000_001..=180_000_000 => (3, 2),
+                180_000_001..=225_000_000 => (4, 2),
+                _ => panic!("Can't set higher than 225Mhz HCLK with VSO3 range."),
+            },
+        }
+    }
+}
+
 /// Settings used to configure clocks.
 /// Note that we use integers instead of enums for some of the scalers, unlike in
 /// the other clock modules. This is due to the wide range available on these fields.
@@ -173,16 +233,66 @@ pub struct Clocks {
     pub hse_bypass: bool,
     pub security_system: bool,
     pub hsi48_on: bool,
+    pub vos_range: VosRange,
 }
 
 impl Clocks {
     /// Setup common and return a `Valid` status if the config is valid. Return
     /// `Invalid`, and don't setup if not.
     /// https://docs.rs/stm32f3xx-hal/0.5.0/stm32f3xx_hal/rcc/struct.CFGR.html
-    /// Use the STM32CubeIDE Clock Configuration tab to help.
-    pub fn setup(&self, rcc: &mut RCC, flash: &mut FLASH) -> Result<(), SpeedError> {
+    /// Use the STM32CubeIDE Clock Configuration tab to identify valid configs.
+    /// Use the `default()` implementation as a safe baseline.
+    /// This method also configures the PWR VOS setting, and can be used to enable VOS boost,
+    /// if `vos_range` is set to `VosRange::VOS0`.
+    pub fn setup(
+        &self,
+        rcc: &mut RCC,
+        flash: &mut FLASH,
+        pwr: &mut PWR,
+        syscfg: &mut SYSCFG,
+    ) -> Result<(), SpeedError> {
         if let ClocksValid::NotValid = self.validate_speeds() {
             return Err(SpeedError {});
+        }
+
+        // H743 RM, sefction 6.8.6, and section 6.6.2: Voltage Scaling
+        //  Voltage scaling selection according to performance
+        // These bits control the VCORE voltage level and allow to obtains the best trade-off between
+        // power consumption and performance:
+        // – When increasing the performance, the voltage scaling shall be changed before increasing
+        // the system frequency.
+        // – When decreasing performance, the system frequency shall first be decreased before
+        // changing the voltage scaling.
+
+        match self.vos_range {
+            VosRange::VOS0 => {
+                // VOS0 activation/deactivation sequence
+                // The system maximum frequency can be reached by boosting the voltage scaling level to
+                // VOS0. This is done through the ODEN bit in the SYSCFG_PWRCR register.
+                // The sequence to activate the VOS0 is the following:
+                // 1. Ensure that the system voltage scaling is set to VOS1 by checking the VOS bits in
+                // PWR D3 domain control register (PWR D3 domain control register (PWR_D3CR))
+                pwr.d3cr
+                    .modify(|_, w| unsafe { w.vos().bits(VosRange::VOS1 as u8) });
+                // 2. Enable the SYSCFG clock in the RCC by setting the SYSCFGEN bit in the
+                // RCC_APB4ENR register.
+                rcc.apb4enr.modify(|_, w| w.syscfgen().set_bit());
+                // 3. Enable the ODEN bit in the SYSCFG_PWRCR register.
+                syscfg.pwrcr.write(|w| unsafe { w.oden().bits(1) });
+                // 4. Wait for VOSRDY to be set.
+                while pwr.d3cr.read().vosrdy().bit_is_clear() {}
+                // Once the VCORE supply has reached the required level, the system frequency can be
+                // increased. Figure 31 shows the recommended sequence for switching VCORE from VOS1 to
+                // VOS0 sequence.
+                // The sequence to deactivate the VOS0 is the following:
+                // 1. Ensure that the system frequency was decreased.
+                // 2. Ensure that the SYSCFG clock is enabled in the RCC by setting the SYSCFGEN bit set
+                // in the RCC_APB4ENR register.
+                // 3. Reset the ODEN bit in the SYSCFG_PWRCR register to disable VOS0.
+            }
+            _ => pwr
+                .d3cr
+                .modify(|_, w| unsafe { w.vos().bits(self.vos_range as u8) }),
         }
 
         // Adjust flash wait states according to the HCLK frequency.
@@ -190,20 +300,12 @@ impl Clocks {
         let (_, sysclk) = self.calc_sysclock();
 
         let hclk = sysclk / self.hclk_prescaler.value() as u32;
-        // Reference manual section 3.3.3
+        // H742 RM, Table 17.
         // todo: What should this be?
+        let wait_states = self.vos_range.wait_states(hclk);
         flash.acr.modify(|_, w| unsafe {
-            if hclk <= 16_000_000 {
-                w.latency().bits(0b000)
-            } else if hclk <= 32_000_000 {
-                w.latency().bits(0b001)
-            } else if hclk <= 48_000_000 {
-                w.latency().bits(0b010)
-            } else if hclk <= 64_000_000 {
-                w.latency().bits(0b011)
-            } else {
-                w.latency().bits(0b100)
-            }
+            w.latency().bits(wait_states.0);
+            w.wrhighfreq().bits(wait_states.1)
         });
 
         // todo: Look up and document PLL config.
@@ -428,7 +530,7 @@ impl Clocks {
     }
 
     pub fn hclk(&self) -> u32 {
-        self.sysclk() / self.d1_core_prescaler as u32 / self.hclk_prescaler as u32
+        self.sysclk() / self.d1_core_prescaler as u32 / self.hclk_prescaler.value() as u32
     }
 
     pub fn systick(&self) -> u32 {
@@ -481,7 +583,7 @@ impl Clocks {
         // todo: L4+ (ie R, S, P, Q) can go up to 120_000.
 
         // todo: Are these valid for all H7 configs?
-        if self.divm1 > 63 || self.divn1 > 512 || self.divp1 > 128 || self.divp < 2 {
+        if self.divm1 > 63 || self.divn1 > 512 || self.divp1 > 128 || self.divp1 < 2 {
             return ClocksValid::NotValid;
         }
 
@@ -538,6 +640,7 @@ impl Default for Clocks {
             hse_bypass: false,
             security_system: false,
             hsi48_on: false,
+            vos_range: VosRange::VOS3, // System default of Range 3.
         }
     }
 }

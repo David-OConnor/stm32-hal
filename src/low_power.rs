@@ -55,23 +55,9 @@ pub fn return_from_low_power_run(pwr: &mut PWR) {
 
 /// Place the system in sleep now mode. To enter `low-power sleep now`, enter low power mode
 /// (eg `low_power_mode()`) before running this. RM, table 25 and 26
+#[cfg(not(feature = "h7"))]
 pub fn sleep_now(scb: &mut SCB) {
-    // WFI (Wait for Interrupt) (eg `cortext_m::asm::wfi()) or WFE (Wait for Event) while:
-    // – SLEEPDEEP = 0
-    // – No interrupt (for WFI) or event (for WFE) is pending
-    scb.clear_sleepdeep();
-
-    // Or, unimplemented:
-    // On return from ISR while:
-    // // SLEEPDEEP = 0 and SLEEPONEXIT = 1
-    // scb.clear_sleepdeep();
-    // scb.set_sleeponexit();
-
-    // Sleep-now: if the SLEEPONEXIT bit is cleared, the MCU enters Sleep mode as soon
-    // as WFI or WFE instruction is executed.
-    scb.clear_sleeponexit();
-
-    wfi();
+    sleep(scb);
 }
 
 /// F303 RM, table 19.
@@ -261,6 +247,13 @@ cfg_if::cfg_if! {
             wfi();
         }
     } else { // H7
+        /// The CSleep mode applies only to the CPU subsystem. In CSleep mode, the CPU clock is
+        /// stopped. The CPU subsystem peripheral clocks operate according to the values of
+        /// PERxLPEN bits in RCC_C1_xxxxENR or RCC_DnxxxxENR. See H743 RM, Table 37.
+        pub fn csleep(scb: &mut SCB) {
+            sleep(scb);
+        }
+
         ///  Stops clocks on the CPU subsystem. H742 RM, Table 38.
         pub fn cstop(scb: &mut SCB, pwr: &mut PWR) {
             // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
@@ -318,4 +311,27 @@ cfg_if::cfg_if! {
         //     wfi();
         // }
     }
+}
+
+/// This function is used by both `sleep_now` (non-H7), and `csleep` (H7), so that the names
+/// can correctly reflect functionality.
+fn sleep(scb: &mut SCB) {
+    // todo: This function is identical to `sleep_now`, but we'd like to keep the separate
+    // todo name for H7.
+    // WFI (Wait for Interrupt) (eg `cortext_m::asm::wfi()) or WFE (Wait for Event) while:
+    // – SLEEPDEEP = 0
+    // – No interrupt (for WFI) or event (for WFE) is pending
+    scb.clear_sleepdeep();
+
+    // Or, unimplemented:
+    // On return from ISR while:
+    // // SLEEPDEEP = 0 and SLEEPONEXIT = 1
+    // scb.clear_sleepdeep();
+    // scb.set_sleeponexit();
+
+    // Sleep-now: if the SLEEPONEXIT bit is cleared, the MCU enters Sleep mode as soon
+    // as WFI or WFE instruction is executed.
+    scb.clear_sleeponexit();
+
+    wfi();
 }

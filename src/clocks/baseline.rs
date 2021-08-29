@@ -501,10 +501,11 @@ pub struct Clocks {
 // todo: On L4/5, add a way to enable the MSI for use as CLK48.
 
 impl Clocks {
-    /// Setup common and return a `Valid` status if the config is valid. Return
+    /// Setup clocks and return a `Valid` status if the config is valid. Return
     /// `Invalid`, and don't setup if not.
     /// https://docs.rs/stm32f3xx-hal/0.5.0/stm32f3xx_hal/rcc/struct.CFGR.html
-    /// Use the STM32CubeIDE Clock Configuration tab to help.
+    /// Use the STM32CubeIDE Clock Configuration tab to help identify valid configs.
+    /// Use the `default()` implementation as a safe baseline.
     pub fn setup(&self, rcc: &mut RCC, flash: &mut FLASH) -> Result<(), SpeedError> {
         if let ClocksValid::NotValid = self.validate_speeds() {
             return Err(SpeedError {});
