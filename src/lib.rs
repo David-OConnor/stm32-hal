@@ -343,10 +343,10 @@ pub mod crc;
 // WB doesn't have a DAC. Some G0 variants do - add it! Most F4 variants have it, some don't
 pub mod dac;
 
-// todo: G0 missing many DMA registers like CCR? H7 DMA layout is different.
+// todo: G0 missing many DMA registers like CCR?
 // todo: F4 needs some mods. So, only working on L4 and G4.
 // todo: L5 has a PAC bug on CCR registers past 1.
-#[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
+#[cfg(not(any(feature = "f4", feature = "l5")))]
 pub mod dma;
 
 #[cfg(not(feature = "h7"))] // todo
@@ -376,18 +376,18 @@ pub mod low_power;
 
 // F3, F4, L5, G0, and WL don't have Quad SPI.
 #[cfg(not(any(
-    feature = "f3",
-    feature = "f4",
-    feature = "l4x3", // todo: PAC bug?
-    feature = "l5",
-    feature = "g0",
-    feature = "g431",
-    feature = "g441",
-    feature = "g471",
-    feature = "g491",
-    feature = "g4a1",
-    feature = "h7b3",
-    feature = "wl",
+feature = "f3",
+feature = "f4",
+feature = "l4x3", // todo: PAC bug?
+feature = "l5",
+feature = "g0",
+feature = "g431",
+feature = "g441",
+feature = "g471",
+feature = "g491",
+feature = "g4a1",
+feature = "h7b3",
+feature = "wl",
 )))]
 pub mod qspi;
 #[cfg(not(feature = "wl"))] // todo
@@ -474,7 +474,7 @@ macro_rules! make_simple_globals {
 // todo: Remove this debug_workaroudn function on MCUs that don't require it. Ie, is this required on G4? G0?
 use cortex_m::interrupt::free;
 
-#[cfg(not(any(feature = "g0", feature = "h7")))]
+#[cfg(not(any(feature = "g0")))]
 /// Workaround due to debugger disconnecting in WFI (and low-power) modes.
 /// This affects most (all?) STM32 devices. In production on battery-powered
 /// devices that don't use DMA, consider removing this, to prevent power
@@ -484,10 +484,18 @@ pub fn debug_workaround() {
     free(|_| {
         let dbgmcu = unsafe { &(*pac::DBGMCU::ptr()) };
 
-        #[cfg(not(feature = "l5"))]
-        dbgmcu.cr.modify(|_, w| w.dbg_sleep().set_bit());
-        dbgmcu.cr.modify(|_, w| w.dbg_stop().set_bit());
-        dbgmcu.cr.modify(|_, w| w.dbg_standby().set_bit());
+        cfg_if::cfg_if! {
+            if #[cfg(not(feature = "h7"))] {
+                #[cfg(not(feature = "l5"))]
+                dbgmcu.cr.modify(|_, w| w.dbg_sleep().set_bit());
+                dbgmcu.cr.modify(|_, w| w.dbg_stop().set_bit());
+                dbgmcu.cr.modify(|_, w| w.dbg_standby().set_bit());
+            } else {
+                dbgmcu.cr.modify(|_, w| w.dbgsleep_d1().set_bit());
+                dbgmcu.cr.modify(|_, w| w.dbgstop_d1().set_bit());
+                dbgmcu.cr.modify(|_, w| w.dbgstby_d1().set_bit());
+            }
+        }
     });
 
     free(|cs| {

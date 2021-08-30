@@ -513,7 +513,7 @@ impl Clocks {
 
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
-        let (_, sysclk) = self.calc_sysclock();
+        let sysclk = self.sysclk();
 
         cfg_if! {
             if #[cfg(feature = "wb")] {
@@ -1086,11 +1086,10 @@ impl Clocks {
     }
 
     /// Calculate the systick, and input frequency, in Hz.
-    fn calc_sysclock(&self) -> (u32, u32) {
-        let input_freq;
-        let sysclk = match self.input_src {
+    pub fn sysclk(&self) -> u32 {
+        match self.input_src {
             InputSrc::Pll(pll_src) => {
-                input_freq = match pll_src {
+                let input_freq = match pll_src {
                     #[cfg(not(any(feature = "g0", feature = "g4")))]
                     PllSrc::Msi(range) => range.value() as u32,
                     PllSrc::Hsi => 16_000_000,
@@ -1101,31 +1100,14 @@ impl Clocks {
             }
 
             #[cfg(not(any(feature = "g0", feature = "g4")))]
-            InputSrc::Msi(range) => {
-                input_freq = range.value() as u32;
-                input_freq
-            }
-            InputSrc::Hsi => {
-                input_freq = 16_000_000;
-                input_freq
-            }
-            InputSrc::Hse(freq) => {
-                input_freq = freq;
-                input_freq
-            }
+            InputSrc::Msi(range) => range.value() as u32,
+            InputSrc::Hsi => 16_000_000,
+            InputSrc::Hse(freq) => freq,
             #[cfg(feature = "g0")]
-            InputSrc::Lsi => {
-                input_freq = 32_000; // todo confirm this is right.
-                input_freq
-            }
+            InputSrc::Lsi => 32_000,
             #[cfg(feature = "g0")]
-            InputSrc::Lse => {
-                input_freq = 32_768;
-                input_freq
-            }
-        };
-
-        (input_freq, sysclk)
+            InputSrc::Lse => 32_768,
+        }
     }
 
     /// Check if the PLL is enabled. This is useful if checking wheather to re-enable the PLL
@@ -1138,11 +1120,6 @@ impl Clocks {
     ///```
     pub fn pll_is_enabled(&self, rcc: &mut RCC) -> bool {
         rcc.cr.read().pllon().bit_is_set()
-    }
-
-    pub fn sysclk(&self) -> u32 {
-        let (_, sysclk) = self.calc_sysclock();
-        sysclk
     }
 
     pub fn hclk(&self) -> u32 {

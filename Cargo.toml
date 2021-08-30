@@ -31,9 +31,9 @@ stm32l4 = { package = "stm32l4-stm32hal", path = "../../Desktop/stm32-rs/stm32l4
 stm32l5 = { version = "0.13.0", optional = true }
 stm32g0 = { version = "0.13.0", optional = true }
 stm32g4 = { version = "0.13.0", optional = true }
-#stm32h7 = { version = "0.13.0", optional = true }
+stm32h7 = { version = "0.13.0", optional = true }
 # cortex-m-rt compatibility issue for h7
-stm32h7 = { path = "../../Desktop/stm32-rs/stm32h7", optional = true }
+#stm32h7 = { path = "../../Desktop/stm32-rs/stm32h7", optional = true }
 stm32wb = { package = "stm32wb-stm32hal", version = "0.13.1", optional = true }
 #stm32wb = { version = "0.14.0", optional = true }
 #stm32wb = { path = "../../Desktop/stm32-rs/stm32wb", optional = true }

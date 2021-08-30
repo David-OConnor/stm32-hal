@@ -247,7 +247,7 @@ macro_rules! hal {
                     // TimerInterrupt::CaptureCompare2 => self.tim.dier.modify(|_, w| w.cc2ie().set_bit()),
                     // TimerInterrupt::CaptureCompare3 => self.tim.dier.modify(|_, w| w.cc3ie().set_bit()),
                     // TimerInterrupt::CaptureCompare4 => self.tim.dier.modify(|_, w| w.cc4ie().set_bit()),
-                    // TimerInterrupt::UpdateDma => self.tim.dier.modify(|_, w| w.ude().set_bit()),
+                    TimerInterrupt::UpdateDma => self.tim.dier.modify(|_, w| w.ude().set_bit()),
                     // TimerInterrupt::TriggerDma => self.tim.dier.modify(|_, w| w.tde().set_bit()),
                     // TimerInterrupt::CaptureCompare1Dma => self.tim.dier.modify(|_, w| w.cc1de().set_bit()),
                     // TimerInterrupt::CaptureCompare2Dma => self.tim.dier.modify(|_, w| w.ccd2de().set_bit()),

@@ -60,40 +60,26 @@ pub enum DacBits {
     TwelveR,
 }
 
-#[derive(Clone, Copy)]
 /// Select a trigger, used by some features.
+/// #[derive(Clone, Copy)]
+// #[repr(u8)]
 pub enum Trigger {
     /// Timer 6
-    Tim6,
+    Tim6 = 0b000,
     /// Timers 3 or 8
-    Tim3_8,
+    Tim3_8 = 0b001,
     /// Timer 7
-    Tim7,
+    Tim7 = 0b010,
     /// Timer 15
-    Tim15,
+    Tim15 = 0b011,
     /// Timer 2
-    Tim2,
+    Tim2 = 0b100,
     /// Timer 4
-    Tim4,
+    Tim4 = 0b101,
     /// Eg, for interrupts
-    Exti9,
+    Exti9 = 0b110,
     /// A software trigger
-    Swtrig,
-}
-
-impl Trigger {
-    pub fn bits(&self) -> u8 {
-        match self {
-            Self::Tim6 => 0b000,
-            Self::Tim3_8 => 0b001,
-            Self::Tim7 => 0b010,
-            Self::Tim15 => 0b011,
-            Self::Tim2 => 0b100,
-            Self::Tim4 => 0b101,
-            Self::Exti9 => 0b110,
-            Self::Swtrig => 0b111,
-        }
-    }
+    Swtrig = 0b111,
 }
 
 /// Represents a Digital to Analog Converter (DAC) peripheral.
@@ -140,6 +126,10 @@ where
                 }
             }
         });
+
+        // See H743 RM, Table 227 for info on the buffer.
+        // todo: Currently at default setting for both channels of external pin with buffer enabled.
+        // regs.mcr.modify(|_, w| w.mode1.bits(0b000));
 
         Self {
             regs,
@@ -241,6 +231,10 @@ where
     // todo Or is the PAC breaking the bits field into multiple bits?
     #[cfg(not(any(feature = "l5", feature = "wl")))]
     /// Select and activate a trigger. See f303 Reference manual, section 16.5.4.
+    /// Each time a DAC interface detects a rising edge on the selected trigger source (refer to the
+    /// table below), the last data stored into the DAC_DHRx register are transferred into the
+    /// DAC_DORx register. The DAC_DORx register is updated three dac_pclk cycles after the
+    /// trigger occurs.
     pub fn set_trigger(&mut self, channel: DacChannel, trigger: Trigger) {
         #[cfg(any(feature = "l5", feature = "g4"))]
         let cr = &self.regs.dac_cr;
@@ -251,14 +245,14 @@ where
             DacChannel::C1 => {
                 cr.modify(|_, w| unsafe {
                     w.ten1().set_bit();
-                    w.tsel1().bits(trigger.bits())
+                    w.tsel1().bits(trigger as u8)
                 });
             }
             #[cfg(not(feature = "wl"))]
             DacChannel::C2 => {
                 cr.modify(|_, w| unsafe {
                     w.ten2().set_bit();
-                    w.tsel2().bits(trigger.bits())
+                    w.tsel2().bits(trigger as u8)
                 });
             }
         }

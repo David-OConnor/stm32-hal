@@ -1,6 +1,9 @@
 //! Support for the Direct Memory Access (DMA) peripheral. This module handles initialization, and transfer
 //! configuration for DMA. The `Dma::cfg_channel` method is called by modules that use DMA.
 
+// todo: This module could be greatly simplified if [this issue](https://github.com/stm32-rs/stm32-rs/issues/610)
+// todo is addressed: Ie H7 PAC approach adopted by other modules.
+
 use core::{
     ops::Deref,
     sync::atomic::{self, Ordering},
@@ -30,7 +33,7 @@ use cfg_if::cfg_if;
 // todo: Several sections of this are only correct for DMA1.
 
 #[derive(Copy, Clone)]
-#[repr(u8)]
+#[repr(usize)]
 /// A list of DMA input sources. The integer values represent their DMAMUX register value, on
 /// MCUs that use this. G4 RM, Table 91: DMAMUX: Assignment of multiplexer inputs to resources.
 pub enum DmaInput {
@@ -183,21 +186,28 @@ pub enum Priority {
 }
 
 #[derive(Copy, Clone)]
+#[repr(u8)]
 /// Represents a DMA channel to select, eg when configuring for use with a peripheral.
+/// u8 representation is used to index registers on H7 PAC (And hopefully on future PACs if they
+/// adopt H7's approach)
 pub enum DmaChannel {
-    C1,
-    C2,
-    C3,
-    C4,
-    C5,
+    // todo: H7 calls them Streams. Perhaps keep as Channel since they're effectively
+    // todo the same concept, for API parity?
+    #[cfg(feature = "h7")]
+    C0 = 0,
+    C1 = 1,
+    C2 = 2,
+    C3 = 3,
+    C4 = 4,
+    C5 = 5,
     // todo: Some G0 variants have channels 6 and 7 and DMA1. (And up to 5 channels on DMA2)
     #[cfg(not(feature = "g0"))]
-    C6,
+    C6 = 6,
     #[cfg(not(feature = "g0"))]
-    C7,
+    C7 = 7,
     // todo: Which else have 8? Also, note that some have diff amoutns on dam1 vs 2.
     #[cfg(any(feature = "l5", feature = "g4"))]
-    C8,
+    C8 = 8,
 }
 
 #[derive(Copy, Clone)]
@@ -209,6 +219,7 @@ pub enum Direction {
     ReadFromPeriph = 0,
     /// DIR = 1 defines typically a memory-to-peripheral transfer.
     ReadFromMem = 1,
+    MemToMem = 2,
 }
 
 #[derive(Copy, Clone)]
@@ -247,6 +258,10 @@ pub enum DmaInterrupt {
     TransferError,
     HalfTransfer,
     TransferComplete,
+    #[cfg(feature = "h7")]
+    DirectModeError,
+    #[cfg(feature = "h7")]
+    FifoError,
 }
 
 /// Reduce DRY over channels when configuring a channel's CCR.
@@ -359,6 +374,7 @@ where
 
     /// Configure a DMA channel. See L4 RM 0394, section 11.4.4. Sets the Transfer Complete
     /// interrupt.
+    #[cfg(not(feature = "h7"))]
     pub fn cfg_channel(
         &mut self,
         channel: DmaChannel,
@@ -370,10 +386,7 @@ where
         mem_size: DataSize,
         cfg: ChannelCfg,
     ) {
-        // The following sequence is needed to configure a DMA channel x:
-        // 1. Set the peripheral register address in the DMA_CPARx register.
-        // The data is moved from/to this address to/from the memory after the peripheral event,
-        // or after the channel is enabled in memory-to-memory mode.
+        // See the comments in the H7 variant for a description of what's going on.
 
         unsafe {
             match channel {
@@ -457,9 +470,6 @@ where
             }
         }
 
-        // 2. Set the memory address in the DMA_CMARx register.
-        // The data is written to/read from the memory after the peripheral event or after the
-        // channel is enabled in memory-to-memory mode.
         unsafe {
             match channel {
                 DmaChannel::C1 => {
@@ -542,8 +552,6 @@ where
             }
         }
 
-        // 3. Configure the total number of data to transfer in the DMA_CNDTRx register.
-        // After each data transfer, this value is decremented.
         #[cfg(feature = "wl")]
         let num_data = num_data as u32;
 
@@ -628,37 +636,6 @@ where
                 }
             }
         }
-
-        // 4. Configure the parameters listed below in the DMA_CCRx register:
-        // (These are listed below by their corresponding reg write code)
-
-        // todo: See note about sep reg writes to disable channel, and when you need to do this.
-
-        // 5. Activate the channel by setting the EN bit in the DMA_CCRx register.
-        // A channel, as soon as enabled, may serve any DMA request from the peripheral connected
-        // to this channel, or may start a memory-to-memory block transfer.
-        // Note: The two last steps of the channel configuration procedure may be merged into a single
-        // access to the DMA_CCRx register, to configure and enable the channel.
-        // When a channel is enabled and still active (not completed), the software must perform two
-        // separate write accesses to the DMA_CCRx register, to disable the channel, then to
-        // reprogram the channel for another next block transfer.
-        // Some fields of the DMA_CCRx register are read-only when the EN bit is set to 1
-
-        // (later): The circular mode must not be used in memory-to-memory mode. Before enabling a
-        // channel in circular mode (CIRC = 1), the software must clear the MEM2MEM bit of the
-        // DMA_CCRx register. When the circular mode is activated, the amount of data to transfer is
-        // automatically reloaded with the initial value programmed during the channel configuration
-        // phase, and the DMA requests continue to be served
-
-        // (See remainder of steps in `set_ccr()!` macro.
-
-        // todo: Let user set mem2mem mode?
-
-        // See the [Embedonomicon section on DMA](https://docs.rust-embedded.org/embedonomicon/dma.html)
-        // for info on why we use `compiler_fence` here:
-        // "We use Ordering::Release to prevent all preceding memory operations from being moved
-        // after [starting DMA], which performs a volatile write."
-        atomic::compiler_fence(Ordering::Release);
 
         match channel {
             DmaChannel::C1 => {
@@ -813,6 +790,110 @@ where
         }
     }
 
+    /// Configure a DMA channel. See L4 RM 0394, section 11.4.4. Sets the Transfer Complete
+    /// interrupt.
+    #[cfg(feature = "h7")]
+    pub fn cfg_channel(
+        &mut self,
+        channel: DmaChannel,
+        periph_addr: u32,
+        mem_addr: u32,
+        num_data: u32,
+        direction: Direction,
+        periph_size: DataSize,
+        mem_size: DataSize,
+        cfg: ChannelCfg,
+    ) {
+        // todo: The H7 sections are different, but we consolidated the comments. Figure out
+        // todo what's different and fix it by following the steps
+
+        self.regs.st[channel as usize]
+            .cr
+            .modify(|_, w| w.en().clear_bit());
+        while self.regs.st[channel as usize].cr.read().en().bit_is_set() {}
+
+        // H743 RM Section 15.3.19 The following sequence is needed to configure a DMA stream x:
+        // 1. Set the peripheral register address in the DMA_CPARx register.
+        // The data is moved from/to this address to/from the memory after the peripheral event,
+        // or after the channel is enabled in memory-to-memory mode.
+        self.regs.st[channel as usize]
+            .par
+            .write(|w| unsafe { w.bits(periph_addr) });
+
+        // 2. Set the memory address in the DMA_CMARx register.
+        // The data is written to/read from the memory after the peripheral event or after the
+        // channel is enabled in memory-to-memory mode.
+        self.regs.st[channel as usize]
+            .m0ar
+            .write(|w| unsafe { w.bits(mem_addr) });
+
+        // todo: m1ar too, if in double-buffer mode.
+
+        // 3. Configure the total number of data to transfer in the DMA_CNDTRx register.
+        // After each data transfer, this value is decremented.
+        self.regs.st[channel as usize]
+            .ndtr
+            .write(|w| unsafe { w.bits(num_data) });
+
+        // 4. Configure the parameters listed below in the DMA_CCRx register:
+        // (These are listed below by their corresponding reg write code)
+
+        // todo: See note about sep reg writes to disable channel, and when you need to do this.
+
+        // 5. Activate the channel by setting the EN bit in the DMA_CCRx register.
+        // A channel, as soon as enabled, may serve any DMA request from the peripheral connected
+        // to this channel, or may start a memory-to-memory block transfer.
+        // Note: The two last steps of the channel configuration procedure may be merged into a single
+        // access to the DMA_CCRx register, to configure and enable the channel.
+        // When a channel is enabled and still active (not completed), the software must perform two
+        // separate write accesses to the DMA_CCRx register, to disable the channel, then to
+        // reprogram the channel for another next block transfer.
+        // Some fields of the DMA_CCRx register are read-only when the EN bit is set to 1
+
+        // (later): The circular mode must not be used in memory-to-memory mode. Before enabling a
+        // channel in circular mode (CIRC = 1), the software must clear the MEM2MEM bit of the
+        // DMA_CCRx register. When the circular mode is activated, the amount of data to transfer is
+        // automatically reloaded with the initial value programmed during the channel configuration
+        // phase, and the DMA requests continue to be served
+
+        // (See remainder of steps in `set_ccr()!` macro.
+
+        // todo: Let user set mem2mem mode?
+
+        // See the [Embedonomicon section on DMA](https://docs.rust-embedded.org/embedonomicon/dma.html)
+        // for info on why we use `compiler_fence` here:
+        // "We use Ordering::Release to prevent all preceding memory operations from being moved
+        // after [starting DMA], which performs a volatile write."
+        atomic::compiler_fence(Ordering::Release);
+
+        let cr = &self.regs.st[channel as usize].cr;
+        cr.modify(|_, w| w.en().clear_bit());
+        while cr.read().en().bit_is_set() {}
+
+        cr.modify(|_, w| unsafe {
+            // – the channel priority
+            w.pl().bits(cfg.priority as u8);
+            // – the data transfer direction
+            // This bit [DIR] must be set only in memory-to-peripheral and peripheral-to-memory modes.
+            // 0: read from peripheral
+            w.dir().bits(direction as u8);
+            // – the circular mode
+            w.circ().bit(cfg.circular as u8 != 0);
+            // – the peripheral and memory incremented mode
+            w.pinc().bit(cfg.periph_incr as u8 != 0);
+            w.minc().bit(cfg.mem_incr as u8 != 0);
+            // – the peripheral and memory data size
+            w.psize().bits(periph_size as u8);
+            w.msize().bits(mem_size as u8);
+            // – the interrupt enable at half and/or full transfer and/or transfer error
+            w.tcie().set_bit();
+            // (See `Step 5` above.)
+            w.en().set_bit()
+        });
+    }
+
+    /// Stop DMA.
+    #[cfg(not(feature = "h7"))]
     pub fn stop(&mut self, channel: DmaChannel) {
         // L4 RM:
         // Once the software activates a channel, it waits for the completion of the programmed
@@ -905,6 +986,7 @@ where
             DmaChannel::C8 => {
                 let ccr = &self.regs.ccr8;
                 ccr.modify(|_, w| w.en().clear_bit());
+                while ccr.read().en().bit_is_set() {}
             }
         };
 
@@ -923,6 +1005,36 @@ where
         atomic::compiler_fence(Ordering::SeqCst);
     }
 
+    /// Stop DMA.
+    #[cfg(feature = "h7")]
+    pub fn stop(&mut self, channel: DmaChannel) {
+        // L4 RM:
+        // Once the software activates a channel, it waits for the completion of the programmed
+        // transfer. The DMA controller is not able to resume an aborted active channel with a possible
+        // suspended bus transfer.
+        // To correctly stop and disable a channel, the software clears the EN bit of the DMA_CCRx
+        // register.
+
+        // The software secures that no pending request from the peripheral is served by the
+        // DMA controller before the transfer completion.
+        // todo?
+
+        let cr = &self.regs.st[channel as usize].cr;
+        cr.modify(|_, w| w.en().clear_bit());
+        while cr.read().en().bit_is_set() {}
+
+        // The software waits for the transfer complete or transfer error interrupt.
+        // (Handed by calling code)
+
+        // (todo: set ifcr.cficx bit to clear all interrupts?)
+
+        // When a channel transfer error occurs, the EN bit of the DMA_CCRx register is cleared by
+        // hardware. This EN bit can not be set again by software to re-activate the channel x, until the
+        // TEIFx bit of the DMA_ISR register is set
+        atomic::compiler_fence(Ordering::SeqCst);
+    }
+
+    #[cfg(not(feature = "h7"))]
     pub fn transfer_is_complete(&mut self, channel: DmaChannel) -> bool {
         let isr_val = self.regs.isr.read();
         match channel {
@@ -937,6 +1049,20 @@ where
             DmaChannel::C7 => isr_val.tcif7().bit_is_set(),
             #[cfg(any(feature = "l5", feature = "g4"))]
             DmaChannel::C8 => isr_val.tcif8().bit_is_set(),
+        }
+    }
+
+    #[cfg(feature = "h7")]
+    pub fn transfer_is_complete(&mut self, channel: DmaChannel) -> bool {
+        match channel {
+            DmaChannel::C0 => self.regs.lisr.read().tcif0().bit_is_set(),
+            DmaChannel::C1 => self.regs.lisr.read().tcif1().bit_is_set(),
+            DmaChannel::C2 => self.regs.lisr.read().tcif2().bit_is_set(),
+            DmaChannel::C3 => self.regs.lisr.read().tcif3().bit_is_set(),
+            DmaChannel::C4 => self.regs.hisr.read().tcif4().bit_is_set(),
+            DmaChannel::C5 => self.regs.hisr.read().tcif5().bit_is_set(),
+            DmaChannel::C6 => self.regs.hisr.read().tcif6().bit_is_set(),
+            DmaChannel::C7 => self.regs.hisr.read().tcif7().bit_is_set(),
         }
     }
 
@@ -959,6 +1085,7 @@ where
 
     /// Enable a specific type of interrupt. Note that the `TransferComplete` interrupt
     /// is enabled automatically, by the `cfg_channel` method.
+    #[cfg(not(feature = "h7"))]
     pub fn enable_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
         // Can only be set when the channel is disabled.
         match channel {
@@ -1042,6 +1169,36 @@ where
         };
     }
 
+    /// Enable a specific type of interrupt. Note that the `TransferComplete` interrupt
+    /// is enabled automatically, by the `cfg_channel` method.
+    #[cfg(feature = "h7")]
+    pub fn enable_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
+        // Can only be set when the channel is disabled.
+        let cr = &self.regs.st[channel as usize].cr;
+
+        let originally_enabled = cr.read().en().bit_is_set();
+
+        if originally_enabled {
+            cr.modify(|_, w| w.en().clear_bit());
+            while cr.read().en().bit_is_set() {}
+        }
+
+        match interrupt {
+            DmaInterrupt::TransferError => cr.modify(|_, w| w.teie().set_bit()),
+            DmaInterrupt::HalfTransfer => cr.modify(|_, w| w.htie().set_bit()),
+            DmaInterrupt::TransferComplete => cr.modify(|_, w| w.tcie().set_bit()),
+            DmaInterrupt::DirectModeError => cr.modify(|_, w| w.dmeie().set_bit()),
+            DmaInterrupt::FifoError => self.regs.st[channel as usize]
+                .fcr
+                .modify(|_, w| w.feie().set_bit()),
+        }
+
+        if originally_enabled {
+            cr.modify(|_, w| w.en().set_bit());
+            while cr.read().en().bit_is_clear() {}
+        }
+    }
+
     pub fn clear_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
         cfg_if! {
             if #[cfg(any(feature = "g4", feature = "wl"))] {
@@ -1087,7 +1244,66 @@ where
                         DmaInterrupt::HalfTransfer => w.htif8().set_bit(),
                         DmaInterrupt::TransferComplete => w.tcif8().set_bit(),
                     }
-                })
+                });
+            } else if #[cfg(feature = "h7")] {
+                match channel {
+                    DmaChannel::C0 => match interrupt {
+                        DmaInterrupt::TransferError => self.regs.lifcr.write(|w| w.cteif0().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.lifcr.write(|w| w.chtif0().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.lifcr.write(|w| w.ctcif0().set_bit()),
+                        DmaInterrupt::DirectModeError => self.regs.lifcr.write(|w| w.cdmeif0().set_bit()),
+                        DmaInterrupt::FifoError => self.regs.lifcr.write(|w| w.cfeif0().set_bit()),
+                    }
+                    DmaChannel::C1 => match interrupt {
+                        DmaInterrupt::TransferError => self.regs.lifcr.write(|w| w.cteif1().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.lifcr.write(|w| w.chtif1().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.lifcr.write(|w| w.ctcif1().set_bit()),
+                        DmaInterrupt::DirectModeError => self.regs.lifcr.write(|w| w.cdmeif1().set_bit()),
+                        DmaInterrupt::FifoError => self.regs.lifcr.write(|w| w.cfeif1().set_bit()),
+                    }
+                    DmaChannel::C2 => match interrupt {
+                        DmaInterrupt::TransferError => self.regs.lifcr.write(|w| w.cteif2().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.lifcr.write(|w| w.chtif2().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.lifcr.write(|w| w.ctcif2().set_bit()),
+                        DmaInterrupt::DirectModeError => self.regs.lifcr.write(|w| w.cdmeif2().set_bit()),
+                        DmaInterrupt::FifoError => self.regs.lifcr.write(|w| w.cfeif2().set_bit()),
+                    }
+                    DmaChannel::C3 => match interrupt {
+                        DmaInterrupt::TransferError => self.regs.lifcr.write(|w| w.cteif3().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.lifcr.write(|w| w.chtif3().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.lifcr.write(|w| w.ctcif3().set_bit()),
+                        DmaInterrupt::DirectModeError => self.regs.lifcr.write(|w| w.cdmeif3().set_bit()),
+                        DmaInterrupt::FifoError => self.regs.lifcr.write(|w| w.cfeif3().set_bit()),
+                    }
+                    DmaChannel::C4 => match interrupt {
+                        DmaInterrupt::TransferError => self.regs.hifcr.write(|w| w.cteif4().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.hifcr.write(|w| w.chtif4().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.hifcr.write(|w| w.ctcif4().set_bit()),
+                        DmaInterrupt::DirectModeError => self.regs.hifcr.write(|w| w.cdmeif4().set_bit()),
+                        DmaInterrupt::FifoError => self.regs.hifcr.write(|w| w.cfeif4().set_bit()),
+                    }
+                    DmaChannel::C5 => match interrupt {
+                        DmaInterrupt::TransferError => self.regs.hifcr.write(|w| w.cteif5().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.hifcr.write(|w| w.chtif5().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.hifcr.write(|w| w.ctcif5().set_bit()),
+                        DmaInterrupt::DirectModeError => self.regs.hifcr.write(|w| w.cdmeif5().set_bit()),
+                        DmaInterrupt::FifoError => self.regs.hifcr.write(|w| w.cfeif5().set_bit()),
+                    }
+                    DmaChannel::C6 => match interrupt {
+                        DmaInterrupt::TransferError => self.regs.hifcr.write(|w| w.cteif6().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.hifcr.write(|w| w.chtif6().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.hifcr.write(|w| w.ctcif6().set_bit()),
+                        DmaInterrupt::DirectModeError => self.regs.hifcr.write(|w| w.cdmeif6().set_bit()),
+                        DmaInterrupt::FifoError => self.regs.hifcr.write(|w| w.cfeif6().set_bit()),
+                    }
+                    DmaChannel::C7 => match interrupt {
+                        DmaInterrupt::TransferError => self.regs.hifcr.write(|w| w.cteif7().set_bit()),
+                        DmaInterrupt::HalfTransfer => self.regs.hifcr.write(|w| w.chtif7().set_bit()),
+                        DmaInterrupt::TransferComplete => self.regs.hifcr.write(|w| w.ctcif7().set_bit()),
+                        DmaInterrupt::DirectModeError => self.regs.hifcr.write(|w| w.cdmeif7().set_bit()),
+                        DmaInterrupt::FifoError => self.regs.hifcr.write(|w| w.cfeif7().set_bit()),
+                    }
+                }
             } else {
                 self.regs.ifcr.write(|w| match channel {
                     DmaChannel::C1 => match interrupt {
@@ -1133,7 +1349,7 @@ where
                         DmaInterrupt::HalfTransfer => w.chtif8().set_bit(),
                         DmaInterrupt::TransferComplete => w.ctcif8().set_bit(),
                     }
-                })
+                });
             }
         }
     }
