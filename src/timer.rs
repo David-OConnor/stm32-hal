@@ -247,6 +247,7 @@ macro_rules! hal {
                     // TimerInterrupt::CaptureCompare2 => self.regs.dier.modify(|_, w| w.cc2ie().set_bit()),
                     // TimerInterrupt::CaptureCompare3 => self.regs.dier.modify(|_, w| w.cc3ie().set_bit()),
                     // TimerInterrupt::CaptureCompare4 => self.regs.dier.modify(|_, w| w.cc4ie().set_bit()),
+                    #[cfg(not(feature = "f3"))] // todo: Not working on some variants
                     TimerInterrupt::UpdateDma => self.regs.dier.modify(|_, w| w.ude().set_bit()),
                     // TimerInterrupt::TriggerDma => self.regs.dier.modify(|_, w| w.tde().set_bit()),
                     // TimerInterrupt::CaptureCompare1Dma => self.regs.dier.modify(|_, w| w.cc1de().set_bit()),

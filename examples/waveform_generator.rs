@@ -2,6 +2,10 @@
 //! the DAC, and a DMA circular buffer to transfer data from memory to the DAC with minimal
 //! CPU intervention.
 //!
+//! You can view output between ground and PA4 with an oscilloscope, or a pair of headphones or
+//! speakers. If using headphones or speakers, make sure you can adjust their volume; the default
+//! output volume will be too high.
+//!
 //! Tested on an STM32H743ZI, via STM32H7 nucleo
 //!
 //! See [STM32 AN3126](https://www.st.com/resource/en/application_note/cd00259245-audio-and-waveform-generation-using-the-dac-in-stm32-products-stmicroelectronics.pdf),
@@ -13,7 +17,7 @@
 
 use core::{
     cell::{Cell, RefCell},
-    sync::atomic::{AtomicI8, AtomicUsize, Ordering},
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use cortex_m::{
