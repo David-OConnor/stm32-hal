@@ -1,15 +1,18 @@
 //! Serial audio interface support. Used for I2S, PCM/DSP, TDM, AC'97 etc.
-//! See L443 Reference Manual, section 41.
+//! See L443 Reference Manual, section 41. H743 FM, section 51.
+//!
+//! For now, only supports a limited set of I2S features.
 
 // todo: WIP
 
 use core::ops::Deref;
 
-use crate::{
-    pac::{self, RCC},
-    rcc_en_reset,
-    traits::ClockCfg,
-};
+use crate::{clocks::Clocks, pac::RCC, rcc_en_reset};
+
+#[cfg(not(feature = "h7"))]
+use crate::pac::sai1 as sai;
+#[cfg(feature = "h7")]
+use crate::pac::sai4 as sai;
 
 use cfg_if::cfg_if;
 
@@ -17,6 +20,7 @@ use cfg_if::cfg_if;
 /// Specify the SAI device to use. Used internally for setting the appropriate APB.
 pub enum SaiDevice {
     One,
+    #[cfg(feature = "h7")]
     Two,
 }
 
@@ -27,7 +31,7 @@ pub enum SaiMode {
     MasterTransmitter = 0b00,
     MasterReceiver = 0b01,
     SlaveTransmitter = 0b10,
-    SlaveReceiver = 0b11
+    SlaveReceiver = 0b11,
 }
 
 #[derive(Clone, Copy)]
@@ -46,7 +50,7 @@ pub enum Sync {
     Async = 0b00,
     /// Audio sub-block is synchronous with the other internal audio sub-block. In this case, the audio
     /// sub-block must be configured in slave mode
-    Sync = 0b01
+    Sync = 0b01,
 }
 
 #[derive(Clone, Copy)]
@@ -99,22 +103,22 @@ impl Default for SaiConfig {
 }
 
 /// Represents the USART peripheral, for serial communications.
-pub struct Sai<S> {
-    regs: S,
+pub struct Sai<R> {
+    regs: R,
     pub config_a: SaiConfig,
     pub config_b: SaiConfig,
 }
 
-impl<S> Sai<S>
-    where
-        S: Deref<Target = pac::sai1::RegisterBlock>,
+impl<R> Sai<R>
+where
+    R: Deref<Target = sai::RegisterBlock>,
 {
-    pub fn new<C: ClockCfg>(
-        regs: S,
+    pub fn new(
+        regs: R,
         device: SaiDevice,
         config_a: SaiConfig,
         config_b: SaiConfig,
-        clocks: &C,
+        clocks: &Clocks,
         rcc: &mut RCC,
     ) -> Self {
         // todo: Hard set to usart 1 to get started
@@ -122,29 +126,36 @@ impl<S> Sai<S>
             SaiDevice::One => {
                 rcc_en_reset!(apb2, sai1, rcc);
             }
+            // todo: What other MCUs support what SAI#s?
+            #[cfg(feature = "h7")]
             SaiDevice::Two => {
                 rcc_en_reset!(apb2, sai2, rcc);
-            }
+            } // todo: More devices for H7
         }
 
-        regs.acr1().modify(|_, w| w.mode().bits(config_a.mode as u8));
-        regs.bcr1().modify(|_, w| w.mode().bits(config_b.mode as u8));
+        // todo: Do we always want to configure and enable both A and B? Probably not!
 
-        regs.acr1().modify(|_, w| w.prtcfg().bits(config_a.protocol as u8));
-        regs.bcr1().modify(|_, w| w.prtcfg().bits(config_b.protocol as u8));
+        regs.cha.cr1.modify(|_, w| unsafe {
+            w.mode().bits(config_a.mode as u8);
+            w.prtcfg().bits(config_a.protocol as u8);
+            w.mono().bit(config_a.mono as u8 != 0);
+            w.syncen().bits(config_a.sync as u8);
+            w.saien().set_bit()
+        });
 
-        regs.acr1().modify(|_, w| w.mono().bit(config_a.mono as u8 != 0));
-        regs.bcr1().modify(|_, w| w.mono().bit(config_b.mono as u8 != 0));
+        regs.chb.cr1.modify(|_, w| unsafe {
+            w.mode().bits(config_b.mode as u8);
+            w.prtcfg().bits(config_b.protocol as u8);
+            w.mono().bit(config_b.mono as u8 != 0);
+            w.syncen().bits(config_b.sync as u8);
+            w.saien().set_bit()
+        });
 
-        regs.acr1().modify(|_, w| w.syncen().bits(config_a.sync as u8));
-        regs.bcr1().modify(|_, w| w.syncen().bits(config_b.sync as u8));
-
-        // todo: Do we always want to configure and enable both A and B?
-        regs.acr1().modify(|_, w| w.saien().set_bit());
-        regs.bcr1().modify(|_, w| w.saien().set_bit());
-
-
-        Self { regs, config_a, config_b}
+        Self {
+            regs,
+            config_a,
+            config_b,
+        }
     }
 
     /// Enable a specific type of interrupt. See L4 RM, Table 220: "SAI interrupt sources".
@@ -160,43 +171,42 @@ impl<S> Sai<S>
 
         match channel {
             Channel::A => {
-                match interrupt_type {
-                    SaiInterrupt::Freq => self.regs.aim().freqie().set_bit(),
-                    SaiInterrupt::Ovrudr => self.regs.aim().ovrudrie().set_bit(),
-                    SaiInterrupt::AfsDet => self.regs.aim().afsdetie().set_bit(),
-                    SaiInterrupt::LfsDet => self.regs.aim().lfsdetie().set_bit(),
-                    SaiInterrupt::CnRdy => self.regs.aim().cnrdyie().set_bit(),
-                    SaiInterrupt::MuteDet => self.regs.aim().mutedetie().set_bit(),
-                    SaiInterrupt::WckCfg => self.regs.aim().wckcfgie().set_bit(),
-                }
+                self.regs.cha.im.modify(|_, w| match interrupt_type {
+                    SaiInterrupt::Freq => w.freqie().set_bit(),
+                    SaiInterrupt::Ovrudr => w.ovrudrie().set_bit(),
+                    SaiInterrupt::AfsDet => w.afsdetie().set_bit(),
+                    SaiInterrupt::LfsDet => w.lfsdetie().set_bit(),
+                    SaiInterrupt::CnRdy => w.cnrdyie().set_bit(),
+                    SaiInterrupt::MuteDet => w.mutedetie().set_bit(),
+                    SaiInterrupt::WckCfg => w.wckcfgie().set_bit(),
+                });
             }
             Channel::B => {
                 // todo DRY
-                match interrupt_type {
-                    SaiInterrupt::Freq => self.regs.bim().freqie().set_bit(),
-                    SaiInterrupt::Ovrudr => self.regs.bim().ovrudrie().set_bit(),
-                    SaiInterrupt::AfsDet => self.regs.bim().afsdetie().set_bit(),
-                    SaiInterrupt::LfsDet => self.regs.bim().lfsdetie().set_bit(),
-                    SaiInterrupt::CnRdy => self.regs.bim().cnrdyie().set_bit(),
-                    SaiInterrupt::MuteDet => self.regs.bim().mutedetie().set_bit(),
-                    SaiInterrupt::WckCfg => self.regs.bim().wckcfgie().set_bit(),
-                }
+                self.regs.chb.im.modify(|_, w| match interrupt_type {
+                    SaiInterrupt::Freq => w.freqie().set_bit(),
+                    SaiInterrupt::Ovrudr => w.ovrudrie().set_bit(),
+                    SaiInterrupt::AfsDet => w.afsdetie().set_bit(),
+                    SaiInterrupt::LfsDet => w.lfsdetie().set_bit(),
+                    SaiInterrupt::CnRdy => w.cnrdyie().set_bit(),
+                    SaiInterrupt::MuteDet => w.mutedetie().set_bit(),
+                    SaiInterrupt::WckCfg => w.wckcfgie().set_bit(),
+                });
             }
         }
     }
 
     /// Clears the interrupt pending flag for a specific type of interrupt.
-    pub fn clear_interrupt(&mut self, interrupt_type: UsartInterrupt, channel: Channel) {
+    pub fn clear_interrupt(&mut self, interrupt_type: SaiInterrupt, channel: Channel) {
+        // todo
         match interrupt_type {
-            SaiInterrupt::Freq => {},
-            SaiInterrupt::Ovrudr => {},
-            SaiInterrupt::AfsDet => {},
-            SaiInterrupt::LfsDet => {},
-            SaiInterrupt::CnRdy => {},
-            SaiInterrupt::MuteDet => {},
-            SaiInterrupt::WckCfg => {},
+            SaiInterrupt::Freq => {}
+            SaiInterrupt::Ovrudr => {}
+            SaiInterrupt::AfsDet => {}
+            SaiInterrupt::LfsDet => {}
+            SaiInterrupt::CnRdy => {}
+            SaiInterrupt::MuteDet => {}
+            SaiInterrupt::WckCfg => {}
         }
     }
-
-
 }

@@ -16,18 +16,19 @@ use crate::{
     rcc_en_reset,
 };
 
-#[cfg(feature = "g0")]
+#[cfg(any(feature = "g0"))]
 use crate::pac::dma as dma_p;
 #[cfg(any(
     feature = "f3",
     feature = "l4",
     feature = "g4",
+    feature = "h7",
     feature = "wb",
     feature = "wl"
 ))]
 use crate::pac::dma1 as dma_p;
 
-#[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
+#[cfg(not(any(feature = "f4", feature = "l5")))]
 use crate::dma::{self, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -388,7 +389,7 @@ where
         });
     }
 
-    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
+    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Read data, using DMA. See L44 RM, 37.4.16: "Transmissino using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
     /// For a single write, set `autoend` to `true`. For a write_read and other use cases,
@@ -463,11 +464,16 @@ where
         // page 1169.
         // Note: If DMA is used for transmission, the TXIE bit does not need to be enabled
 
+        #[cfg(feature = "h7")]
+        let len = len as u32;
+        #[cfg(not(feature = "h7"))]
+        let len = len as u16;
+
         dma.cfg_channel(
             channel,
             &self.regs.txdr as *const _ as u32,
             ptr as u32,
-            len as u16,
+            len,
             dma::Direction::ReadFromMem,
             dma::DataSize::S8,
             dma::DataSize::S8,
@@ -475,7 +481,7 @@ where
         );
     }
 
-    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
+    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Read data, using DMA. See L44 RM, 37.4.16: "Reception using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
     pub unsafe fn read_dma<D>(
@@ -530,11 +536,16 @@ where
         // SMBus Master receiver on page 1171.
         // Note: If DMA is used for reception, the RXIE bit does not need to be enabled
 
+        #[cfg(feature = "h7")]
+        let len = len as u32;
+        #[cfg(not(feature = "h7"))]
+        let len = len as u16;
+
         dma.cfg_channel(
             channel,
             &self.regs.rxdr as *const _ as u32,
             ptr as u32,
-            len as u16,
+            len,
             dma::Direction::ReadFromPeriph,
             dma::DataSize::S8,
             dma::DataSize::S8,

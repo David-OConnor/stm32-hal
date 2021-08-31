@@ -202,7 +202,7 @@ where
         // todo: Currently at default setting for both channels of external pin with buffer enabled.
         // todo make this customizable
         let mode = DacMode::NormExternalOnlyBufEn;
-        #[cfg(not(feature = "f3"))]
+        #[cfg(not(any(feature = "f3", feature = "f4")))]
         regs.mcr.modify(|_, w| unsafe {
             w.mode1().bits(mode as u8);
             w.mode2().bits(mode as u8)
@@ -293,6 +293,7 @@ where
     }
 
     /// Send values to the DAC using DMA, with a circular buffer.
+    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     pub unsafe fn set_values_dma<D>(
         &mut self,
         buf: &[u16],
