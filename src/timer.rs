@@ -398,7 +398,7 @@ macro_rules! hal {
             fn start<F: Into<f32>>(&mut self, freq: F) {
                 self.disable();
 
-                self.set_freq(timeout.into()).ok();
+                self.set_freq(freq.into()).ok();
 
                 // Trigger an update event to load the prescaler value to the clock
                 // NOTE(write): uses all bits in this register.

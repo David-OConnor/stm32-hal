@@ -93,9 +93,11 @@ pub enum DacBits {
     TwelveR,
 }
 
-/// Select a trigger, used by some features.
 #[derive(Clone, Copy)]
 #[repr(u8)]
+#[cfg(not(feature = "h7"))]
+/// Select a trigger, used by some features. Sets DAC_CR, TSEL1 and TSEL2 fields, for Channel 1
+/// and Channel 2 triggers respectively. See L44 RM, Table 75. DAC trigger selection.
 pub enum Trigger {
     /// Timer 6
     Tim6 = 0b000,
@@ -104,7 +106,7 @@ pub enum Trigger {
     /// Timer 7
     Tim7 = 0b010,
     /// Timer 15
-    Tim15 = 0b011,
+    Tim5 = 0b011,
     /// Timer 2
     Tim2 = 0b100,
     /// Timer 4
@@ -113,6 +115,42 @@ pub enum Trigger {
     Exti9 = 0b110,
     /// A software trigger
     Swtrig = 0b111,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+#[cfg(feature = "h7")]
+/// Select a trigger, used by some features. Sets DAC_CR, TSEL1 and TSEL2 fields, for Channel 1
+/// and Channel 2 triggers respectively. See H743 RM, Table 225. DAC interconnection.
+pub enum Trigger {
+    /// A software trigger
+    Swtrig = 0,
+    /// Timer 1
+    Tim1 = 1,
+    /// Timer 2
+    Tim2 = 2,
+    /// Timer 3
+    Tim4 = 3,
+    /// Timer 4
+    Tim5 = 4,
+    /// Timer 5
+    Tim6 = 5,
+    /// Timer 6
+    Tim7 = 6,
+    /// Timer 7
+    Tim8 = 7,
+    /// Timer 8
+    Tim15 = 8,
+    /// High resolution timer trigger 1
+    Hrtim1Trig1 = 9,
+    /// High resolution timer trigger 2
+    Hrtim1Trig2 = 10,
+    /// Low power timer 1
+    Lptim1 = 11,
+    /// Low power timer 2
+    Lptim2 = 12,
+    /// Eg, for interrupts
+    Exti9 = 13,
 }
 
 /// Represents a Digital to Analog Converter (DAC) peripheral.
@@ -318,17 +356,27 @@ where
         // For each DAC channelx, an interrupt is also generated if its corresponding DMAUDRIEx bit
         // in the DAC_CR register is enabled.
 
+        let periph_addr = match self.bits {
+            DacBits::EightR => &self.regs.dhr8r1 as *const _ as u32,
+            DacBits::TwelveL => &self.regs.dhr12l1 as *const _ as u32,
+            DacBits::TwelveR => &self.regs.dhr12r1 as *const _ as u32,
+        };
+
         let channel_cfg = dma::ChannelCfg {
             circular: dma::Circular::Enabled,
             ..Default::default()
         };
 
+        #[cfg(feature = "h7")]
+        let len = len as u32;
+        #[cfg(not(feature = "h7"))]
+        let len = len as u16;
+
         dma.cfg_channel(
             dma_channel,
-            // todo: Don't force R12. Set u8s below etc as required.
-            &self.regs.dhr12r1 as *const _ as u32,
+            periph_addr,
             ptr as u32,
-            len as u32,
+            len,
             dma::Direction::ReadFromMem,
             dma::DataSize::S16,
             dma::DataSize::S16,

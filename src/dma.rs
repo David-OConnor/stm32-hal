@@ -36,6 +36,7 @@ use cfg_if::cfg_if;
 
 #[derive(Copy, Clone)]
 #[repr(usize)]
+#[cfg(not(feature = "h7"))]
 /// A list of DMA input sources. The integer values represent their DMAMUX register value, on
 /// MCUs that use this. G4 RM, Table 91: DMAMUX: Assignment of multiplexer inputs to resources.
 pub enum DmaInput {
@@ -76,6 +77,46 @@ pub enum DmaInput {
     Adc3 = 37,
     Adc4 = 38,
     Adc5 = 39,
+}
+
+// todo: Trigger, synchronization etc mappings. Perhaps DmaTrigger, DmaSync enums etc.
+
+#[derive(Copy, Clone)]
+#[repr(usize)]
+#[cfg(feature = "h7")]
+/// A list of DMA input sources. The integer values represent their DMAMUX register value, on
+/// MCUs that use this. H743 RM, Table 121: DMAMUX1: Assignment of multiplexer inputs to resources.
+/// Note that this is only for DMAMUX1
+pub enum DmaInput {
+    // todo: DMAMUX2
+    Adc1 = 9,
+    Adc2 = 10,
+    DacCh1 = 67,
+    DacCh2 = 68,
+    Tim6Up = 69,
+    Tim7Up = 70,
+    Spi1Rx = 37,
+    Spi1Tx = 38,
+    Spi2Rx = 39,
+    Spi2Tx = 40,
+    Spi3Rx = 61,
+    Spi3Tx = 62,
+    I2c1Rx = 33,
+    I2c1Tx = 34,
+    I2c2Rx = 35,
+    I2c2Tx = 36,
+    I2c3Rx = 73,
+    I2c3Tx = 74,
+    Usart1Rx = 41,
+    Usart1Tx = 42,
+    Usart2Rx = 43,
+    Usart2Tx = 44,
+    Usart3Rx = 45,
+    Usart3Tx = 46,
+    Uart4Rx = 63,
+    Uart4Tx = 64,
+    Uart5Rx = 65,
+    Uart5Tx = 66,
 }
 
 impl DmaInput {

@@ -250,7 +250,7 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 
 ## Errata
 - SAI, SDIO, ethernet unimplemented
-- DMA unimplemented on F4 and H7
+- DMA unimplemented on F4
 - The DMA2 peripheral is unimplemented
 - DMA circular buffers unimplemented
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
@@ -265,7 +265,7 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - Low power timers (LPTIM) and low power usart (LPUSART) unimplemented
 - ADC unimplemented on F4
 - ADC3 unimplemented on H7
-- Low power modes beyond sleep and cstop aren't implemented for H7
+- Low power modes beyond csleep and cstop aren't implemented for H7
 - WB and WL are missing features relating to second core operations and RF
 - WL is missing support for many peripherals
 - L4+ MCUs not supported

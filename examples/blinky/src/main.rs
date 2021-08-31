@@ -27,16 +27,8 @@ fn main() -> ! {
 
     defmt::info!("Hello, world!");
 
-    // once your stm32-hal2 version is >= 0.2.12, you can safely switch
-    // to the following initialization:
-    //
-    // let clock_cfg = Clocks::default();
-    //
-    // until then, you have to use this one (otherwise the code will crash):
-    let clock_cfg = Clocks {
-        plln: 84,
-        ..Default::default()
-    };
+    let clock_cfg = Clocks::default();
+
     // Write the clock configuration to the MCU. If you wish, you can modify `clocks` above
     // in accordance with [its docs](https://docs.rs/stm32-hal2/0.2.0/stm32_hal2/clocks/index.html),
     // and the `clock_cfg` example.
