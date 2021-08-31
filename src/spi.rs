@@ -13,8 +13,6 @@ use cortex_m::interrupt::free;
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::spi::FullDuplex;
 
-use nb::block;
-
 use crate::{
     pac::{self, RCC},
     rcc_en_reset,
@@ -26,12 +24,13 @@ use crate::pac::dma as dma_p;
     feature = "f3",
     feature = "l4",
     feature = "g4",
+    feature = "h7",
     feature = "wb",
     feature = "wl"
 ))]
 use crate::pac::dma1 as dma_p;
 
-#[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
+#[cfg(not(any(feature = "f4", feature = "l5")))]
 use crate::dma::{self, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]

@@ -23,7 +23,9 @@ use crate::pac::dma1 as dma;
 
 #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "wl"))]
 use pac::DMAMUX;
-#[cfg(any(feature = "wb"))]
+
+// todo: DMAMUX2 support (Not sure if WB has it, but H7 has both).
+#[cfg(any(feature = "wb", feature = "h7"))]
 use pac::DMAMUX1 as DMAMUX;
 
 // use embedded_dma::{ReadBuffer, WriteBuffer};
@@ -325,10 +327,10 @@ macro_rules! enable_interrupt {
 /// This struct is used to pass common (non-peripheral and non-use-specific) data when configuring
 /// a channel.
 pub struct ChannelCfg {
-    priority: Priority,
-    circular: Circular,
-    periph_incr: IncrMode,
-    mem_incr: IncrMode,
+    pub priority: Priority,
+    pub circular: Circular,
+    pub periph_incr: IncrMode,
+    pub mem_incr: IncrMode,
 }
 
 impl Default for ChannelCfg {
@@ -1359,8 +1361,9 @@ where
     feature = "l5",
     feature = "g0",
     feature = "g4",
+    feature = "h7",
     feature = "wb",
-    feature = "wl"
+    feature = "wl",
 ))]
 /// Configure a specific DMA channel to work with a specific peripheral.
 pub fn mux(channel: DmaChannel, input: DmaInput, mux: &DMAMUX) {
@@ -1369,7 +1372,7 @@ pub fn mux(channel: DmaChannel, input: DmaInput, mux: &DMAMUX) {
     // of feature-gating within the same function so the name can be recognizable
     // from the RM etc.
     unsafe {
-        #[cfg(not(any(feature = "g070", feature = "g071", feature = "g081")))]
+        #[cfg(not(any(feature = "g070", feature = "g071", feature = "g081", feature = "h7")))]
         match channel {
             DmaChannel::C1 => mux.c1cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
             DmaChannel::C2 => mux.c2cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
@@ -1401,5 +1404,8 @@ pub fn mux(channel: DmaChannel, input: DmaInput, mux: &DMAMUX) {
                 .dmamux_c5cr
                 .modify(|_, w| w.dmareq_id().bits(input as u8)),
         }
+
+        #[cfg(feature = "h7")]
+        mux.ccr[channel as usize].modify(|_, w| w.dmareq_id().bits(input as u8));
     }
 }

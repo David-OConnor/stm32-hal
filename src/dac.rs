@@ -17,7 +17,40 @@ cfg_if! {
     }
 }
 
-// Todo: The 4 MCR register modes.
+#[cfg(feature = "g0")]
+use crate::pac::dma as dma_p;
+#[cfg(any(feature = "f3", feature = "l4", feature = "g4", feature = "h7"))]
+use crate::pac::dma1 as dma_p;
+
+#[cfg(not(any(feature = "f4", feature = "l5")))]
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::dma::DmaInput;
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// Sets the DAC_MCR register, Mode1 and Mode2 fields.
+pub enum DacMode {
+    /// DAC channel is connected to external pin with Buffer enabled
+    NormExternalOnlyBufEn = 0b000,
+    /// DAC channel is connected to external pin and to on chip peripherals with buffer
+    /// enabled
+    NormExternalAndPeriphBufEn = 0b001,
+    /// DAC channel is connected to external pin with buffer disabled
+    NormExternalOnlyBufDis = 0b010,
+    /// DAC channel is connected to on chip peripherals with Buffer disabled
+    NormExternalAndPeriphBuDis = 0b011,
+    /// DAC channel is connected to external pin with Buffer enabled
+    ShNormExternalOnlyBufEn = 0b100,
+    /// DAC channel is connected to external pin and to on chip peripherals with buffer
+    /// enabled
+    ShExternalAndPeriphBufEn = 0b101,
+    /// DAC channel is connected to external pin with buffer disabled
+    ShNormExternalOnlyBufDis = 0b110,
+    /// DAC channel is connected to on chip peripherals with Buffer disabled
+    ShNormExternalAndPeriphBuDis = 0b111,
+}
 
 use cfg_if::cfg_if;
 
@@ -61,8 +94,8 @@ pub enum DacBits {
 }
 
 /// Select a trigger, used by some features.
-/// #[derive(Clone, Copy)]
-// #[repr(u8)]
+#[derive(Clone, Copy)]
+#[repr(u8)]
 pub enum Trigger {
     /// Timer 6
     Tim6 = 0b000,
@@ -84,7 +117,7 @@ pub enum Trigger {
 
 /// Represents a Digital to Analog Converter (DAC) peripheral.
 pub struct Dac<R> {
-    regs: R,
+    pub regs: R,
     device: DacDevice,
     bits: DacBits,
     vref: f32,
@@ -129,7 +162,12 @@ where
 
         // See H743 RM, Table 227 for info on the buffer.
         // todo: Currently at default setting for both channels of external pin with buffer enabled.
-        // regs.mcr.modify(|_, w| w.mode1.bits(0b000));
+        // todo make this customizable
+        let mode = DacMode::NormExternalOnlyBufEn;
+        regs.mcr.modify(|_, w| unsafe {
+            w.mode1().bits(mode as u8);
+            w.mode2().bits(mode as u8)
+        });
 
         Self {
             regs,
@@ -213,6 +251,89 @@ where
                 DacBits::TwelveR => self.regs.dhr12r2.modify(|_, w| unsafe { w.bits(val) }),
             },
         }
+    }
+
+    /// Send values to the DAC using DMA, with a circular buffer.
+    pub unsafe fn set_values_dma<D>(
+        &mut self,
+        buf: &[u16],
+        dac_channel: DacChannel,
+        dma_channel: DmaChannel,
+        dma: &mut Dma<D>,
+    ) where
+        D: Deref<Target = dma_p::RegisterBlock>,
+    {
+        let (ptr, len) = (buf.as_ptr(), buf.len());
+
+        // todo: Impl these non-DMAMUx features.
+        // // L44 RM, Table 41. "DMA1 requests for each channel
+        // // todo: DMA2 support.
+        // #[cfg(any(feature = "f3", feature = "l4"))]
+        //     let channel = match self.device {
+        //     AdcDevice::One => DmaInput::Adc1.dma1_channel(),
+        //     AdcDevice::Two => DmaInput::Adc2.dma1_channel(),
+        //     _ => panic!("DMA on ADC beyond 2 is not supported. If it is for your MCU, please submit an issue \
+        //         or PR on Github.")
+        // };
+        //
+        // #[cfg(feature = "l4")]
+        // match self.device {
+        //     AdcDevice::One => dma.channel_select(DmaInput::Adc1),
+        //     AdcDevice::Two => dma.channel_select(DmaInput::Adc2),
+        //     _ => unimplemented!(),
+        // }
+
+        // H743 RM, section 26.4.8: DMA requests
+        // Each DAC channel has a DMA capability. Two DMA channels are used to service DAC
+        // channel DMA requests.
+
+        // When an external trigger (but not a software trigger) occurs while the DMAENx bit is set, the
+        // value of the DAC_DHRx register is transferred into the DAC_DORx register when the
+        // transfer is complete, and a DMA request is generated.
+        match dac_channel {
+            DacChannel::C1 => self.regs.cr.modify(|_, w| w.dmaen1().set_bit()),
+            DacChannel::C2 => self.regs.cr.modify(|_, w| w.dmaen2().set_bit()),
+        }
+
+        // In dual mode, if both DMAENx bits are set, two DMA requests are generated. If only one
+        // DMA request is needed, only the corresponding DMAENx bit must be set. In this way, the
+        // application can manage both DAC channels in dual mode by using one DMA request and a
+        // unique DMA channel.
+
+        // As DAC_DHRx to DAC_DORx data transfer occurred before the DMA request, the very first
+        // data has to be written to the DAC_DHRx before the first trigger event occurs.
+
+        // DMA underrun
+        // The DAC DMA request is not queued so that if a second external trigger arrives before the
+        // acknowledgment for the first external trigger is received (first request), then no new request
+        // is issued and the DMA channelx underrun flag DMAUDRx in the DAC_SR register is set,
+        // reporting the error condition. The DAC channelx continues to convert old data.
+
+        // The software must clear the DMAUDRx flag by writing 1, clear the DMAEN bit of the used
+        // DMA stream and re-initialize both DMA and DAC channelx to restart the transfer correctly.
+        // The software must modify the DAC trigger conversion frequency or lighten the DMA
+        // workload to avoid a new DMA underrun. Finally, the DAC conversion could be resumed by
+        // enabling both DMA data transfer and conversion trigger.
+
+        // For each DAC channelx, an interrupt is also generated if its corresponding DMAUDRIEx bit
+        // in the DAC_CR register is enabled.
+
+        let channel_cfg = dma::ChannelCfg {
+            circular: dma::Circular::Enabled,
+            ..Default::default()
+        };
+
+        dma.cfg_channel(
+            dma_channel,
+            // todo: Don't force R12. Set u8s below etc as required.
+            &self.regs.dhr12r1 as *const _ as u32,
+            ptr as u32,
+            len as u32,
+            dma::Direction::ReadFromMem,
+            dma::DataSize::S16,
+            dma::DataSize::S16,
+            channel_cfg,
+        );
     }
 
     /// Set the DAC output voltage.
