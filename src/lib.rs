@@ -394,7 +394,8 @@ pub mod qspi;
 #[cfg(not(feature = "wl"))] // todo
 pub mod rtc;
 
-#[cfg(not(any(feature = "f3", feature = "f4", feature = "g0")))]
+// todo: Impl SAI on G4.
+#[cfg(not(any(feature = "f3", feature = "f4", feature = "g0", feature = "g4")))]
 pub mod sai;
 
 pub mod spi;

@@ -250,6 +250,7 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 
 ## Errata
 - SDIO and ethernet unimplemented
+- SAI unimplemented on G4
 - DMA unimplemented on F4
 - The DMA2 peripheral is unimplemented
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented

@@ -202,7 +202,7 @@ where
         // todo: Currently at default setting for both channels of external pin with buffer enabled.
         // todo make this customizable
         let mode = DacMode::NormExternalOnlyBufEn;
-        #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5")))]
+        #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "g4")))]
         regs.mcr.modify(|_, w| unsafe {
             w.mode1().bits(mode as u8);
             w.mode2().bits(mode as u8)
@@ -227,6 +227,7 @@ where
     ///
     /// After the calibration operation, the DAC channel is
     /// disabled.
+    #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "g4")))]
     pub fn calibrate_buffer(
         // This function taken from STM32H7xx-hal.
         &mut self,
@@ -379,6 +380,13 @@ where
         // When an external trigger (but not a software trigger) occurs while the DMAENx bit is set, the
         // value of the DAC_DHRx register is transferred into the DAC_DORx register when the
         // transfer is complete, and a DMA request is generated.
+        #[cfg(any(feature = "l5", feature = "g4"))]
+        match dac_channel {
+            DacChannel::C1 => self.regs.dac_cr.modify(|_, w| w.dmaen1().set_bit()),
+            DacChannel::C2 => self.regs.dac_cr.modify(|_, w| w.dmaen2().set_bit()),
+        }
+
+        #[cfg(not(any(feature = "l5", feature = "g4")))]
         match dac_channel {
             DacChannel::C1 => self.regs.cr.modify(|_, w| w.dmaen1().set_bit()),
             DacChannel::C2 => self.regs.cr.modify(|_, w| w.dmaen2().set_bit()),
@@ -407,11 +415,36 @@ where
         // For each DAC channelx, an interrupt is also generated if its corresponding DMAUDRIEx bit
         // in the DAC_CR register is enabled.
 
-        let periph_addr = match self.bits {
-            DacBits::EightR => &self.regs.dhr8r1 as *const _ as u32,
-            DacBits::TwelveL => &self.regs.dhr12l1 as *const _ as u32,
-            DacBits::TwelveR => &self.regs.dhr12r1 as *const _ as u32,
+        #[cfg(any(feature = "l5", feature = "g4"))]
+        let periph_addr = match dac_channel {
+            DacChannel::C1 => match &self.bits {
+                DacBits::EightR => &self.regs.dac_dhr8r1 as *const _ as u32,
+                DacBits::TwelveL => &self.regs.dac_dhr12l1 as *const _ as u32,
+                DacBits::TwelveR => &self.regs.dac_dhr12r1 as *const _ as u32,
+            },
+            #[cfg(not(feature = "wl"))]
+            DacChannel::C2 => match &self.bits {
+                DacBits::EightR => &self.regs.dac_dhr8r2 as *const _ as u32,
+                DacBits::TwelveL => &self.regs.dac_dhr12l2 as *const _ as u32,
+                DacBits::TwelveR => &self.regs.dac_dhr12r2 as *const _ as u32,
+            },
         };
+
+        #[cfg(not(any(feature = "l5", feature = "g4")))]
+        let periph_addr = match dac_channel {
+            DacChannel::C1 => match &self.bits {
+                DacBits::EightR => &self.regs.dhr8r1 as *const _ as u32,
+                DacBits::TwelveL => &self.regs.dhr12l1 as *const _ as u32,
+                DacBits::TwelveR => &self.regs.dhr12r1 as *const _ as u32,
+            },
+            #[cfg(not(feature = "wl"))]
+            DacChannel::C2 => match &self.bits {
+                DacBits::EightR => &self.regs.dhr8r2 as *const _ as u32,
+                DacBits::TwelveL => &self.regs.dhr12l2 as *const _ as u32,
+                DacBits::TwelveR => &self.regs.dhr12r2 as *const _ as u32,
+            },
+        };
+
 
         #[cfg(feature = "h7")]
         let len = len as u32;
