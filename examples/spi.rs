@@ -75,8 +75,8 @@ fn main() -> ! {
     cs.set_low();
 
     unsafe {
-        spi.write_dma(&read_buf, DmaChannel::C3, &mut dma);
-        spi.read_dma(&mut read_buf, DmaChannel::C2, &mut dma);
+        spi.write_dma(&read_buf, DmaChannel::C3, Default::default(), &mut dma);
+        spi.read_dma(&mut read_buf, DmaChannel::C2, Default::default(), &mut dma);
     }
 
     while !dma.transfer_is_complete(DmaChannel::C2) {}

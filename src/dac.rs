@@ -291,7 +291,7 @@ where
     }
 
     /// Set the DAC output word.
-    pub fn set_value(&mut self, channel: DacChannel, val: u32) {
+    pub fn write(&mut self, channel: DacChannel, val: u32) {
         // RM: DAC conversion
         // The DAC_DORx cannot be written directly and any data transfer to the DAC channelx must
         // be performed by loading the DAC_DHRx register (write operation to DAC_DHR8Rx,
@@ -342,7 +342,7 @@ where
     /// and Tim7 are designed for DAC triggering) sends one word from the buffer to the DAC's
     /// output.
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
-    pub unsafe fn set_values_dma<D>(
+    pub unsafe fn write_dma<D>(
         &mut self,
         buf: &[u16],
         dac_channel: DacChannel,
@@ -431,7 +431,7 @@ where
     }
 
     /// Set the DAC output voltage.
-    pub fn set_voltage(&mut self, channel: DacChannel, volts: f32) {
+    pub fn write_voltage(&mut self, channel: DacChannel, volts: f32) {
         let max_word = match self.bits {
             DacBits::EightR => 255.,
             DacBits::TwelveL => 4_095.,
@@ -439,7 +439,7 @@ where
         };
 
         let val = ((volts / self.vref) * max_word) as u32;
-        self.set_value(channel, val);
+        self.write(channel, val);
     }
 
     // todo: Trouble finding right `tsel` fields for l5 and WL. RM shows same as others. PAC bug?
@@ -499,7 +499,7 @@ where
             }
         }
         self.set_trigger(channel, trigger);
-        self.set_value(channel, data);
+        self.write(channel, data);
     }
 
     #[cfg(not(any(feature = "l5", feature = "wl")))] // See note on `set_trigger`.
@@ -528,7 +528,7 @@ where
             }
         }
         self.set_trigger(channel, trigger);
-        self.set_value(channel, data);
+        self.write(channel, data);
     }
 
     /// Enable the DMA Underrun interrupt - the only interrupt available.

@@ -18,10 +18,16 @@ use cortex_m::interrupt::free;
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
-#[cfg(any(feature = "f3", feature = "l4", feature = "g4", feature = "wb"))]
+#[cfg(any(
+    feature = "f3",
+    feature = "l4",
+    feature = "g4",
+    feature = "h7",
+    feature = "wb"
+))]
 use crate::pac::dma1 as dma_p;
 
-#[cfg(not(any(feature = "h7", feature = "f4", feature = "l5")))]
+#[cfg(not(any(feature = "f4", feature = "l5")))]
 use crate::dma::{self, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -489,7 +495,7 @@ where
         self.regs.cr3.modify(|_, w| w.dmat().set_bit());
     }
 
-    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
+    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is only used on F3 and L4.
     pub unsafe fn read_dma<D>(&mut self, buf: &mut [u8], channel: DmaChannel, dma: &mut Dma<D>)
@@ -524,7 +530,10 @@ where
             UsartDevice::Three => dma.channel_select(DmaInput::Usart3Rx),
         }
 
-        // todo: Pri and Circular as args?
+        #[cfg(feature = "h7")]
+        let len = len as u32;
+        #[cfg(not(feature = "h7"))]
+        let len = len as u16;
 
         dma.cfg_channel(
             channel,
@@ -537,7 +546,7 @@ where
             // RXNE event.
             ptr as u32,
             // 3. Configure the total number of bytes to be transferred to the DMA control register.
-            len as u16,
+            len,
             dma::Direction::ReadFromPeriph,
             dma::DataSize::S8,
             dma::DataSize::S8,

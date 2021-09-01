@@ -29,7 +29,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "f4", feature = "l5")))]
-use crate::dma::{self, Dma, DmaChannel};
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
@@ -400,6 +400,7 @@ where
         buf: &[u8],
         autoend: bool,
         channel: DmaChannel,
+        channel_cfg: ChannelCfg,
         dma: &mut Dma<D>,
     ) where
         D: Deref<Target = dma_p::RegisterBlock>,
@@ -477,7 +478,7 @@ where
             dma::Direction::ReadFromMem,
             dma::DataSize::S8,
             dma::DataSize::S8,
-            Default::default(),
+            channel_cfg,
         );
     }
 
@@ -489,6 +490,7 @@ where
         addr: u8,
         buf: &mut [u8],
         channel: DmaChannel,
+        channel_cfg: ChannelCfg,
         dma: &mut Dma<D>,
     ) where
         D: Deref<Target = dma_p::RegisterBlock>,
@@ -549,7 +551,7 @@ where
             dma::Direction::ReadFromPeriph,
             dma::DataSize::S8,
             dma::DataSize::S8,
-            Default::default(),
+            channel_cfg,
         );
     }
 }

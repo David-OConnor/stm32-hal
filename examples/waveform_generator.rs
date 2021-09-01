@@ -129,7 +129,7 @@ fn main() -> ! {
     };
 
     unsafe {
-        dac.set_values_dma(
+        dac.write_dma(
             &lut::SIN_X,
             DacChannel::C1,
             DmaChannel::C3,

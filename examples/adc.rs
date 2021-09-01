@@ -76,7 +76,15 @@ fn main() -> ! {
     // Begin a DMA transfer. Note that the `DmaChannel` we pass here is only used on
     // MCUs that use `DMAMUX`, eg L5, G0, and G4. For those, you need to run `mux`, to
     // set the channel: `dma::mux(DmaChannel::C1, MuxInput::Adc1, &mut dp.DMAMUX);
-    unsafe { adc.read_dma(&mut dma_buf, chan_num, DmaChannel::C1, &mut dma) };
+    unsafe {
+        adc.read_dma(
+            &mut dma_buf,
+            chan_num,
+            DmaChannel::C1,
+            Default::default(),
+            &mut dma,
+        )
+    };
 
     // Wait for the transfer to complete. Ie by handling the channel's transfer-complete
     // interrupt in an ISR, which is enabled by the `read_dma` command.

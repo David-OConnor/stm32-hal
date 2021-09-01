@@ -102,9 +102,8 @@ pub enum DataSize {
 #[repr(u8)]
 /// Select wheather the master clock is generated. xDR1 register, NOMCK field.
 pub enum MasterClock {
-    // todo: Note that the PAC uses MCKEN vice RM shows NOMCK
-    Used = 1,
-    NotUsed = 0,
+    Used = 0,
+    NotUsed = 1,
 }
 
 #[derive(Clone, Copy)]
@@ -215,7 +214,9 @@ where
             }
         });
 
-        // todo: Do we always want to configure and enable both A and B? Probably not!
+        // todo: Do we always want to configure and enable both A and B?
+
+        // todo: Sort out mken/nomck. PAC issues?
 
         // For info on modes, reference H743 RM, section 51.4.3: "Configuring and
         // Enabling SAI modes".
@@ -224,15 +225,17 @@ where
             w.prtcfg().bits(config_a.protocol as u8);
             w.mono().bit(config_a.mono as u8 != 0);
             w.syncen().bits(config_a.sync as u8);
+            // The NOMCK bit of the SAI_xCR1 register is used to define whether the master clock is
+            // generated or not.
+            // #[cfg(not(feature = "h7"))]
+            // w.nomck().bits(config_a.master_clock as u8 != 0);
+            #[cfg(feature = "h7")]
+            w.mcken().bit(config_a.master_clock as u8 == 0);
             // The audio frame can target different data sizes by configuring bit DS[2:0] in the SAI_xCR1
             // register. The data sizes may be 8, 10, 16, 20, 24 or 32 bits. During the transfer, either the
             // MSB or the LSB of the data are sent first, depending on the configuration of bit LSBFIRST in
             // the SAI_xCR1 register.
-            w.ds().bits(config_a.datasize as u8);
-            // The NOMCK bit of the SAI_xCR1 register is used to define whether the master clock is
-            // generated or not.
-            // w.nomck().bits(config_a.master_clock as u8 != 0);
-            w.mcken().bit(config_a.master_clock as u8 != 0)
+            w.ds().bits(config_a.datasize as u8)
         });
         // todo: MCKEN vice NOMCK?? Make sure your enum reflects how you handle it.
 
@@ -241,9 +244,11 @@ where
             w.prtcfg().bits(config_b.protocol as u8);
             w.mono().bit(config_b.mono as u8 != 0);
             w.syncen().bits(config_b.sync as u8);
-            w.ds().bits(config_b.datasize as u8);
-            // w.nomck().bits(config_b.master_clock as u8 != 0)
-            w.mcken().bit(config_b.master_clock as u8 != 0)
+            // #[cfg(not(feature = "h7"))]
+            // w.nomck().bits(config_b.master_clock as u8 != 0);
+            #[cfg(feature = "h7")]
+            w.mcken().bit(config_b.master_clock as u8 == 0);
+            w.ds().bits(config_b.datasize as u8)
         });
 
         // The audio frame length can be configured to up to 256 bit clock cycles, by setting
@@ -312,7 +317,7 @@ where
 
     /// Send 2 words of data to a single channel.
     /// A write to the SR register loads the FIFO provided the FIFO is not full.
-    pub fn send(&mut self, channel: SaiChannel, left_word: u32, right_word: u32) {
+    pub fn write(&mut self, channel: SaiChannel, left_word: u32, right_word: u32) {
         match channel {
             SaiChannel::A => self
                 .regs
@@ -343,13 +348,13 @@ where
         // }
     }
 
-    /// Setup SAI with DMA. H743 RM, section 51.4.16: SAI DMA Interface.
+    /// Send data over SAI with DMA. H743 RM, section 51.4.16: SAI DMA Interface.
     /// To free the CPU and to optimize bus bandwidth, each SAI audio block has an independent
     /// DMA interface to read/write from/to the SAI_xDR register (to access the internal FIFO).
     /// There is one DMA channel per audio subblock supporting basic DMA request/acknowledge
     /// protocol.
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
-    pub unsafe fn set_dma<D>(
+    pub unsafe fn write_dma<D>(
         &mut self,
         buf: &[u32], // todo size?
         sai_channel: SaiChannel,
@@ -360,9 +365,6 @@ where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         let (ptr, len) = (buf.as_ptr(), buf.len());
-
-        // todo: Read vs write. Separate functions, or handle both here? Probably separate
-        // todo read_dma and write_dma.?
 
         // todo: Impl these non-DMAMUx features.
         // // L44 RM, Table 41. "DMA1 requests for each channel
@@ -418,8 +420,75 @@ where
             ptr as u32,
             len,
             dma::Direction::ReadFromMem,
-            dma::DataSize::S16,
-            dma::DataSize::S16,
+            dma::DataSize::S32, // todo?
+            dma::DataSize::S32, // todo?
+            channel_cfg,
+        );
+
+        // 4. Enable the SAI interface. (handled by `Sai::enable() in user code`.)
+    }
+
+    /// Read data from SAI with DMA. H743 RM, section 51.4.16: SAI DMA Interface.
+    /// To free the CPU and to optimize bus bandwidth, each SAI audio block has an independent
+    /// DMA interface to read/write from/to the SAI_xDR register (to access the internal FIFO).
+    /// There is one DMA channel per audio subblock supporting basic DMA request/acknowledge
+    /// protocol.
+    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
+    pub unsafe fn read_dma<D>(
+        &mut self,
+        buf: &mut [u32], // todo size?
+        sai_channel: SaiChannel,
+        dma_channel: DmaChannel,
+        channel_cfg: ChannelCfg,
+        dma: &mut Dma<D>,
+    ) where
+        D: Deref<Target = dma_p::RegisterBlock>,
+    {
+        let (ptr, len) = (buf.as_mut_ptr(), buf.len());
+
+        // See commends on `write_dma`.
+
+        // todo: Impl these non-DMAMUx features.
+        // // L44 RM, Table 41. "DMA1 requests for each channel
+        // // todo: DMA2 support.
+        // #[cfg(any(feature = "f3", feature = "l4"))]
+        //     let channel = match self.device {
+        //     AdcDevice::One => DmaInput::Adc1.dma1_channel(),
+        //     AdcDevice::Two => DmaInput::Adc2.dma1_channel(),
+        //     _ => panic!("DMA on ADC beyond 2 is not supported. If it is for your MCU, please submit an issue \
+        //         or PR on Github.")
+        // };
+        //
+        // #[cfg(feature = "l4")]
+        // match self.device {
+        //     AdcDevice::One => dma.channel_select(DmaInput::Adc1),
+        //     AdcDevice::Two => dma.channel_select(DmaInput::Adc2),
+        //     _ => unimplemented!(),
+        // }
+
+        match sai_channel {
+            SaiChannel::A => self.regs.cha.cr1.modify(|_, w| w.dmaen().set_bit()),
+            SaiChannel::B => self.regs.chb.cr1.modify(|_, w| w.dmaen().set_bit()),
+        }
+
+        let periph_addr = match sai_channel {
+            SaiChannel::A => &self.regs.cha.dr as *const _ as u32,
+            SaiChannel::B => &self.regs.chb.dr as *const _ as u32,
+        };
+
+        #[cfg(feature = "h7")]
+        let len = len as u32;
+        #[cfg(not(feature = "h7"))]
+        let len = len as u16;
+
+        dma.cfg_channel(
+            dma_channel,
+            periph_addr,
+            ptr as u32,
+            len,
+            dma::Direction::ReadFromPeriph,
+            dma::DataSize::S32, // todo?
+            dma::DataSize::S32, // todo?
             channel_cfg,
         );
 
