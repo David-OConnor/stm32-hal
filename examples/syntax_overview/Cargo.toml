@@ -15,7 +15,7 @@ cortex-m-rt = "0.6.14"
 # and if this program is meant to be run and flashed directly (ie it's not a library),
 # the runtime feature for that
 # family, eg `l4rt`.
-stm32-hal2 = { version = "^0.2.10", features = ["l4x3", "l4rt"]}
+stm32-hal2 = { version = "^1.0.0", features = ["l4x3", "l4rt"]}
 
 [features]
 # set logging levels here
