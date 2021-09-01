@@ -6,6 +6,8 @@ use crate::{
     pac::{FLASH, PWR, RCC, SYSCFG},
 };
 
+use cfg_if::cfg_if;
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum PllSrc {
     None,
@@ -160,6 +162,7 @@ impl HsiDiv {
 /// `VOS` field.
 pub enum VosRange {
     /// 1.26 V - 1.40 V
+    #[cfg(not(feature = "h7b3"))]
     VOS0 = 0, // This will actually be VOS1, but note that we handle the case of VOS0 activation
     // differntly than the others, using its special activation sequence.
     /// 1.15 V - 1.26 V
@@ -179,6 +182,7 @@ impl VosRange {
         // todo: Feature gate for other H7 variants. This is likely only valid on H743 and/or
         // todo 480MHz single-core variants.
         match self {
+            #[cfg(not(feature = "h7b3"))]
             Self::VOS0 => match hclk {
                 0..=70_000_000 => (0, 0),
                 70_000_001..=140_000_000 => (1, 1),
@@ -299,6 +303,7 @@ impl Clocks {
         // changing the voltage scaling.
 
         match self.vos_range {
+            #[cfg(not(feature = "h7b3"))]
             VosRange::VOS0 => {
                 // VOS0 activation/deactivation sequence
                 // The system maximum frequency can be reached by boosting the voltage scaling level to
@@ -308,13 +313,25 @@ impl Clocks {
                 // PWR D3 domain control register (PWR D3 domain control register (PWR_D3CR))
                 pwr.d3cr
                     .modify(|_, w| unsafe { w.vos().bits(VosRange::VOS1 as u8) });
+
                 // 2. Enable the SYSCFG clock in the RCC by setting the SYSCFGEN bit in the
                 // RCC_APB4ENR register.
                 rcc.apb4enr.modify(|_, w| w.syscfgen().set_bit());
+
                 // 3. Enable the ODEN bit in the SYSCFG_PWRCR register.
-                syscfg.pwrcr.write(|w| unsafe { w.oden().bits(1) });
+                // PAC inconsistency between variants on if there's a modify field, and if
+                // `write` has a `bits()` or `bit()` method.
+                cfg_if! {
+                    if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
+                        syscfg.pwrcr.modify(|_, w| w.oden().set_bit());
+                    } else {
+                        syscfg.pwrcr.write(|w| unsafe { w.oden().bits(1) });
+                    }
+                }
+
                 // 4. Wait for VOSRDY to be set.
                 while pwr.d3cr.read().vosrdy().bit_is_clear() {}
+
                 // Once the VCORE supply has reached the required level, the system frequency can be
                 // increased. Figure 31 shows the recommended sequence for switching VCORE from VOS1 to
                 // VOS0 sequence.
@@ -408,6 +425,7 @@ impl Clocks {
             .modify(|_, w| unsafe { w.d3ppre().bits(self.d3_prescaler as u8) });
 
         // Set USART2 to HSI, and USB to HSI48. Temp hardcoded.
+        #[cfg(not(feature = "h7b3"))]
         rcc.d2ccip2r.modify(|_, w| unsafe {
             w.usart234578sel().bits(0b111);
             w.usbsel().bits(0b11)

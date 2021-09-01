@@ -19,7 +19,14 @@ cfg_if! {
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
-#[cfg(any(feature = "f3", feature = "l4", feature = "g4", feature = "h7"))]
+#[cfg(any(
+    feature = "f3",
+    feature = "l4",
+    feature = "g4",
+    feature = "h7",
+    feature = "wb",
+    feature = "wl"
+))]
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "f4", feature = "l5")))]
@@ -202,7 +209,13 @@ where
         // todo: Currently at default setting for both channels of external pin with buffer enabled.
         // todo make this customizable
         let mode = DacMode::NormExternalOnlyBufEn;
-        #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "g4")))]
+        #[cfg(not(any(
+            feature = "f3",
+            feature = "f4",
+            feature = "l5",
+            feature = "g4",
+            feature = "wl"
+        )))]
         regs.mcr.modify(|_, w| unsafe {
             w.mode1().bits(mode as u8);
             w.mode2().bits(mode as u8)
@@ -244,6 +257,7 @@ where
                     .regs
                     .ccr
                     .modify(|_, w| unsafe { w.otrim1().bits(trim) }),
+                #[cfg(not(feature = "wl"))]
                 DacChannel::C2 => self
                     .regs
                     .ccr
@@ -253,6 +267,7 @@ where
 
             let cal_flag = match channel {
                 DacChannel::C1 => self.regs.sr.read().cal_flag1().bit_is_set(),
+                #[cfg(not(feature = "wl"))]
                 DacChannel::C2 => self.regs.sr.read().cal_flag2().bit_is_set(),
             };
 
@@ -383,12 +398,14 @@ where
         #[cfg(any(feature = "l5", feature = "g4"))]
         match dac_channel {
             DacChannel::C1 => self.regs.dac_cr.modify(|_, w| w.dmaen1().set_bit()),
+            #[cfg(not(feature = "wl"))]
             DacChannel::C2 => self.regs.dac_cr.modify(|_, w| w.dmaen2().set_bit()),
         }
 
         #[cfg(not(any(feature = "l5", feature = "g4")))]
         match dac_channel {
             DacChannel::C1 => self.regs.cr.modify(|_, w| w.dmaen1().set_bit()),
+            #[cfg(not(feature = "wl"))]
             DacChannel::C2 => self.regs.cr.modify(|_, w| w.dmaen2().set_bit()),
         }
 
@@ -444,7 +461,6 @@ where
                 DacBits::TwelveR => &self.regs.dhr12r2 as *const _ as u32,
             },
         };
-
 
         #[cfg(feature = "h7")]
         let len = len as u32;
