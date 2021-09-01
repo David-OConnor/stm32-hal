@@ -179,9 +179,11 @@ fn main() -> ! {
     let reading: u16 = adc.read(1);
 
     // Set up the Digital-to-analog converter
-    let mut dac_pin = Pin::new(Port::A, 12, PinMode::Analog);
+    let mut _dac_pin = Pin::new(Port::A, 12, PinMode::Analog);
     let mut dac = Dac::new(dp.DAC1, DacDevice::One, Bits::TwelveR, 3.3);
     dac.enable(DacChannel::C1);
+
+    dac.write(DacChannel::C1, 2_048); // Set DAC output voltage to half VCC, eg 1.65V
 
     // Set up and start a timer; set it to fire interrupts at 5Hz.
     let mut timer = Timer::new_tim1(dp.TIM1, 0.2, &clock_cfg);

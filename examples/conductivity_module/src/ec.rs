@@ -237,7 +237,7 @@ impl EcSensor {
 
         // Set the initial exciation voltage.
         let mut V_exc = V_EXC_INIT;
-        self.dac.set_voltage(DacChannel::C1, V_exc);
+        self.dac.write_voltage(DacChannel::C1, V_exc);
 
         // Read ADC Input V+ and V-
         let readings = self.read_voltage(addr, read_cmd, i2c);
@@ -289,7 +289,7 @@ impl EcSensor {
         // See `measure` for how we
         let I = (V_exc - V_probe) / gain.resistance();
         V_exc = I * gain.resistance() + V_PROBE_TGT;
-        self.dac.set_voltage(DacChannel::C1, V_exc);
+        self.dac.write_voltage(DacChannel::C1, V_exc);
 
         (V_exc, gain)
     }
