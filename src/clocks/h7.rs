@@ -693,7 +693,7 @@ impl Default for Clocks {
             // #[cfg(feature = "h743")]
             divn1: 56,
             divp1: 2,
-            divq1: 2,
+            divq1: 3, // Allows <150Mhz SAI clock, if it's configureud for PLL1Q.
             divr1: 2,
             divm2: 1,
             divn2: 129,

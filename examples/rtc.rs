@@ -3,9 +3,13 @@
 #![no_main]
 #![no_std]
 
-use core::cell::{Cell, RefCell};
+use core::{
+    cell::{Cell, RefCell},
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use cortex_m::{
+    self,
     interrupt::{free, Mutex},
     peripheral::NVIC,
 };
@@ -13,9 +17,11 @@ use cortex_m_rt::entry;
 
 use stm32_hal::{
     clocks::Clocks,
-    low_power,
+    low_power, pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
 };
+
+make_globals!((RTC, Rtc));
 
 #[entry]
 fn main() -> ! {
@@ -43,6 +49,12 @@ fn main() -> ! {
 
     // Set the RTC to trigger an interrupt every 30 seconds.
     rtc.set_wakeup(&mut dp.EXTI, 30.);
+
+    // Store the RTC in a global variable that we can access in interrupts, using
+    // critical sections.
+    free(|cs| {
+        RTC.borrow(cs).replace(Some(rtc));
+    });
 
     // Unmask the interrupt line.
     unsafe {
@@ -77,27 +89,12 @@ fn main() -> ! {
 /// RTC wakeup handler
 fn RTC_WKUP() {
     free(|cs| {
+        // Reset pending bit for interrupt line
         unsafe {
-            // Reset pending bit for interrupt line
             (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr20().set_bit());
-
-            // Clear the wakeup timer flag, after disabling write protections.
-            (*pac::RTC::ptr()).wpr.write(|w| w.bits(0xCA));
-            (*pac::RTC::ptr()).wpr.write(|w| w.bits(0x53));
-            (*pac::RTC::ptr()).cr.modify(|_, w| w.wute().clear_bit());
-
-            (*pac::RTC::ptr()).isr.modify(|_, w| w.wutf().clear_bit());
-
-            (*pac::RTC::ptr()).cr.modify(|_, w| w.wute().set_bit());
-            (*pac::RTC::ptr()).wpr.write(|w| w.bits(0xFF));
         }
-
-        // A cleaner alternative to the above, if you have the RTC set up in a global Mutex:
-        //  unsafe {
-        //      (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr20().set_bit());
-        //  }
-        //  access_global!(RTC, rtc, cs);
-        //  rtc.clear_wakeup_flag();
+        access_global!(RTC, rtc, cs);
+        rtc.clear_wakeup_flag();
 
         // Do something.
     });

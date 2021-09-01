@@ -2,7 +2,7 @@
 
 use core::ops::Deref;
 
-use cortex_m::interrupt::free;
+use cortex_m::{delay::Delay, interrupt::free};
 
 use crate::{
     pac::{self, RCC},
@@ -202,7 +202,7 @@ where
         // todo: Currently at default setting for both channels of external pin with buffer enabled.
         // todo make this customizable
         let mode = DacMode::NormExternalOnlyBufEn;
-        #[cfg(not(any(feature = "f3", feature = "f4")))]
+        #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5")))]
         regs.mcr.modify(|_, w| unsafe {
             w.mode1().bits(mode as u8);
             w.mode2().bits(mode as u8)
@@ -213,6 +213,52 @@ where
             device,
             bits,
             vref,
+        }
+    }
+
+    /// Calibrate the DAC output buffer by performing a "User
+    /// trimming" operation. It is useful when the VDDA/VREF+
+    /// voltage or temperature differ from the factory trimming
+    /// conditions.
+    ///
+    /// The calibration is only valid when the DAC channel is
+    /// operating with the buffer enabled. If applied in other
+    /// modes it has no effect.
+    ///
+    /// After the calibration operation, the DAC channel is
+    /// disabled.
+    pub fn calibrate_buffer(
+        // This function taken from STM32H7xx-hal.
+        &mut self,
+        channel: DacChannel,
+        delay: &mut Delay,
+    ) {
+        self.disable(channel);
+
+        let mut trim = 0;
+
+        loop {
+            match channel {
+                DacChannel::C1 => self
+                    .regs
+                    .ccr
+                    .modify(|_, w| unsafe { w.otrim1().bits(trim) }),
+                DacChannel::C2 => self
+                    .regs
+                    .ccr
+                    .modify(|_, w| unsafe { w.otrim2().bits(trim) }),
+            }
+            delay.delay_us(64);
+
+            let cal_flag = match channel {
+                DacChannel::C1 => self.regs.sr.read().cal_flag1().bit_is_set(),
+                DacChannel::C2 => self.regs.sr.read().cal_flag2().bit_is_set(),
+            };
+
+            if cal_flag {
+                break;
+            }
+            trim += 1;
         }
     }
 
@@ -292,13 +338,16 @@ where
         }
     }
 
-    /// Send values to the DAC using DMA, with a circular buffer.
+    /// Send values to the DAC using DMA. Each trigger (Eg using a timer; the basic timers Tim6
+    /// and Tim7 are designed for DAC triggering) sends one word from the buffer to the DAC's
+    /// output.
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     pub unsafe fn set_values_dma<D>(
         &mut self,
         buf: &[u16],
         dac_channel: DacChannel,
         dma_channel: DmaChannel,
+        channel_cfg: ChannelCfg,
         dma: &mut Dma<D>,
     ) where
         D: Deref<Target = dma_p::RegisterBlock>,
@@ -362,11 +411,6 @@ where
             DacBits::EightR => &self.regs.dhr8r1 as *const _ as u32,
             DacBits::TwelveL => &self.regs.dhr12l1 as *const _ as u32,
             DacBits::TwelveR => &self.regs.dhr12r1 as *const _ as u32,
-        };
-
-        let channel_cfg = dma::ChannelCfg {
-            circular: dma::Circular::Enabled,
-            ..Default::default()
         };
 
         #[cfg(feature = "h7")]

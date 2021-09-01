@@ -390,14 +390,12 @@ feature = "h7b3",
 feature = "wl",
 )))]
 pub mod qspi;
+
 #[cfg(not(feature = "wl"))] // todo
 pub mod rtc;
 
 #[cfg(not(any(feature = "f3", feature = "f4", feature = "g0")))]
 pub mod sai;
-// todo: Temporary I2s SAI subset functionality for a specific project.
-// #[cfg(feature = "h7")]
-// pub mod i2s;
 
 pub mod spi;
 

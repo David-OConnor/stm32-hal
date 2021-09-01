@@ -6,7 +6,7 @@
 //! speakers. If using headphones or speakers, make sure you can adjust their volume; the default
 //! output volume will be too high.
 //!
-//! Tested on an STM32H743ZI, via STM32H7 nucleo
+//! Tested on an STM32H743ZI, via STM32H7 Nucleo dev board.
 //!
 //! See [STM32 AN3126](https://www.st.com/resource/en/application_note/cd00259245-audio-and-waveform-generation-using-the-dac-in-stm32-products-stmicroelectronics.pdf),
 //! "Audio and waveform generation using the DAC in STM32 products."
@@ -22,6 +22,7 @@ use core::{
 
 use cortex_m::{
     self,
+    delay::Delay,
     interrupt::{free, Mutex},
     peripheral::NVIC,
 };
@@ -109,7 +110,10 @@ fn main() -> ! {
         .cr2
         .modify(|_, w| unsafe { w.mms().bits(0b010) });
 
+    let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
+
     let mut dac = Dac::new(dp.DAC, DacDevice::One, DacBits::TwelveR, 3.3);
+    dac.calibrate_buffer(DacChannel::C1, &mut delay);
     dac.set_trigger(DacChannel::C1, Trigger::Tim6);
 
     let mut dma = Dma::new(dp.DMA1);
@@ -119,8 +123,19 @@ fn main() -> ! {
     // Load the Sine LUT into a DMA circular buffer, which will send a 16-byte word of data
     // to the DAC on each timer trigger. Because it's a circular buffer, it will start at
     // the first value again once complete.
+    let channel_cfg = dma::ChannelCfg {
+        circular: dma::Circular::Enabled,
+        ..Default::default()
+    };
+
     unsafe {
-        dac.set_values_dma(&SIN_X, DacChannel::C1, DmaChannel::C3, &mut dma);
+        dac.set_values_dma(
+            &lut::SIN_X,
+            DacChannel::C1,
+            DmaChannel::C3,
+            channel_cfg,
+            &mut dma,
+        );
     }
 
     dac.enable(DacChannel::C1);
