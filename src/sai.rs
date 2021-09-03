@@ -285,8 +285,8 @@ impl SaiConfig {
 /// Represents the USART peripheral, for serial communications.
 pub struct Sai<R> {
     pub regs: R,
-    pub config_a: SaiConfig,
-    pub config_b: SaiConfig,
+    config_a: SaiConfig,
+    config_b: SaiConfig,
 }
 
 impl<R> Sai<R>
@@ -340,12 +340,14 @@ impl<R> Sai<R>
             // MSB or the LSB of the data are sent first, depending on the configuration of bit LSBFIRST in
             // the SAI_xCR1 register.
             w.ds().bits(config_a.datasize as u8);
+            #[cfg(not(feature = "l4"))]
+            w.osr().bit(config_a.oversampling_ratio as u8 != 0);
             // This bit is set and cleared by software. It must be configured when the audio block is disabled. This
             // bit has no meaning in AC’97 audio protocol since AC’97 data are always transferred with the MSB
             // first. This bit has no meaning in SPDIF audio protocol since in SPDIF data are always transferred
             // with LSB first
-            w.lsbfirst().bit(config_a.first_bit as u8 != 0);
-            w.osr().bit(config_a.oversampling_ratio as u8 != 0)
+            w.lsbfirst().bit(config_a.first_bit as u8 != 0)
+
         });
         // todo: MCKEN vice NOMCK?? Make sure your enum reflects how you handle it.
 
@@ -359,15 +361,18 @@ impl<R> Sai<R>
             #[cfg(feature = "h7")]
                 w.mcken().bit(config_b.master_clock as u8 == 0);
             w.ds().bits(config_b.datasize as u8);
-            w.lsbfirst().bit(config_b.first_bit as u8 != 0);
-            w.osr().bit(config_b.oversampling_ratio as u8 != 0)
+            #[cfg(not(feature = "l4"))]
+            w.osr().bit(config_b.oversampling_ratio as u8 != 0);
+            w.lsbfirst().bit(config_b.first_bit as u8 != 0)
         });
 
         // todo: Add this to config and don't hard-set. And add b.
         regs.cha.cr2.modify(|_, w| unsafe {
             w.comp().bits(0);
             w.cpl().bit(0 != 0);
-            w.mutecnt().bits(0); // rec only
+            #[cfg(feature = "wb")]
+            w.mutecn().bits(0); // rec only
+            #[cfg(not(feature = "wb"))]
             w.muteval().clear_bit(); // xmitter only
             w.mute().clear_bit(); // xmitter only
             w.tris().clear_bit(); // xmitter only

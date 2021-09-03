@@ -115,7 +115,7 @@ fn check_illegal(flash: &FLASH, security: Security) -> Result<(), Error> {
 }
 
 pub struct Flash {
-    pub(crate) regs: FLASH,
+    pub regs: FLASH,
 }
 
 impl Flash {

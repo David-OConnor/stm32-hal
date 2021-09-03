@@ -29,13 +29,13 @@ pub enum CanDevice {
 }
 
 /// Interface to the CAN peripheral.
-pub struct Can<C> {
-    regs: C,
+pub struct Can<R> {
+    pub regs: R,
 }
 
-impl<C> Can<C>
+impl<R> Can<R>
 where
-    C: Deref<Target = can::RegisterBlock>,
+    R: Deref<Target = can::RegisterBlock>,
 {
     #[cfg(not(feature = "f4"))]
     /// Creates a CAN interface.

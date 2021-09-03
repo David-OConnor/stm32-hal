@@ -209,7 +209,7 @@ impl Default for SpiConfig {
 
 /// Represents a Serial Peripheral Interface (SPI) peripheral.
 pub struct Spi<R> {
-    regs: R,
+    pub regs: R,
     device: SpiDevice,
     cfg: SpiConfig,
 }

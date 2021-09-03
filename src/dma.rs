@@ -388,7 +388,7 @@ impl Default for ChannelCfg {
 
 /// Represents a Direct Memory Access (DMA) peripheral.
 pub struct Dma<D> {
-    regs: D,
+    pub regs: D,
 }
 
 impl<D> Dma<D>

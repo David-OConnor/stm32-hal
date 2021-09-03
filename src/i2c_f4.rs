@@ -1,9 +1,13 @@
 //! I2C support for F4, which uses an older peripheral than the other families supported
 //! by this library.
 
+// todo: Merge this with the other i2c module?
+
 // Based on `stm32f4xx-hal`.
 
 use core::ops::Deref;
+
+use cortex_m::interrupt::free;
 
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
@@ -11,13 +15,17 @@ use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::{
     clocks::Clocks,
     pac::{self, i2c1, RCC},
+    rcc_en_reset,
 };
 
 use paste::paste;
 
-/// I2C abstraction
-pub struct I2c<I2C: Instance> {
-    i2c: I2C,
+#[derive(Clone, Copy)]
+pub enum I2cDevice {
+    One,
+    Two,
+    #[cfg(not(feature = "f410"))]
+    Three,
 }
 
 #[derive(Debug)]
@@ -32,65 +40,42 @@ pub enum Error {
     ARBITRATION,
 }
 
-mod private {
-    pub trait Sealed {}
+
+/// Represents an Inter-Integrated Circuit (I2C) peripheral.
+pub struct I2c<R> {
+    pub regs: R,
 }
 
-// Implemented by all I2C instances
-pub trait Instance: private::Sealed + Deref<Target = i2c1::RegisterBlock> {
-    #[doc(hidden)]
-    fn enable_clock(rcc: &mut RCC);
-}
+impl<R> I2c<R>
+    where
+        R: Deref<Target = i2c1::RegisterBlock>
+{
+    pub fn new(regs: R, device: I2cDevice, speed: u32, clocks: &Clocks) -> Self {
+        free(|_| {
+            let rcc = unsafe { &(*RCC::ptr()) };
 
-macro_rules! hal {
-    ($(
-        $I2C:ident: ($i2c:ident),
-    )+) => {
-        $(
-            impl private::Sealed for pac::$I2C {}
-            impl Instance for pac::$I2C {
-                paste! {
-                    fn enable_clock(rcc: &mut RCC) {
-                        rcc.apb1enr.modify(|_, w| w.[<$i2c en>]().set_bit());
-                        rcc.apb1rstr.modify(|_, w| w.[<$i2c rst>]().set_bit());
-                        rcc.apb1rstr.modify(|_, w| w.[<$i2c rst>]().clear_bit());
-                    }
+            match device {
+                I2cDevice::One => {
+                    rcc_en_reset!(apb1, i2c1, rcc);
+                }
+                I2cDevice::Two => {
+                    rcc_en_reset!(apb1, i2c2, rcc);
+                }
+                #[cfg(not(feature = "f410"))]
+                I2cDevice::Three => {
+                    rcc_en_reset!(apb1, i2c3, rcc);
                 }
             }
-        )+
-    }
-}
+        });
 
-hal! {
-    I2C1: (i2c1),
-}
-hal! {
-    I2C2: (i2c2),
-}
-
-#[cfg(not(any(feature = "f410")))]
-hal! {
-    I2C3: (i2c3),
-}
-
-impl<I2C> I2c<I2C>
-where
-    I2C: Instance,
-{
-    pub fn new(i2c: I2C, speed: u32, clocks: &Clocks, rcc: &mut RCC) -> Self {
-        unsafe {
-            // Enable and reset clock.
-            I2C::enable_clock(rcc);
-        }
-
-        let i2c = I2c { i2c };
-        i2c.i2c_init(speed, clocks.apb1());
-        i2c
+        let result = Self { regs };
+        result.i2c_init(speed, clocks.apb1());
+        result
     }
 
     fn i2c_init(&self, speed: u32, pclk: u32) {
         // Make sure the I2C unit is disabled so we can configure it
-        self.i2c.cr1.modify(|_, w| w.pe().clear_bit());
+        self.regs.cr1.modify(|_, w| w.pe().clear_bit());
 
         // Calculate settings for I2C speed modes
         let clock = pclk;
@@ -98,7 +83,7 @@ where
         assert!(freq >= 2 && freq <= 50);
 
         // Configure bus frequency into I2C peripheral
-        self.i2c.cr2.write(|w| unsafe { w.freq().bits(freq as u8) });
+        self.regs.cr2.write(|w| unsafe { w.freq().bits(freq as u8) });
 
         let trise = if speed <= 100_000 {
             freq + 1
@@ -107,7 +92,7 @@ where
         };
 
         // Configure correct rise times
-        self.i2c.trise.write(|w| w.trise().bits(trise as u8));
+        self.regs.trise.write(|w| w.trise().bits(trise as u8));
 
         // I2C clock control calculation
         if speed <= 100_000 {
@@ -121,7 +106,7 @@ where
             };
 
             // Set clock to standard mode with appropriate parameters for selected speed
-            self.i2c.ccr.write(|w| unsafe {
+            self.regs.ccr.write(|w| unsafe {
                 w.f_s()
                     .clear_bit()
                     .duty()
@@ -136,7 +121,7 @@ where
                 let ccr = if ccr < 1 { 1 } else { ccr };
 
                 // Set clock to fast mode with appropriate parameters for selected speed (2:1 duty cycle)
-                self.i2c.ccr.write(|w| unsafe {
+                self.regs.ccr.write(|w| unsafe {
                     w.f_s().set_bit().duty().clear_bit().ccr().bits(ccr as u16)
                 });
             } else {
@@ -144,75 +129,58 @@ where
                 let ccr = if ccr < 1 { 1 } else { ccr };
 
                 // Set clock to fast mode with appropriate parameters for selected speed (16:9 duty cycle)
-                self.i2c.ccr.write(|w| unsafe {
+                self.regs.ccr.write(|w| unsafe {
                     w.f_s().set_bit().duty().set_bit().ccr().bits(ccr as u16)
                 });
             }
         }
 
         // Enable the I2C processing
-        self.i2c.cr1.modify(|_, w| w.pe().set_bit());
+        self.regs.cr1.modify(|_, w| w.pe().set_bit());
     }
 
-    fn check_and_clear_error_flags(&self) -> Result<i2c1::sr1::R, Error> {
+    pub fn check_and_clear_error_flags(&self) -> Result<i2c1::sr1::R, Error> {
         // Note that flags should only be cleared once they have been registered. If flags are
         // cleared otherwise, there may be an inherent race condition and flags may be missed.
-        let sr1 = self.i2c.sr1.read();
+        let sr1 = self.regs.sr1.read();
 
         if sr1.timeout().bit_is_set() {
-            self.i2c.sr1.modify(|_, w| w.timeout().clear_bit());
+            self.regs.sr1.modify(|_, w| w.timeout().clear_bit());
             return Err(Error::TIMEOUT);
         }
 
         if sr1.pecerr().bit_is_set() {
-            self.i2c.sr1.modify(|_, w| w.pecerr().clear_bit());
+            self.regs.sr1.modify(|_, w| w.pecerr().clear_bit());
             return Err(Error::CRC);
         }
 
         if sr1.ovr().bit_is_set() {
-            self.i2c.sr1.modify(|_, w| w.ovr().clear_bit());
+            self.regs.sr1.modify(|_, w| w.ovr().clear_bit());
             return Err(Error::OVERRUN);
         }
 
         if sr1.af().bit_is_set() {
-            self.i2c.sr1.modify(|_, w| w.af().clear_bit());
+            self.regs.sr1.modify(|_, w| w.af().clear_bit());
             return Err(Error::NACK);
         }
 
         if sr1.arlo().bit_is_set() {
-            self.i2c.sr1.modify(|_, w| w.arlo().clear_bit());
+            self.regs.sr1.modify(|_, w| w.arlo().clear_bit());
             return Err(Error::ARBITRATION);
         }
 
         // The errata indicates that BERR may be incorrectly detected. It recommends ignoring and
         // clearing the BERR bit instead.
         if sr1.berr().bit_is_set() {
-            self.i2c.sr1.modify(|_, w| w.berr().clear_bit());
+            self.regs.sr1.modify(|_, w| w.berr().clear_bit());
         }
 
         Ok(sr1)
     }
 
-    pub fn release(self) -> I2C {
-        self.i2c
-    }
-}
-
-trait I2cCommon {
-    fn write_bytes(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error>;
-
-    fn send_byte(&self, byte: u8) -> Result<(), Error>;
-
-    fn recv_byte(&self) -> Result<u8, Error>;
-}
-
-impl<I2C> I2cCommon for I2c<I2C>
-where
-    I2C: Instance,
-{
-    fn write_bytes(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+    pub fn write_bytes(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
         // Send a START condition
-        self.i2c.cr1.modify(|_, w| w.start().set_bit());
+        self.regs.cr1.modify(|_, w| w.start().set_bit());
 
         // Wait until START condition was generated
         while self.check_and_clear_error_flags()?.sb().bit_is_clear() {}
@@ -221,12 +189,12 @@ where
         while {
             self.check_and_clear_error_flags()?;
 
-            let sr2 = self.i2c.sr2.read();
+            let sr2 = self.regs.sr2.read();
             sr2.msl().bit_is_clear() && sr2.busy().bit_is_clear()
         } {}
 
         // Set up current address, we're trying to talk to
-        self.i2c
+        self.regs
             .dr
             .write(|w| unsafe { w.bits(u32::from(addr) << 1) });
 
@@ -240,7 +208,7 @@ where
         } {}
 
         // Clear condition by reading SR2
-        self.i2c.sr2.read();
+        self.regs.sr2.read();
 
         // Send bytes
         for c in bytes {
@@ -251,7 +219,7 @@ where
         Ok(())
     }
 
-    fn send_byte(&self, byte: u8) -> Result<(), Error> {
+    pub fn send_byte(&self, byte: u8) -> Result<(), Error> {
         // Wait until we're ready for sending
         while {
             // Check for any I2C errors. If a NACK occurs, the ADDR bit will never be set.
@@ -259,7 +227,7 @@ where
         } {}
 
         // Push out a byte of data
-        self.i2c.dr.write(|w| unsafe { w.bits(u32::from(byte)) });
+        self.regs.dr.write(|w| unsafe { w.bits(u32::from(byte)) });
 
         // Wait until byte is transferred
         while {
@@ -270,24 +238,25 @@ where
         Ok(())
     }
 
-    fn recv_byte(&self) -> Result<u8, Error> {
+    pub fn recv_byte(&self) -> Result<u8, Error> {
         while {
             // Check for any potential error conditions.
             self.check_and_clear_error_flags()?;
 
-            self.i2c.sr1.read().rx_ne().bit_is_clear()
+            self.regs.sr1.read().rx_ne().bit_is_clear()
         } {}
 
-        let value = self.i2c.dr.read().bits() as u8;
+        let value = self.regs.dr.read().bits() as u8;
         Ok(value)
     }
 }
 
+
 #[cfg(feature = "embedded-hal")]
 #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
-impl<I2C> WriteRead for I2c<I2C>
-where
-    I2C: Instance,
+impl<R> WriteRead for I2c<R>
+    where
+        R: Deref<Target = i2c1::RegisterBlock>
 {
     type Error = Error;
 
@@ -301,9 +270,9 @@ where
 
 #[cfg(feature = "embedded-hal")]
 #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
-impl<I2C> Write for I2c<I2C>
-where
-    I2C: Instance,
+impl<R> Write for I2c<R>
+    where
+        R: Deref<Target = i2c1::RegisterBlock>
 {
     type Error = Error;
 
@@ -311,10 +280,10 @@ where
         self.write_bytes(addr, bytes)?;
 
         // Send a STOP condition
-        self.i2c.cr1.modify(|_, w| w.stop().set_bit());
+        self.regs.cr1.modify(|_, w| w.stop().set_bit());
 
         // Wait for STOP condition to transmit.
-        while self.i2c.cr1.read().stop().bit_is_set() {}
+        while self.regs.cr1.read().stop().bit_is_set() {}
 
         // Fallthrough is success
         Ok(())
@@ -323,41 +292,41 @@ where
 
 #[cfg(feature = "embedded-hal")]
 #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
-impl<I2C> Read for I2c<I2C>
-where
-    I2C: Instance,
+impl<R> Read for I2c<R>
+    where
+        R: Deref<Target = i2c1::RegisterBlock>
 {
     type Error = Error;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         if let Some((last, buffer)) = buffer.split_last_mut() {
             // Send a START condition and set ACK bit
-            self.i2c
+            self.regs
                 .cr1
                 .modify(|_, w| w.start().set_bit().ack().set_bit());
 
             // Wait until START condition was generated
-            while self.i2c.sr1.read().sb().bit_is_clear() {}
+            while self.regs.sr1.read().sb().bit_is_clear() {}
 
             // Also wait until signalled we're master and everything is waiting for us
             while {
-                let sr2 = self.i2c.sr2.read();
+                let sr2 = self.regs.sr2.read();
                 sr2.msl().bit_is_clear() && sr2.busy().bit_is_clear()
             } {}
 
             // Set up current address, we're trying to talk to
-            self.i2c
+            self.regs
                 .dr
                 .write(|w| unsafe { w.bits((u32::from(addr) << 1) + 1) });
 
             // Wait until address was sent
             while {
                 self.check_and_clear_error_flags()?;
-                self.i2c.sr1.read().addr().bit_is_clear()
+                self.regs.sr1.read().addr().bit_is_clear()
             } {}
 
             // Clear condition by reading SR2
-            self.i2c.sr2.read();
+            self.regs.sr2.read();
 
             // Receive bytes into buffer
             for c in buffer {
@@ -365,7 +334,7 @@ where
             }
 
             // Prepare to send NACK then STOP after next byte
-            self.i2c
+            self.regs
                 .cr1
                 .modify(|_, w| w.ack().clear_bit().stop().set_bit());
 
@@ -373,7 +342,7 @@ where
             *last = self.recv_byte()?;
 
             // Wait for the STOP to be sent.
-            while self.i2c.cr1.read().stop().bit_is_set() {}
+            while self.regs.cr1.read().stop().bit_is_set() {}
 
             // Fallthrough is success
             Ok(())

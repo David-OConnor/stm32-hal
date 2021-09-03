@@ -151,10 +151,10 @@ impl Default for UsartConfig {
 
 /// Represents the USART peripheral, for serial communications.
 pub struct Usart<R> {
-    regs: R,
+    pub regs: R,
     device: UsartDevice,
-    pub baud: u32,
-    pub config: UsartConfig,
+    baud: u32,
+    config: UsartConfig,
 }
 
 impl<R> Usart<R>
@@ -684,9 +684,9 @@ pub enum Error {
 
 #[cfg(feature = "embedded-hal")]
 // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
-impl<U> Read<u8> for Usart<U>
+impl<R> Read<u8> for Usart<R>
 where
-    U: Deref<Target = pac::usart1::RegisterBlock>,
+    R: Deref<Target = pac::usart1::RegisterBlock>,
 {
     type Error = Error;
 

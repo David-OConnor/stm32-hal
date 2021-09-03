@@ -14,12 +14,12 @@ This library provides high-level access to STM32 peripherals.
 6. Be suitable for commercial projects
 7. Implement [embedded-hal](https://github.com/rust-embedded/embedded-hal) traits for all applicable peripherals
 8. Provide a clear, concise API
-9. Provide source code readable by anyone cross-checking a reference manual.
+9. Provide source code readable by anyone cross-checking a reference manual (RM)
 
 
 ## Specifications
 - Base code on instructions described in reference manuals (RM); document inline with
-the relevant excerpts [4]
+the relevant excerpts [4, 9]
 - Use [STM32 Peripheral Access Crates](https://github.com/stm32-rs/stm32-rs) to allow high-level
 register access [2]
 - Wrap PAC register blocks in structs that represent the applicable peripheral, and access features
@@ -29,7 +29,7 @@ of these peripherals using public methods [1]
 - Use both peripheral struct methods, and `embedded-hal` trait implementations for non-DMA interfaces; use additional
  struct methods for DMA interfaces [4, 5, 7]
 - Favor functionality, ergonomics, and explicit interfaces [6, 8]
-- Document configuration code with what register and fields they control, and desriptions from RM [4, 9]
+- Document configuration code with what registers and fields it sets, and desriptions from RMs [4, 9]
 - Provide examples and documentation that demonstrate peripheral use with interrupts and DMA [6]
 
 
@@ -169,7 +169,8 @@ enum FcRadarInterrupt {
 
 /// Represents a Fire Control Radar (FCR) peripheral.
 pub struct FcRadar<R> {
-    regs: R,
+    // `regs` is public, so users can use the PAC API directly, eg for unsupported features.
+    pub regs: R, 
     pub prf: Prf,
 }
 

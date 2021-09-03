@@ -224,7 +224,7 @@ impl Default for Align {
 /// Represents an Analog to Digital Converter (ADC) peripheral.
 pub struct Adc<R> {
     /// ADC Register
-    regs: R,
+    pub regs: R,
     // Note: We don't own the common regs; pass them mutably where required, since they may be used
     // by a different ADC.
     device: AdcDevice,

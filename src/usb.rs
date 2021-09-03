@@ -26,7 +26,7 @@ use cfg_if::cfg_if;
 /// implemented `stm32_usbd::UsbPeripheral` trait.
 pub struct Peripheral {
     /// USB Register Block
-    pub usb: USB,
+    pub regs: USB,
 }
 
 unsafe impl Sync for Peripheral {}
