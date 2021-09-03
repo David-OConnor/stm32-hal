@@ -14,6 +14,7 @@ This library provides high-level access to STM32 peripherals.
 6. Be suitable for commercial projects
 7. Implement [embedded-hal](https://github.com/rust-embedded/embedded-hal) traits for all applicable peripherals
 8. Provide a clear, concise API
+9. Provide source code readable by anyone cross-checking a reference manual.
 
 
 ## Specifications
@@ -28,6 +29,7 @@ of these peripherals using public methods [1]
 - Use both peripheral struct methods, and `embedded-hal` trait implementations for non-DMA interfaces; use additional
  struct methods for DMA interfaces [4, 5, 7]
 - Favor functionality, ergonomics, and explicit interfaces [6, 8]
+- Document configuration code with what register and fields they control, and desriptions from RM [4, 9]
 - Provide examples and documentation that demonstrate peripheral use with interrupts and DMA [6]
 
 
@@ -257,7 +259,6 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - USB unimplemented for H7
 - USART synchronous mode, and auto-baud-rate detection unimplemented
 - USART interrupts unimplemented on F4
-- H7 clocks are missing advanced features
 - H7 clock default is suitable for single-core 480Mhz variants only.
 - PWM input unimplemented
 - CRC unimplemented for L5, F4, G0, and G4

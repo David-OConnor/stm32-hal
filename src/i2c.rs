@@ -557,7 +557,7 @@ where
 }
 
 #[cfg(feature = "embedded-hal")]
-#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> Write for I2c<R>
 where
     R: Deref<Target = pac::i2c1::RegisterBlock>,
@@ -570,7 +570,7 @@ where
 }
 
 #[cfg(feature = "embedded-hal")]
-#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> Read for I2c<R>
 where
     R: Deref<Target = pac::i2c1::RegisterBlock>,
@@ -583,7 +583,7 @@ where
 }
 
 #[cfg(feature = "embedded-hal")]
-#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> WriteRead for I2c<R>
 where
     R: Deref<Target = pac::i2c1::RegisterBlock>,

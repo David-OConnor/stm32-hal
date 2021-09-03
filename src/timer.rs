@@ -336,7 +336,7 @@ macro_rules! hal {
         }
 
         #[cfg(feature = "embedded-hal")]
-        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayMs<u32> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u32) {
                 self.delay_us(ms as u32 * 1_000);
@@ -344,7 +344,7 @@ macro_rules! hal {
         }
 
         #[cfg(feature = "embedded-hal")]
-        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayMs<u16> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u16) {
                 self.delay_us(ms as u32 * 1_000);
@@ -352,7 +352,7 @@ macro_rules! hal {
         }
 
         #[cfg(feature = "embedded-hal")]
-        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayMs<u8> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u8) {
                 self.delay_us(ms as u32 * 1_000);
@@ -360,7 +360,7 @@ macro_rules! hal {
         }
 
         #[cfg(feature = "embedded-hal")]
-        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayUs<u32> for Timer<pac::$TIMX> {
             fn delay_us(&mut self, us: u32) {
                 self.set_freq(1. / (us as f32 * 1_000.)).ok();
@@ -372,7 +372,7 @@ macro_rules! hal {
         }
 
         #[cfg(feature = "embedded-hal")]
-        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayUs<u16> for Timer<pac::$TIMX> {
             fn delay_us(&mut self, us: u16) {
                 self.delay_us(us as u32);
@@ -380,7 +380,7 @@ macro_rules! hal {
         }
 
         #[cfg(feature = "embedded-hal")]
-        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayUs<u8> for Timer<pac::$TIMX> {
             fn delay_us(&mut self, us: u8) {
                 self.delay_us(us as u32);
@@ -388,11 +388,11 @@ macro_rules! hal {
         }
 
         #[cfg(feature = "embedded-hal")]
-        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Periodic for Timer<pac::$TIMX> {}
 
         #[cfg(feature = "embedded-hal")]
-        #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl CountDown for Timer<pac::$TIMX> {
             type Time = f32;
 

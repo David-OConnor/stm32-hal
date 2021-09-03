@@ -108,7 +108,9 @@
 // Disable these warnings.
 #![allow(unused_unsafe)]
 // The `doc_cfg` feature allows us to show functionality that is feature-gated on `docs.rs`.
-#![feature(doc_cfg)]
+// todo: Re-implement the doc_cfg feature and the relevant tags (From all modules that impl EH traits)
+// todo oncoe this is in stable.
+// #![feature(doc_cfg)]
 
 #[cfg(not(any(
     feature = "f301",

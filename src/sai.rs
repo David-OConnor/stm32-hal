@@ -21,11 +21,11 @@ use cfg_if::cfg_if;
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
-    feature = "f3",
-    feature = "l4",
-    feature = "g4",
-    feature = "h7",
-    feature = "wb"
+feature = "f3",
+feature = "l4",
+feature = "g4",
+feature = "h7",
+feature = "wb"
 ))]
 use crate::pac::dma1 as dma_p;
 
@@ -70,6 +70,18 @@ pub enum FsSignal {
     /// :Start of frame and channel side identification within the audio frame like for the I2S,
     /// the MSB or LSB-justified protocols.
     FrameAndChannel = 1,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// This bit is set and cleared by software. It is used to configure the level of the start of frame on the FS
+/// signal. It is meaningless and is not used in AC’97 or SPDIF audio block configuration.
+/// This bit must be configured when the audio block is disabled.
+pub enum FsPolarity {
+    /// FS is active low (falling edge)
+    ActiveLow = 0,
+    /// FS is active high (rising edge)
+    ActiveHigh = 1,
 }
 
 #[derive(Clone, Copy)]
@@ -214,6 +226,8 @@ pub struct SaiConfig {
     pub first_bit: FirstBit,
     pub oversampling_ratio: OversamplingRatio,
     pub fs_signal: FsSignal,
+    pub fs_polarity: FsPolarity,
+    pub num_slots: u8,
 }
 
 impl Default for SaiConfig {
@@ -224,11 +238,46 @@ impl Default for SaiConfig {
             mono: Mono::Stereo,
             sync: SyncMode::Async,
             datasize: DataSize::S24,
-            frame_length: 64,
+            frame_length: 64,  // 64 * (config.slots / 2) ?
             master_clock: MasterClock::Used, // todo?
             first_bit: FirstBit::MsbFirst,
             oversampling_ratio: OversamplingRatio::FMul256,
-            fs_signal: FsSignal::FrameAndChannel,
+            fs_signal: FsSignal::Frame,
+            fs_polarity: FsPolarity::ActiveHigh,
+            num_slots: 2,
+        }
+    }
+}
+
+// todo: Populate these presets
+impl SaiConfig {
+    /// Default configuration for I2S.
+    pub fn i2s_preset() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+
+    /// Default configuration for PDM
+    pub fn pdm_preset() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+
+    /// Default configuration for AC'97
+    pub fn ac97_preset() -> Self {
+        Self {
+            protocol: Protocol::Ac97,
+            ..Default::default()
+        }
+    }
+
+    /// Default configuration for SPDIF
+    pub fn spdif_preset() -> Self {
+        Self {
+            protocol: Protocol::Spdif,
+            ..Default::default()
         }
     }
 }
@@ -241,8 +290,8 @@ pub struct Sai<R> {
 }
 
 impl<R> Sai<R>
-where
-    R: Deref<Target = sai::RegisterBlock>,
+    where
+        R: Deref<Target = sai::RegisterBlock>,
 {
     /// Initialize a SAI peripheral, including  enabling and resetting
     /// its RCC peripheral clock. For now, set up with default clocks selected.
@@ -285,7 +334,7 @@ where
             // #[cfg(not(feature = "h7"))]
             // w.nomck().bits(config_a.master_clock as u8 != 0);
             #[cfg(feature = "h7")]
-            w.mcken().bit(config_a.master_clock as u8 == 0);
+                w.mcken().bit(config_a.master_clock as u8 == 0);
             // The audio frame can target different data sizes by configuring bit DS[2:0] in the SAI_xCR1
             // register. The data sizes may be 8, 10, 16, 20, 24 or 32 bits. During the transfer, either the
             // MSB or the LSB of the data are sent first, depending on the configuration of bit LSBFIRST in
@@ -308,10 +357,22 @@ where
             // #[cfg(not(feature = "h7"))]
             // w.nomck().bits(config_b.master_clock as u8 != 0);
             #[cfg(feature = "h7")]
-            w.mcken().bit(config_b.master_clock as u8 == 0);
+                w.mcken().bit(config_b.master_clock as u8 == 0);
             w.ds().bits(config_b.datasize as u8);
             w.lsbfirst().bit(config_b.first_bit as u8 != 0);
             w.osr().bit(config_b.oversampling_ratio as u8 != 0)
+        });
+
+        // todo: Add this to config and don't hard-set. And add b.
+        regs.cha.cr2.modify(|_, w| unsafe {
+            w.comp().bits(0);
+            w.cpl().bit(0 != 0);
+            w.mutecnt().bits(0); // rec only
+            w.muteval().clear_bit(); // xmitter only
+            w.mute().clear_bit(); // xmitter only
+            w.tris().clear_bit(); // xmitter only
+            w.fflush().clear_bit();
+            w.fth().bits(0b001) // FIFO empty
         });
 
         // The FS signal can have a different meaning depending on the FS function. FSDEF bit in the
@@ -330,22 +391,27 @@ where
         // The audio frame length can be configured to up to 256 bit clock cycles, by setting
         // FRL[7:0] field in the SAI_xFRCR register.
         regs.cha.frcr.modify(|_, w| unsafe {
+            w.fspol().bit(config_a.fs_polarity as u8 != 0);
             w.fsdef().bit(config_a.fs_signal as u8 != 0);
             w.frl().bits(config_a.frame_length)
         });
 
         regs.chb.frcr.modify(|_, w| unsafe {
+            w.fspol().bit(config_b.fs_polarity as u8 != 0);
             w.fsdef().bit(config_b.fs_signal as u8 != 0);
             w.frl().bits(config_b.frame_length)
         });
 
+
+        // slot en bits???
+        let slot_en_bits: u16 = (2_u32.pow(config_a.num_slots as u32) - 1) as u16;
         // todo: Slot configuration (NBSLOT) ? xSLOTR?
-        // regs.cha.slotr.modify(|_, w| {
-        //     w.sloten().bit();
-        //     w.nbslot().bits();
-        //     w.slotsz.bits();
-        //     w.fpoff.bits()
-        // });
+        regs.cha.slotr.modify(|_, w| unsafe {
+            w.sloten().bits(slot_en_bits);
+            w.nbslot().bits(config_a.num_slots);
+            w.slotsz().bits(32); // for 24 bytes?
+            w.fboff().bits(0)
+        });
 
         Self {
             regs,
@@ -357,8 +423,15 @@ where
     /// Enable an audio subblock (channel).
     pub fn enable(&mut self, channel: SaiChannel) {
         match channel {
-            SaiChannel::A => self.regs.cha.cr1.modify(|_, w| w.saien().set_bit()),
-            SaiChannel::B => self.regs.chb.cr1.modify(|_, w| w.saien().set_bit()),
+            SaiChannel::A => {
+                // todo: Do we want to flush?
+                self.regs.cha.cr2.modify(|_, w| w.fflush().set_bit());
+                self.regs.cha.cr1.modify(|_, w| w.saien().set_bit());
+            },
+            SaiChannel::B => {
+                self.regs.chb.cr2.modify(|_, w| w.fflush().set_bit());
+                self.regs.chb.cr1.modify(|_, w| w.saien().set_bit());
+            },
         }
     }
 
@@ -494,9 +567,9 @@ where
         };
 
         #[cfg(feature = "h7")]
-        let len = len as u32;
+            let len = len as u32;
         #[cfg(not(feature = "h7"))]
-        let len = len as u16;
+            let len = len as u16;
 
         dma.cfg_channel(
             dma_channel,
@@ -561,9 +634,9 @@ where
         };
 
         #[cfg(feature = "h7")]
-        let len = len as u32;
+            let len = len as u32;
         #[cfg(not(feature = "h7"))]
-        let len = len as u16;
+            let len = len as u16;
 
         dma.cfg_channel(
             dma_channel,
