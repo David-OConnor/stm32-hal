@@ -32,7 +32,7 @@ cfg_if::cfg_if! {
 /// Speed out of limits.
 #[derive(Debug)]
 pub struct SpeedError {
-    error_msg: &'static str
+    error_msg: &'static str,
 }
 
 impl SpeedError {

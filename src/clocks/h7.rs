@@ -418,6 +418,8 @@ impl Clocks {
             w.usbsel().bits(0b11)
         });
 
+        // todo: Allow configuring the PLL in fractinoal mode.
+
         if let InputSrc::Pll1(pll_src) = self.input_src {
             // Turn off the PLL: Required for modifying some of the settings below.
             rcc.cr.modify(|_, w| w.pll1on().clear_bit());
@@ -491,7 +493,6 @@ impl Clocks {
             // addition, the PLLxRGE of the RCC PLLs Configuration Register (RCC_PLLCFGR) field
             // must be set according to the reference input frequency to guarantee an optimal
             // performance of the PLL.
-            // todo: Use PLLCFGR to enable the various R, Q, and P outputs as required
 
             // struct PllEnCfg {
             //     p_en: bool,
@@ -499,74 +500,61 @@ impl Clocks {
             //     r_en: bool
             //
 
-            // todo: Does enabling PLL2 and 3 bits here cause extra power use when not
-            // setting them to be on?
             rcc.pllcfgr.modify(|_, w| {
                 w.pll1rge().bits(pll1_rng_val);
                 w.pll1vcosel().bit(pll1_vco != 0);
-                w.divp1en().set_bit();
+                w.divp1en().set_bit()
                 // w.divr1en().set_bit();
                 // w.divq1en().set_bit();
-                w.pll2rge().bits(pll2_rng_val);
-                w.pll2vcosel().bit(pll2_vco != 0);
-                w.divp2en().set_bit();
-                w.divr2en().set_bit();
-                w.divq2en().set_bit();
-                w.pll3rge().bits(pll3_rng_val);
-                w.pll2vcosel().bit(pll3_vco != 0);
-                w.divp3en().set_bit();
-                w.divr3en().set_bit();
-                w.divq3en().set_bit()
             });
-
-            // todo
-            // rcc.pllcfgr.modify(|_, w| {
-            //     w.pll2rge().bits(pll2_rng_val);
-            //     w.divp2en().set_bit();
-            //     w.divr2en().set_bit();
-            //     w.divq2en().set_bit()
-            // });
-            //
-            // rcc.pllcfgr.modify(|_, w| {
-            //     w.pll3rge().bits(pll3_rng_val);
-            //     w.divp3en().set_bit();
-            //     w.divr3en().set_bit();
-            //     w.divq3en().set_bit()
-            // });
 
             rcc.pll1divr.modify(|_, w| unsafe {
-                w.divn1().bits(self.divn1);
-                w.divp1().bits(self.divp1);
-                w.divq1().bits(self.divq1);
-                w.divr1().bits(self.divr1)
-            });
-
-            rcc.pll2divr.modify(|_, w| unsafe {
-                w.divn2().bits(self.divn2);
-                w.divp2().bits(self.divp2);
-                w.divq2().bits(self.divq2);
-                w.divr2().bits(self.divr2)
-            });
-
-            rcc.pll3divr.modify(|_, w| unsafe {
-                w.divn3().bits(self.divn3);
-                w.divp3().bits(self.divp3);
-                w.divq3().bits(self.divq3);
-                w.divr3().bits(self.divr3)
+                w.divn1().bits(self.divn1 - 1);
+                w.divp1().bits(self.divp1 - 1);
+                w.divq1().bits(self.divq1 - 1);
+                w.divr1().bits(self.divr1 - 1)
             });
 
             // Now turn PLL back on, once we're configured things that can only be set with it off.
-            // todo: Enable sai1 and 2 with separate settings, or lump in with mail PLL
-            // like this?
             rcc.cr.modify(|_, w| w.pll1on().set_bit());
             while rcc.cr.read().pll1rdy().bit_is_clear() {}
 
             if self.pll2_enable {
+                rcc.pllcfgr.modify(|_, w| {
+                    w.pll2rge().bits(pll2_rng_val);
+                    w.pll2vcosel().bit(pll2_vco != 0);
+                    w.divp2en().set_bit();
+                    w.divr2en().set_bit();
+                    w.divq2en().set_bit()
+                });
+
+                rcc.pll2divr.modify(|_, w| unsafe {
+                    w.divn2().bits(self.divn2 - 1);
+                    w.divp2().bits(self.divp2 - 1);
+                    w.divq2().bits(self.divq2 - 1);
+                    w.divr2().bits(self.divr2 - 1)
+                });
+
                 rcc.cr.modify(|_, w| w.pll2on().set_bit());
                 while rcc.cr.read().pll2rdy().bit_is_clear() {}
             }
 
             if self.pll3_enable {
+                rcc.pllcfgr.modify(|_, w| {
+                    w.pll3rge().bits(pll3_rng_val);
+                    w.pll3vcosel().bit(pll3_vco != 0);
+                    w.divp3en().set_bit();
+                    w.divr3en().set_bit();
+                    w.divq3en().set_bit()
+                });
+
+                rcc.pll3divr.modify(|_, w| unsafe {
+                    w.divn3().bits(self.divn3 - 1);
+                    w.divp3().bits(self.divp3 - 1);
+                    w.divq3().bits(self.divq3 - 1);
+                    w.divr3().bits(self.divr3 - 1)
+                });
+
                 rcc.cr.modify(|_, w| w.pll3on().set_bit());
                 while rcc.cr.read().pll3rdy().bit_is_clear() {}
             }
@@ -855,7 +843,7 @@ impl Default for Clocks {
             pll3_enable: false,
             d1_core_prescaler: HclkPrescaler::Div1,
             d1_prescaler: ApbPrescaler::Div1,
-            hclk_prescaler: HclkPrescaler::Div1,
+            hclk_prescaler: HclkPrescaler::Div2,
             d2_prescaler1: ApbPrescaler::Div2,
             d2_prescaler2: ApbPrescaler::Div2,
             d3_prescaler: ApbPrescaler::Div2,

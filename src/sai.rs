@@ -21,11 +21,11 @@ use cfg_if::cfg_if;
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
-feature = "f3",
-feature = "l4",
-feature = "g4",
-feature = "h7",
-feature = "wb"
+    feature = "f3",
+    feature = "l4",
+    feature = "g4",
+    feature = "h7",
+    feature = "wb"
 ))]
 use crate::pac::dma1 as dma_p;
 
@@ -238,7 +238,7 @@ impl Default for SaiConfig {
             mono: Mono::Stereo,
             sync: SyncMode::Async,
             datasize: DataSize::S24,
-            frame_length: 64,  // 64 * (config.slots / 2) ?
+            frame_length: 64,                // 64 * (config.slots / 2) ?
             master_clock: MasterClock::Used, // todo?
             first_bit: FirstBit::MsbFirst,
             oversampling_ratio: OversamplingRatio::FMul256,
@@ -290,8 +290,8 @@ pub struct Sai<R> {
 }
 
 impl<R> Sai<R>
-    where
-        R: Deref<Target = sai::RegisterBlock>,
+where
+    R: Deref<Target = sai::RegisterBlock>,
 {
     /// Initialize a SAI peripheral, including  enabling and resetting
     /// its RCC peripheral clock. For now, set up with default clocks selected.
@@ -334,7 +334,7 @@ impl<R> Sai<R>
             // #[cfg(not(feature = "h7"))]
             // w.nomck().bits(config_a.master_clock as u8 != 0);
             #[cfg(feature = "h7")]
-                w.mcken().bit(config_a.master_clock as u8 == 0);
+            w.mcken().bit(config_a.master_clock as u8 == 0);
             // The audio frame can target different data sizes by configuring bit DS[2:0] in the SAI_xCR1
             // register. The data sizes may be 8, 10, 16, 20, 24 or 32 bits. During the transfer, either the
             // MSB or the LSB of the data are sent first, depending on the configuration of bit LSBFIRST in
@@ -347,7 +347,6 @@ impl<R> Sai<R>
             // first. This bit has no meaning in SPDIF audio protocol since in SPDIF data are always transferred
             // with LSB first
             w.lsbfirst().bit(config_a.first_bit as u8 != 0)
-
         });
         // todo: MCKEN vice NOMCK?? Make sure your enum reflects how you handle it.
 
@@ -359,7 +358,7 @@ impl<R> Sai<R>
             // #[cfg(not(feature = "h7"))]
             // w.nomck().bits(config_b.master_clock as u8 != 0);
             #[cfg(feature = "h7")]
-                w.mcken().bit(config_b.master_clock as u8 == 0);
+            w.mcken().bit(config_b.master_clock as u8 == 0);
             w.ds().bits(config_b.datasize as u8);
             #[cfg(not(feature = "l4"))]
             w.osr().bit(config_b.oversampling_ratio as u8 != 0);
@@ -407,7 +406,6 @@ impl<R> Sai<R>
             w.frl().bits(config_b.frame_length)
         });
 
-
         // slot en bits???
         let slot_en_bits: u16 = (2_u32.pow(config_a.num_slots as u32) - 1) as u16;
         // todo: Slot configuration (NBSLOT) ? xSLOTR?
@@ -432,11 +430,11 @@ impl<R> Sai<R>
                 // todo: Do we want to flush?
                 self.regs.cha.cr2.modify(|_, w| w.fflush().set_bit());
                 self.regs.cha.cr1.modify(|_, w| w.saien().set_bit());
-            },
+            }
             SaiChannel::B => {
                 self.regs.chb.cr2.modify(|_, w| w.fflush().set_bit());
                 self.regs.chb.cr1.modify(|_, w| w.saien().set_bit());
-            },
+            }
         }
     }
 
@@ -572,9 +570,9 @@ impl<R> Sai<R>
         };
 
         #[cfg(feature = "h7")]
-            let len = len as u32;
+        let len = len as u32;
         #[cfg(not(feature = "h7"))]
-            let len = len as u16;
+        let len = len as u16;
 
         dma.cfg_channel(
             dma_channel,
@@ -639,9 +637,9 @@ impl<R> Sai<R>
         };
 
         #[cfg(feature = "h7")]
-            let len = len as u32;
+        let len = len as u32;
         #[cfg(not(feature = "h7"))]
-            let len = len as u16;
+        let len = len as u16;
 
         dma.cfg_channel(
             dma_channel,

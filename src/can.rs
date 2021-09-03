@@ -50,7 +50,7 @@ where
 
     #[cfg(feature = "f4")]
     /// Creates a CAN interface.
-    pub fn new<P>(regs: C, device: CanDevice, rcc: &mut RCC) -> Self {
+    pub fn new(regs: R, device: CanDevice, rcc: &mut RCC) -> Self {
         match device {
             CanDevice::One => {
                 rcc_en_reset!(apb1, can1, rcc);

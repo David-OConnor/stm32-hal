@@ -40,15 +40,14 @@ pub enum Error {
     ARBITRATION,
 }
 
-
 /// Represents an Inter-Integrated Circuit (I2C) peripheral.
 pub struct I2c<R> {
     pub regs: R,
 }
 
 impl<R> I2c<R>
-    where
-        R: Deref<Target = i2c1::RegisterBlock>
+where
+    R: Deref<Target = i2c1::RegisterBlock>,
 {
     pub fn new(regs: R, device: I2cDevice, speed: u32, clocks: &Clocks) -> Self {
         free(|_| {
@@ -83,7 +82,9 @@ impl<R> I2c<R>
         assert!(freq >= 2 && freq <= 50);
 
         // Configure bus frequency into I2C peripheral
-        self.regs.cr2.write(|w| unsafe { w.freq().bits(freq as u8) });
+        self.regs
+            .cr2
+            .write(|w| unsafe { w.freq().bits(freq as u8) });
 
         let trise = if speed <= 100_000 {
             freq + 1
@@ -251,12 +252,11 @@ impl<R> I2c<R>
     }
 }
 
-
 #[cfg(feature = "embedded-hal")]
 #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> WriteRead for I2c<R>
-    where
-        R: Deref<Target = i2c1::RegisterBlock>
+where
+    R: Deref<Target = i2c1::RegisterBlock>,
 {
     type Error = Error;
 
@@ -271,8 +271,8 @@ impl<R> WriteRead for I2c<R>
 #[cfg(feature = "embedded-hal")]
 #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> Write for I2c<R>
-    where
-        R: Deref<Target = i2c1::RegisterBlock>
+where
+    R: Deref<Target = i2c1::RegisterBlock>,
 {
     type Error = Error;
 
@@ -293,8 +293,8 @@ impl<R> Write for I2c<R>
 #[cfg(feature = "embedded-hal")]
 #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> Read for I2c<R>
-    where
-        R: Deref<Target = i2c1::RegisterBlock>
+where
+    R: Deref<Target = i2c1::RegisterBlock>,
 {
     type Error = Error;
 
