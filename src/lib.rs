@@ -1,6 +1,7 @@
-//! This library provides high-level access to STM32 peripherals. It supports the following STM32 families:
-//! F3, F4, L4, L5, G0, G4, H7, WB, and WL. It's designed to be used in real-world projects, and favors
-//! functionality, ergonomics, and explicit interfaces.
+//! This library provides high-level access to STM32 peripherals.
+//!
+//! **Current family support**: F3, F4, L4, L5, G0, G4, H7, and WB. U5 is planned once its SVD files and PAC
+//! become available. WL support is a WIP, with many features not implemented.
 //!
 //! Please see the [Readme](https://github.com/David-OConnor/stm32-hal/blob/main/README.md) for a detailed overview,
 //! and the [examples folder on Github](https://github.com/David-OConnor/stm32-hal/tree/main/examples)
@@ -12,28 +13,39 @@
 //! using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml`
 //! and `main.rs` as required.
 //!
+//! The [blinky example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/blinky), written by
+//! [toudi](https://github.com/toudi), provides a detailed example and instructions for how to set up a blinking
+//! light (ie hello world) using an STM32F411 "blackpill" board. Its readme provides instructions for how to get
+//! started from scratch, and its code contains detailed comments explaining each part.
+//!
+//! The [conductivity module example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/conductivity_module)
+//! is a complete example of simple production firmware. It uses the DAC, I2C, Timer, and UART peripherals,
+//! with a simple interupt-based control flow.
+//!
+//! Additional examples in the [examples folder](https://github.com/David-OConnor/stm32-hal/tree/main/examples) demonstrate
+//! how to use various STM32 peripherals; most of these examples focus on a single peripheral.
+//!
 //! When specifying this crate as a dependency in `Cargo.toml`, you need to specify a feature
 //! representing your MCU. If this is for code that runs on an MCU directly (ie not a library), also
-//! include a run-time feature, following the template `l4rt`. For example:
+//!  include a run-time feature, following the template `l4rt`. For example:
 //! ```toml
 //! cortex-m = "0.7.3"
 //! cortex-m-rt = "0.6.13"
-//! stm32-hal2 = { version = "^0.2.9", features = ["l4x3", "l4rt"]}
+//! stm32-hal2 = { version = "^1.0.1", features = ["l4x3", "l4rt"]}
 //! ```
 //!
 //! If you need `embedded-hal` traits, include the `embedded-hal` feature.
 //!
-//! You can review [this section of Cargo.toml](https://github.com/David-OConnor/stm32-hal/blob/main/Cargo.toml#L82)
+//! You can review [this section of Cargo.toml](https://github.com/David-OConnor/stm32-hal/blob/main/Cargo.toml#L61)
 //! to see which MCU and runtime features are available.
 //!
 //! ### Example highlights:
-//!
 //! ```rust
 //! use cortex_m;
 //! use cortex_m_rt::entry;
 //! use stm32_hal2::{
 //!     clocks::Clocks,
-//!     gpio::{GpioB, PinMode, OutputType, AltFn},
+//!     gpio::{Pin, Port, PinMode, OutputType},
 //!     i2c::{I2c, I2cDevice},
 //!     low_power,
 //!     pac,
@@ -48,22 +60,22 @@
 //!     let clock_cfg = Clocks::default();
 //!     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
 //!
-//!     let mut gpiob = GpioB::new(dp.GPIOB, &mut dp.RCC);
-//!     let mut pb15 = gpiob.new_pin(15, PinMode::Output);
+//!     let mut pb15 = Pin::new(Port::A, 15, PinMode::Output);
 //!     pb15.set_high();
 //!
-//!     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg, &mut dp.RCC);
+//!     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg);
 //!     timer.enable_interrupt(TimerInterrupt::Update);
 //!
-//!     let mut scl = gpiob.new_pin(6, PinMode::Alt(4));
-//!     scl.output_type(OutputType::OpenDrain, &mut gpiob.regs);
+//!     let mut scl = Pin::new(Port::B, 6, PinMode::Alt(4));
+//!     scl.output_type(OutputType::OpenDrain);
 //!
-//!     let mut sda = gpiob.new_pin(7, PinMode::Alt(4));
-//!     sda.output_type(OutputType::OpenDrain, &mut gpiob.regs);
+//!     let mut sda = Pin::new(Port::B, 7, PinMode::Alt(4));
+//!     sda.output_type(OutputType::OpenDrain);
 //!
-//!     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg, &mut dp.RCC);
+//!     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg);
 //!
 //!     loop {
+//!         i2c.write(0x50, &[1, 2, 3]);
 //!         low_power::sleep_now(&mut cp.SCB);
 //!     }
 //! }
@@ -95,6 +107,8 @@
 // Some reg modifications are marked `unsafe` in some PAC crates, but not others.
 // Disable these warnings.
 #![allow(unused_unsafe)]
+// The `doc_cfg` feature allows us to show functionality that is feature-gated on `docs.rs`.
+#![feature(doc_cfg)]
 
 #[cfg(not(any(
     feature = "f301",

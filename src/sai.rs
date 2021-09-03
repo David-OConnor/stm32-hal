@@ -60,6 +60,42 @@ pub enum Mono {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
+/// Set which bit is transmitted first: Least significant, or Most significant. You may have to
+/// choose the one used by your SAI device. Sets xCR1 register, LSBFIRST field.
+/// The FS signal can have a different meaning depending on the FS function. FSDEF bit in the
+/// SAI_xFRCR register selects which meaning it will have:
+pub enum FsSignal {
+    /// Start of frame, like for instance the PCM/DSP, TDM, AC’97, audio protocols,
+    Frame = 0,
+    /// :Start of frame and channel side identification within the audio frame like for the I2S,
+    /// the MSB or LSB-justified protocols.
+    FrameAndChannel = 1,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// Set which bit is transmitted first: Least significant, or Most significant. You may have to
+/// choose the one used by your SAI device. Sets xCR1 register, LSBFIRST field.
+pub enum FirstBit {
+    /// Data are transferred with MSB first
+    LsbFirst = 0,
+    /// Data are transferred with LSB first
+    MsbFirst = 1,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// Oversampling ratio for master clock. You may have to
+/// choose the one used by your SAI device. Sets xCR1 register, OSR field.
+pub enum OversamplingRatio {
+    /// Master clock frequency = F_FS x 256
+    FMul256 = 0,
+    /// Master clock frequency = F_FS x 512
+    FMul512 = 1,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
 /// Specify wheather sub-clocks A and B are synchronized.
 pub enum SyncMode {
     /// Audio sub-block in asynchronous mode
@@ -160,6 +196,10 @@ pub enum SaiChannel {
     B,
 }
 
+/// Configuration for the SAI peripheral. Mainly affects the ACR and BCR registers.
+/// Used for either channel. For details, see documentation of individual structs and fields.
+/// You may be forced into certain settings based on the device used.
+#[derive(Clone, Copy)]
 pub struct SaiConfig {
     pub mode: SaiMode,
     pub protocol: Protocol,
@@ -171,6 +211,9 @@ pub struct SaiConfig {
     pub datasize: DataSize,
     pub frame_length: u8,
     pub master_clock: MasterClock,
+    pub first_bit: FirstBit,
+    pub oversampling_ratio: OversamplingRatio,
+    pub fs_signal: FsSignal,
 }
 
 impl Default for SaiConfig {
@@ -180,16 +223,19 @@ impl Default for SaiConfig {
             protocol: Protocol::Free,
             mono: Mono::Stereo,
             sync: SyncMode::Async,
-            datasize: DataSize::S32,
-            frame_length: 10,
+            datasize: DataSize::S24,
+            frame_length: 64,
             master_clock: MasterClock::Used, // todo?
+            first_bit: FirstBit::MsbFirst,
+            oversampling_ratio: OversamplingRatio::FMul256,
+            fs_signal: FsSignal::FrameAndChannel,
         }
     }
 }
 
 /// Represents the USART peripheral, for serial communications.
 pub struct Sai<R> {
-    regs: R,
+    pub regs: R,
     pub config_a: SaiConfig,
     pub config_b: SaiConfig,
 }
@@ -198,6 +244,9 @@ impl<R> Sai<R>
 where
     R: Deref<Target = sai::RegisterBlock>,
 {
+    /// Initialize a SAI peripheral, including  enabling and resetting
+    /// its RCC peripheral clock. For now, set up with default clocks selected.
+    /// ie, pll1q.
     pub fn new(
         regs: R,
         device: SaiDevice,
@@ -241,7 +290,13 @@ where
             // register. The data sizes may be 8, 10, 16, 20, 24 or 32 bits. During the transfer, either the
             // MSB or the LSB of the data are sent first, depending on the configuration of bit LSBFIRST in
             // the SAI_xCR1 register.
-            w.ds().bits(config_a.datasize as u8)
+            w.ds().bits(config_a.datasize as u8);
+            // This bit is set and cleared by software. It must be configured when the audio block is disabled. This
+            // bit has no meaning in AC’97 audio protocol since AC’97 data are always transferred with the MSB
+            // first. This bit has no meaning in SPDIF audio protocol since in SPDIF data are always transferred
+            // with LSB first
+            w.lsbfirst().bit(config_a.first_bit as u8 != 0);
+            w.osr().bit(config_a.oversampling_ratio as u8 != 0)
         });
         // todo: MCKEN vice NOMCK?? Make sure your enum reflects how you handle it.
 
@@ -254,20 +309,43 @@ where
             // w.nomck().bits(config_b.master_clock as u8 != 0);
             #[cfg(feature = "h7")]
             w.mcken().bit(config_b.master_clock as u8 == 0);
-            w.ds().bits(config_b.datasize as u8)
+            w.ds().bits(config_b.datasize as u8);
+            w.lsbfirst().bit(config_b.first_bit as u8 != 0);
+            w.osr().bit(config_b.oversampling_ratio as u8 != 0)
         });
+
+        // The FS signal can have a different meaning depending on the FS function. FSDEF bit in the
+        // SAI_xFRCR register selects which meaning it will have:
+        // • 0: start of frame, like for instance the PCM/DSP, TDM, AC’97, audio protocols,
+        // • 1: start of frame and channel side identification within the audio frame like for the I2S,
+        // the MSB or LSB-justified protocols.
+        // When the FS signal is considered as a start of frame and channel side identification within
+        // the frame, the number of declared slots must be considered to be half the number for the left
+        // channel and half the number for the right channel. If the number of bit clock cycles on half
+        // audio frame is greater than the number of slots dedicated to a channel side, and TRIS = 0, 0
+        // is sent for transmission for the remaining bit clock cycles in the SAI_xCR2 register.
+        // Otherwise if TRIS = 1, the SD line is released to HI-Z. In reception mode, the remaining bit
+        // clock cycles are not considered until the channel side changes.
 
         // The audio frame length can be configured to up to 256 bit clock cycles, by setting
         // FRL[7:0] field in the SAI_xFRCR register.
-        regs.cha
-            .frcr
-            .modify(|_, w| unsafe { w.frl().bits(config_a.frame_length) });
+        regs.cha.frcr.modify(|_, w| unsafe {
+            w.fsdef().bit(config_a.fs_signal as u8 != 0);
+            w.frl().bits(config_a.frame_length)
+        });
 
-        regs.chb
-            .frcr
-            .modify(|_, w| unsafe { w.frl().bits(config_b.frame_length) });
+        regs.chb.frcr.modify(|_, w| unsafe {
+            w.fsdef().bit(config_b.fs_signal as u8 != 0);
+            w.frl().bits(config_b.frame_length)
+        });
 
         // todo: Slot configuration (NBSLOT) ? xSLOTR?
+        // regs.cha.slotr.modify(|_, w| {
+        //     w.sloten().bit();
+        //     w.nbslot().bits();
+        //     w.slotsz.bits();
+        //     w.fpoff.bits()
+        // });
 
         Self {
             regs,

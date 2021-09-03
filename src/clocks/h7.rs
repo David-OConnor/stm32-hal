@@ -54,35 +54,6 @@ impl InputSrc {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// RCC_cfgr2
-pub enum Prediv {
-    Div1 = 0b0000,
-    Div2 = 0b0001,
-    Div3 = 0b0010,
-    Div4 = 0b0011,
-    Div5 = 0b0100,
-    Div6 = 0b0101,
-    Div7 = 0b0110,
-    Div8 = 0b0111,
-}
-
-impl Prediv {
-    pub fn value(&self) -> u8 {
-        match self {
-            Self::Div1 => 1,
-            Self::Div2 => 2,
-            Self::Div3 => 3,
-            Self::Div4 => 4,
-            Self::Div5 => 5,
-            Self::Div6 => 6,
-            Self::Div7 => 7,
-            Self::Div8 => 8,
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-#[repr(u8)]
 /// Division factor for the AHB clock. Also known as AHB Prescaler. See RCC_D1CFGR reg.
 pub enum HclkPrescaler {
     Div1 = 0b0000,
@@ -133,6 +104,17 @@ impl ApbPrescaler {
             Self::Div16 => 16,
         }
     }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// SAI clock input source. Sets RCC_D2CCIP1R register, SAIxSEL fields.
+pub enum SaiSrc {
+    Pll1Q = 0b000,
+    Pll2P = 0b001,
+    Pll3P = 0b010,
+    I2sCkin = 0b011,
+    PerClk = 0100,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -254,6 +236,10 @@ pub struct Clocks {
     pub divq3: u8,
     /// PLL3 DIVR division factor
     pub divr3: u8,
+    /// Enable PLL2
+    pub pll2_enable: bool,
+    /// Enable PLL3
+    pub pll3_enable: bool,
     pub d1_core_prescaler: HclkPrescaler,
     pub d1_prescaler: ApbPrescaler,
     pub hclk_prescaler: HclkPrescaler,
@@ -266,6 +252,10 @@ pub struct Clocks {
     pub security_system: bool,
     pub hsi48_on: bool,
     pub vos_range: VosRange,
+    /// SAI1 and DFSDM1 kernel Aclk clock source selection
+    pub sai1_src: SaiSrc,
+    /// SAI2 and SAI3 kernel clock source selection
+    pub sai23_src: SaiSrc,
 }
 
 impl Clocks {
@@ -348,12 +338,9 @@ impl Clocks {
 
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
-        let sysclk = self.sysclk();
-
-        let hclk = sysclk / self.hclk_prescaler.value() as u32;
         // H742 RM, Table 17.
         // todo: What should this be?
-        let wait_states = self.vos_range.wait_states(hclk);
+        let wait_states = self.vos_range.wait_states(self.hclk());
         flash.acr.modify(|_, w| unsafe {
             w.latency().bits(wait_states.0);
             w.wrhighfreq().bits(wait_states.1)
@@ -446,7 +433,7 @@ impl Clocks {
 
             // Set and reset by software to select the proper reference frequency range used for PLL1.
             // This bit must be written before enabling the PLL1.
-            let pll1_rng_val = match self.pll_input_speed(pll_src) {
+            let pll1_rng_val = match self.pll_input_speed(pll_src, 1) {
                 1_000_000..=2_000_000 => 0b00,
                 2_000_001..=4_000_000 => 0b01,
                 4_000_001..=8_000_000 => 0b10,
@@ -454,8 +441,98 @@ impl Clocks {
                 _ => panic!("PLL1 input source must be between 1Mhz and 16Mhz."),
             };
 
-            // todo: Use PLLCFGR to enable the various PLL1, 2, 3 R, Q, and P outputs as required
-            rcc.pllcfgr.modify(|_, w| w.pll1rge().bits(pll1_rng_val));
+            // todo DRY!
+            let pll2_rng_val = match self.pll_input_speed(pll_src, 2) {
+                1_000_000..=2_000_000 => 0b00,
+                2_000_001..=4_000_000 => 0b01,
+                4_000_001..=8_000_000 => 0b10,
+                8_000_001..=16_000_000 => 0b11,
+                _ => panic!("PLL2 input source must be between 1Mhz and 16Mhz."),
+            };
+
+            // todo DRY!
+            let pll3_rng_val = match self.pll_input_speed(pll_src, 3) {
+                1_000_000..=2_000_000 => 0b00,
+                2_000_001..=4_000_000 => 0b01,
+                4_000_001..=8_000_000 => 0b10,
+                8_000_001..=16_000_000 => 0b11,
+                _ => panic!("PLL3 input source must be between 1Mhz and 16Mhz."),
+            };
+
+            // todo: Don't enable all these pqr etc by default!
+            // todo don't enable pll2 and 3 by default!!
+            // todo: This has an impact on power consumption.
+
+            // todo: MOre DRY
+            // H743 RM:
+            // 0: Wide VCO range: 192 to 836 MHz (default after reset)
+            // 1: Medium VCO range: 150 to 420 MHz
+            let pll1_vco = match self.pll_input_speed(pll_src, 1) {
+                0..=2_000_000 => 0,
+                _ => 1,
+            };
+            let pll2_vco = match self.pll_input_speed(pll_src, 2) {
+                0..=2_000_000 => 0,
+                _ => 1,
+            };
+            let pll3_vco = match self.pll_input_speed(pll_src, 3) {
+                0..=2_000_000 => 0,
+                _ => 1,
+            };
+
+            // The user application can then configure the proper VCO: if the frequency of the reference
+            // clock is lower or equal to 2 MHz, then VCOL must be selected, otherwise VCOH must be
+            // chosen. To reduce the power consumption, it is recommended to configure the VCO output
+            // to the lowest frequency.
+
+            // The frequency of the reference clock provided to the PLLs (refx_ck) must range from 1 to
+            // 16 MHz. The user application has to program properly the DIVMx dividers of the RCC PLLs
+            // Clock Source Selection Register (RCC_PLLCKSELR) in order to match this condition. In
+            // addition, the PLLxRGE of the RCC PLLs Configuration Register (RCC_PLLCFGR) field
+            // must be set according to the reference input frequency to guarantee an optimal
+            // performance of the PLL.
+            // todo: Use PLLCFGR to enable the various R, Q, and P outputs as required
+
+            // struct PllEnCfg {
+            //     p_en: bool,
+            //     q_en: bool,
+            //     r_en: bool
+            //
+
+            // todo: Does enabling PLL2 and 3 bits here cause extra power use when not
+            // setting them to be on?
+            rcc.pllcfgr.modify(|_, w| {
+                w.pll1rge().bits(pll1_rng_val);
+                w.pll1vcosel().bit(pll1_vco != 0);
+                w.divp1en().set_bit();
+                // w.divr1en().set_bit();
+                // w.divq1en().set_bit();
+                w.pll2rge().bits(pll2_rng_val);
+                w.pll2vcosel().bit(pll2_vco != 0);
+                w.divp2en().set_bit();
+                w.divr2en().set_bit();
+                w.divq2en().set_bit();
+                w.pll3rge().bits(pll3_rng_val);
+                w.pll2vcosel().bit(pll3_vco != 0);
+                w.divp3en().set_bit();
+                w.divr3en().set_bit();
+                w.divq3en().set_bit()
+            });
+
+            // todo
+            // rcc.pllcfgr.modify(|_, w| {
+            //     w.pll2rge().bits(pll2_rng_val);
+            //     w.divp2en().set_bit();
+            //     w.divr2en().set_bit();
+            //     w.divq2en().set_bit()
+            // });
+            //
+            // rcc.pllcfgr.modify(|_, w| {
+            //     w.pll3rge().bits(pll3_rng_val);
+            //     w.divp3en().set_bit();
+            //     w.divr3en().set_bit();
+            //     w.divq3en().set_bit()
+            // });
 
             rcc.pll1divr.modify(|_, w| unsafe {
                 w.divn1().bits(self.divn1);
@@ -484,10 +561,21 @@ impl Clocks {
             rcc.cr.modify(|_, w| w.pll1on().set_bit());
             while rcc.cr.read().pll1rdy().bit_is_clear() {}
 
-            // todo: Enabling other PLLs?
+            if self.pll2_enable {
+                rcc.cr.modify(|_, w| w.pll2on().set_bit());
+                while rcc.cr.read().pll2rdy().bit_is_clear() {}
+            }
 
-            // todo: SAI clock?
+            if self.pll3_enable {
+                rcc.cr.modify(|_, w| w.pll3on().set_bit());
+                while rcc.cr.read().pll3rdy().bit_is_clear() {}
+            }
         }
+
+        rcc.d2ccip1r.modify(|_, w| unsafe {
+            w.sai1sel().bits(self.sai1_src as u8);
+            w.sai23sel().bits(self.sai23_src as u8)
+        });
 
         rcc.cr.modify(|_, w| w.hsecsson().bit(self.security_system));
 
@@ -561,15 +649,33 @@ impl Clocks {
         }
     }
 
-    /// Calculate the input speed to the PLL
-    fn pll_input_speed(&self, pll_src: PllSrc) -> u32 {
+    /// Calculate the input speed to the PLL. This must be between 1 and 16 Mhz. Called `refx_ck`
+    /// in the RM.
+    pub fn pll_input_speed(&self, pll_src: PllSrc, pll_num: u8) -> u32 {
         let input_freq = match pll_src {
             PllSrc::Csi => 4_000_000,
             PllSrc::Hsi(div) => 64_000_000 / (div.value() as u32),
             PllSrc::Hse(freq) => freq,
             PllSrc::None => 0,
         };
-        input_freq / self.divm1 as u32
+
+        match pll_num {
+            1 => input_freq / (self.divm1 as u32),
+            2 => input_freq / (self.divm2 as u32),
+            3 => input_freq / (self.divm3 as u32),
+            _ => panic!("Pll num must be between 1 and 3."),
+        }
+    }
+
+    /// Calculate VCO output frequency: = Fref1_ck x DIVN1
+    pub fn vco_output_freq(&self, pll_src: PllSrc, pll_num: u8) -> u32 {
+        let input_speed = self.pll_input_speed(pll_src, pll_num);
+        match pll_num {
+            1 => input_speed * self.divn1 as u32,
+            2 => input_speed * self.divn2 as u32,
+            3 => input_speed * self.divn3 as u32,
+            _ => panic!("Pll num must be between 1 and 3."),
+        }
     }
 
     /// Check if the PLL is enabled. This is useful if checking wheather to re-enable the PLL
@@ -587,12 +693,17 @@ impl Clocks {
     pub fn sysclk(&self) -> u32 {
         match self.input_src {
             InputSrc::Pll1(pll_src) => {
-                self.pll_input_speed(pll_src) * self.divn1 as u32 / self.divp1 as u32
+                // divm1 is included in `pll_input_speed`.
+                self.pll_input_speed(pll_src, 1) * self.divn1 as u32 / self.divp1 as u32
             }
             InputSrc::Csi => 4_000_000,
             InputSrc::Hsi(div) => 64_000_000 / (div.value() as u32),
             InputSrc::Hse(freq) => freq,
         }
+    }
+
+    pub fn d1cpreclk(&self) -> u32 {
+        self.sysclk() / self.d1_core_prescaler.value() as u32
     }
 
     pub fn hclk(&self) -> u32 {
@@ -601,7 +712,7 @@ impl Clocks {
 
     pub fn systick(&self) -> u32 {
         // todo: There's an optional /8 divider we're not taking into account here.
-        self.hclk()
+        self.d1cpreclk()
     }
 
     pub fn usb(&self) -> u32 {
@@ -655,18 +766,37 @@ impl Clocks {
             || self.divm2 > 63
             || self.divm3 > 63
             || self.divn1 > 512
+            || self.divn2 > 512
+            || self.divn3 > 512
             || self.divp1 > 128
+            || self.divp2 > 128
+            || self.divp3 > 128
             || self.divp1 < 2
+            || self.divp2 < 2
+            || self.divp2 < 2
         {
             return ClocksValid::NotValid;
         }
 
         if let InputSrc::Pll1(pll_src) = self.input_src {
-            let pll_input_speed = self.pll_input_speed(pll_src);
+            let pll_input_speed = self.pll_input_speed(pll_src, 1);
             if pll_input_speed < 1_000_000 || pll_input_speed > 16_000_000 {
                 return ClocksValid::NotValid;
             }
+            // VCO0: Wide VCO range: 192 to 836 MHz (default after reset) (VCOH)
+            let vco_speed = self.vco_output_freq(pll_src, 1);
+            if pll_input_speed <= 2_000_000 && (vco_speed < 192_000_000 || vco_speed > 836_000_000)
+            {
+                return ClocksValid::NotValid;
+            }
+            // 1: Medium VCO range: 150 to 420 MHz. (VCOL)
+            // Note: You may get power savings
+            if pll_input_speed > 2_000_000 && (vco_speed < 150_000_000 || vco_speed > 420_000_000) {
+                return ClocksValid::NotValid;
+            }
         }
+
+        // todo: Validate PLL2 and PLL3 speeds.
 
         // todo: More work on this, including feature gates
 
@@ -697,7 +827,7 @@ impl Clocks {
 
 impl Default for Clocks {
     /// This default configures clocks with the HSI, and a 240Mhz sysclock speed.
-    /// Peripheral clocks are all set to 112Mhz, with timer clocks at 224Mhz.
+    /// Peripheral clocks are all set to 112.5Mhz, with timer clocks at 225Mhz.
     /// HSE output is not bypassed.
     /// todo: Not 248Mhz due to an issue with wait states on Table 17 not showing higher than 225Mhz
     /// // todo HCLK unless in VOS0.
@@ -705,24 +835,26 @@ impl Default for Clocks {
         // todo: Feature-gate based on variant. Ie the 5xxMhz ones, the 240Mhz ones, and dual cores.
         Self {
             input_src: InputSrc::Pll1(PllSrc::Hsi(HsiDiv::Div1)),
-            divm1: 8,
+            divm1: 32,
             // #[cfg(feature = "h743")]
             // divn1: 240, // todo: For 480Mhz with right vco set.
             // #[cfg(feature = "h743")]
-            divn1: 56,
+            divn1: 225,
             divp1: 2,
             divq1: 3, // Allows <150Mhz SAI clock, if it's configureud for PLL1Q.
             divr1: 2,
-            divm2: 1,
-            divn2: 129,
+            divm2: 32,
+            divn2: 225,
             divp2: 2,
             divq2: 2,
             divr2: 2,
-            divm3: 1,
-            divn3: 129,
+            divm3: 32,
+            divn3: 225,
             divp3: 2,
             divq3: 2,
             divr3: 2,
+            pll2_enable: false,
+            pll3_enable: false,
             d1_core_prescaler: HclkPrescaler::Div1,
             d1_prescaler: ApbPrescaler::Div1,
             hclk_prescaler: HclkPrescaler::Div1,
@@ -733,6 +865,8 @@ impl Default for Clocks {
             security_system: false,
             hsi48_on: false,
             vos_range: VosRange::VOS1,
+            sai1_src: SaiSrc::Pll1Q,
+            sai23_src: SaiSrc::Pll1Q,
         }
     }
 }

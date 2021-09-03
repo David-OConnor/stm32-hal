@@ -59,7 +59,7 @@ representing your MCU. If this is for code that runs on an MCU directly (ie not 
 ```toml
 cortex-m = "0.7.3"
 cortex-m-rt = "0.6.13"
-stm32-hal2 = { version = "^1.0.0", features = ["l4x3", "l4rt"]}
+stm32-hal2 = { version = "^1.0.1", features = ["l4x3", "l4rt"]}
 ```
 
 If you need `embedded-hal` traits, include the `embedded-hal` feature.
