@@ -1,5 +1,5 @@
 use crate::{
-    clocks::{ClocksValid, SpeedError},
+    clocks::SpeedError,
     pac::{FLASH, RCC},
     rcc_en_reset,
 };
@@ -369,8 +369,8 @@ impl Clocks {
     /// https://docs.rs/stm32f3xx-hal/0.5.0/stm32f3xx_hal/rcc/struct.CFGR.html
     /// Use the STM32CubeIDE Clock Configuration tab to help.
     pub fn setup(&self, rcc: &mut RCC, flash: &mut FLASH) -> Result<(), SpeedError> {
-        if let ClocksValid::NotValid = self.validate_speeds() {
-            return Err(SpeedError {});
+        if let Err(e) = self.validate_speeds() {
+            return Err(e);
         }
 
         // Adjust flash wait states according to the HCLK frequency.
@@ -650,7 +650,7 @@ impl Clocks {
         }
     }
 
-    pub fn validate_speeds(&self) -> ClocksValid {
+    pub fn validate_speeds(&self) -> Result<(), SpeedError> {
         #[cfg(feature = "f3")]
         let max_clock = 72_000_000;
 
@@ -668,7 +668,7 @@ impl Clocks {
 
         #[cfg(feature = "f4")]
         if self.plln < 50 || self.plln > 432 || self.pllm < 2 || self.pllm > 63 {
-            return ClocksValid::NotValid;
+            return Err(SpeedError::new("A PLL divider is out of limits"));
         }
 
         cfg_if! {
@@ -683,27 +683,28 @@ impl Clocks {
 
         // todo: min clock? eg for apxb?
         if self.sysclk() > max_hclk {
-            return ClocksValid::NotValid;
+            return Err(SpeedError::new("Sysclk out of limits"));
         }
 
         #[cfg(feature = "f411")]
         if self.hclk() > 50_000_000 {
-            return ClocksValid::NotValid;
+            return Err(SpeedError::new("Hclk out of limits"));
         }
 
+        #[cfg(not(feature = "f411"))]
         if self.hclk() > max_clock {
-            return ClocksValid::NotValid;
+            return Err(SpeedError::new("Hclk out of limits"));
         }
 
         if self.apb1() > max_clock {
-            return ClocksValid::NotValid;
+            return Err(SpeedError::new("Apb1 out of limits"));
         }
 
         if self.apb2() > max_clock {
-            return ClocksValid::NotValid;
+            return Err(SpeedError::new("Apb2 out of limits"));
         }
 
-        ClocksValid::Valid
+        Ok(())
     }
 }
 

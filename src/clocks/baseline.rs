@@ -1,7 +1,7 @@
 //! Clock config for STM32L, G, and W-series MCUs
 
 use crate::{
-    clocks::{ClocksValid, SpeedError},
+    clocks::SpeedError,
     pac::{self, FLASH, RCC},
     rcc_en_reset,
 };
@@ -507,8 +507,8 @@ impl Clocks {
     /// Use the STM32CubeIDE Clock Configuration tab to help identify valid configs.
     /// Use the `default()` implementation as a safe baseline.
     pub fn setup(&self, rcc: &mut RCC, flash: &mut FLASH) -> Result<(), SpeedError> {
-        if let ClocksValid::NotValid = self.validate_speeds() {
-            return Err(SpeedError {});
+        if let Err(e) = self.validate_speeds() {
+            return Err(e);
         }
 
         // Adjust flash wait states according to the HCLK frequency.
@@ -1191,7 +1191,7 @@ impl Clocks {
         }
     }
 
-    pub fn validate_speeds(&self) -> ClocksValid {
+    pub fn validate_speeds(&self) -> Result<(), SpeedError> {
         #[cfg(feature = "l4")]
         let max_clock = 80_000_000;
 
@@ -1223,17 +1223,17 @@ impl Clocks {
             || self.pll_sai2_mul < 7
             || self.pll_sai2_mul > 86
         {
-            return ClocksValid::NotValid;
+            return Err(SpeedError::new("A PLL divider is out of limits"));
         }
 
         #[cfg(feature = "g0")]
         if self.plln < 9 || self.plln > 86 {
-            return ClocksValid::NotValid;
+            return Err(SpeedError::new("A PLL divider is out of limits"));
         }
 
         #[cfg(feature = "g4")]
         if self.plln < 8 || self.plln > 127 {
-            return ClocksValid::NotValid;
+            return Err(SpeedError::new("A PLL divider is out of limits"));
         }
 
         // todo: on WB, input src / PlLM * plln Must be between 96 and 344 Mhz.
@@ -1244,25 +1244,25 @@ impl Clocks {
         // todo: Note that this involves repeatedly calculating sysclk.
         // todo. We could work around thsi by calcing it once here.
         if self.sysclk() > max_clock {
-            return ClocksValid::NotValid;
+            return Err(SpeedError::new("Sysclk out of limits"));
         }
 
         // todo: What are the actual hclk limits? Not always sysclk?
 
         if self.hclk() > max_clock {
-            return ClocksValid::NotValid;
+            return Err(SpeedError::new("Hclk out of limits"));
         }
 
         if self.apb1() > max_clock {
-            return ClocksValid::NotValid;
+            return Err(SpeedError::new("Apb1 out of limits"));
         }
 
         #[cfg(not(feature = "g0"))]
         if self.apb2() > max_clock {
-            return ClocksValid::NotValid;
+            return Err(SpeedError::new("Apb2 out of limits"));
         }
 
-        ClocksValid::Valid
+        Ok(())
     }
 }
 

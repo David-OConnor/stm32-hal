@@ -39,7 +39,7 @@ where
 {
     #[cfg(not(feature = "f4"))]
     /// Creates a CAN interface.
-    pub fn new<P>(regs: C, rcc: &mut RCC) -> Self {
+    pub fn new<P>(regs: R, rcc: &mut RCC) -> Self {
         #[cfg(feature = "f3")]
         rcc_en_reset!(apb1, can, rcc);
         #[cfg(feature = "l4")]

@@ -31,11 +31,19 @@ cfg_if::cfg_if! {
 
 /// Speed out of limits.
 #[derive(Debug)]
-pub struct SpeedError {}
-
-#[derive(Clone, Copy)]
-#[repr(u8)]
-pub enum ClocksValid {
-    Valid,
-    NotValid,
+pub struct SpeedError {
+    error_msg: &'static str
 }
+
+impl SpeedError {
+    pub(crate) fn new(error_msg: &'static str) -> Self {
+        Self { error_msg }
+    }
+}
+
+// #[derive(Clone, Copy)]
+// #[repr(u8)]
+// pub enum ClocksValid {
+//     Valid,
+//     NotValid,
+// }

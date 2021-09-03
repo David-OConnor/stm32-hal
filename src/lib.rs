@@ -410,12 +410,11 @@ pub mod qspi;
 #[cfg(not(feature = "wl"))] // todo
 pub mod rtc;
 
-// todo: Impl SAI on G4.
 #[cfg(not(any(
     feature = "f3",
     feature = "f4",
     feature = "g0",
-    feature = "g4",
+    feature = "g4", // todo: G4 PAC issue re getting channel-specific reg blocks.
     feature = "h7b3",
     feature = "wl"
 )))]
