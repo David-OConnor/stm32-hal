@@ -1185,7 +1185,7 @@ impl Pin {
 }
 //
 #[cfg(feature = "embedded-hal")]
-#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl InputPin for Pin {
     type Error = Infallible;
 
@@ -1199,7 +1199,7 @@ impl InputPin for Pin {
 }
 
 #[cfg(feature = "embedded-hal")]
-#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl OutputPin for Pin {
     type Error = Infallible;
 
@@ -1215,7 +1215,7 @@ impl OutputPin for Pin {
 }
 
 #[cfg(feature = "embedded-hal")]
-#[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl ToggleableOutputPin for Pin {
     type Error = Infallible;
 

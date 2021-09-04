@@ -238,8 +238,8 @@ impl Default for SaiConfig {
             mono: Mono::Stereo,
             sync: SyncMode::Async,
             datasize: DataSize::S24,
-            frame_length: 64,                // 64 * (config.slots / 2) ?
-            master_clock: MasterClock::Used, // todo?
+            frame_length: 64,                   // 64 * (config.slots / 2) ?
+            master_clock: MasterClock::NotUsed, // todo?
             first_bit: FirstBit::MsbFirst,
             oversampling_ratio: OversamplingRatio::FMul256,
             fs_signal: FsSignal::Frame,
@@ -425,6 +425,22 @@ where
 
     /// Enable an audio subblock (channel).
     pub fn enable(&mut self, channel: SaiChannel) {
+        // Each of the audio blocks in the SAI are enabled by SAIEN bit in the SAI_xCR1 register. As
+        // soon as this bit is active, the transmitter or the receiver is sensitive to the activity on the
+        // clock line, data line and synchronization line in slave mode.
+        // In master TX mode, enabling the audio block immediately generates the bit clock for the
+        // external slaves even if there is no data in the FIFO, However FS signal generation is
+        // conditioned by the presence of data in the FIFO. After the FIFO receives the first data to
+        // transmit, this data is output to external slaves. If there is no data to transmit in the FIFO, 0
+        // values are then sent in the audio frame with an underrun flag generation.
+        // In slave mode, the audio frame starts when the audio block is enabled and when a start of
+        // frame is detected.
+        // In Slave TX mode, no underrun event is possible on the first frame after the audio block is
+        // enabled, because the mandatory operating sequence in this case is:
+        // 1. Write into the SAI_xDR (by software or by DMA).
+        // 2. Wait until the FIFO threshold (FLH) flag is different from 0b000 (FIFO empty).
+        // 3. Enable the audio block in slave transmitter mode.
+
         match channel {
             SaiChannel::A => {
                 // todo: Do we want to flush?

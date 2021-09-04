@@ -1,4 +1,8 @@
-//! Clock config for STM32L, G, and W-series MCUs
+//! Clock config for STM32L, G, and W-series MCUs. Uses a `Clocks` struct to configure
+//! settings, starting with a `Default::default()` implementation. Uses the `setup` method
+//! to write changes.
+
+// Similar in from to the H7 clocks module, but includes notable differendes.
 
 use crate::{
     clocks::SpeedError,
@@ -9,7 +13,6 @@ use crate::{
 use cfg_if::cfg_if;
 
 // todo: WB is missing second LSI2, and perhaps other things.
-// todo: Mix H7 clocks into this module.
 
 #[cfg(not(any(feature = "g0", feature = "wl")))]
 #[derive(Clone, Copy, PartialEq)]
@@ -28,6 +31,7 @@ pub enum Clk48Src {
 #[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
 #[derive(Clone, Copy)]
 #[repr(u8)]
+/// Select the SYNC signal source. Sets the CRS_CFGR register, SYNCSRC field.
 pub enum CrsSyncSrc {
     Gpio = 0b00,
     Lse = 0b01,
@@ -49,44 +53,6 @@ pub enum PllSrc {
     None,
     Hsi,
     Hse(u32),
-}
-
-#[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
-#[derive(Clone, Copy, PartialEq)]
-#[repr(u8)]
-/// Select the system clock used when exiting Stop mode
-pub enum StopWuck {
-    Msi = 0,
-    Hsi = 1,
-}
-
-#[cfg(feature = "wb")]
-#[derive(Clone, Copy, PartialEq)]
-#[repr(u8)]
-/// RF system wakeup clock source selection
-pub enum RfWakeupSrc {
-    NoClock = 0b00,
-    /// LSE oscillator clock used as RF system wakeup clock
-    Lse = 0b01,
-    /// HSE oscillator clock divided by 1024 used as RF system wakeup clock
-    Hse = 0b11,
-}
-
-// L4 uses 0 - 4 only. Others use 1 - 15, but it's not clear when you'd
-// set more than WS5 or so.
-#[derive(Clone, Copy)]
-#[repr(u8)]
-/// Represents Flash wait states in the FLASH_ACR register.
-enum WaitState {
-    W0 = 0,
-    W1 = 1,
-    W2 = 2,
-    #[cfg(not(feature = "wl"))]
-    W3 = 3,
-    #[cfg(not(any(feature = "wb", feature = "wl")))]
-    W4 = 4,
-    #[cfg(feature = "l5")]
-    W5 = 5,
 }
 
 impl PllSrc {
@@ -111,9 +77,19 @@ impl PllSrc {
     }
 }
 
+#[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// Select the system clock used when exiting Stop mode. Sets RCC_CFGR register, STOPWUCK field.
+pub enum StopWuck {
+    Msi = 0,
+    Hsi = 1,
+}
+
 cfg_if! {
     if #[cfg(feature = "g0")] {
         #[derive(Clone, Copy, PartialEq)]
+        /// Clock input source, also known as system clock switch. Sets RCC_CFGR register, SW field.
         pub enum InputSrc {
             Hsi,
             Hse(u32), // freq in Mhz,
@@ -178,6 +154,35 @@ cfg_if! {
     }
 }
 
+#[cfg(feature = "wb")]
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// RF system wakeup clock source selection
+pub enum RfWakeupSrc {
+    NoClock = 0b00,
+    /// LSE oscillator clock used as RF system wakeup clock
+    Lse = 0b01,
+    /// HSE oscillator clock divided by 1024 used as RF system wakeup clock
+    Hse = 0b11,
+}
+
+// L4 uses 0 - 4 only. Others use 1 - 15, but it's not clear when you'd
+// set more than WS5 or so.
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// Represents Flash wait states in the FLASH_ACR register.
+enum WaitState {
+    W0 = 0,
+    W1 = 1,
+    W2 = 2,
+    #[cfg(not(feature = "wl"))]
+    W3 = 3,
+    #[cfg(not(any(feature = "wb", feature = "wl")))]
+    W4 = 4,
+    #[cfg(feature = "l5")]
+    W5 = 5,
+}
+
 #[cfg(not(any(feature = "g0", feature = "g4")))]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
@@ -218,31 +223,61 @@ impl MsiRange {
     }
 }
 
-#[derive(Clone, Copy)]
-#[repr(u8)]
-/// RCC_cfgr2
-pub enum Prediv {
-    Div1 = 0b0000,
-    Div2 = 0b0001,
-    Div3 = 0b0010,
-    Div4 = 0b0011,
-    Div5 = 0b0100,
-    Div6 = 0b0101,
-    Div7 = 0b0110,
-    Div8 = 0b0111,
+/// Configures the speeds, and enable status of an individual PLL (PLL1, or SAIPLL). Note that the `enable`
+/// field has no effect for PLL1.
+pub struct PllCfg {
+    /// Only relevant for PLLSAI1.
+    enabled: bool,
+    pllr_en: bool,
+    pllq_en: bool,
+    pllp_en: bool,
+    /// Only relevant for The main PLL.
+    divm: Pllm,
+    divn: u8,
+    divr: Pllr,
+    divq: Pllr,
+    divp: Pllr,
 }
 
-impl Prediv {
-    pub fn value(&self) -> u8 {
-        match self {
-            Self::Div1 => 1,
-            Self::Div2 => 2,
-            Self::Div3 => 3,
-            Self::Div4 => 4,
-            Self::Div5 => 5,
-            Self::Div6 => 6,
-            Self::Div7 => 7,
-            Self::Div8 => 8,
+impl Default for PllCfg {
+    fn default() -> Self {
+        // todo: Different defaults for different variants.
+        Self {
+            enabled: true,
+            pllr_en: true,
+            pllq_en: false,
+            pllp_en: false,
+            divm: Pllm::Div4,
+            #[cfg(feature = "l4")]
+            divn: 40,
+            #[cfg(feature = "l5")]
+            divn: 55,
+            #[cfg(feature = "g0")]
+            divn: 32,
+            #[cfg(feature = "g4")]
+            divn: 85,
+            #[cfg(feature = "wb")]
+            divn: 64,
+            #[cfg(feature = "wl")]
+            divn: 24,
+            #[cfg(not(feature = "wb"))]
+            divr: Pllr::Div2,
+            #[cfg(feature = "wb")]
+            divr: Pllr::Div4,
+            divq: Pllr::Div4,
+            divp: Pllr::Div4,
+        }
+    }
+}
+
+impl PllCfg {
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            pllp_en: false,
+            pllr_en: false,
+            pllq_en: false,
+            ..Default::default()
         }
     }
 }
@@ -322,7 +357,7 @@ impl Pllm {
 #[cfg(any(feature = "g0", feature = "wb"))]
 #[derive(Clone, Copy)]
 #[repr(u8)]
-// Main PLL division factor for PLLCLK (system clock).
+/// Main PLL division factor for PLLCLK (system clock). Also usd for PllQ and P
 pub enum Pllr {
     Div2 = 0b000,
     Div3 = 0b001,
@@ -449,15 +484,14 @@ impl ApbPrescaler {
 /// Settings used to configure clocks.
 pub struct Clocks {
     /// The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
-    pub input_src: InputSrc, //
-    pub pllm: Pllm, // PLL divider
-    pub plln: u8,   // PLL multiplier. Valid range of 7 to 86.
+    pub input_src: InputSrc,
+    /// Enable and speed status for the main PLL
+    pub pll: PllCfg,
+    /// Enable and speed status for the SAI PLL
     #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
-    pub pll_sai1_mul: u8, // PLL SAI1 multiplier. Valid range of 7 to 86.
-    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
-    pub pll_sai2_mul: u8, // PLL SAI2 multiplier. Valid range of 7 to 86.
-    pub pllr: Pllr,
-    pub pllq: Pllr,
+    pub pllsai: PllCfg,
+    #[cfg(any(feature = "l4x5", feature = "l4x6",))]
+    pub pllsai2: PllCfg,
     /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
     pub hclk_prescaler: HclkPrescaler,
     #[cfg(feature = "wb")]
@@ -501,15 +535,20 @@ pub struct Clocks {
 // todo: On L4/5, add a way to enable the MSI for use as CLK48.
 
 impl Clocks {
-    /// Setup clocks and return a `Valid` status if the config is valid. Return
-    /// `Invalid`, and don't setup if not.
-    /// https://docs.rs/stm32f3xx-hal/0.5.0/stm32f3xx_hal/rcc/struct.CFGR.html
+    /// Setup common and return Ok if the config is valid. Abort the setup if speeds
+    /// are invalid.
     /// Use the STM32CubeIDE Clock Configuration tab to help identify valid configs.
     /// Use the `default()` implementation as a safe baseline.
     pub fn setup(&self, rcc: &mut RCC, flash: &mut FLASH) -> Result<(), SpeedError> {
         if let Err(e) = self.validate_speeds() {
             return Err(e);
         }
+
+        // Enable and reset System Configuration Controller, ie for interrupts.
+        // todo: Is this the right module to do this in?
+        #[cfg(not(any(feature = "wb", feature = "wl")))] // todo: Do interrupts work without enabling syscfg on wb, which
+                                                         // todo doesn't have this?
+        rcc_en_reset!(apb2, syscfg, rcc);
 
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
@@ -697,116 +736,6 @@ impl Clocks {
             w.hsebyp().bit(self.hse_bypass)
         });
 
-        if let InputSrc::Pll(pll_src) = self.input_src {
-            // Turn off the PLL: Required for modifying some of the settings below.
-            rcc.cr.modify(|_, w| w.pllon().clear_bit());
-            // Wait for the PLL to no longer be ready before executing certain writes.
-            while rcc.cr.read().pllrdy().bit_is_set() {}
-
-            cfg_if! {
-                if #[cfg(feature = "g0")] {
-                    rcc.pllsyscfgr.modify(|_, w| unsafe {
-                        w.pllsrc().bits(pll_src.bits());
-                        w.plln().bits(self.plln);
-                        w.pllm().bits(self.pllm as u8);
-                        w.pllr().bits(self.pllr as u8);
-                        w.pllq().bits(self.pllq as u8)
-                    });
-                } else {
-                    rcc.pllcfgr.modify(|_, w| unsafe {
-                        w.pllsrc().bits(pll_src.bits());
-                        w.plln().bits(self.plln);
-                        w.pllm().bits(self.pllm as u8);
-                        w.pllr().bits(self.pllr as u8);
-                        w.pllq().bits(self.pllq as u8)
-                    });
-                }
-            }
-
-            cfg_if! {
-                if #[cfg(any(feature = "l4", feature = "l5"))] {
-                     if self.sai1_enabled {
-                        rcc.pllsai1cfgr.modify(|_, w| unsafe { w.pllsai1n().bits(self.pll_sai1_mul) });
-                    }
-
-                    #[cfg(any(feature = "l4x5", feature = "l4x6",))]
-                    if self.sai2_enabled {
-                        rcc.pllsai2cfgr.modify(|_, w| unsafe { w.pllsai2n().bits(self.pll_sai2_mul) });
-                    }
-                } else if #[cfg(feature = "wb")] {
-                    if self.sai1_enabled {
-                        rcc.pllsai1cfgr.modify(|_, w| unsafe { w.plln().bits(self.pll_sai1_mul) });
-                    }
-                }
-            }
-
-            // Now turn PLL back on, once we're configured things that can only be set with it off.
-            // todo: Enable sai1 and 2 with separate settings, or lump in with mail PLL
-            // like this?
-            rcc.cr.modify(|_, w| w.pllon().set_bit());
-
-            cfg_if! {
-                if #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))] {
-                    if self.sai1_enabled {
-                        rcc.cr.modify(|_, w| w.pllsai1on().set_bit());
-                        while rcc.cr.read().pllsai1rdy().bit_is_clear() {}
-                    }
-                    #[cfg(any(feature = "l4x5", feature = "l4x6",))]
-                    if self.sai2_enabled {
-                        rcc.cr.modify(|_, w| w.pllsai2on().set_bit());
-                        while rcc.cr.read().pllsai2rdy().bit_is_clear() {}
-                    }
-                }
-            }
-
-            while rcc.cr.read().pllrdy().bit_is_clear() {}
-
-            cfg_if! {
-                if #[cfg(feature = "g0")] {
-                    // Set Pen, Qen, and Ren after we enable the PLL.
-                    rcc.pllsyscfgr.modify(|_, w| {
-                        w.pllpen().set_bit();
-                        w.pllqen().set_bit();
-                        w.pllren().set_bit()
-                    });
-                } else {
-                    rcc.pllcfgr.modify(|_, w| {
-                        w.pllpen().set_bit();
-                        w.pllqen().set_bit();
-                        w.pllren().set_bit()
-                    });
-                }
-            }
-
-            cfg_if! {
-                if #[cfg(any(feature = "l4", feature = "l5"))] {
-                    if self.sai1_enabled {
-                        rcc.pllsai1cfgr.modify(|_, w| {
-                            w.pllsai1pen().set_bit();
-                            w.pllsai1qen().set_bit();
-                            w.pllsai1ren().set_bit()
-                        });
-                    }
-
-                    #[cfg(any(feature = "l4x5", feature = "l4x6"))]
-                    if self.sai2_enabled {
-                        rcc.pllsai2cfgr.modify(|_, w| {
-                            w.pllsai2pen().set_bit();
-                            w.pllsai2ren().set_bit()
-                        });
-                    }
-                } else if #[cfg(feature = "wb")] {
-                    if self.sai1_enabled {
-                        rcc.pllsai1cfgr.modify(|_, w| {
-                            w.pllpen().set_bit();
-                            w.pllqen().set_bit();
-                            w.pllren().set_bit()
-                        });
-                    }
-                }
-            }
-        }
-
         rcc.cfgr.modify(|_, w| unsafe {
             w.sw().bits(self.input_src.bits());
             w.hpre().bits(self.hclk_prescaler as u8);
@@ -840,6 +769,111 @@ impl Clocks {
         #[cfg(feature = "l5")]
         rcc.ccipr1
             .modify(|_, w| unsafe { w.clk48msel().bits(self.clk48_src as u8) });
+
+        // Note that with this code setup, PLLSAI won't work properly unless using
+        // the input source is PLL.
+        if let InputSrc::Pll(pll_src) = self.input_src {
+            // Turn off the PLL: Required for modifying some of the settings below.
+            rcc.cr.modify(|_, w| w.pllon().clear_bit());
+            // Wait for the PLL to no longer be ready before executing certain writes.
+            while rcc.cr.read().pllrdy().bit_is_set() {}
+
+            cfg_if! {
+                if #[cfg(feature = "g0")] {
+                    rcc.pllsyscfgr.modify(|_, w| unsafe {
+                        w.pllsrc().bits(pll_src.bits());
+                        w.pllren().bit(true);
+                        w.pllqen().bit(self.pll.pllq_en);
+                        w.pllpen().bit(self.pll.pllp_en);
+                        w.plln().bits(self.pll.divn);
+                        w.pllm().bits(self.pll.divm as u8);
+                        w.pllr().bits(self.pll.divr as u8);
+                        w.pllq().bits(self.pll.divq as u8)
+                    });
+                } else {
+                    rcc.pllcfgr.modify(|_, w| unsafe {
+                        w.pllsrc().bits(pll_src.bits());
+                        w.pllren().bit(true);
+                        w.pllqen().bit(self.pll.pllq_en);
+                        w.pllpen().bit(self.pll.pllp_en);
+                        w.plln().bits(self.pll.divn);
+                        w.pllm().bits(self.pll.divm as u8);
+                        w.pllr().bits(self.pll.divr as u8);
+                        w.pllq().bits(self.pll.divq as u8)
+                    });
+                }
+            }
+
+            cfg_if! {
+                if #[cfg(feature = "g0")] {
+                    // Set Pen, Qen, and Ren after we enable the PLL.
+                    rcc.pllsyscfgr.modify(|_, w| {
+                        // w.pllpen().set_bit();
+                        // w.pllqen().set_bit();
+                        w.pllren().set_bit()
+                    });
+                } else {
+                    rcc.pllcfgr.modify(|_, w| {
+                        // w.pllpen().set_bit();
+                        // w.pllqen().set_bit();
+                        w.pllren().set_bit()
+                    });
+                }
+            }
+
+            cfg_if! {
+                // todo: Missing some settings I'm not sure what to make of on L.
+                if #[cfg(any(feature = "l4", feature = "l5"))] {
+                    rcc.pllsai1cfgr.modify(|_, w| unsafe {
+                        w.pllsai1ren().bit(self.pllsai.pllr_en);
+                        w.pllsai1qen().bit(self.pllsai.pllq_en);
+                        w.pllsai1pen().bit(self.pllsai.pllp_en);
+                        w.pllsai1n().bits(self.pllsai.divn);
+                        // w.pllsai1pdiv().bits(self.pllsai.divp as u8)
+                        w.pllsai1r().bits(self.pllsai.divr as u8);
+                        w.pllsai1q().bits(self.pllsai.divq as u8)
+                    });
+
+                    #[cfg(any(feature = "l4x5", feature = "l4x6"))]
+                    rcc.pllsai2cfgr.modify(|_, w| unsafe {
+                        w.pllsai2ren().bit(self.pllsai.pllr_en);
+                        // w.pllsai2qen().bit(self.pllsai.pllq_en);
+                        w.pllsai2pen().bit(self.pllsai.pllp_en);
+                        w.pllsai2n().bits(self.pllsai.divn);
+                        // w.pllsai1pdiv().bits(self.pllsai.divp as u8)
+                        w.pllsai2r().bits(self.pllsai.divr as u8)
+                        // w.pllsai2q().bits(self.pllsai.divq as u8)
+                    });
+
+                } else if #[cfg(feature = "wb")] {
+                    rcc.pllsai1cfgr.modify(|_, w| unsafe {
+                        w.pllren().bit(self.pllsai.pllr_en);
+                        w.pllqen().bit(self.pllsai.pllq_en);
+                        w.pllpen().bit(self.pllsai.pllp_en);
+                        w.plln().bits(self.pllsai.divn);
+                        w.pllr().bits(self.pllsai.divr as u8);
+                        w.pllq().bits(self.pllsai.divq as u8)
+                    });
+                }
+            }
+
+            rcc.cr.modify(|_, w| w.pllon().set_bit());
+            while rcc.cr.read().pllrdy().bit_is_clear() {}
+
+            cfg_if! {
+                if #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))] {
+                    if self.pllsai.enabled {
+                        rcc.cr.modify(|_, w| w.pllsai1on().set_bit());
+                        while rcc.cr.read().pllsai1rdy().bit_is_clear() {}
+                    }
+                    #[cfg(any(feature = "l4x5", feature = "l4x6",))]
+                    if self.pllsai2.enabled {
+                        rcc.cr.modify(|_, w| w.pllsai2on().set_bit());
+                        while rcc.cr.read().pllsai2rdy().bit_is_clear() {}
+                    }
+                }
+            }
+        }
 
         // Enable the HSI48 as required, which is used for USB, RNG, etc.
         // Only valid for some devices (On at least L4, and G4.)
@@ -888,12 +922,6 @@ impl Clocks {
         #[cfg(feature = "wb")]
         rcc.csr
             .modify(|_, w| unsafe { w.rfwkpsel().bits(self.rf_wakeup_src as u8) });
-
-        // Enable and reset System Configuration Controller, ie for interrupts.
-        // todo: Is this the right module to do this in?
-        #[cfg(not(any(feature = "wb", feature = "wl")))] // todo: Do interrupts work without enabling syscfg on wb, which
-                                                         // todo doesn't have this?
-        rcc_en_reset!(apb2, syscfg, rcc);
 
         Ok(())
     }
@@ -1096,7 +1124,8 @@ impl Clocks {
                     PllSrc::Hse(freq) => freq,
                     PllSrc::None => 0, // todo?
                 };
-                input_freq / self.pllm.value() as u32 * self.plln as u32 / self.pllr.value() as u32
+                input_freq / self.pll.divm.value() as u32 * self.pll.divn as u32
+                    / self.pll.divr.value() as u32
             }
 
             #[cfg(not(any(feature = "g0", feature = "g4")))]
@@ -1216,23 +1245,18 @@ impl Clocks {
         // todo: L4+ (ie R, S, P, Q) can go up to 120_000.
 
         #[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
-        if self.plln < 7
-            || self.plln > 86
-            || self.pll_sai1_mul < 7
-            || self.pll_sai1_mul > 86
-            || self.pll_sai2_mul < 7
-            || self.pll_sai2_mul > 86
+        if self.pll.divn < 7 || self.pll.divn > 86 || self.pllsai.divn < 7 || self.pllsai.divn > 86
         {
             return Err(SpeedError::new("A PLL divider is out of limits"));
         }
 
         #[cfg(feature = "g0")]
-        if self.plln < 9 || self.plln > 86 {
+        if self.pll.divn < 9 || self.pll.divn > 86 {
             return Err(SpeedError::new("A PLL divider is out of limits"));
         }
 
         #[cfg(feature = "g4")]
-        if self.plln < 8 || self.plln > 127 {
+        if self.pll.divn < 8 || self.pll.divn > 127 {
             return Err(SpeedError::new("A PLL divider is out of limits"));
         }
 
@@ -1272,28 +1296,11 @@ impl Default for Clocks {
     fn default() -> Self {
         Self {
             input_src: InputSrc::Pll(PllSrc::Hsi),
-            pllm: Pllm::Div4,
-            #[cfg(feature = "l4")]
-            plln: 40,
-            #[cfg(feature = "l5")]
-            plln: 55,
-            #[cfg(feature = "g0")]
-            plln: 32,
-            #[cfg(feature = "g4")]
-            plln: 85,
-            #[cfg(feature = "wb")]
-            plln: 64,
-            #[cfg(feature = "wl")]
-            plln: 24,
+            pll: PllCfg::default(),
             #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
-            pll_sai1_mul: 8,
-            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
-            pll_sai2_mul: 8,
-            #[cfg(not(feature = "wb"))]
-            pllr: Pllr::Div2,
-            #[cfg(feature = "wb")]
-            pllr: Pllr::Div4,
-            pllq: Pllr::Div4,
+            pllsai: PllCfg::disabled(),
+            #[cfg(any(feature = "l4x5", feature = "l4x6"))]
+            pllsai2: PllCfg::disabled(),
             hclk_prescaler: HclkPrescaler::Div1,
             #[cfg(feature = "wb")]
             hclk2_prescaler: HclkPrescaler::Div2,
