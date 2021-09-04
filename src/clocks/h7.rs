@@ -172,7 +172,7 @@ impl VosRange {
                 185_000_001..=210_000_000 => (2, 2),
                 210_000_001..=225_000_000 => (3, 2),
                 225_000_001..=240_000_000 => (4, 2),
-                _ => panic!("Can't set higher than 240Mhz HCLK with VSO0 range."),
+                _ => panic!("Can't set higher than 240Mhz HCLK with VSO0 range. (Try changing the `vos_range` setting)."),
             },
             Self::VOS1 => match hclk {
                 0..=70_000_000 => (0, 0),
@@ -180,14 +180,14 @@ impl VosRange {
                 140_000_001..=185_000_000 => (2, 1),
                 185_000_001..=210_000_000 => (2, 2),
                 210_000_001..=225_000_000 => (3, 2),
-                _ => panic!("Can't set higher than 225Mhz HCLK with VOS1 range."),
+                _ => panic!("Can't set higher than 225Mhz HCLK with VOS1 range. (Try changing the `vos_range` setting)."),
             },
             Self::VOS2 => match hclk {
                 0..=55_000_000 => (0, 0),
                 55_000_001..=110_000_000 => (1, 1),
                 110_000_001..=165_000_000 => (2, 1),
                 165_000_001..=225_000_000 => (3, 2),
-                _ => panic!("Can't set higher than 225Mhz HCLK with VSO2 range."),
+                _ => panic!("Can't set higher than 225Mhz HCLK with VSO2 range. (Try changing the `vos_range` setting)."),
             },
             Self::VOS3 => match hclk {
                 0..=45_000_000 => (0, 0),
@@ -195,7 +195,7 @@ impl VosRange {
                 90_000_001..=135_000_000 => (2, 1),
                 135_000_001..=180_000_000 => (3, 2),
                 180_000_001..=225_000_000 => (4, 2),
-                _ => panic!("Can't set higher than 225Mhz HCLK with VSO3 range."),
+                _ => panic!("Can't set higher than 225Mhz HCLK with VSO3 range. (Try changing the `vos_range` setting)."),
             },
         }
     }
@@ -295,7 +295,7 @@ impl Clocks {
         match self.vos_range {
             #[cfg(not(feature = "h7b3"))]
             VosRange::VOS0 => {
-                // VOS0 activation/deactivation sequence
+                // VOS0 activation/deactivation sequence: H743 HRM, section 6.6.2:
                 // The system maximum frequency can be reached by boosting the voltage scaling level to
                 // VOS0. This is done through the ODEN bit in the SYSCFG_PWRCR register.
                 // The sequence to activate the VOS0 is the following:
@@ -315,7 +315,7 @@ impl Clocks {
                     if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
                         syscfg.pwrcr.modify(|_, w| w.oden().set_bit());
                     } else {
-                        syscfg.pwrcr.write(|w| unsafe { w.oden().bits(1) });
+                        syscfg.pwrcr.modify(|_, w| unsafe { w.oden().bits(1) });
                     }
                 }
 
@@ -560,6 +560,7 @@ impl Clocks {
             }
         }
 
+        #[cfg(not(feature = "h7b3"))]
         rcc.d2ccip1r.modify(|_, w| unsafe {
             w.sai1sel().bits(self.sai1_src as u8);
             w.sai23sel().bits(self.sai23_src as u8)
@@ -770,8 +771,10 @@ impl Clocks {
                 return Err(SpeedError::new("Invalid PLL input speed"));
             }
             // VCO0: Wide VCO range: 192 to 836 MHz (default after reset) (VCOH)
+            // Note: The RM appears out of date: Revision "V" allgedly supports 960_000_000
+            // VCO speed, to allow a max core speed of 480Mhz.
             let vco_speed = self.vco_output_freq(pll_src, 1);
-            if pll_input_speed <= 2_000_000 && (vco_speed < 192_000_000 || vco_speed > 836_000_000)
+            if pll_input_speed <= 2_000_000 && (vco_speed < 192_000_000 || vco_speed > 960_000_000)
             {
                 return Err(SpeedError::new("Invalid wide VCO speed"));
             }
