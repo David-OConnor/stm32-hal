@@ -12,7 +12,7 @@
 use cortex_m_rt::entry;
 
 use stm32_hal2::{
-    clocks::{self, ApbPrescaler, Clocks, InputSrc, MsiRng, PllSrc, Pllm, Pllr},
+    clocks::{self, ApbPrescaler, Clocks, InputSrc, MsiRng, PllCfg, PllSrc, Pllm, Pllr},
     low_power, pac,
 };
 
@@ -55,7 +55,45 @@ fn main() -> ! {
 
     // If you set a 8Mhz HSE as above, you may need to reduce the default PLLM value to compensate
     // compared to a 16Mhz HSI:
-    clock_cfg.pllm = Pllm::Div2;
+    clock_cfg.pll.divm = Pllm::Div2;
+
+    // Enable PLLQ etc
+    clocks_cfg.pll.pllp_en = true;
+    clocks_cfg.pll.divp = Pllr::Div8;
+
+    // Note that on H7, we have 3 separate PLLs we can configure, at the `pll1`, `pll2`, and `pll3` fields.
+    // L4 and WB have a second PLL, called `PLLSAI`, primarily intended for the SAI audio peripheral.
+    // Its config field is `pllsai`. (and `pllsai2` for L4x5 and L4x6).
+    // For example, here's a PLL config on H7 that sets PLL2P as the SAI2 source, and configures
+    // its speed. (By default, only PLL1(R) is enabled.
+    let clock_cfg = Clocks {
+        pll2: PllCfg {
+            enabled: true,
+            pllp_en: true,
+            divn: 99,
+            divp: 16,
+            ..PllCfg::disabled()
+        },
+        sai1_src: SaiSrc::Pll2P,
+        ..Default::default()
+    };
+
+    // Or on L4 or WB, using the PLLSAI:
+    let clock_cfg = Clocks {
+        pllsai: PllCfg {
+            enabled: true,
+            pllp_en: true,
+            divn: 32,
+            ..PllCfg::disabled()
+        },
+        sai_src: SaiSrc::PllSai1P, // Note that thsi is the default, but you can change it.
+        ..Default::default()
+    };
+
+    // Note that H7 also lets you select VOS range, and will give you an error if you select an
+    // invalid range for your HCLK speed. VOS0 is required for full speed.
+    // clock_cfg.vos_range = VosRange::VOS0;
+    // You can use `Clocks::full_speed()` to configure an H743 etc at 480Mhz.
 
     // Change the default wakeup from Stop mode to be HSI instead of MSI. (L4 and L5 only)
     clock_cfg.stop_wuck = StopWuck::Hsi;

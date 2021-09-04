@@ -227,16 +227,16 @@ impl MsiRange {
 /// field has no effect for PLL1.
 pub struct PllCfg {
     /// Only relevant for PLLSAI1.
-    enabled: bool,
-    pllr_en: bool,
-    pllq_en: bool,
-    pllp_en: bool,
+    pub enabled: bool,
+    pub pllr_en: bool,
+    pub pllq_en: bool,
+    pub pllp_en: bool,
     /// Only relevant for The main PLL.
-    divm: Pllm,
-    divn: u8,
-    divr: Pllr,
-    divq: Pllr,
-    divp: Pllr,
+    pub divm: Pllm,
+    pub divn: u8,
+    pub divr: Pllr,
+    pub divq: Pllr,
+    pub divp: Pllr,
 }
 
 impl Default for PllCfg {
@@ -481,6 +481,20 @@ impl ApbPrescaler {
     }
 }
 
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// SAI clock input source. Sets RCC_CCIPR register, SAIxSEL fields.
+pub enum SaiSrc {
+    /// PLLSAI1 “P” clock (PLLSAI1PCLK) selected as SAI1 clock
+    PllSai1p = 0b00,
+    /// PLL “P” clock (PLLPCLK) selected as SAI1 clock
+    Pllp = 0b01,
+    /// HSI16 clock selected as SAI1 clock
+    Hsi = 0b10,
+    /// External input SAI1_EXTCLK selected as SAI1 clock
+    ExtClk = 0b11,
+}
+
 /// Settings used to configure clocks.
 pub struct Clocks {
     /// The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
@@ -490,7 +504,7 @@ pub struct Clocks {
     /// Enable and speed status for the SAI PLL
     #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
     pub pllsai: PllCfg,
-    #[cfg(any(feature = "l4x5", feature = "l4x6",))]
+    #[cfg(any(feature = "l4x5", feature = "l4x6"))]
     pub pllsai2: PllCfg,
     /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
     pub hclk_prescaler: HclkPrescaler,
@@ -513,10 +527,6 @@ pub struct Clocks {
     #[cfg(not(any(feature = "g0", feature = "wl")))]
     /// The input source for the 48Mhz clock used by USB.
     pub clk48_src: Clk48Src,
-    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
-    pub sai1_enabled: bool,
-    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
-    pub sai2_enabled: bool,
     /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     /// frees up the pin for use as GPIO.
     pub hse_bypass: bool,
@@ -530,6 +540,9 @@ pub struct Clocks {
     #[cfg(feature = "wb")]
     /// Select the RF wakeup source.
     pub rf_wakeup_src: RfWakeupSrc,
+    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
+    /// SAI1 kernel clock source selection
+    pub sai_src: SaiSrc,
 }
 
 // todo: On L4/5, add a way to enable the MSI for use as CLK48.
@@ -882,6 +895,16 @@ impl Clocks {
             rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
             while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
         }
+
+        // This modification is separate from the easlier CCIPR writes due to awkward
+        // feature-gate code
+        #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "l5")))]
+        rcc.ccipr
+            .modify(|_, w| unsafe { w.sai1sel().bits(self.sai_src as u8) });
+
+        #[cfg(feature = "l5")]
+        rcc.ccipr2
+            .modify(|_, w| unsafe { w.sai1sel().bits(self.sai_src as u8) });
 
         // If we're not using the default clock source as input source or for PLL, turn it off.
         cfg_if! {
@@ -1313,10 +1336,6 @@ impl Default for Clocks {
             apb2_prescaler: ApbPrescaler::Div1,
             #[cfg(not(any(feature = "g0", feature = "wl")))]
             clk48_src: Clk48Src::Hsi48,
-            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
-            sai1_enabled: false,
-            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
-            sai2_enabled: false,
             hse_bypass: false,
             security_system: false,
             #[cfg(not(any(feature = "g0", feature = "wl")))]
@@ -1325,6 +1344,8 @@ impl Default for Clocks {
             stop_wuck: StopWuck::Msi,
             #[cfg(feature = "wb")]
             rf_wakeup_src: RfWakeupSrc::Lse,
+            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
+            sai_src: SaiSrc::Pllp,
         }
     }
 }

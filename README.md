@@ -114,7 +114,7 @@ fn main() -> ! {
 ## Why this module is different from `stm32yxx-hal` libraries
 There are some areas where design philosophy is different. For example: GPIO 
 type-checking, level-of-abstraction from registers/PAC, role of DMA, role of `embedded-hal` traits in the API, 
-feature parity among STM32 families, code documentation, and clock config.
+feature parity among STM32 families, code documentation, code structure, and clock config.
 
    
 ## Docs caveat

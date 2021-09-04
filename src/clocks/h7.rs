@@ -80,15 +80,15 @@ impl InputSrc {
 /// Configures the speeds, and enable status of an individual PLL. Note that the `enable`
 /// field has no effect for PLL1.
 pub struct PllCfg {
-    enabled: bool,
-    pllp_en: bool,
-    pllq_en: bool,
-    pllr_en: bool,
-    divm: u8,
-    divn: u16,
-    divp: u8,
-    divq: u8,
-    divr: u8,
+    pub enabled: bool,
+    pub pllp_en: bool,
+    pub pllq_en: bool,
+    pub pllr_en: bool,
+    pub divm: u8,
+    pub divn: u16,
+    pub divp: u8,
+    pub divq: u8,
+    pub divr: u8,
 }
 
 impl Default for PllCfg {
@@ -888,6 +888,20 @@ impl Default for Clocks {
             vos_range: VosRange::VOS1,
             sai1_src: SaiSrc::Pll1Q,
             sai23_src: SaiSrc::Pll1Q,
+        }
+    }
+}
+
+impl Clocks {
+    /// Full speed of 480Mhz, with VC0 range 0.
+    pub fn full_speed() -> Self {
+        Self {
+            pll1: PllCfg {
+                divn: 480,
+                ..Default::default()
+            },
+            vos_range: VosRange::VOS0,
+            ..Default::default()
         }
     }
 }
