@@ -486,7 +486,7 @@ impl ApbPrescaler {
 /// SAI clock input source. Sets RCC_CCIPR register, SAIxSEL fields.
 pub enum SaiSrc {
     /// PLLSAI1 “P” clock (PLLSAI1PCLK) selected as SAI1 clock
-    PllSai1p = 0b00,
+    PllSai1P = 0b00,
     /// PLL “P” clock (PLLPCLK) selected as SAI1 clock
     Pllp = 0b01,
     /// HSI16 clock selected as SAI1 clock
@@ -503,7 +503,7 @@ pub struct Clocks {
     pub pll: PllCfg,
     /// Enable and speed status for the SAI PLL
     #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
-    pub pllsai: PllCfg,
+    pub pllsai1: PllCfg,
     #[cfg(any(feature = "l4x5", feature = "l4x6"))]
     pub pllsai2: PllCfg,
     /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
@@ -542,7 +542,7 @@ pub struct Clocks {
     pub rf_wakeup_src: RfWakeupSrc,
     #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
     /// SAI1 kernel clock source selection
-    pub sai_src: SaiSrc,
+    pub sai1_src: SaiSrc,
 }
 
 // todo: On L4/5, add a way to enable the MSI for use as CLK48.
@@ -838,34 +838,34 @@ impl Clocks {
                 // todo: Missing some settings I'm not sure what to make of on L.
                 if #[cfg(any(feature = "l4", feature = "l5"))] {
                     rcc.pllsai1cfgr.modify(|_, w| unsafe {
-                        w.pllsai1ren().bit(self.pllsai.pllr_en);
-                        w.pllsai1qen().bit(self.pllsai.pllq_en);
-                        w.pllsai1pen().bit(self.pllsai.pllp_en);
-                        w.pllsai1n().bits(self.pllsai.divn);
-                        // w.pllsai1pdiv().bits(self.pllsai.divp as u8)
-                        w.pllsai1r().bits(self.pllsai.divr as u8);
-                        w.pllsai1q().bits(self.pllsai.divq as u8)
+                        w.pllsai1ren().bit(self.pllsai1.pllr_en);
+                        w.pllsai1qen().bit(self.pllsai1.pllq_en);
+                        w.pllsai1pen().bit(self.pllsai1.pllp_en);
+                        w.pllsai1n().bits(self.pllsai1.divn);
+                        // w.pllsai1pdiv().bits(self.pllsai1.divp as u8)
+                        w.pllsai1r().bits(self.pllsai1.divr as u8);
+                        w.pllsai1q().bits(self.pllsai1.divq as u8)
                     });
 
                     #[cfg(any(feature = "l4x5", feature = "l4x6"))]
                     rcc.pllsai2cfgr.modify(|_, w| unsafe {
-                        w.pllsai2ren().bit(self.pllsai.pllr_en);
-                        // w.pllsai2qen().bit(self.pllsai.pllq_en);
-                        w.pllsai2pen().bit(self.pllsai.pllp_en);
-                        w.pllsai2n().bits(self.pllsai.divn);
-                        // w.pllsai1pdiv().bits(self.pllsai.divp as u8)
-                        w.pllsai2r().bits(self.pllsai.divr as u8)
-                        // w.pllsai2q().bits(self.pllsai.divq as u8)
+                        w.pllsai2ren().bit(self.pllsai1.pllr_en);
+                        // w.pllsai2qen().bit(self.pllsai1.pllq_en);
+                        w.pllsai2pen().bit(self.pllsai1.pllp_en);
+                        w.pllsai2n().bits(self.pllsai1.divn);
+                        // w.pllsai1pdiv().bits(self.pllsai1.divp as u8)
+                        w.pllsai2r().bits(self.pllsai1.divr as u8)
+                        // w.pllsai2q().bits(self.pllsai1.divq as u8)
                     });
 
                 } else if #[cfg(feature = "wb")] {
                     rcc.pllsai1cfgr.modify(|_, w| unsafe {
-                        w.pllren().bit(self.pllsai.pllr_en);
-                        w.pllqen().bit(self.pllsai.pllq_en);
-                        w.pllpen().bit(self.pllsai.pllp_en);
-                        w.plln().bits(self.pllsai.divn);
-                        w.pllr().bits(self.pllsai.divr as u8);
-                        w.pllq().bits(self.pllsai.divq as u8)
+                        w.pllren().bit(self.pllsai1.pllr_en);
+                        w.pllqen().bit(self.pllsai1.pllq_en);
+                        w.pllpen().bit(self.pllsai1.pllp_en);
+                        w.plln().bits(self.pllsai1.divn);
+                        w.pllr().bits(self.pllsai1.divr as u8);
+                        w.pllq().bits(self.pllsai1.divq as u8)
                     });
                 }
             }
@@ -875,7 +875,7 @@ impl Clocks {
 
             cfg_if! {
                 if #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))] {
-                    if self.pllsai.enabled {
+                    if self.pllsai1.enabled {
                         rcc.cr.modify(|_, w| w.pllsai1on().set_bit());
                         while rcc.cr.read().pllsai1rdy().bit_is_clear() {}
                     }
@@ -900,11 +900,11 @@ impl Clocks {
         // feature-gate code
         #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "l5")))]
         rcc.ccipr
-            .modify(|_, w| unsafe { w.sai1sel().bits(self.sai_src as u8) });
+            .modify(|_, w| unsafe { w.sai1sel().bits(self.sai1_src as u8) });
 
         #[cfg(feature = "l5")]
         rcc.ccipr2
-            .modify(|_, w| unsafe { w.sai1sel().bits(self.sai_src as u8) });
+            .modify(|_, w| unsafe { w.sai1sel().bits(self.sai1_src as u8) });
 
         // If we're not using the default clock source as input source or for PLL, turn it off.
         cfg_if! {
@@ -1268,7 +1268,10 @@ impl Clocks {
         // todo: L4+ (ie R, S, P, Q) can go up to 120_000.
 
         #[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
-        if self.pll.divn < 7 || self.pll.divn > 86 || self.pllsai.divn < 7 || self.pllsai.divn > 86
+        if self.pll.divn < 7
+            || self.pll.divn > 86
+            || self.pllsai1.divn < 7
+            || self.pllsai1.divn > 86
         {
             return Err(SpeedError::new("A PLL divider is out of limits"));
         }
@@ -1321,7 +1324,7 @@ impl Default for Clocks {
             input_src: InputSrc::Pll(PllSrc::Hsi),
             pll: PllCfg::default(),
             #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
-            pllsai: PllCfg::disabled(),
+            pllsai1: PllCfg::disabled(),
             #[cfg(any(feature = "l4x5", feature = "l4x6"))]
             pllsai2: PllCfg::disabled(),
             hclk_prescaler: HclkPrescaler::Div1,
@@ -1345,7 +1348,7 @@ impl Default for Clocks {
             #[cfg(feature = "wb")]
             rf_wakeup_src: RfWakeupSrc::Lse,
             #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
-            sai_src: SaiSrc::Pllp,
+            sai1_src: SaiSrc::Pllp,
         }
     }
 }

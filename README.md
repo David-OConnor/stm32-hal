@@ -33,8 +33,16 @@ of these peripherals using public methods [1]
 - Provide examples and documentation that demonstrate peripheral use with interrupts and DMA [6]
 
 
-**Current family support**: F3, F4, L4, L5, G0, G4, H7, and WB. U5 is planned once its SVD files and PAC
+## Supported MCUs
+F3, F4, L4, L5, G0, G4, H7, and WB. U5 is planned once its SVD files and PAC
 become available. WL support is a WIP, with many features not implemented.
+
+Operationally tested on the following devices:
+- STM32F303
+- STM32F411
+- STM32L476, L433, L443, L412, L432,
+- STM32WB5MMG
+- STM32H743(V)
 
 
 ## Getting started

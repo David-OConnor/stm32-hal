@@ -355,7 +355,7 @@ impl Clocks {
 
                 // 2. Enable the SYSCFG clock in the RCC by setting the SYSCFGEN bit in the
                 // RCC_APB4ENR register.
-                rcc.apb4enr.modify(|_, w| w.syscfgen().set_bit());
+                // (Handled above)
 
                 // 3. Enable the ODEN bit in the SYSCFG_PWRCR register.
                 // PAC inconsistency between variants on if there's a modify field, and if
@@ -388,14 +388,11 @@ impl Clocks {
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
         // H742 RM, Table 17.
-        // todo: What should this be?
         let wait_states = self.vos_range.wait_states(self.hclk());
         flash.acr.modify(|_, w| unsafe {
             w.latency().bits(wait_states.0);
             w.wrhighfreq().bits(wait_states.1)
         });
-
-        // todo: Look up and document PLL config.
 
         // Enable oscillators, and wait until ready.
         match self.input_src {
@@ -463,10 +460,11 @@ impl Clocks {
             .modify(|_, w| unsafe { w.d3ppre().bits(self.d3_prescaler as u8) });
 
         // Set USART2 to HSI, and USB to HSI48. Temp hardcoded.
+        // todo: Add config enums for these, and add them as Clocks fields.
         #[cfg(not(feature = "h7b3"))]
         rcc.d2ccip2r.modify(|_, w| unsafe {
             w.usart234578sel().bits(0b111);
-            w.usbsel().bits(0b11)
+            w.usbsel().bits(0b11) // HSI
         });
 
         rcc.cr.modify(|_, w| w.hsecsson().bit(self.security_system));
@@ -892,6 +890,7 @@ impl Default for Clocks {
     }
 }
 
+#[cfg(not(feature = "h7b3"))]
 impl Clocks {
     /// Full speed of 480Mhz, with VC0 range 0.
     pub fn full_speed() -> Self {

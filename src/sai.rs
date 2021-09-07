@@ -61,15 +61,14 @@ pub enum Mono {
 #[derive(Clone, Copy)]
 #[repr(u8)]
 /// Set which bit is transmitted first: Least significant, or Most significant. You may have to
-/// choose the one used by your SAI device. Sets xCR1 register, LSBFIRST field.
-/// The FS signal can have a different meaning depending on the FS function. FSDEF bit in the
-/// SAI_xFRCR register selects which meaning it will have:
-pub enum FsSignal {
-    /// Start of frame, like for instance the PCM/DSP, TDM, AC’97, audio protocols,
-    Frame = 0,
-    /// :Start of frame and channel side identification within the audio frame like for the I2S,
-    /// the MSB or LSB-justified protocols.
-    FrameAndChannel = 1,
+/// choose the one used by your SAI device. Sets xCR1 register, FSOFF field.
+/// This bit is set and cleared by software. It is meaningless and is not used in AC’97 or SPDIF audio
+/// block configuration. This bit must be configured when the audio block is disabled.
+pub enum FsOffset {
+    /// FS is asserted on the first bit of the slot 0.
+    FirstBit = 0,
+    /// FS is asserted one bit before the first bit of the slot 0
+    BeforeFirstBit = 1,
 }
 
 #[derive(Clone, Copy)]
@@ -86,6 +85,17 @@ pub enum FsPolarity {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
+
+pub enum FsSignal {
+    /// Start of frame, like for instance the PCM/DSP, TDM, AC’97, audio protocols,
+    Frame = 0,
+    /// Start of frame and channel side identification within the audio frame like for the I2S,
+    /// the MSB or LSB-justified protocols.
+    FrameAndChannel = 1,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
 /// Set which bit is transmitted first: Least significant, or Most significant. You may have to
 /// choose the one used by your SAI device. Sets xCR1 register, LSBFIRST field.
 pub enum FirstBit {
@@ -93,6 +103,22 @@ pub enum FirstBit {
     LsbFirst = 0,
     /// Data are transferred with LSB first
     MsbFirst = 1,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// FIFO threshold. Affects xCR2 reg, FTH field.
+pub enum FifoThresh {
+    /// FIFO empty
+    Empty = 0b000,
+    /// 1/4 FIFO
+    T1_4 = 0b001,
+    /// 1/2 FIFO
+    T1_2 = 0b010,
+    /// 3/4 FIFO
+    T3_4 = 0b011,
+    /// FIFO full
+    Full = 0b100,
 }
 
 #[derive(Clone, Copy)]
@@ -154,9 +180,15 @@ pub enum DataSize {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// Select wheather the master clock is generated. xDR1 register, NOMCK field.
+/// Select wheather the master clock is generated. xDR1 register, NOMCK field on H7.
+/// on other variants such as WB, affects the MCKEN and NODIV fields (?).
 pub enum MasterClock {
+    // These bit values are for NOMCK, ie on H7. We use inverse logic when setting the bits
+    // on other variants.
+    /// (H7): Master clock generator is enabled
     Used = 0,
+    /// (H7):  Master clock generator is disabled. The clock divider controlled by MCKDIV can still be used to
+    /// generate the bit clock.
     NotUsed = 1,
 }
 
@@ -164,8 +196,11 @@ pub enum MasterClock {
 /// The type of SAI interrupt to configure. Reference Section 41.5 of the L4 RM.
 /// Enabled in xIM register, yIE fields. See H743 RM, section 51.5: SAI interrupts.
 pub enum SaiInterrupt {
+    /// FIFO request interrupt enable. When this bit is set, an interrupt is generated if the FREQ bit in the SAI_xSR register is set.
+    /// Since the audio block defaults to operate as a transmitter after reset, the MODE bit must be
+    /// configured before setting FREQIE to avoid a parasitic interrupt in receiver mode
     Freq,
-    ///When the audio block is configured as receiver, an overrun condition may appear if data are
+    /// When the audio block is configured as receiver, an overrun condition may appear if data are
     /// received in an audio frame when the FIFO is full and not able to store the received data. In
     /// this case, the received data are lost, the flag OVRUDR in the SAI_xSR register is set and an
     /// interrupt is generated if OVRUDRIE bit is set in the SAI_xIM register.
@@ -221,13 +256,31 @@ pub struct SaiConfig {
     /// are shared to reduce the number of external pins used for the communication.
     pub sync: SyncMode,
     pub datasize: DataSize,
-    pub frame_length: u8,
     pub master_clock: MasterClock,
     pub first_bit: FirstBit,
     pub oversampling_ratio: OversamplingRatio,
-    pub fs_signal: FsSignal,
+    /// Eefine the audio frame length expressed in number
+    /// of SCK clock cycles: the number of bits in the frame is equal to FRL[7:0] + 1.
+    /// The minimum number of bits to transfer in an audio frame must be equal to 8, otherwise the audio
+    /// block will behaves in an unexpected way. This is the case when the data size is 8 bits and only one
+    /// slot 0 is defined in NBSLOT[4:0] of SAI_xSLOTR register (NBSLOT[3:0] = 0000).
+    /// In master mode, if the master clock (available on MCLK_x pin) is used, the frame length should be
+    /// aligned with a number equal to a power of 2, ranging from 8 to 256. When the master clock is not
+    /// used (NOMCK = 1), it is recommended to program the frame length to an value ranging from 8 to
+    /// 256.
+    pub frame_length: u16, // u16 to allow the value of 256.
+    // /// Specify the length in number of bit clock
+    // /// (SCK) + 1 (FSALL[6:0] + 1) of the active level of the FS signal in the audio frame
+    // /// These bits are meaningless and are not used in AC’97 or SPDIF audio block configuration.
+    // /// They must be configured when the audio block is disabled
+    // pub fs_level_len: u8,
+    pub fs_offset: FsOffset,
     pub fs_polarity: FsPolarity,
+    pub fs_signal: FsSignal,
     pub num_slots: u8,
+    /// The FIFO threshold configures when the FREQ interrupt is generated based on how full
+    /// the FIFO is.
+    pub fifo_thresh: FifoThresh,
 }
 
 impl Default for SaiConfig {
@@ -238,13 +291,16 @@ impl Default for SaiConfig {
             mono: Mono::Stereo,
             sync: SyncMode::Async,
             datasize: DataSize::S24,
-            frame_length: 64,                   // 64 * (config.slots / 2) ?
-            master_clock: MasterClock::NotUsed, // todo?
+            master_clock: MasterClock::NotUsed,
             first_bit: FirstBit::MsbFirst,
             oversampling_ratio: OversamplingRatio::FMul256,
-            fs_signal: FsSignal::Frame,
+            frame_length: 64,
+            // fs_level_len: 32, // todo: Is this always frame_length / 2???
+            fs_offset: FsOffset::FirstBit,
             fs_polarity: FsPolarity::ActiveHigh,
+            fs_signal: FsSignal::FrameAndChannel, // Use FrameAndChannel for I2S.
             num_slots: 2,
+            fifo_thresh: FifoThresh::T1_4,
         }
     }
 }
@@ -254,6 +310,10 @@ impl SaiConfig {
     /// Default configuration for I2S.
     pub fn i2s_preset() -> Self {
         Self {
+            // Use our default of 2 slots, and a frame length of 64 bits, to allow for up
+            // to 32 bits per slot.
+            // We also use our default fifo thresh of 1/4 of the total size of 8 words,
+            // ie 1 word per channel
             ..Default::default()
         }
     }
@@ -269,6 +329,9 @@ impl SaiConfig {
     pub fn ac97_preset() -> Self {
         Self {
             protocol: Protocol::Ac97,
+            fs_signal: FsSignal::Frame,
+            // Note that AC97 uses 13 slots, but with the AC97 protocol set, the slots setting is
+            // ignored.
             ..Default::default()
         }
     }
@@ -321,6 +384,23 @@ where
         // todo: Do we always want to configure and enable both A and B?
 
         // todo: Sort out mken/nomck. PAC issues?
+        // Set the master clock divider.
+
+        // todo: Set these based on inputting a sampling freq and SAI clock speed.
+        // todo: Hard coded now for 98Mhz SAI clock, 48K sampling, and no master out.
+        // See H7 RM, Table 421.
+        // let mckdiv_a = 32;
+        // let mckdiv_b = 32;
+
+        // 0 and 1 both divide the clock by 1.
+        let mckdiv_a = 1;
+        let mckdiv_b = 1;
+
+        // mckdiv = SAI clock / (sampling freq * 256) ?? (512 for oversampling?)
+
+        // with NOMCK = 1: (No master clock
+        // F_SCK = F_sai_ker_ck / MCKDIV
+        // F_FS = F_sai_ker_ck / ((FRL + 1) * MCKDIV)
 
         // For info on modes, reference H743 RM, section 51.4.3: "Configuring and
         // Enabling SAI modes".
@@ -331,10 +411,13 @@ where
             w.syncen().bits(config_a.sync as u8);
             // The NOMCK bit of the SAI_xCR1 register is used to define whether the master clock is
             // generated or not.
-            // #[cfg(not(feature = "h7"))]
-            // w.nomck().bits(config_a.master_clock as u8 != 0);
-            #[cfg(feature = "h7")]
+            // Inversed polarity on non-H7 based on how we have `MasterClock` enabled.
+            #[cfg(not(any(feature = "h7", feature = "l4")))]
             w.mcken().bit(config_a.master_clock as u8 == 0);
+            #[cfg(feature = "h7")]
+            // Due to an H7 PAC error, xCR bit 19 is called NODIV (Which is how it is on other platforms).
+            // This is actually the NOMCK bit.
+            w.nodiv().bit(config_a.master_clock as u8 != 0);
             // The audio frame can target different data sizes by configuring bit DS[2:0] in the SAI_xCR1
             // register. The data sizes may be 8, 10, 16, 20, 24 or 32 bits. During the transfer, either the
             // MSB or the LSB of the data are sent first, depending on the configuration of bit LSBFIRST in
@@ -346,7 +429,8 @@ where
             // bit has no meaning in AC’97 audio protocol since AC’97 data are always transferred with the MSB
             // first. This bit has no meaning in SPDIF audio protocol since in SPDIF data are always transferred
             // with LSB first
-            w.lsbfirst().bit(config_a.first_bit as u8 != 0)
+            w.lsbfirst().bit(config_a.first_bit as u8 != 0);
+            w.mckdiv().bits(mckdiv_a)
         });
         // todo: MCKEN vice NOMCK?? Make sure your enum reflects how you handle it.
 
@@ -355,28 +439,46 @@ where
             w.prtcfg().bits(config_b.protocol as u8);
             w.mono().bit(config_b.mono as u8 != 0);
             w.syncen().bits(config_b.sync as u8);
-            // #[cfg(not(feature = "h7"))]
-            // w.nomck().bits(config_b.master_clock as u8 != 0);
-            #[cfg(feature = "h7")]
+            #[cfg(not(any(feature = "h7", feature = "l4")))]
             w.mcken().bit(config_b.master_clock as u8 == 0);
+            #[cfg(feature = "h7")]
+            w.nodiv().bit(config_b.master_clock as u8 != 0);
             w.ds().bits(config_b.datasize as u8);
             #[cfg(not(feature = "l4"))]
             w.osr().bit(config_b.oversampling_ratio as u8 != 0);
-            w.lsbfirst().bit(config_b.first_bit as u8 != 0)
+            w.lsbfirst().bit(config_b.first_bit as u8 != 0);
+            w.mckdiv().bits(mckdiv_b)
         });
 
-        // todo: Add this to config and don't hard-set. And add b.
+        // todo: Add this to config and don't hard-set.
         regs.cha.cr2.modify(|_, w| unsafe {
             w.comp().bits(0);
-            w.cpl().bit(0 != 0);
+            w.cpl().clear_bit();
             #[cfg(feature = "wb")]
             w.mutecn().bits(0); // rec only
             #[cfg(not(feature = "wb"))]
             w.muteval().clear_bit(); // xmitter only
             w.mute().clear_bit(); // xmitter only
             w.tris().clear_bit(); // xmitter only
-            w.fflush().clear_bit();
-            w.fth().bits(0b001) // FIFO empty
+                                  // The FIFO pointers can be reinitialized when the SAI is disabled by setting bit FFLUSH in the
+                                  // SAI_xCR2 register. If FFLUSH is set when the SAI is enabled the data present in the FIFO
+                                  // will be lost automatically.
+            w.fflush().set_bit();
+            // FIFO threshold
+            w.fth().bits(config_a.fifo_thresh as u8)
+        });
+
+        regs.chb.cr2.modify(|_, w| unsafe {
+            w.comp().bits(0);
+            w.cpl().clear_bit();
+            #[cfg(feature = "wb")]
+            w.mutecn().bits(0); // rec only
+            #[cfg(not(feature = "wb"))]
+            w.muteval().clear_bit(); // xmitter only
+            w.mute().clear_bit(); // xmitter only
+            w.tris().clear_bit(); // xmitter only
+            w.fflush().set_bit();
+            w.fth().bits(config_b.fifo_thresh as u8)
         });
 
         // The FS signal can have a different meaning depending on the FS function. FSDEF bit in the
@@ -392,18 +494,32 @@ where
         // Otherwise if TRIS = 1, the SD line is released to HI-Z. In reception mode, the remaining bit
         // clock cycles are not considered until the channel side changes.
 
+        if config_a.frame_length < 8
+            || config_b.frame_length < 8
+            || config_a.frame_length > 256
+            || config_b.frame_length > 256
+        {
+            panic!("Frame length must be bewteen 8 and 256")
+        }
+
         // The audio frame length can be configured to up to 256 bit clock cycles, by setting
         // FRL[7:0] field in the SAI_xFRCR register.
         regs.cha.frcr.modify(|_, w| unsafe {
+            w.fsoff().bit(config_a.fs_offset as u8 != 0);
             w.fspol().bit(config_a.fs_polarity as u8 != 0);
             w.fsdef().bit(config_a.fs_signal as u8 != 0);
-            w.frl().bits(config_a.frame_length)
+            // Hard-set a 50% duty cycle. Don't think this is a safe assumption? Send in an issue
+            // or PR.
+            w.fsall().bits((config_a.frame_length / 2) as u8 - 1);
+            w.frl().bits((config_a.frame_length - 1) as u8)
         });
 
         regs.chb.frcr.modify(|_, w| unsafe {
+            w.fsoff().bit(config_a.fs_offset as u8 != 0);
             w.fspol().bit(config_b.fs_polarity as u8 != 0);
             w.fsdef().bit(config_b.fs_signal as u8 != 0);
-            w.frl().bits(config_b.frame_length)
+            w.fsall().bits((config_b.frame_length / 2) as u8 - 1);
+            w.frl().bits((config_b.frame_length - 1) as u8)
         });
 
         // slot en bits???
@@ -412,7 +528,14 @@ where
         regs.cha.slotr.modify(|_, w| unsafe {
             w.sloten().bits(slot_en_bits);
             w.nbslot().bits(config_a.num_slots);
-            w.slotsz().bits(32); // for 24 bytes?
+            w.slotsz().bits(0b10); // 32-bit for 24 bytes?
+            w.fboff().bits(0) // todo: User-customizable?
+        });
+
+        regs.chb.slotr.modify(|_, w| unsafe {
+            w.sloten().bits(slot_en_bits);
+            w.nbslot().bits(config_b.num_slots);
+            w.slotsz().bits(0b10); // 32-bit for 24 bytes?
             w.fboff().bits(0)
         });
 
@@ -446,10 +569,27 @@ where
                 // todo: Do we want to flush?
                 self.regs.cha.cr2.modify(|_, w| w.fflush().set_bit());
                 self.regs.cha.cr1.modify(|_, w| w.saien().set_bit());
+
+                // Note: This read check only fires the WCKCFG bit if Master out is enabled.
+
+                if self.regs.cha.sr.read().wckcfg().bit_is_set() {
+                    panic!("Wrong clock configuration. Clock configuration does not respect the rule concerning
+the frame length specification defined in Section 51.4.6: Frame synchronization (configuration of
+FRL[7:0] bit in the SAI_xFRCR register)
+This bit is used only when the audio block operates in master mode (MODE[1] = 0) and NOMCK = 0.
+It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
+                }
             }
             SaiChannel::B => {
                 self.regs.chb.cr2.modify(|_, w| w.fflush().set_bit());
                 self.regs.chb.cr1.modify(|_, w| w.saien().set_bit());
+
+                if self.regs.chb.sr.read().wckcfg().bit_is_set() {
+                    panic!("Wrong clock configuration. Clock configuration does not respect the rule concerning the frame length specification defined in
+Section 51.4.6: Frame synchronization (configuration of FRL[7:0] bit in the SAI_xFRCR register)
+This bit is used only when the audio block operates in master mode (MODE[1] = 0) and NOMCK = 0.
+It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
+                }
             }
         }
     }
@@ -468,10 +608,11 @@ where
         }
     }
 
-    /// Read 2 words of data from a channel.
+    /// Read 2 words of data from a channel: Left and Right channel, in that order.
     /// A read from the SR register empties the FIFO if the FIFO is not empty
     pub fn read(&self, channel: SaiChannel) -> (u32, u32) {
-        // A read from this register empties the FIFO if the FIFO is not empty
+        // while self.regs.cha.sr.read().flvl().bits() == FifoThresh::Empty as u8 {} // todo?
+
         match channel {
             SaiChannel::A => (
                 self.regs.cha.dr.read().bits(),
@@ -491,7 +632,7 @@ where
         // }
     }
 
-    /// Send 2 words of data to a single channel.
+    /// Send 2 words of data to a single channel: Left and right channel, in that order.
     /// A write to the SR register loads the FIFO provided the FIFO is not full.
     pub fn write(&mut self, channel: SaiChannel, left_word: u32, right_word: u32) {
         match channel {
@@ -529,6 +670,7 @@ where
     /// DMA interface to read/write from/to the SAI_xDR register (to access the internal FIFO).
     /// There is one DMA channel per audio subblock supporting basic DMA request/acknowledge
     /// protocol.
+    /// Before configuring the SAI block, the SAI DMA channel must be disabled.
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     pub unsafe fn write_dma<D>(
         &mut self,
@@ -576,7 +718,7 @@ where
         // Follow the sequence below to configure the SAI interface in DMA mode:
         // 1. Configure SAI and FIFO threshold levels to specify when the DMA request will be
         // launched.
-        // todo!
+        // (Set in `new`).
         // 2. Configure SAI DMA channel. (handled by `dma.cfg_channel`)
         // 3. Enable the DMA. (handled by `dma.cfg_channel`)
 
@@ -624,7 +766,6 @@ where
 
         // See commends on `write_dma`.
 
-        // todo: Impl these non-DMAMUx features.
         // // L44 RM, Table 41. "DMA1 requests for each channel
         // // todo: DMA2 support.
         // #[cfg(any(feature = "f3", feature = "l4"))]
@@ -657,14 +798,26 @@ where
         #[cfg(not(feature = "h7"))]
         let len = len as u16;
 
+        let sai_cfg = match sai_channel {
+            SaiChannel::A => self.config_a,
+            SaiChannel::B => self.config_b,
+        };
+
+        let datasize = match sai_cfg.datasize {
+            DataSize::S8 => dma::DataSize::S8,
+            DataSize::S10 => dma::DataSize::S16,
+            DataSize::S16 => dma::DataSize::S16,
+            _ => dma::DataSize::S32,
+        };
+
         dma.cfg_channel(
             dma_channel,
             periph_addr,
             ptr as u32,
             len,
             dma::Direction::ReadFromPeriph,
-            dma::DataSize::S32, // todo?
-            dma::DataSize::S32, // todo?
+            datasize,
+            datasize,
             channel_cfg,
         );
 
@@ -710,15 +863,32 @@ where
 
     /// Clears the interrupt pending flag for a specific type of interrupt.
     pub fn clear_interrupt(&mut self, interrupt_type: SaiInterrupt, channel: SaiChannel) {
-        // todo
-        match interrupt_type {
-            SaiInterrupt::Freq => {}
-            SaiInterrupt::Ovrudr => {}
-            SaiInterrupt::AfsDet => {}
-            SaiInterrupt::LfsDet => {}
-            SaiInterrupt::CnRdy => {}
-            SaiInterrupt::MuteDet => {}
-            SaiInterrupt::WckCfg => {}
+        match channel {
+            SaiChannel::A => {
+                self.regs.cha.clrfr.write(|w| match interrupt_type {
+                    // This Interrupt (FREQ bit in SAI_xSR register) is
+                    // cleared by hardware when the FIFO becomes empty (FLVL[2:0] bits in SAI_xSR is equal
+                    // to 0b000) i.e no data are stored in FIFO.
+                    SaiInterrupt::Freq => w.cmutedet().set_bit(), // There is no Freq flag.
+                    SaiInterrupt::Ovrudr => w.covrudr().set_bit(),
+                    SaiInterrupt::AfsDet => w.cafsdet().set_bit(),
+                    SaiInterrupt::LfsDet => w.clfsdet().set_bit(),
+                    SaiInterrupt::CnRdy => w.ccnrdy().set_bit(),
+                    SaiInterrupt::MuteDet => w.cmutedet().set_bit(),
+                    SaiInterrupt::WckCfg => w.cwckcfg().set_bit(),
+                });
+            }
+            SaiChannel::B => {
+                self.regs.chb.clrfr.write(|w| match interrupt_type {
+                    SaiInterrupt::Freq => w.cmutedet().set_bit(),
+                    SaiInterrupt::Ovrudr => w.covrudr().set_bit(),
+                    SaiInterrupt::AfsDet => w.cafsdet().set_bit(),
+                    SaiInterrupt::LfsDet => w.clfsdet().set_bit(),
+                    SaiInterrupt::CnRdy => w.ccnrdy().set_bit(),
+                    SaiInterrupt::MuteDet => w.cmutedet().set_bit(),
+                    SaiInterrupt::WckCfg => w.cwckcfg().set_bit(),
+                });
+            }
         }
     }
 }

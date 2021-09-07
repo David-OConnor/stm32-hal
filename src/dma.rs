@@ -117,6 +117,11 @@ pub enum DmaInput {
     Uart4Tx = 64,
     Uart5Rx = 65,
     Uart5Tx = 66,
+    Sai1aDma = 87,
+    Sai1bDma = 88,
+    Sai2aDma = 89,
+    Sai2bDma = 90,
+
 }
 
 impl DmaInput {
@@ -377,8 +382,8 @@ pub struct ChannelCfg {
 impl Default for ChannelCfg {
     fn default() -> Self {
         Self {
-            priority: Priority::Medium,   // todo: Pass pri as an arg?
-            circular: Circular::Disabled, // todo?
+            priority: Priority::Medium,
+            circular: Circular::Disabled,
             // Increment the buffer address, not the peripheral address.
             periph_incr: IncrMode::Disabled,
             mem_incr: IncrMode::Enabled,

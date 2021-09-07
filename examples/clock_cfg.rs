@@ -80,13 +80,13 @@ fn main() -> ! {
 
     // Or on L4 or WB, using the PLLSAI:
     let clock_cfg = Clocks {
-        pllsai: PllCfg {
+        pllsai1: PllCfg {
             enabled: true,
             pllp_en: true,
             divn: 32,
             ..PllCfg::disabled()
         },
-        sai_src: SaiSrc::PllSai1P, // Note that thsi is the default, but you can change it.
+        sai1_src: SaiSrc::PllSai1P, // Note that thsi is the default, but you can change it.
         ..Default::default()
     };
 
