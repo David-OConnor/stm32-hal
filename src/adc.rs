@@ -72,7 +72,7 @@ pub enum AdcDevice {
 pub enum AdcInterrupt {
     Ready,
     EndOfConversion,
-    EnfOfSequence,
+    EndOfSequence,
     EndofConversionInjected,
     EndOfSequenceInjected,
     Watchdog1,
@@ -916,7 +916,7 @@ macro_rules! hal {
                 self.regs.ier.modify(|_, w| match interrupt {
                     AdcInterrupt::Ready => w.adrdyie().set_bit(),
                     AdcInterrupt::EndOfConversion => w.eocie().set_bit(),
-                    AdcInterrupt::EnfOfSequence => w.eosie().set_bit(),
+                    AdcInterrupt::EndOfSequence => w.eosie().set_bit(),
                     AdcInterrupt::EndofConversionInjected => w.jeocie().set_bit(),
                     AdcInterrupt::EndOfSequenceInjected => w.jeosie().set_bit(),
                     AdcInterrupt::Watchdog1 => w.awd1ie().set_bit(),
@@ -934,7 +934,7 @@ macro_rules! hal {
                 self.regs.isr.modify(|_, w| match interrupt {
                     AdcInterrupt::Ready =>  w.adrdy().set_bit(),
                     AdcInterrupt::EndOfConversion =>  w.eoc().set_bit(),
-                    AdcInterrupt::EnfOfSequence =>  w.eos().set_bit(),
+                    AdcInterrupt::EndOfSequence =>  w.eos().set_bit(),
                     AdcInterrupt::EndofConversionInjected =>  w.jeoc().set_bit(),
                     AdcInterrupt::EndOfSequenceInjected =>  w.jeos().set_bit(),
                     AdcInterrupt::Watchdog1 =>  w.awd1().set_bit(),
@@ -947,7 +947,7 @@ macro_rules! hal {
                 // match interrupt {
                 //     AdcInterrupt::Ready => self.regs.icr.write(|_w| w.adrdy().set_bit()),
                 //     AdcInterrupt::EndOfConversion => self.regs.icr.write(|w| w.eoc().set_bit()),
-                //     AdcInterrupt::EnfOfSequence => self.regs.icr.write(|_w| w.eos().set_bit()),
+                //     AdcInterrupt::EndOfSequence => self.regs.icr.write(|_w| w.eos().set_bit()),
                 //     AdcInterrupt::EndofConversionInjected => self.regs.icr.write(|_w| w.jeoc().set_bit()),
                 //     AdcInterrupt::EndOfSequenceInjected => self.regs.icr.write(|_w| w.jeos().set_bit()),
                 //     AdcInterrupt::Watchdog1 => self.regs.icr.write(|_w| w.awd1().set_bit()),
