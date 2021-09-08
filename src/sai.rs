@@ -412,7 +412,7 @@ where
             // The NOMCK bit of the SAI_xCR1 register is used to define whether the master clock is
             // generated or not.
             // Inversed polarity on non-H7 based on how we have `MasterClock` enabled.
-            #[cfg(not(any(feature = "h7", feature = "l4")))]
+            #[cfg(not(any(feature = "h7", feature = "l4", feature = "l5")))]
             w.mcken().bit(config_a.master_clock as u8 == 0);
             #[cfg(feature = "h7")]
             // Due to an H7 PAC error, xCR bit 19 is called NODIV (Which is how it is on other platforms).
@@ -439,7 +439,7 @@ where
             w.prtcfg().bits(config_b.protocol as u8);
             w.mono().bit(config_b.mono as u8 != 0);
             w.syncen().bits(config_b.sync as u8);
-            #[cfg(not(any(feature = "h7", feature = "l4")))]
+            #[cfg(not(any(feature = "h7", feature = "l4", feature = "l5")))]
             w.mcken().bit(config_b.master_clock as u8 == 0);
             #[cfg(feature = "h7")]
             w.nodiv().bit(config_b.master_clock as u8 != 0);
