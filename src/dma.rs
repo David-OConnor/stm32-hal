@@ -77,6 +77,8 @@ pub enum DmaInput {
     Adc3 = 37,
     Adc4 = 38,
     Adc5 = 39,
+    Sai1A = 108,
+    Sai1B = 109,
 }
 
 // todo: Trigger, synchronization etc mappings. Perhaps DmaTrigger, DmaSync enums etc.
@@ -117,11 +119,10 @@ pub enum DmaInput {
     Uart4Tx = 64,
     Uart5Rx = 65,
     Uart5Tx = 66,
-    Sai1aDma = 87,
-    Sai1bDma = 88,
-    Sai2aDma = 89,
-    Sai2bDma = 90,
-
+    Sai1A = 87,
+    Sai1B = 88,
+    Sai2A = 89,
+    Sai2B = 90,
 }
 
 impl DmaInput {

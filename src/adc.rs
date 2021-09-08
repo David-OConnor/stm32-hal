@@ -932,17 +932,17 @@ macro_rules! hal {
             /// corresponding ISR.
             pub fn clear_interrupt(&mut self, interrupt: AdcInterrupt) {
                 self.regs.isr.modify(|_, w| match interrupt {
-                    AdcInterrupt::Ready =>  w.adrdy().set_bit(),
-                    AdcInterrupt::EndOfConversion =>  w.eoc().set_bit(),
-                    AdcInterrupt::EnfOfSequence =>  w.eos().set_bit(),
-                    AdcInterrupt::EndofConversionInjected =>  w.jeoc().set_bit(),
-                    AdcInterrupt::EndOfSequenceInjected =>  w.jeos().set_bit(),
-                    AdcInterrupt::Watchdog1 =>  w.awd1().set_bit(),
-                    AdcInterrupt::Watchdog2 =>  w.awd2().set_bit(),
-                    AdcInterrupt::Watchdog3 =>  w.awd3().set_bit(),
-                    AdcInterrupt::EndOfSamplingPhase =>  w.eosmp().set_bit(),
-                    AdcInterrupt::Overrun =>  w.ovr().set_bit(),
-                    AdcInterrupt::InjectedOverflow =>  w.jqovf().set_bit(),
+                    AdcInterrupt::Ready => w.adrdy().set_bit(),
+                    AdcInterrupt::EndOfConversion => w.eoc().set_bit(),
+                    AdcInterrupt::EnfOfSequence => w.eos().set_bit(),
+                    AdcInterrupt::EndofConversionInjected => w.jeoc().set_bit(),
+                    AdcInterrupt::EndOfSequenceInjected => w.jeos().set_bit(),
+                    AdcInterrupt::Watchdog1 => w.awd1().set_bit(),
+                    AdcInterrupt::Watchdog2 => w.awd2().set_bit(),
+                    AdcInterrupt::Watchdog3 => w.awd3().set_bit(),
+                    AdcInterrupt::EndOfSamplingPhase => w.eosmp().set_bit(),
+                    AdcInterrupt::Overrun => w.ovr().set_bit(),
+                    AdcInterrupt::InjectedOverflow => w.jqovf().set_bit(),
                 });
                 // match interrupt {
                 //     AdcInterrupt::Ready => self.regs.icr.write(|_w| w.adrdy().set_bit()),
