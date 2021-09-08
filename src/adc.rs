@@ -1138,7 +1138,6 @@ cfg_if! {
     }
 }
 
-#[cfg(feature = "h7")]
 
 cfg_if! {
     if #[cfg(feature = "g4")] {
