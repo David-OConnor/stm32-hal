@@ -14,7 +14,7 @@ use cortex_m::{
 use cortex_m_rt::entry;
 
 use stm32_hal2::{
-    adc::{Adc, AdcChannel, AdcDevice, AdcInterrupt, Align, ClockMode, InputType, OperationMode},
+    adc::{Adc, AdcChannel, AdcDevice, AdcInterrupt, Align, ClockMode, InputType, OperationMode, SampleTime},
     clocks::Clocks,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
