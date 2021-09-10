@@ -2,11 +2,7 @@
 //! Provides APIs to configure, read, and write from
 //! SPI, with blocking, nonblocking, and DMA functionality.
 
-use core::{
-    ops::Deref,
-    ptr,
-    // sync::atomic::{self, Ordering},
-};
+use core::{ops::Deref, ptr};
 
 use cortex_m::interrupt::free;
 
@@ -38,8 +34,6 @@ use crate::dma::DmaInput;
 
 use cfg_if::cfg_if;
 
-// todo: Don't make EH the default API.
-
 /// SPI error
 #[non_exhaustive]
 #[derive(Copy, Clone, Debug)]
@@ -52,7 +46,8 @@ pub enum Error {
     Crc,
 }
 
-/// Possible interrupt types. Enable these in CR2. Check and clear with SR. Clear in ?
+/// Possible interrupt types. Enable these in CR2. Check and clear with SR. There is no explicit
+/// way to clear these.
 #[derive(Copy, Clone)]
 pub enum SpiInterrupt {
     /// Tx buffer empty (TXEIE)
@@ -104,7 +99,7 @@ pub enum SpiCommMode {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-/// Used for managing NSS / CS pin.
+/// Used for managing NSS / CS pin. Sets CR1 register, SSM field.
 pub enum SlaveSelect {
     ///  In this configuration, slave select information
     /// is driven internally by the SSI bit value in register SPIx_CR1. The external NSS pin is
@@ -127,7 +122,7 @@ pub enum SlaveSelect {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// Clock polarity
+/// Clock polarity. Sets CFGR2 register, CPOL field. Stored in the config as a field of `SpiMode`.
 pub enum SpiPolarity {
     /// Clock signal low when idle
     IdleLow = 0,
@@ -137,7 +132,7 @@ pub enum SpiPolarity {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// Clock phase
+/// Clock phase. Sets CFGR2 register, CPHA field. Stored in the config as a field of `SpiMode`.
 pub enum SpiPhase {
     /// Data in "captured" on the first clock transition
     CaptureOnFirstTransition = 0,
@@ -145,8 +140,8 @@ pub enum SpiPhase {
     CaptureOnSecondTransition = 1,
 }
 
-/// SPI mode
 #[derive(Clone, Copy)]
+/// SPI mode. Sets CFGR2 reigster, CPOL and CPHA fields.
 pub struct SpiMode {
     /// Clock polarity
     pub polarity: SpiPolarity,
@@ -188,6 +183,7 @@ impl SpiMode {
     }
 }
 
+/// Initial configuration data for the SPI peripheral.
 pub struct SpiConfig {
     pub mode: SpiMode,
     pub comm_mode: SpiCommMode,

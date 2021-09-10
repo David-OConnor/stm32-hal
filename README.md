@@ -40,7 +40,7 @@ become available. WL support is a WIP, with many features not implemented.
 Operationally tested on the following devices:
 - STM32F303
 - STM32F411
-- STM32L476, L433, L443, L412, L432,
+- STM32L476, L433, L443, L412, L432
 - STM32WB5MMG
 - STM32H743(V)
 
@@ -162,16 +162,20 @@ eg use `RadarMode` instead. This prevents namespace conflicts when importing the
 ```rust
 #[derive(clone, copy)]
 #[repr(u8)]
-/// Select pulse repetition frequency. Modifies `FCRDR_CR` register, `PRF` field.
+/// Select pulse repetition frequency. Sets `FCRDR_CR` register, `PRF` field.
 enum Prf {
+    /// Medium PRF (less than 10Ghz)
     Medium = 0,
+    /// High PRF (10Ghz or greater)
     High = 1,
 }
 
 #[derive(clone, copy)]
 /// Available interrupts. Enabled in `FCRDR_CR`, `...IE` fields. Cleared in `FCRDR_ICR`.
 enum FcRadarInterrupt {
+    /// Target acquired
     TgtAcq,
+    /// Lost the track, for any reason
     LostTrack,
 }
 
@@ -186,6 +190,8 @@ impl<F> FcRadar<R>
 where
     R: Deref<Target = pac::fcrdr1::RegisterBlock>,
 {
+    /// Initialize a FCR peripheral, including configuration register writes, and enabling and resetting
+    /// its RCC peripheral clock.
     pub fn new(regs: R, prf: Prf) -> Self {
         // A critical section here prevents race conditions, while preventing
         // the user from needing to pass RCC in explicitly.

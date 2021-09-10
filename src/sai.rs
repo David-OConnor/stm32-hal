@@ -32,6 +32,9 @@ use crate::pac::dma1 as dma_p;
 #[cfg(not(any(feature = "f4", feature = "l5")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::dma::DmaInput;
+
 #[derive(Clone, Copy)]
 /// Specify the SAI device to use. Used internally for setting the appropriate APB.
 pub enum SaiDevice {
@@ -684,23 +687,20 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
     {
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
-        // todo: Impl these non-DMAMUx features.
-        // // L44 RM, Table 41. "DMA1 requests for each channel
-        // // todo: DMA2 support.
-        // #[cfg(any(feature = "f3", feature = "l4"))]
-        //     let channel = match self.device {
-        //     AdcDevice::One => DmaInput::Adc1.dma1_channel(),
-        //     AdcDevice::Two => DmaInput::Adc2.dma1_channel(),
-        //     _ => panic!("DMA on ADC beyond 2 is not supported. If it is for your MCU, please submit an issue \
-        //         or PR on Github.")
-        // };
-        //
-        // #[cfg(feature = "l4")]
-        // match self.device {
-        //     AdcDevice::One => dma.channel_select(DmaInput::Adc1),
-        //     AdcDevice::Two => dma.channel_select(DmaInput::Adc2),
-        //     _ => unimplemented!(),
-        // }
+        // todo: DMA2 support.
+
+        // L44 RM, Table 41. "DMA1 requests for each channel"
+        #[cfg(any(feature = "f3", feature = "l4"))]
+        let channel = match sai_channel {
+            SaiChannel::A => DmaInput::Sai1A.dma1_channel(),
+            SaiChannel::B => DmaInput::Sai1B.dma1_channel(),
+        };
+
+        #[cfg(feature = "l4")]
+        match sai_channel {
+            SaiChannel::A => dma.channel_select(DmaInput::Sai1A),
+            SaiChannel::B => dma.channel_select(DmaInput::Sai1B),
+        };
 
         // To configure the audio subblock for DMA transfer, set DMAEN bit in the SAI_xCR1 register.
         // The DMA request is managed directly by the FIFO controller depending on the FIFO
