@@ -934,7 +934,7 @@ macro_rules! hal {
                 self.regs.isr.modify(|_, w| match interrupt {
                     AdcInterrupt::Ready => w.adrdy().set_bit(),
                     AdcInterrupt::EndOfConversion => w.eoc().set_bit(),
-                    AdcInterrupt::EnfOfSequence => w.eos().set_bit(),
+                    AdcInterrupt::EndOfSequence => w.eos().set_bit(),
                     AdcInterrupt::EndofConversionInjected => w.jeoc().set_bit(),
                     AdcInterrupt::EndOfSequenceInjected => w.jeos().set_bit(),
                     AdcInterrupt::Watchdog1 => w.awd1().set_bit(),
