@@ -18,7 +18,7 @@ use stm32_hal2::{
     clocks::Clocks,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
-    i2c::{I2c, I2cDevice},
+    i2c::{I2c, I2cConfig, I2cDevice, I2cSpeed, NoiseFilter},
     low_power, pac,
 };
 
@@ -41,7 +41,17 @@ fn main() -> ! {
     sda.output_type(OutputType::OpenDrain);
 
     // Set up an I2C peripheral, running at 100Khz.
-    let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg, &mut dp.RCC);
+    let i2c = I2c::new(dp.I2C1, I2cDevice::One, Default::default(), &clock_cfg);
+
+    let i2c_cfg = I2cConfig {
+        speed: I2cSpeed::Fast400K, // Set to Fast mode, at 400Khz.
+        // Set a digital noise filter instead of the default analog one.
+        noise_filter: NoiseFilter::Digitial(5),
+        ..Default::default()
+    };
+
+    // Or, customize the config, including setting different preset speeds:
+    let i2c = I2c::new(dp.I2C1, I2cDevice::One, i2c_cfg, &clock_cfg);
 
     // todo: Show how to set up SMBUS.
 
@@ -55,7 +65,7 @@ fn main() -> ! {
     let conversion_reg = 0x0;
 
     // Set up DMA, for nonblocking (generally faster) conversion transfers:
-    let mut dma = Dma::new(&mut dp.DMA1, &dp.RCC);
+    let mut dma = Dma::new(&mut dp.DMA1);
 
     // todo fill this in)
 

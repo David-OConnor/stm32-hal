@@ -92,8 +92,8 @@ pub enum I2cDevice {
     Two,
     #[cfg(any(feature = "h7", feature = "wb"))]
     Three,
-    #[cfg(any(feature = "l5", feature = "h7"))]
-    Four,
+    // #[cfg(any(feature = "l5", feature = "h7"))]
+    // Four,
 }
 
 #[derive(Clone, Copy)]
@@ -124,7 +124,7 @@ pub enum I2cMode {
 // #[repr(u8)]
 /// Set a preset I2C speed, based on RM tables: Examples of timings settings.
 /// Sets 5 fields of the TIMINGR register.
-pub enum SpeedMode {
+pub enum I2cSpeed {
     /// Standard-mode: 10kHz.
     Standard10K,
     /// Standard-mode: 100kHz.
@@ -163,7 +163,7 @@ pub struct I2cConfig {
     // /// Select between standard, fast, and fast-plus speeds. Default to standard.
     /// pub speed_mode: SpeedMode,
     /// Select between one of 4 preset speeds. If you'd like to use custom
-    /// speed settings, use the PAC directly, with I2C disabled, after the 
+    /// speed settings, use the PAC directly, with I2C disabled, after the
     /// peripheral clocks are enabled by `new()`. Default to Standard mode, 100kHz.
     pub speed: I2cSpeed,
     /// Allows setting 7 or 10-bit addresses. Defaults to 7.
@@ -175,7 +175,6 @@ pub struct I2cConfig {
     /// Optionally disable clock stretching. Defaults to false (stretching allowed)
     /// Only relevant in slave mode.
     pub nostretch: bool,
-
     // /// Timing prescaler. This field is used to prescale I2CCLK in order to generate the clock period tPRESC used for
     // /// data setup and hold counters (refer to I2C timings on page 1495) and for SCL high and low
     // /// level counters (refer to I2C master initialization on page 1510).
@@ -229,7 +228,7 @@ impl Default for I2cConfig {
 pub struct I2c<R> {
     pub regs: R,
     device: I2cDevice,
-    cfg: I2cConfig,
+    pub cfg: I2cConfig,
 }
 
 impl<R> I2c<R>
@@ -243,7 +242,7 @@ where
         device: I2cDevice,
         cfg: I2cConfig,
         // freq: u32, // todo: Set a division manually, like you do with SPI.
-        // clocks: &Clocks,
+        clocks: &Clocks,
     ) -> Self {
         free(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
@@ -259,11 +258,11 @@ where
                 #[cfg(any(feature = "h7", feature = "wb"))]
                 I2cDevice::Three => {
                     rcc_en_reset!(apb1, i2c3, rcc);
-                }
-                #[cfg(any(feature = "l5", feature = "h7"))]
-                I2cDevice::Four => {
-                    rcc_en_reset!(apb1, i2c4, rcc);
-                }
+                } // todo: APB1LR2 on L5, and AHB4 on H7. Fix it.
+                  // #[cfg(any(feature = "l5", feature = "h7"))]
+                  // I2cDevice::Four => {
+                  //     rcc_en_reset!(apb1, i2c4, rcc);
+                  // }
             }
         });
 
@@ -272,7 +271,6 @@ where
 
         // todo: Slave currently nonfunctional!
         // todo: Check out the RM recipes for slave transmitter and receiver.
-
 
         // RM: I2C timings:
         // The timings must be configured in order to guarantee a correct data hold and setup time,
@@ -284,14 +282,8 @@ where
         // For these speed and frequency variables, we use the RM's conventions.
         let t_i2cclk = clocks.apb1();
 
-        // let t_sdadel = sdadel * t_presc + t_i2cclk;
-
-        
-
-
-        assert!(t_i2cclk < (t_low - f_f) / 4);
-        assert!(t_i2cclk < t_high);
-
+        // assert!(t_i2cclk < (t_low - f_f) / 4);
+        // assert!(t_i2cclk < t_high);
 
         // Set the prescaler using RM tables as a guide;
         // L552 RM, Tables 324 - 326: Examples of timings settings.
@@ -299,37 +291,72 @@ where
         // In this case, we'll use the integer floor rounding to handle in-between
         // values.
 
-        let t_presc = t_i2cclk match cfg.speed {
+        // We use this constant in several calculations.
+        let presc_const = match cfg.speed {
             I2cSpeed::Standard10K => 4_000_000,
             I2cSpeed::Standard100K => 4_000_000,
-            I2cSpeed::Fast400K => t_i2cclk / 8_000_000,
+            I2cSpeed::Fast400K => 8_000_000,
             // Note: The 16Mhz example uses F+ / 16.
-            I2cSpeed::FastPlus1M => t_i2cclk / 8_000_000,
+            // It also uses a scll multiplier of 62.5 instead
+            // of 125.
+            I2cSpeed::FastPlus1M => 8_000_000,
         };
 
-        // example: 48M clock, 100khz
-        t_psresc = 12
-        PRESC = 11
+        // This is (offset by 1) what we set as the prescaler.
+        let presc_val = t_i2cclk / presc_const;
 
+        // Hit the target freq by setting up t_scll (Period of SCL low)
+        // to be half the whole period. These constants
+        // are from the tables.
+        let freq = match cfg.speed {
+            I2cSpeed::Standard10K => 10_000,
+            I2cSpeed::Standard100K => 100_000,
+            I2cSpeed::Fast400K => 400_000,
+            I2cSpeed::FastPlus1M => 1_000_000,
+        };
 
+        // Set SCLL (SCL low time) to be half the duty period
+        // associated with the target frequency.
+        let scll_val = presc_const / (2 * freq);
 
+        // SCLH is smaller than SCLH. Normal modes it's close, although
+        // with the examles, not as close for SCLH. THis may be due to delays
+        // involved. The ratio is different for Fast-mode and Fast-mode+.
+        // todo: Come back to this. What controls this?
+        let sclh_val = match cfg.speed {
+            I2cSpeed::Standard10K => scll_val - 4,
+            I2cSpeed::Standard100K => scll_val - 4,
+            I2cSpeed::Fast400K => scll_val * 4 / 10,
+            I2cSpeed::FastPlus1M => scll_val / 2,
+        };
 
-        let presc = t_presc - 1;
-        let scldel = (t_scldel / t_presc) - 1
-        let sdadel = t_scldel / t_presc
-        let sclh = (t_sclh / t_presc) - 1
-        let scll = (t_scll / t_presc) - 1
+        let presc = presc_val - 1;
+        let scll = scll_val - 1;
+        let sclh = sclh_val - 1;
 
+        // todo: Can't find the sdadel and scldel pattern
+        let sdadel = match cfg.speed {
+            I2cSpeed::Standard10K => 0x2,
+            I2cSpeed::Standard100K => 0x2,
+            I2cSpeed::Fast400K => 0x3,
+            I2cSpeed::FastPlus1M => 0x0,
+        };
 
-
-        // μs
-        
+        let scldel = match cfg.speed {
+            I2cSpeed::Standard10K => 0x4,
+            I2cSpeed::Standard100K => 0x4,
+            I2cSpeed::Fast400K => 0x3,
+            I2cSpeed::FastPlus1M => 0x1,
+        };
 
         // The fields for PRESC, SCLDEL, and SDADEL are 4-bits; don't overflow.
         // The other TIMINGR fields we set are 8-bits, so won't overflow with u8.
-        assert!(presc < 16);
-        assert!(scldel < 16);
-        assert!(sdadel < 16);
+        assert!(presc <= 15);
+        assert!(scldel <= 15);
+        assert!(sdadel <= 15);
+
+        assert!(scll <= 255);
+        assert!(sclh <= 255);
 
         // L552 RM, Table 323. I2C-SMBus specification clock timings
         // match cfg.speed_mode {
@@ -370,11 +397,11 @@ where
         // todo: SMBUS limits are also present on this table.
 
         regs.timingr.write(|w| unsafe {
-            w.presc().bits(presc);
-            w.scldel().bits(scldel);
-            w.sdadel().bits(sdadel);
-            w.sclh().bits(sclh);
-            w.scll().bits(scll)
+            w.presc().bits(presc as u8);
+            w.scldel().bits(scldel as u8);
+            w.sdadel().bits(sdadel as u8);
+            w.sclh().bits(sclh as u8);
+            w.scll().bits(scll as u8)
         });
 
         // Before enabling the I2C peripheral by setting the PE bit in I2C_CR1 register, the user must
@@ -389,28 +416,24 @@ where
         let (anf_bit, dnf_bits) = match cfg.noise_filter {
             NoiseFilter::Analog => (false, 0),
             NoiseFilter::Digital(filtering_len) => {
-                assert!(filtering_len <= 0b1111)
+                assert!(filtering_len <= 0b1111);
                 (true, filtering_len)
-            },
-            NoiseFilter::Disabled => (true, 0)
+            }
+            NoiseFilter::Disabled => (true, 0),
         };
 
-        regs.cr1.modify(|_, w| {
+        regs.cr1.modify(|_, w| unsafe {
             w.anfoff().bit(anf_bit);
-            w.dnf().bits(dnf_bits);
+            w.dnf().bits(dnf_bits)
         });
 
         if let I2cMode::Slave = cfg.mode {
-            regs.cr1.modify(|_, w| w.nostretch.bits(cfg.nostretch);
+            regs.cr1.modify(|_, w| w.nostretch().bit(cfg.nostretch));
         }
 
-        let mut result = Self {
-            regs,
-            device,
-            cfg,
-        };
+        let mut result = Self { regs, device, cfg };
 
-        if cfg.smbus {
+        if result.cfg.smbus {
             result.enable_smbus();
         }
 
@@ -443,7 +466,8 @@ where
 
         // todo: Timeout detection?
 
-        self.regs.hwcfgr.modify(|_, w| w.smbus().set_bit());
+        // todo: HWCFGR Missing from PAC
+        // self.regs.hwcfgr.modify(|_, w| w.smbus().set_bit());
 
         if originally_enabled {
             self.regs.cr1.modify(|_, w| w.pe().set_bit());
@@ -558,7 +582,7 @@ where
                                           // If the SMBus master wants to send a STOP condition after the PEC, automatic end mode
                                           // must be selected (AUTOEND=1). In this case, the STOP condition automatically follows the
                                           // PEC transmission.
-                w.pecbyte().bit(self.smbus);
+                w.pecbyte().bit(self.cfg.smbus);
                 w.start().set_bit()
             }
         });
@@ -584,7 +608,7 @@ where
                                        // after NBYTES-1 data have been received, the next received byte is automatically checked
                                        // versus the I2C_PECR register content. A NACK response is given to the PEC byte, followed
                                        // by a STOP condition.
-                w.pecbyte().bit(self.smbus);
+                w.pecbyte().bit(self.cfg.smbus);
                 w.start().set_bit()
             }
         });

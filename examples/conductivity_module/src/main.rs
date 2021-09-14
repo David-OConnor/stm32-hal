@@ -104,7 +104,7 @@ fn main() -> ! {
     setup_pins();
 
     // Set up I2C for the TI ADS1115 ADC.
-    let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg);
+    let i2c = I2c::new(dp.I2C1, I2cDevice::One, Default::default(), &clock_cfg);
 
     // todo: Once on new QFN MCU: Gain 0, 1, 2 -> PA6, PA7, PB0
     // Set up pins used to control the gain-resistor-selecting multiplexer.

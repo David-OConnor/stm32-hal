@@ -1138,7 +1138,6 @@ cfg_if! {
     }
 }
 
-
 cfg_if! {
     if #[cfg(feature = "g4")] {
         hal!(ADC1, ADC12_COMMON, adc1, 12);
