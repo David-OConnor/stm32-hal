@@ -252,13 +252,17 @@ pub enum SaiChannel {
 #[derive(Clone, Copy)]
 pub struct SaiConfig {
     pub mode: SaiMode,
+    /// Select protocols between Free, Ac'97, and SPDIF. Defaults to Free.
     pub protocol: Protocol,
+    /// Select mono or stereo modes. Default to mono.
     pub mono: Mono,
     /// An audio subblock can be configured to operate synchronously with the second audio
     /// subblock in the same SAI. In this case, the bit clock and the frame synchronization signals
-    /// are shared to reduce the number of external pins used for the communication.
+    /// are shared to reduce the number of external pins used for the communication. Default to async.
     pub sync: SyncMode,
     pub datasize: DataSize,
+    /// Select wheather the master clock out is enabled, eg for syncing external devices. Defaults
+    /// to disabled.
     pub master_clock: MasterClock,
     pub first_bit: FirstBit,
     pub oversampling_ratio: OversamplingRatio,
@@ -278,8 +282,11 @@ pub struct SaiConfig {
     // /// They must be configured when the audio block is disabled
     // pub fs_level_len: u8,
     pub fs_offset: FsOffset,
+    /// Active high, or active low polarity. Defaults to active high.
     pub fs_polarity: FsPolarity,
+    /// Default to frame and channel.
     pub fs_signal: FsSignal,
+    /// Number of slots. Defaults to 2.
     pub num_slots: u8,
     /// The FIFO threshold configures when the FREQ interrupt is generated based on how full
     /// the FIFO is.
@@ -348,7 +355,8 @@ impl SaiConfig {
     }
 }
 
-/// Represents the USART peripheral, for serial communications.
+/// Represents the Serial Audio Interface (SAI) peripheral, used for digital audio
+/// input and output.
 pub struct Sai<R> {
     pub regs: R,
     config_a: SaiConfig,
