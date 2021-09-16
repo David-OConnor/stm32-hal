@@ -123,8 +123,8 @@ pub enum QspiInterrupt {
 
 /// Represents a Quad Serial Peripheral Interface (QSPI) peripheral.
 pub struct Qspi {
-    regs: QUADSPI,
-    cfg: QspiConfig,
+    pub regs: QUADSPI,
+    pub cfg: QspiConfig,
 }
 
 impl Qspi {

@@ -328,7 +328,7 @@ impl Default for SaiConfig {
             first_bit: FirstBit::MsbFirst,
             oversampling_ratio: OversamplingRatio::FMul256,
             frame_length: 64,
-            // fs_level_len: 32, // For now, we always us frame_length / 2, for 50% duty cycle.
+            // fs_level_len: 32, // For now, we always use frame_length / 2, for 50% duty cycle.
             fs_offset: FsOffset::FirstBit,
             fs_polarity: FsPolarity::ActiveHigh,
             fs_signal: FsSignal::FrameAndChannel, // Use FrameAndChannel for I2S.
@@ -587,7 +587,7 @@ where
             w.fboff().bits(0) // todo: User-customizable? No offset in receiver mode?
         });
 
-        let slot_en_bits = (2_u16.pow(config_b.num_slots as u32) - 1);
+        let slot_en_bits = 2_u16.pow(config_b.num_slots as u32) - 1;
         regs.chb.slotr.modify(|_, w| unsafe {
             w.sloten().bits(slot_en_bits);
             w.nbslot().bits(config_b.num_slots - 1);
@@ -601,6 +601,7 @@ where
         // 1. Configure SAI_A in TDM master mode (see Table 422).
         // (Above. Although we don't check this)
         // 2. Configure the PDM interface as follows:
+        #[cfg(not(feature = "l4"))]
         if config_a.pdm_mode {
             regs.pdmcr.modify(|_, w| unsafe {
                 // a) Define the number of digital microphones via MICNBR.

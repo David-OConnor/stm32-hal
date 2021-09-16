@@ -207,7 +207,7 @@ impl Default for SpiConfig {
 pub struct Spi<R> {
     pub regs: R,
     device: SpiDevice,
-    cfg: SpiConfig,
+    pub cfg: SpiConfig,
 }
 
 impl<R> Spi<R>
