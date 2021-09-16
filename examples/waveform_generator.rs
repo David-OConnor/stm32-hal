@@ -80,8 +80,6 @@ fn main() -> ! {
     // Set up microcontroller peripherals
     let mut dp = pac::Peripherals::take().unwrap();
 
-    // todo: Make sure your clock config enables teh appropriate SAI clock.
-
     // Set up clocks
     let clock_cfg = Clocks::default();
     clock_cfg

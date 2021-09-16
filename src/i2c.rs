@@ -28,7 +28,7 @@ use crate::pac::dma as dma_p;
 ))]
 use crate::pac::dma1 as dma_p;
 
-#[cfg(not(any(feature = "f4", feature = "l5")))]
+#[cfg(not(feature = "l5"))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -92,6 +92,8 @@ pub enum I2cDevice {
     Two,
     #[cfg(any(feature = "h7", feature = "wb"))]
     Three,
+    // Four ommitted for now; just need to add some non-standard
+    // periph clock setup/enable
     // #[cfg(any(feature = "l5", feature = "h7"))]
     // Four,
 }
@@ -110,18 +112,7 @@ pub enum I2cMode {
     Slave = 1,
 }
 
-// #[derive(Clone, Copy)]
-// #[repr(u8)]
-// /// Set speed to stanard mode (up to 100kHz), fast-mode (up to 400kHz), or fast-mode plus (up to 1MHz).
-// ///  Sets the __ register, _ field.
-// pub enum SpeedMode {
-//     Standard = 0,
-//     Fast = 1,
-//     FastPlus = 2,
-// }
-
 #[derive(Clone, Copy)]
-// #[repr(u8)]
 /// Set a preset I2C speed, based on RM tables: Examples of timings settings.
 /// Sets 5 fields of the TIMINGR register.
 pub enum I2cSpeed {
@@ -175,46 +166,12 @@ pub struct I2cConfig {
     /// Optionally disable clock stretching. Defaults to false (stretching allowed)
     /// Only relevant in slave mode.
     pub nostretch: bool,
-    // /// Timing prescaler. This field is used to prescale I2CCLK in order to generate the clock period tPRESC used for
-    // /// data setup and hold counters (refer to I2C timings on page 1495) and for SCL high and low
-    // /// level counters (refer to I2C master initialization on page 1510).
-    // /// Sets TIMINGR reg, PRESC field.
-    // pub prescaler: u8,
-    // /// SCL low period (master mode)
-    // /// This field is used to generate the SCL low period in master mode.
-    // /// tSCLL = (SCLL+1) x tPRESC
-    // /// Note: SCLL is also used to generate tBUF and tSU:STA timings.
-    // /// Sets TIMINGR reg, SCLL field.
-    // pub scll: u8,
-    // /// SCL high period (master mode)
-    // /// This field is used to generate the SCL high period in master mode.
-    // /// tSCLH = (SCLH+1) x tPRESC
-    // /// Note: SCLH is also used to generate tSU:STO and tHD:STA timing
-    // /// Set the clock prescaler value. Sets TIMINGR reg, SCLH field.
-    // pub sclh: u8,
-    // /// Data hold time
-    // /// This field is used to generate the delay tSDADEL between SCL falling edge and SDA edge. In
-    // /// master mode and in slave mode with NOSTRETCH = 0, the SCL line is stretched low during
-    // /// tSDADEL.
-    // /// tSDADEL= SDADEL x tPRESC
-    // /// Note: SDADEL is used to generate tHD:DAT timing
-    // /// Sets TIMINGR reg, SDADEL field.
-    // pub sdadel: u8,
-    // /// Data setup time
-    // /// This field is used to generate a delay tSCLDEL between SDA edge and SCL rising edge. In
-    // /// master mode and in slave mode with NOSTRETCH = 0, the SCL line is stretched low during
-    // /// tSCLDEL.
-    // /// tSCLDEL = (SCLDEL+1) x tPRESC
-    // /// Note: tSCLDEL is used to generate tSU:DAT timing
-    // /// Sets TIMINGR reg, SCLDEL field.
-    // pub scldel: u8,
 }
 
 impl Default for I2cConfig {
     fn default() -> Self {
         Self {
             mode: I2cMode::Master,
-            // speed_mode: SpeedMode::Standard,
             speed: I2cSpeed::Standard100K,
             address_bits: AddressBits::B7,
             noise_filter: NoiseFilter::Analog,
@@ -237,13 +194,7 @@ where
 {
     /// Initialize a I2C peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock. `freq` is in Hz.
-    pub fn new(
-        regs: R,
-        device: I2cDevice,
-        cfg: I2cConfig,
-        // freq: u32, // todo: Set a division manually, like you do with SPI.
-        clocks: &Clocks,
-    ) -> Self {
+    pub fn new(regs: R, device: I2cDevice, cfg: I2cConfig, clocks: &Clocks) -> Self {
         free(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
 
@@ -296,13 +247,12 @@ where
             I2cSpeed::Standard10K => 4_000_000,
             I2cSpeed::Standard100K => 4_000_000,
             I2cSpeed::Fast400K => 8_000_000,
-            // Note: The 16Mhz example uses F+ / 16.
-            // It also uses a scll multiplier of 62.5 instead
-            // of 125.
+            // Note: The 16Mhz example uses F+ / 16. The other 2 examples
+            // use 8e6.
             I2cSpeed::FastPlus1M => 8_000_000,
         };
 
-        // This is (offset by 1) what we set as the prescaler.
+        // This is (offset by 1) which we set as the prescaler.
         let presc_val = t_i2cclk / presc_const;
 
         // Hit the target freq by setting up t_scll (Period of SCL low)
@@ -319,10 +269,11 @@ where
         // associated with the target frequency.
         let scll_val = presc_const / (2 * freq);
 
-        // SCLH is smaller than SCLH. Normal modes it's close, although
-        // with the examles, not as close for SCLH. THis may be due to delays
+        // SCLH is smaller than SCLH. For standard mode it's close, although
+        // in the example tables, 20% different for 100Khz, and 2% different for
+        // 10K. THis may be due to delays
         // involved. The ratio is different for Fast-mode and Fast-mode+.
-        // todo: Come back to this. What controls this?
+        // todo: Come back to this. How should we set this?
         let sclh_val = match cfg.speed {
             I2cSpeed::Standard10K => scll_val - 4,
             I2cSpeed::Standard100K => scll_val - 4,
@@ -330,11 +281,35 @@ where
             I2cSpeed::FastPlus1M => scll_val / 2,
         };
 
+        // Timing prescaler. This field is used to prescale I2CCLK in order to generate the clock period tPRESC used for
+        // data setup and hold counters (refer to I2C timings on page 1495) and for SCL high and low
+        // level counters (refer to I2C master initialization on page 1510).
+        // Sets TIMINGR reg, PRESC field.
+
         let presc = presc_val - 1;
+
+        // SCL low period (master mode)
+        // This field is used to generate the SCL low period in master mode.
+        // tSCLL = (SCLL+1) x tPRESC
+        // Note: SCLL is also used to generate tBUF and tSU:STA timings.
+        // Sets TIMINGR reg, SCLL field.
         let scll = scll_val - 1;
+
+        // SCL high period (master mode)
+        // This field is used to generate the SCL high period in master mode.
+        // tSCLH = (SCLH+1) x tPRESC
+        // Note: SCLH is also used to generate tSU:STO and tHD:STA timing
+        // Set the clock prescaler value. Sets TIMINGR reg, SCLH field.
         let sclh = sclh_val - 1;
 
         // todo: Can't find the sdadel and scldel pattern
+        // Data hold time
+        // This field is used to generate the delay tSDADEL between SCL falling edge and SDA edge. In
+        // master mode and in slave mode with NOSTRETCH = 0, the SCL line is stretched low during
+        // tSDADEL.
+        // tSDADEL= SDADEL x tPRESC
+        // Note: SDADEL is used to generate tHD:DAT timing
+        // Sets TIMINGR reg, SDADEL field.
         let sdadel = match cfg.speed {
             I2cSpeed::Standard10K => 0x2,
             I2cSpeed::Standard100K => 0x2,
@@ -342,6 +317,13 @@ where
             I2cSpeed::FastPlus1M => 0x0,
         };
 
+        // Data setup time
+        // This field is used to generate a delay tSCLDEL between SDA edge and SCL rising edge. In
+        // master mode and in slave mode with NOSTRETCH = 0, the SCL line is stretched low during
+        // tSCLDEL.
+        // tSCLDEL = (SCLDEL+1) x tPRESC
+        // Note: tSCLDEL is used to generate tSU:DAT timing
+        // Sets TIMINGR reg, SCLDEL field.
         let scldel = match cfg.speed {
             I2cSpeed::Standard10K => 0x4,
             I2cSpeed::Standard100K => 0x4,
@@ -357,44 +339,6 @@ where
 
         assert!(scll <= 255);
         assert!(sclh <= 255);
-
-        // L552 RM, Table 323. I2C-SMBus specification clock timings
-        // match cfg.speed_mode {
-        //     SpeedMode::Standard => {
-        //         assert!(speed <= 100_000);
-        //         assert!(t_hdsta >= 4.);
-        //         assert!(t_susta >= 4.7);
-        //         assert!(t_susto >= 4.);
-        //         assert!(t_buf >= 4.7);
-        //         assert!(t_low >= 4.7);
-        //         assert!(t_high >= 4.);
-        //         assert!(t_r <= 1.);
-        //         assert!(t_f <= 0.3);
-        //     }
-        //     SpeedMode::Fast => {
-        //         assert!(speed <= 400_000);
-        //         assert!(t_hdsta >= 0.6);
-        //         assert!(t_susta >= 0.6);
-        //         assert!(t_susto >= 0.6);
-        //         assert!(t_buf >= 1.3);
-        //         assert!(t_low >= 1.3);
-        //         assert!(t_high >= 0.6);
-        //         assert!(t_r <= 0.3);
-        //         assert!(t_f <= 0.3);
-        //     }
-        //     SpeedMode::FastPlus => {
-        //         assert!(speed <= 1_000_000);
-        //         assert!(t_hdsta >= 0.26);
-        //         assert!(t_hsusta >= 0.26);
-        //         assert!(t_hsusto >= 0.26);
-        //         assert!(t_buf >= 0.5);
-        //         assert!(t_low >= 0.5);
-        //         assert!(t_high >= .26);
-        //         assert!(t_r <= 0.12);
-        //         assert!(t_f <= 0.12);
-        //     }
-        // }
-        // todo: SMBUS limits are also present on this table.
 
         regs.timingr.write(|w| unsafe {
             w.presc().bits(presc as u8);

@@ -72,7 +72,7 @@
 //!     let mut sda = Pin::new(Port::B, 7, PinMode::Alt(4));
 //!     sda.output_type(OutputType::OpenDrain);
 //!
-//!     let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg);
+//!     let i2c = I2c::new(dp.I2C1, I2cDevice::One, Default::default(), &clock_cfg);
 //!
 //!     loop {
 //!         i2c.write(0x50, &[1, 2, 3]);

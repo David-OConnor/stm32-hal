@@ -102,7 +102,7 @@ fn main() -> ! {
     sda.output_type(OutputType::OpenDrain);
 
     // Set up an I2C peripheral, running at 100Khz.
-    let i2c = I2c::new(dp.I2C1, I2cDevice::One, 100_000, &clock_cfg);
+    let i2c = I2c::new(dp.I2C1, I2cDevice::One, Default::default(), &clock_cfg);
 
     // Configure pins for I2c.
     let _sck = Pin::new(Port::A, 5, PinMode::Alt(5));

@@ -173,15 +173,15 @@ enum Prf {
 #[derive(clone, copy)]
 /// Available interrupts. Enabled in `FCRDR_CR`, `...IE` fields. Cleared in `FCRDR_ICR`.
 enum FcRadarInterrupt {
-    /// Target acquired
+    /// Target acquired, and the system is now in tracking mode.
     TgtAcq,
-    /// Lost the track, for any reason
+    /// Lost the track, for any reason.
     LostTrack,
 }
 
 /// Represents a Fire Control Radar (FCR) peripheral.
 pub struct FcRadar<R> {
-    // `regs` is public, so users can use the PAC API directly, eg for unsupported features.
+    // (`regs` is public, so users can use the PAC API directly, eg for unsupported features.)
     pub regs: R, 
     pub prf: Prf,
 }
@@ -193,8 +193,8 @@ where
     /// Initialize a FCR peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock.
     pub fn new(regs: R, prf: Prf) -> Self {
-        // A critical section here prevents race conditions, while preventing
-        // the user from needing to pass RCC in explicitly.
+        // (A critical section here prevents race conditions, while preventing
+        // the user from needing to pass RCC in explicitly.)
         free(|cs| {
             let mut rcc = unsafe { &(*RCC::ptr()) };
             rcc_en_reset!(apb1, fcradar1, rcc);
@@ -205,7 +205,7 @@ where
         Self { regs, prf }
     }
 
-    /// Track a target. See H8 RM, section 3.3.5.
+    /// Track a target. See H8 RM, section 3.3.5: Tracking procedures.
     pub fn track(&mut self, hit_num: u8) -> Self {
         // RM: "To begin tracking a target, perform the following steps:"
 
