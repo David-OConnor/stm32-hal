@@ -684,7 +684,9 @@ where
                 // bits on CKEN to 1.
                 w.cken1().bit(config_a.pdm_clock_used == 1);
                 w.cken2().bit(config_a.pdm_clock_used == 2);
+                #[cfg(not(feature = "l5"))]
                 w.cken3().bit(config_a.pdm_clock_used == 3);
+                #[cfg(not(feature = "l5"))]
                 w.cken4().bit(config_a.pdm_clock_used == 4);
                 // 3. Enable the PDM interface, via PDMEN bit.
                 w.pdmen().set_bit()
