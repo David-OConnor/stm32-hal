@@ -41,6 +41,7 @@ Operationally tested on the following devices:
 - STM32F303
 - STM32F411
 - STM32L476, L433, L443, L412, L432
+- STM32L552
 - STM32WB5MMG
 - STM32H743(V)
 
@@ -272,7 +273,6 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - The DMA2 peripheral is unimplemented
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
 - USB unimplemented for H7
-- USART synchronous mode, and auto-baud-rate detection unimplemented
 - USART interrupts unimplemented on F4
 - H7 clock default is suitable for single-core 480Mhz variants only.
 - PWM input unimplemented

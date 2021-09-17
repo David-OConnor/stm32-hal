@@ -1,5 +1,5 @@
 //! Support for Controller Area Network (CAN) bus. Thinly wraps the [bxCAN library](https://docs.rs/bxcan/0.5.0/bxcan/).
-//! Note that this is currently for bxCAN only; different from the `fdCAN` used on newer families
+//! Note that this is currently for bxCAN only; different from the `fdCAN` used on newer families.
 //!
 //! Requires the `can` feature.
 
@@ -38,7 +38,8 @@ where
     R: Deref<Target = can::RegisterBlock>,
 {
     #[cfg(not(feature = "f4"))]
-    /// Creates a CAN interface.
+    /// Initialize a CAH peripheral, including  enabling and resetting
+    /// its RCC peripheral clock.
     pub fn new<P>(regs: R, rcc: &mut RCC) -> Self {
         #[cfg(feature = "f3")]
         rcc_en_reset!(apb1, can, rcc);
@@ -49,7 +50,8 @@ where
     }
 
     #[cfg(feature = "f4")]
-    /// Creates a CAN interface.
+    /// Initialize a CAH peripheral, including  enabling and resetting
+    /// its RCC peripheral clock.
     pub fn new(regs: R, device: CanDevice, rcc: &mut RCC) -> Self {
         match device {
             CanDevice::One => {

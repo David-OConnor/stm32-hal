@@ -273,9 +273,9 @@ impl VosRange {
     }
 }
 
-/// Settings used to configure clocks.
-/// Note that we use integers instead of enums for some of the scalers, unlike in
-/// the other clock modules. This is due to the wide range available on these fields.
+/// Settings used to configure clocks. Create this struct by using its `Default::default()`
+/// implementation, then modify as required, referencing your RM's clock tree,
+/// or Stm32Cube IDE's interactive clock manager. Apply settings by running `.setup()`.
 pub struct Clocks {
     pub input_src: InputSrc,
     /// Enable and speed status for PLL1

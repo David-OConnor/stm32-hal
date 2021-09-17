@@ -102,7 +102,7 @@ pub enum FsPolarity {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-
+/// Set Where the signal is in the frame. Sets FRCR register, FDEF field.
 pub enum FsSignal {
     /// Start of frame, like for instance the PCM/DSP, TDM, AC’97, audio protocols.
     /// Sets FRCR register, FSDEF field.
@@ -121,6 +121,23 @@ pub enum FirstBit {
     LsbFirst = 0,
     /// Data are transferred with LSB first
     MsbFirst = 1,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// Select the number of connected PDM mics. It is possible to select
+/// between 2,4,6 or 8 microphones. For example, if the application is using 3 microphones, the
+/// user has to select 4.
+/// Sets PDMCR register, MICNBR field.
+pub enum NumPdmMics {
+    /// Configuration with 2 microphones
+    N2 = 0b00,
+    /// Configuration with 4 microphones
+    N4 = 0b01,
+    /// Configuration with 6 microphones
+    N6 = 0b10,
+    /// Configuration with 8 microphones
+    N7 = 0b11,
 }
 
 #[derive(Clone, Copy)]
@@ -312,7 +329,10 @@ pub struct SaiConfig {
     /// Enable Pulse Density Modulation (PDM) functionality, eg for digital microphones.
     /// See the relevant ST Application note: AN5027
     pub pdm_mode: bool,
-    pub num_pdm_mics: u8, // todo enum since it's set in discrete values.
+    /// The number of connected PDM mics, if applicable. Defualts to 2.
+    pub num_pdm_mics: NumPdmMics,
+    /// Which PDM CK line to enable. Must be 1-4. Defaults to 1. (CK1 in User manuals)
+    pub pdm_clock_used: u8,
 }
 
 impl Default for SaiConfig {
@@ -336,7 +356,8 @@ impl Default for SaiConfig {
             fifo_thresh: FifoThresh::T1_4,
             // todo: PDM enum.
             pdm_mode: false,
-            num_pdm_mics: 2,
+            num_pdm_mics: NumPdmMics::N2,
+            pdm_clock_used: 1,
         }
     }
 }
@@ -366,10 +387,44 @@ impl SaiConfig {
         }
     }
 
-    /// Default configuration for PDM microphones.
-    pub fn pdm_mic_preset() -> Self {
+    /// Default configuration for PDM microphones. See H743 RM, Table 422. TDM settings.
+    /// See table 423 for how to configure Frame Length, and number of slots.
+    /// This default configures for 48kHz sample rate, assuming 3.072Mhz SAI clock,
+    /// and 1 slots of 16 bits per frame. If using something else, see Table 423, and
+    /// modify as required.
+    pub fn pdm_mic_preset(num_mics: NumPdmMics, clock_used: u8) -> Self {
         Self {
+            // These first settings (up to `pdm_mode1) are taken directly from Table 422.
+            //Mode must be MASTER receiver
+            mode: SaiMode::MasterReceiver,
+            // Free protocol for TDM
+            protocol: Protocol::Free,
+            // Signal transitions occur on the rising edge of the SCK_A bit clock. Signals
+            // are stable on the falling edge of the bit clock.
+            clock_strobe: ClockStrobe::TransmitRisingEdge,
+            mono: Mono::Stereo,
+            // Note: FSALL is set to 0, to set Pulse width is one bit clock cycle.
+            // We handle that directly in `new()`.
+            // FS signal is a start of frame
+            fs_signal: FsSignal::Frame,
+            // FS is active High
+            fs_polarity: FsPolarity::ActiveHigh,
+            // FS is asserted on the first bit of slot 0
+            fs_offset: FsOffset::FirstBit,
+            // fboff is also 0, but that's currently hard set to 0 and is not part of the config.
+            // Same for slotsz, hard set to 0.
+            // No need to generate a master clock MCLK
+            master_clock: MasterClock::NotUsed,
+
+            /// These next 3 settings may depend on master clock speed, sample rate, and number
+            /// of mics.
+            frame_length: 16,
+            datasize: DataSize::S16,
+            num_slots: 1,
+
             pdm_mode: true,
+            num_pdm_mics: num_mics,
+            pdm_clock_used: clock_used,
             ..Default::default()
         }
     }
@@ -554,15 +609,21 @@ where
             panic!("Frame length must be bewteen 8 and 256")
         }
 
+        let fsall_bits = if config_a.pdm_mode {
+            0
+        } else {
+            // Hard-set a 50% duty cycle. Don't think this is a safe assumption? Send in an issue
+            // or PR.
+            (config_a.frame_length / 2) as u8 - 1
+        };
+
         // The audio frame length can be configured to up to 256 bit clock cycles, by setting
         // FRL[7:0] field in the SAI_xFRCR register.
         regs.cha.frcr.modify(|_, w| unsafe {
             w.fsoff().bit(config_a.fs_offset as u8 != 0);
             w.fspol().bit(config_a.fs_polarity as u8 != 0);
             w.fsdef().bit(config_a.fs_signal as u8 != 0);
-            // Hard-set a 50% duty cycle. Don't think this is a safe assumption? Send in an issue
-            // or PR.
-            w.fsall().bits((config_a.frame_length / 2) as u8 - 1);
+            w.fsall().bits(fsall_bits);
             w.frl().bits((config_a.frame_length - 1) as u8)
         });
 
@@ -570,6 +631,8 @@ where
             w.fsoff().bit(config_a.fs_offset as u8 != 0);
             w.fspol().bit(config_b.fs_polarity as u8 != 0);
             w.fsdef().bit(config_b.fs_signal as u8 != 0);
+            // Note that PDM only works on channel A, so no need for special logic
+            // to set FSALL on channel B.
             w.fsall().bits((config_b.frame_length / 2) as u8 - 1);
             w.frl().bits((config_b.frame_length - 1) as u8)
         });
@@ -583,7 +646,11 @@ where
             // The slot is the basic element in the audio frame. The number of slots in the audio frame is
             // equal to NBSLOT[3:0] + 1.
             w.nbslot().bits(config_a.num_slots - 1);
-            w.slotsz().bits(0b10); // 32-bit for 24 bytes.
+            // The slot size must be higher or equal to the data size. If this condition is not respected, the behavior
+            // of the SAI will be undetermined.
+            // For now, we set the slot size is equivalent to the data size. (0)
+            w.slotsz().bits(0);
+            // todo: SLotz = 0 for PDM?
             w.fboff().bits(0) // todo: User-customizable? No offset in receiver mode?
         });
 
@@ -591,9 +658,14 @@ where
         regs.chb.slotr.modify(|_, w| unsafe {
             w.sloten().bits(slot_en_bits);
             w.nbslot().bits(config_b.num_slots - 1);
-            w.slotsz().bits(0b10); // 32-bit for 24 bytes.
+            w.slotsz().bits(0);
             w.fboff().bits(0)
         });
+
+        // The PDM function is intended to be used in conjunction with SAI_A subblock configured in
+        // TDM master mode. It cannot be used with SAI_B subblock. The PDM interface uses the
+        // timing signals provided by the TDM interface of SAI_A and adapts them to generate a
+        // bitstream clock (SAI_CK[m]).
 
         // todo: Confirm if PDM channel B can be used. I think it can't.
         // Enabling the PDM interface
@@ -603,13 +675,18 @@ where
         // 2. Configure the PDM interface as follows:
         #[cfg(not(feature = "l4"))]
         if config_a.pdm_mode {
+            assert!(config_a.pdm_clock_used <= 4 && config_a.pdm_clock_used >= 1);
+
             regs.pdmcr.modify(|_, w| unsafe {
                 // a) Define the number of digital microphones via MICNBR.
-                w.micnbr().bits(0); // todo: Set appropriately.
-                                    // b) Enable the bitstream clock needed in the application by setting the corresponding
-                                    // bits on CKEN to 1.
-                w.cken1().set_bit(); // todo; How do we know which of the 4 ckens to set?
-                                     // 3. Enable the PDM interface, via PDMEN bit.
+                w.micnbr().bits(config_a.num_pdm_mics as u8);
+                // b) Enable the bitstream clock needed in the application by setting the corresponding
+                // bits on CKEN to 1.
+                w.cken1().bit(config_a.pdm_clock_used == 1);
+                w.cken2().bit(config_a.pdm_clock_used == 2);
+                w.cken3().bit(config_a.pdm_clock_used == 3);
+                w.cken4().bit(config_a.pdm_clock_used == 4);
+                // 3. Enable the PDM interface, via PDMEN bit.
                 w.pdmen().set_bit()
             })
         }
@@ -618,6 +695,9 @@ where
         // (Handled with the `enable()` function called by the user.)
         // Note: Once the PDM interface and SAI_A are enabled, the first 2 TDMA frames received on
         // SAI_ADR are invalid and shall be dropped.
+
+        // Note that most register fields set in this initialization function must be done with
+        // SAIEN disabled.
 
         Self {
             regs,

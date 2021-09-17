@@ -495,7 +495,9 @@ pub enum SaiSrc {
     ExtClk = 0b11,
 }
 
-/// Settings used to configure clocks.
+/// Settings used to configure clocks. Create this struct by using its `Default::default()`
+/// implementation, then modify as required, referencing your RM's clock tree,
+/// or Stm32Cube IDE's interactive clock manager. Apply settings by running `.setup()`.
 pub struct Clocks {
     /// The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
     pub input_src: InputSrc,
