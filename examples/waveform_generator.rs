@@ -103,10 +103,7 @@ fn main() -> ! {
 
     //  The update event is selected as a trigger output (TRGO). For instance a
     // master timer can then be used as a prescaler for a slave timer.
-    dac_timer
-        .regs
-        .cr2
-        .modify(|_, w| unsafe { w.mms().bits(0b010) });
+    dac_timer.set_master_mode(MasterMode::Update);
 
     let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
 

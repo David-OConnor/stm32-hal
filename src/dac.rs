@@ -307,7 +307,7 @@ where
     }
 
     /// Set the DAC output word.
-    pub fn write(&mut self, channel: DacChannel, val: u32) {
+    pub fn write(&mut self, channel: DacChannel, val: u16) {
         // RM: DAC conversion
         // The DAC_DORx cannot be written directly and any data transfer to the DAC channelx must
         // be performed by loading the DAC_DHRx register (write operation to DAC_DHR8Rx,
@@ -322,6 +322,10 @@ where
         // analog output load.
 
         // todo: Should we ensure the word doesn't overflow the set `bits` value?
+
+        // PAC issue where we need 32 bit int to write? Even though this
+        // is a 12-bit field.
+        let val = val as u32;
 
         #[cfg(any(feature = "l5", feature = "g4"))]
         match channel {
@@ -487,7 +491,7 @@ where
             DacBits::TwelveR => 4_095.,
         };
 
-        let val = ((volts / self.vref) * max_word) as u32;
+        let val = ((volts / self.vref) * max_word) as u16;
         self.write(channel, val);
     }
 
@@ -525,7 +529,7 @@ where
     #[cfg(not(any(feature = "l5", feature = "wl")))] // See note on `set_trigger`.
     /// Independent trigger with single LFSR generation
     /// See f303 Reference Manual section 16.5.2
-    pub fn trigger_lfsr(&mut self, channel: DacChannel, trigger: Trigger, data: u32) {
+    pub fn trigger_lfsr(&mut self, channel: DacChannel, trigger: Trigger, data: u16) {
         #[cfg(any(feature = "l5", feature = "g4"))]
         let cr = &self.regs.dac_cr;
         #[cfg(not(any(feature = "l5", feature = "g4")))]
@@ -554,7 +558,7 @@ where
     #[cfg(not(any(feature = "l5", feature = "wl")))] // See note on `set_trigger`.
     /// Independent trigger with single triangle generation
     /// See f303 Reference Manual section 16.5.2
-    pub fn trigger_triangle(&mut self, channel: DacChannel, trigger: Trigger, data: u32) {
+    pub fn trigger_triangle(&mut self, channel: DacChannel, trigger: Trigger, data: u16) {
         // todo: This may not be correct.
         #[cfg(any(feature = "l5", feature = "g4"))]
         let cr = &self.regs.dac_cr;
