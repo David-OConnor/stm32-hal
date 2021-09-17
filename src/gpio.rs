@@ -2,6 +2,10 @@
 //! including all GPIOx register functions. It also configures GPIO interrupts using SYSCFG and EXTI
 //! registers as appropriate.
 
+// todo: WL is missing port C here due to some pins being missing, and this being tough
+// todo to change with our current model. Note sure if PAC, or MCU limitation
+// todo: WL is also missing interrupt support.
+
 #[cfg(feature = "embedded-hal")]
 use core::convert::Infallible;
 
@@ -104,8 +108,9 @@ pub enum ResetState {
 pub enum Port {
     A,
     B,
+    #[cfg(not(feature = "wl"))]
     C,
-    #[cfg(not(any(feature = "f410")))]
+    #[cfg(not(any(feature = "f410", feature = "wl")))]
     D,
     #[cfg(not(any(
         feature = "f301",
@@ -149,8 +154,9 @@ impl Port {
         match self {
             Self::A => 0,
             Self::B => 1,
+            #[cfg(not(feature = "wl"))]
             Self::C => 2,
-            #[cfg(not(any(feature = "f410")))]
+            #[cfg(not(any(feature = "f410", feature = "wl")))]
             Self::D => 3,
             #[cfg(not(any(
                 feature = "f301",
@@ -219,6 +225,7 @@ macro_rules! set_field {
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
+                    #[cfg(not(feature = "wl"))]
                     Port::C => {
                         match $pin {
                             $(
@@ -227,7 +234,7 @@ macro_rules! set_field {
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    #[cfg(not(any(feature = "f410")))]
+                    #[cfg(not(any(feature = "f410", feature = "wl")))]
                     Port::D => {
                         match $pin {
                             $(
@@ -300,9 +307,9 @@ macro_rules! set_alt {
                             $(
                                 $num => {
                                     (*pac::GPIOA::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl"))]
+                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
                                     (*pac::GPIOA::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl")))]
+                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
                                     (*pac::GPIOA::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
                                 }
                             )+
@@ -314,38 +321,39 @@ macro_rules! set_alt {
                             $(
                                 $num => {
                                     (*pac::GPIOB::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl"))]
+                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
                                     (*pac::GPIOB::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl")))]
+                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
                                     (*pac::GPIOB::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
                                 }
                             )+
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
+                    #[cfg(not(feature = "wl"))]
                     Port::C => {
                         match $pin {
                             $(
                                 $num => {
                                     (*pac::GPIOC::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl"))]
+                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
                                     (*pac::GPIOC::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl")))]
+                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
                                     (*pac::GPIOC::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
                                 }
                             )+
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    #[cfg(not(any(feature = "f410")))]
+                    #[cfg(not(any(feature = "f410", feature = "wl")))]
                     Port::D => {
                         match $pin {
                             $(
                                 $num => {
                                     (*pac::GPIOD::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl"))]
+                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
                                     (*pac::GPIOD::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl")))]
+                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
                                     (*pac::GPIOD::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
                                 }
                             )+
@@ -358,9 +366,9 @@ macro_rules! set_alt {
                             $(
                                 $num => {
                                     (*pac::GPIOE::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl"))]
+                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
                                     (*pac::GPIOE::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl")))]
+                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
                                     (*pac::GPIOE::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
                                 }
                             )+
@@ -383,9 +391,9 @@ macro_rules! set_alt {
                             $(
                                 $num => {
                                     (*pac::GPIOF::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl"))]
+                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
                                     (*pac::GPIOF::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl")))]
+                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
                                     (*pac::GPIOF::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
                                 }
                             )+
@@ -408,9 +416,9 @@ macro_rules! set_alt {
                             $(
                                 $num => {
                                     (*pac::GPIOH::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl"))]
+                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
                                     (*pac::GPIOH::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb", feature = "wl")))]
+                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
                                     (*pac::GPIOH::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
                                 }
                             )+
@@ -447,6 +455,7 @@ macro_rules! get_input_data {
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
+                    #[cfg(not(feature = "wl"))]
                     Port::C => {
                         match $pin {
                             $(
@@ -455,7 +464,7 @@ macro_rules! get_input_data {
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    #[cfg(not(any(feature = "f410")))]
+                    #[cfg(not(any(feature = "f410", feature = "wl")))]
                     Port::D => {
                         match $pin {
                             $(
@@ -539,6 +548,7 @@ macro_rules! set_state {
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
+                    #[cfg(not(feature = "wl"))]
                     Port::C => {
                         match $pin {
                             $(
@@ -547,7 +557,7 @@ macro_rules! set_state {
                             _ => panic!("GPIO pins must be 0 - 15."),
                         }
                     }
-                    #[cfg(not(any(feature = "f410")))]
+                    #[cfg(not(any(feature = "f410", feature = "wl")))]
                     Port::D => {
                         match $pin {
                             $(
@@ -810,6 +820,7 @@ impl Pin {
                         }
                     }
                 }
+                #[cfg(not(feature = "wl"))]
                 Port::C => {
                     cfg_if! {
                         if #[cfg(feature = "f3")] {
@@ -839,7 +850,7 @@ impl Pin {
                         }
                     }
                 }
-                #[cfg(not(any(feature = "f410")))]
+                #[cfg(not(any(feature = "f410", feature = "wl")))]
                 Port::D => {
                     cfg_if! {
                         if #[cfg(feature = "f3")] {
@@ -1102,7 +1113,7 @@ impl Pin {
         assert!(value <= 15, "Alt function must be 0 to 15.");
 
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g0", feature = "wb", feature = "wl"))] {
+            if #[cfg(any(feature = "l5", feature = "g0", feature = "wb"))] {
                 set_alt!(self.pin, self.port, afsel, value, [(0, l), (1, l), (2, l),
                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                     (13, h), (14, h), (15, h)])
@@ -1110,7 +1121,7 @@ impl Pin {
                 set_alt!(self.pin, self.port, afr, value, [(0, l), (1, l), (2, l),
                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                     (13, h), (14, h), (15, h)])
-            } else {  // f3, f4, l4, g4
+            } else {  // f3, f4, l4, g4, wl(?)
                 set_alt!(self.pin, self.port, afr, value, [(0, l), (1, l), (2, l),
                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                     (13, h), (14, h), (15, h)])
@@ -1118,7 +1129,7 @@ impl Pin {
         }
     }
 
-    #[cfg(not(feature = "f373"))]
+    #[cfg(not(any(feature = "f373", feature = "wl")))]
     /// Configure this pin as an interrupt source. Set the edge as Rising or Falling.
     pub fn enable_interrupt(&mut self, edge: Edge) {
         let rise_trigger = match edge {

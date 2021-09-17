@@ -3,6 +3,8 @@
 //!
 //! Low-power timers (LPTIM) are not yet supported.
 
+// todo: WB and WL should support pwm features
+
 use num_traits::float::Float;
 
 use cortex_m::interrupt::free;
@@ -109,6 +111,7 @@ pub enum TimChannel {
     C1,
     C2,
     C3,
+    #[cfg(not(feature = "wl"))]
     C4,
 }
 
@@ -610,6 +613,7 @@ macro_rules! pwm_features {
                             .ccmr1_output()
                             .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
                     }
+                    #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
                         self.regs
                             .ccmr2_output()
@@ -632,6 +636,7 @@ macro_rules! pwm_features {
                             TimChannel::C1 => self.regs.ccr1.read().bits(),
                             TimChannel::C2 => self.regs.ccr2.read().bits(),
                             TimChannel::C3 => self.regs.ccr3.read().bits(),
+                            #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4.read().bits(),
                         }
                     } else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
@@ -639,6 +644,7 @@ macro_rules! pwm_features {
                             TimChannel::C1 => self.regs.ccr1.read().ccr1().bits(),
                             TimChannel::C2 => self.regs.ccr2.read().ccr2().bits(),
                             TimChannel::C3 => self.regs.ccr3.read().ccr3().bits(),
+                            #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4.read().ccr4().bits(),
                         }
                     } else {
@@ -646,6 +652,7 @@ macro_rules! pwm_features {
                             TimChannel::C1 => self.regs.ccr1.read().ccr().bits(),
                             TimChannel::C2 => self.regs.ccr2.read().ccr().bits(),
                             TimChannel::C3 => self.regs.ccr3.read().ccr().bits(),
+                            #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4.read().ccr().bits(),
                         }
                     }
@@ -662,6 +669,7 @@ macro_rules! pwm_features {
                             TimChannel::C1 => self.regs.ccr1.read().bits(),
                             TimChannel::C2 => self.regs.ccr2.read().bits(),
                             TimChannel::C3 => self.regs.ccr3.read().bits(),
+                            #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4.read().bits(),
                         };
                     } else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
@@ -670,6 +678,7 @@ macro_rules! pwm_features {
                                 TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr1().bits(duty)),
                                 TimChannel::C2 => self.regs.ccr2.write(|w| w.ccr2().bits(duty)),
                                 TimChannel::C3 => self.regs.ccr3.write(|w| w.ccr3().bits(duty)),
+                                #[cfg(not(feature = "wl"))]
                                 TimChannel::C4 => self.regs.ccr4.write(|w| w.ccr4().bits(duty)),
                             }
                         }
@@ -678,6 +687,7 @@ macro_rules! pwm_features {
                             TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr().bits(duty)),
                             TimChannel::C2 => self.regs.ccr2.write(|w| w.ccr().bits(duty)),
                             TimChannel::C3 => self.regs.ccr3.write(|w| w.ccr().bits(duty)),
+                            #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4.write(|w| w.ccr().bits(duty)),
                         }
                     }
@@ -687,9 +697,9 @@ macro_rules! pwm_features {
             /// Return the integer associated with the maximum duty period.
             /// todo: Duty could be u16 for low-precision timers.
             pub fn get_max_duty(&self) -> $res {
-                #[cfg(feature = "g0")]
+                #[cfg(any(feature = "g0", feature = "wl"))]
                 return self.regs.arr.read().bits();
-                #[cfg(not(feature = "g0"))]
+                #[cfg(not(any(feature = "g0", feature = "wl")))]
                 return self.regs.arr.read().arr().bits();
             }
 
@@ -723,6 +733,7 @@ macro_rules! pwm_features {
                     TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1p().bit(polarity.bit())),
                     TimChannel::C2 => self.regs.ccer.modify(|_, w| w.cc2p().bit(polarity.bit())),
                     TimChannel::C3 => self.regs.ccer.modify(|_, w| w.cc3p().bit(polarity.bit())),
+                    #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => self.regs.ccer.modify(|_, w| w.cc4p().bit(polarity.bit())),
                 }
             }
@@ -733,6 +744,7 @@ macro_rules! pwm_features {
                     TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1np().bit(polarity.bit())),
                     TimChannel::C2 => self.regs.ccer.modify(|_, w| w.cc2np().bit(polarity.bit())),
                     TimChannel::C3 => self.regs.ccer.modify(|_, w| w.cc3np().bit(polarity.bit())),
+                    #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => self.regs.ccer.modify(|_, w| w.cc4np().bit(polarity.bit())),
                 }
             }
@@ -742,6 +754,7 @@ macro_rules! pwm_features {
                     TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1e().clear_bit()),
                     TimChannel::C2 => self.regs.ccer.modify(|_, w| w.cc2e().clear_bit()),
                     TimChannel::C3 => self.regs.ccer.modify(|_, w| w.cc3e().clear_bit()),
+                    #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => self.regs.ccer.modify(|_, w| w.cc4e().clear_bit()),
                 }
             }
@@ -752,6 +765,7 @@ macro_rules! pwm_features {
                     TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1e().set_bit()),
                     TimChannel::C2 => self.regs.ccer.modify(|_, w| w.cc2e().set_bit()),
                     TimChannel::C3 => self.regs.ccer.modify(|_, w| w.cc3e().set_bit()),
+                    #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => self.regs.ccer.modify(|_, w| w.cc4e().set_bit()),
                 }
             }
@@ -772,6 +786,7 @@ macro_rules! pwm_features {
                         .regs
                         .ccmr2_output()
                         .modify(unsafe { |_, w| w.cc3s().bits(mode as u8) }),
+                    #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => self
                         .regs
                         .ccmr2_output()
@@ -802,6 +817,7 @@ macro_rules! pwm_features {
                     TimChannel::C1 => self.regs.ccmr1_output().modify(|_, w| w.oc1pe().bit(value)),
                     TimChannel::C2 => self.regs.ccmr1_output().modify(|_, w| w.oc2pe().bit(value)),
                     TimChannel::C3 => self.regs.ccmr2_output().modify(|_, w| w.oc3pe().bit(value)),
+                    #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => self.regs.ccmr2_output().modify(|_, w| w.oc4pe().bit(value)),
                 }
 
@@ -819,13 +835,14 @@ macro_rules! pwm_features {
 
 #[cfg(not(any(feature = "f373")))]
 hal!(TIM1, tim1, 2);
+
 #[cfg(not(any(
     feature = "f373",
     feature = "f4",
     feature = "l4",
     feature = "l5",
     feature = "g0",
-    feature = "wl",  // todo temp!
+    feature = "wl",  // todo: PAC issue?
 )))]
 pwm_features!(TIM1, u16);
 
@@ -842,7 +859,7 @@ cfg_if! {
 }
 
 // todo: G4 has tim2, and it's 32-bit, but there may be a PAC error here; pac expects arr to be 16 bit.
-#[cfg(feature = "g4")]
+#[cfg(any(feature = "g4"))]
 pwm_features!(TIM2, u16);
 
 #[cfg(not(any(
@@ -851,7 +868,7 @@ pwm_features!(TIM2, u16);
     feature = "g4",
     feature = "f410",
     feature = "wb",
-    feature = "wl"
+    feature = "wl",  // todo: PAC issue?
 )))]
 pwm_features!(TIM2, u32);
 

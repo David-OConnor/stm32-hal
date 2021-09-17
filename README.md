@@ -34,8 +34,8 @@ of these peripherals using public methods [1]
 
 
 ## Supported MCUs
-F3, F4, L4, L5, G0, G4, H7, and WB. U5 is planned once its SVD files and PAC
-become available. WL support is a WIP, with many features not implemented.
+F3, F4, L4, L5, G0, G4, H7, WB, and WL. U5 is planned once its SVD files and PAC
+become available.
 
 Operationally tested on the following devices:
 - STM32F303
@@ -285,3 +285,4 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - WB and WL are missing features relating to second core operations and RF
 - WL is missing support for many peripherals
 - L4+ MCUs not supported
+- WL is missing GPIO port C, and GPIO interrupt support

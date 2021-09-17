@@ -13,6 +13,8 @@ use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 
 use cfg_if::cfg_if;
 
+// todo: QC use of ICSR vice SR and ISR wherever used in this module!
+
 /// RTC Clock source.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(u8)]
@@ -174,7 +176,7 @@ impl Rtc {
             match config.clock_source {
                 RtcClockSource::Lsi => {
                     cfg_if! {
-                        if #[cfg(any(feature = "wb", feature = "wl"))] {
+                        if #[cfg(feature = "wb")] {
                         // todo: LSI2?
                             rcc.csr.modify(|_, w| w.lsi1on().set_bit());
                             while rcc.csr.read().lsi1rdy().bit_is_clear() {}
@@ -425,7 +427,7 @@ impl Rtc {
         // Ensure access to Wakeup auto-reload counter and bits WUCKSEL[2:0] is allowed.
         // Poll WUTWF until it is set in RTC_ISR (RTC2)/RTC_ICSR (RTC3) (May not be avail on F3)
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412"))] {
+            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
                 while self.regs.icsr.read().wutwf().bit_is_clear() {}
             } else {
                 while self.regs.isr.read().wutwf().bit_is_clear() {}
@@ -441,7 +443,7 @@ impl Rtc {
         self.regs.cr.modify(|_, w| w.wutie().set_bit());
 
         cfg_if! {
-            if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412"))] {
+            if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
                 self.regs.scr.write(|w| w.cwutf().set_bit());
             } else {
                 self.regs.isr.modify(|_, w| w.wutf().clear_bit());
@@ -488,7 +490,7 @@ impl Rtc {
         }
 
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412"))] {
+            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
                 while self.regs.icsr.read().wutwf().bit_is_clear() {}
             } else {
                 while self.regs.isr.read().wutwf().bit_is_clear() {}
@@ -511,7 +513,7 @@ impl Rtc {
             regs.cr.modify(|_, w| w.wute().clear_bit());
 
             cfg_if! {
-                if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412"))] {
+                if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
                     regs.scr.write(|w| w.cwutf().set_bit());
                 } else {
                     // Note that we clear this by writing 0, which isn't
@@ -540,7 +542,7 @@ impl Rtc {
         // todo: L4 has ICSR and ISR regs. Maybe both for backwards compat?
 
         cfg_if! {
-             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412"))] {
+             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
                  // Enter init mode if required. This is generally used to edit the clock or calendar,
                  // but not for initial enabling steps.
                  if init_mode && self.regs.icsr.read().initf().bit_is_clear() {
@@ -556,7 +558,19 @@ impl Rtc {
                      self.regs.icsr.modify(|_, w| w.init().clear_bit()); // Exits init mode
                      while self.regs.icsr.read().initf().bit_is_set() {}
                  }
-             } else {
+            // } else if #[cfg(feature = "wl")] {
+            //     if init_mode && self.regs.isr.read().initf().bit_is_clear() {
+            //         self.regs.icsr.modify(|_, w| w.init().set_bit());
+            //         while self.regs.icsr.read().initf().bit_is_clear() {} // wait to return to init state
+            //     }
+
+            //     closure(&mut self.regs);
+
+            //     if init_mode {
+            //         self.regs.icsr.modify(|_, w| w.init().clear_bit()); // Exits init mode
+            //         while self.regs.sr.read().initf().bit_is_set() {}
+            //     }
+            } else {
                  if init_mode && self.regs.isr.read().initf().bit_is_clear() {
                      self.regs.isr.modify(|_, w| w.init().set_bit());
                      while self.regs.isr.read().initf().bit_is_clear() {} // wait to return to init state

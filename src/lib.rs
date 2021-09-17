@@ -367,7 +367,7 @@ pub mod dma;
 
 #[cfg(not(feature = "h7"))] // todo
 pub mod flash;
-#[cfg(not(feature = "wl"))] // todo
+
 pub mod gpio;
 
 #[cfg(feature = "wb")]
@@ -407,7 +407,6 @@ feature = "wl",
 )))]
 pub mod qspi;
 
-#[cfg(not(feature = "wl"))] // todo
 pub mod rtc;
 
 #[cfg(not(any(
@@ -421,10 +420,8 @@ pub mod rtc;
 pub mod sai;
 
 pub mod spi;
-
-#[cfg(not(feature = "wl"))] // todo
+// #[cfg(not(feature = "wl"))] // todo
 pub mod timer;
-#[cfg(not(feature = "wl"))] // todo
 pub mod usart;
 
 // See note at top of `usb` module for info on G0; not avail on modules the PAC has avail.

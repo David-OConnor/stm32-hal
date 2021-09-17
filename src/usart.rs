@@ -23,7 +23,8 @@ use crate::pac::dma as dma_p;
     feature = "l4",
     feature = "g4",
     feature = "h7",
-    feature = "wb"
+    feature = "wb",
+    feature = "wl",
 ))]
 use crate::pac::dma1 as dma_p;
 
@@ -85,7 +86,7 @@ impl WordLen {
 /// Specify the Usart device to use. Used internally for setting the appropriate APB.
 pub enum UsartDevice {
     One,
-    #[cfg(not(feature = "wb"))]
+    #[cfg(not(any(feature = "wb", feature = "wl")))]
     Two,
     #[cfg(not(any(
         feature = "f401",
@@ -96,6 +97,7 @@ pub enum UsartDevice {
         feature = "l4x1",
         feature = "g0",
         feature = "wb",
+        feature = "wl",
     )))]
     Three,
     // Four,  todo
@@ -176,7 +178,7 @@ where
                 UsartDevice::One => {
                     rcc_en_reset!(apb2, usart1, rcc);
                 }
-                #[cfg(not(feature = "wb"))]
+                #[cfg(not(any(feature = "wb", feature = "wl")))]
                 UsartDevice::Two => {
                     cfg_if! {
                         if #[cfg(not(feature = "f4"))] {
@@ -198,6 +200,7 @@ where
                     feature = "l4x1",
                     feature = "g0",
                     feature = "wb",
+                    feature = "wl",
                 )))]
                 UsartDevice::Three => {
                     cfg_if! {
@@ -241,7 +244,7 @@ where
             w.over8().bit(result.config.oversampling as u8 != 0);
             w.pce().bit(result.config.parity != Parity::Disabled);
             cfg_if! {
-                if #[cfg(not(any(feature = "f3", feature = "f4")))] {
+                if #[cfg(not(any(feature = "f3", feature = "f4", feature = "wl")))] {
                     w.m1().bit(word_len_bits.0 != 0);
                     w.m0().bit(word_len_bits.1 != 0);
                     return w.ps().bit(result.config.parity == Parity::EnabledOdd);
@@ -418,7 +421,7 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
             UsartDevice::One => DmaInput::Usart1Tx.dma1_channel(),
-            #[cfg(not(feature = "wb"))]
+            #[cfg(not(any(feature = "wb", feature = "wl")))]
             UsartDevice::Two => DmaInput::Usart2Tx.dma1_channel(),
             #[cfg(not(any(
                 feature = "f401",
@@ -429,6 +432,7 @@ where
                 feature = "l4x1",
                 feature = "g0",
                 feature = "wb",
+                feature = "wl",
             )))]
             UsartDevice::Three => DmaInput::Usart3Tx.dma1_channel(),
         };
@@ -507,7 +511,7 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = match self.device {
             UsartDevice::One => DmaInput::Usart1Rx.dma1_channel(),
-            #[cfg(not(feature = "wb"))]
+            #[cfg(not(any(feature = "wb", feature = "wl")))]
             UsartDevice::Two => DmaInput::Usart2Rx.dma1_channel(),
             #[cfg(not(any(
                 feature = "f401",
@@ -589,16 +593,19 @@ where
                 self.regs.cr1.modify(|_, w| w.cmie().set_bit());
 
                 // Allow an 8-bit address to be set in `add`.
-                self.regs.cr2.modify(|_, w| {
+                self.regs.cr2.modify(|_, w| unsafe {
                     w.addm7().set_bit();
                     // Set the character to detect
                     cfg_if! {
                         if #[cfg(any(feature = "f3", feature = "l4", feature = "h7"))] {
                             w.add().bits(char)
-                        } else { unsafe { // todo: Is this right, or backwards?
+                        } else if #[cfg(feature = "wl")] {
+                            w.add3_0().bits(char & 0b1111);
+                            w.add7_4().bits(char & (0b1111 << 4))
+                        } else { // todo: Is this right, or backwards?
                             w.add0_3().bits(char & 0b1111);
                             w.add4_7().bits(char & (0b1111 << 4))
-                        }}
+                        }
                     }
                 });
             }
