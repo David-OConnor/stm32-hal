@@ -283,6 +283,5 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - ADC3 unimplemented on H7
 - Low power modes beyond csleep and cstop aren't implemented for H7
 - WB and WL are missing features relating to second core operations and RF
-- WL is missing support for many peripherals
 - L4+ MCUs not supported
 - WL is missing GPIO port C, and GPIO interrupt support

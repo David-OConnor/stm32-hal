@@ -323,8 +323,8 @@ where
 
         // todo: Should we ensure the word doesn't overflow the set `bits` value?
 
-        // PAC issue where we need 32 bit int to write? Even though this
-        // is a 12-bit field.
+        // todo: Use the field accessors (Assuming not too diff among variants?). These
+        // todo let you write u16 directly instead of casting as u32.
         let val = val as u32;
 
         #[cfg(any(feature = "l5", feature = "g4"))]

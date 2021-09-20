@@ -1223,12 +1223,17 @@ impl Clocks {
 
     cfg_if! {
         if #[cfg(feature = "g0")] {
+            // On G0, a single APB prescaler is used for both APB1 and APB2.
             pub fn apb2(&self) -> u32 {
-                unimplemented!("No apb2 on G0");
+                self.hclk() / self.apb1_prescaler.value() as u32
             }
 
             pub fn apb2_timer(&self) -> u32 {
-                unimplemented!("No apb2 on G0");
+                if let ApbPrescaler::Div1 = self.apb1_prescaler {
+                    self.apb2()
+                } else {
+                    self.apb2() * 2
+                }
             }
         } else {
             pub fn apb2(&self) -> u32 {

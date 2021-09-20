@@ -325,6 +325,7 @@ pub mod adc;
 // bxCAN families: F3, F4, L4,
 // fdCAN families: L5, U5, G4, H7
 // H7 suppords fd and can_ccu. (What's that?)
+// WB and WL?
 #[cfg(all(
     feature = "can",
     any(
@@ -428,7 +429,16 @@ pub mod usart;
 cfg_if::cfg_if! {
     if #[cfg(all(
         feature = "usb",
-        any(feature = "f303", feature = "l4x2", feature = "l412", feature = "l4x3", feature = "l5", feature = "g4", feature = "wb")
+        any(
+            feature = "f303", 
+            feature = "l4x2", 
+            feature = "l412", 
+            feature = "l4x3", 
+            feature = "l5", 
+            feature = "g4", 
+            feature = "wb", 
+            feature = "wl"
+        )
     ))] {
         pub mod usb;
     } else if #[cfg(all(
