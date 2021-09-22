@@ -43,7 +43,6 @@ pub enum SaiDevice {
     Two,
 }
 
-#[derive(Clone, Copy)]
 #[repr(u8)]
 /// Select Master or Slave mode. Sets xCR1 register, MODE field.
 pub enum SaiMode {

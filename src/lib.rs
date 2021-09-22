@@ -421,7 +421,7 @@ pub mod rtc;
 pub mod sai;
 
 pub mod spi;
-// #[cfg(not(feature = "wl"))] // todo
+
 pub mod timer;
 pub mod usart;
 
@@ -430,14 +430,13 @@ cfg_if::cfg_if! {
     if #[cfg(all(
         feature = "usb",
         any(
-            feature = "f303", 
-            feature = "l4x2", 
-            feature = "l412", 
-            feature = "l4x3", 
-            feature = "l5", 
-            feature = "g4", 
-            feature = "wb", 
-            feature = "wl"
+            feature = "f303",
+            feature = "l4x2",
+            feature = "l412",
+            feature = "l4x3",
+            feature = "l5",
+            feature = "g4",
+            feature = "wb",
         )
     ))] {
         pub mod usb;
