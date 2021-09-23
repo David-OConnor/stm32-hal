@@ -38,7 +38,7 @@ fn main() -> ! {
     let mut dp = pac::Peripherals::take().unwrap();
 
     let clock_cfg = Clocks::default();
-    clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
+    clock_cfg.setup().unwrap();
 
     // Configure pins for UART, according to the user manual.
     let _uart_tx = Pin::new(Port::A, 9, PinMode::Alt(7));

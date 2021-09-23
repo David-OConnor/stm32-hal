@@ -38,7 +38,7 @@ fn main() -> ! {
 
     let clock_cfg = Clocks::default();
 
-    clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
+    clock_cfg.setup().unwrap();
 
     // Configure PA0 to trigger a GPIO interrupt.
     let mut button = Pin::new(Port::A, 0, PinMode::Input);

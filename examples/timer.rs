@@ -26,7 +26,7 @@ fn main() -> ! {
 
     let clock_cfg = Clocks::default();
 
-    clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
+    clock_cfg.setup().unwrap();
 
     // Set up a PWM pin
     let _pwm_pin = Pin::new(Port::A, 0, PinMode::Alt(1));

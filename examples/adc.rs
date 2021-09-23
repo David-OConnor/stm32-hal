@@ -34,7 +34,7 @@ fn main() -> ! {
 
     let clock_cfg = Clocks::default();
 
-    clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
+    clock_cfg.setup().unwrap();
 
     let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
 

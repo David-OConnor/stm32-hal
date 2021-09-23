@@ -111,12 +111,12 @@ fn main() -> ! {
     clock_cfg.hse48_on = true;
 
     // Change MSI speed (L4, L5 only)
-    clock_cfg.change_msi_speed(MsiRange::R2M, &mut dp.RCC);
+    clock_cfg.change_msi_speed(MsiRange::R2M);
 
     // (L4 and L5 only) If you'd like to use MSI for the USB clock source, run this function.
     // Do not run it if using MSI for the input source or PLL source. You must also have
     // `clk48_src: Clk48Src::MSI` in the clock cfg, which is the default for L4 and L5.
-    clocks_cfg.enable_msi_48(&mut dp.RCC);
+    clocks_cfg.enable_msi_48();
 
     // Change  PLL prescalers:
     clock_cfg.pllm = Pllm::Div4;
@@ -128,7 +128,7 @@ fn main() -> ! {
 
     // Enable the Clock Recovery System (CRS), to automatically trim the HSI48 on variants
     // that include it. (eg STM32l4x2 and L4x3, L5, G4)
-    clocks::enable_crs(CrsSyncSrc::Usb, &mut dp.CRS, &mut dp.RCC);
+    clocks::enable_crs(CrsSyncSrc::Usb);
 
     // If you need to modify functionality not supported by this library,
     // you can make register writes directly  using the PAC. If you find missing functionality
@@ -140,7 +140,7 @@ fn main() -> ! {
 
     // Configure clock registers. The previous creation and modification of `clock_cfg`
     // only set up a configuration struct; `Clocks::setup` performs the MCU operations.
-    clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
+    clock_cfg.setup().unwrap();
 
     // Show speeds.
     defmt::info!("Speeds: {:?}", clock_cfg.calc_speeds());

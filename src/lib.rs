@@ -58,7 +58,7 @@
 //!     let mut dp = pac::Peripherals::take().unwrap();
 //!
 //!     let clock_cfg = Clocks::default();
-//!     clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
+//!     clock_cfg.setup().unwrap();
 //!
 //!     let mut pb15 = Pin::new(Port::A, 15, PinMode::Output);
 //!     pb15.set_high();

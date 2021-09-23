@@ -368,10 +368,13 @@ impl Clocks {
     /// `Invalid`, and don't setup if not.
     /// https://docs.rs/stm32f3xx-hal/0.5.0/stm32f3xx_hal/rcc/struct.CFGR.html
     /// Use the STM32CubeIDE Clock Configuration tab to help.
-    pub fn setup(&self, rcc: &mut RCC, flash: &mut FLASH) -> Result<(), SpeedError> {
+    pub fn setup(&self) -> Result<(), SpeedError> {
         if let Err(e) = self.validate_speeds() {
             return Err(e);
         }
+
+        let rcc = unsafe { &(*RCC::ptr()) };
+        let flash = unsafe { &(*FLASH::ptr()) };
 
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
@@ -531,7 +534,8 @@ impl Clocks {
 
     /// Re-select innput source; used on Stop and Standby modes, where the system reverts
     /// to HSI after wake.
-    pub fn reselect_input(&self, rcc: &mut RCC) {
+    pub fn reselect_input(&self) {
+        let rcc = unsafe { &(*RCC::ptr()) };
         // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
 
         // Note: It would save code repetition to pass the `Clocks` struct in and re-run setup
@@ -600,10 +604,11 @@ impl Clocks {
     /// in a different context. eg:
     /// ```
     /// if !clock_cfg.pll_is_enabled() {
-    ///     clock_cfg.reselect_input(&mut dp.RCC);
+    ///     clock_cfg.reselect_input();
     ///}
     ///```
-    pub fn pll_is_enabled(&self, rcc: &mut RCC) -> bool {
+    pub fn pll_is_enabled(&self) -> bool {
+        let rcc = unsafe { &(*RCC::ptr()) };
         rcc.cr.read().pllon().bit_is_set()
     }
 

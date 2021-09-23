@@ -32,7 +32,7 @@ fn main() -> ! {
 
     let clock_cfg = Clocks::default();
 
-    clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
+    clock_cfg.setup().unwrap();
 
     // Set up the realtime clock.
     let mut rtc = Rtc::new(

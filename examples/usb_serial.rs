@@ -32,7 +32,7 @@ fn main() -> ! {
     clock_cfg.hsi48_on = true;
     clock_cfg.clk48_src = Clk48Src::Hsi48;
 
-    clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
+    clock_cfg.setup().unwrap();
 
     // Enable the Clock Recovery System, which improves HSI48 accuracy.
     clocks::enable_crs(CrsSyncSrc::Usb, &mut dp.CRS, &mut dp.RCC);

@@ -30,7 +30,7 @@ fn main() -> ! {
     // Write the clock configuration to the MCU. If you wish, you can modify `clocks` above
     // in accordance with [its docs](https://docs.rs/stm32-hal2/0.2.0/stm32_hal2/clocks/index.html),
     // and the `clock_cfg` example.
-    clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
+    clock_cfg.setup().unwrap();
 
     // Setup a delay, based on the Cortex-m systick.
     let mut delay = Delay::new(cp.SYST, clock_cfg.systick());

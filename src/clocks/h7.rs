@@ -316,16 +316,15 @@ impl Clocks {
     /// Use the `default()` implementation as a safe baseline.
     /// This method also configures the PWR VOS setting, and can be used to enable VOS boost,
     /// if `vos_range` is set to `VosRange::VOS0`.
-    pub fn setup(
-        &self,
-        rcc: &mut RCC,
-        flash: &mut FLASH,
-        pwr: &mut PWR,
-        syscfg: &mut SYSCFG,
-    ) -> Result<(), SpeedError> {
+    pub fn setup(&self) -> Result<(), SpeedError> {
         if let Err(e) = self.validate_speeds() {
             return Err(e);
         }
+
+        let rcc = unsafe { &(*RCC::ptr()) };
+        let flash = unsafe { &(*FLASH::ptr()) };
+        let pwr = unsafe { &(*PWR::ptr()) };
+        let syscfg = unsafe { &(*SYSCFG::ptr()) };
 
         // Enable and reset System Configuration Controller, ie for interrupts.
         // todo: Is this the right module to do this in?
@@ -617,8 +616,10 @@ impl Clocks {
 
     /// Re-select input source; used on Stop and Standby modes, where the system reverts
     /// to HSI after wake.
-    pub fn reselect_input(&self, rcc: &mut RCC) {
+    pub fn reselect_input(&self) {
         // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
+
+        let rcc = unsafe { &(*RCC::ptr()) };
 
         // Note: It would save code repetition to pass the `Clocks` struct in and re-run setup
         // todo: But this saves a few reg writes.
@@ -711,10 +712,11 @@ impl Clocks {
     /// in a different context. eg:
     /// ```
     /// if !clock_cfg.pll_is_enabled() {
-    ///     clock_cfg.reselect_input(&mut dp.RCC);
+    ///     clock_cfg.reselect_input();
     ///}
     ///```
-    pub fn pll_is_enabled(&self, rcc: &mut RCC) -> bool {
+    pub fn pll_is_enabled(&self) -> bool {
+        let rcc = unsafe { &(*RCC::ptr()) };
         rcc.cr.read().pll1on().bit_is_set()
     }
 

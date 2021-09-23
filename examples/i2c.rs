@@ -31,7 +31,7 @@ fn main() -> ! {
 
     let clock_cfg = Clocks::default();
 
-    clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).unwrap();
+    clock_cfg.setup().unwrap();
 
     // Configure pins for I2c.
     let mut scl = Pin::new(Port::B, 6, PinMode::Alt(4));

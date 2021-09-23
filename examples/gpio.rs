@@ -95,7 +95,7 @@ fn main() -> ! {
 
     let clock_cfg = Clocks::default();
 
-    if clock_cfg.setup(&mut dp.RCC, &mut dp.FLASH).is_err() {
+    if clock_cfg.setup().is_err() {
         defmt::error!("Unable to configure clocks due to a speed error.")
     };
 
