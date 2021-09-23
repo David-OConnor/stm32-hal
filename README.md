@@ -57,6 +57,7 @@ Operationally tested on the following devices:
   - `Cargo.toml`: `stm32-hal2 = { version = "^1.1.0", features = ["l4x3", "l4rt"]}`
   - `memory.x`: `FLASH` and `RAM` lines
   - `.cargo/config.toml`: `runner` and `target` lines.
+- Connect your device. Run `cargo run --release` to compile and flash.
 
 
 ### Details
