@@ -280,7 +280,6 @@ pub enum SaiChannel {
 /// Configuration for the SAI peripheral. Mainly affects the ACR and BCR registers.
 /// Used for either channel. For details, see documentation of individual structs and fields.
 /// You may be forced into certain settings based on the device used.
-#[derive(Clone, Copy)]
 pub struct SaiConfig {
     pub mode: SaiMode,
     /// Select protocols between Free, Ac'97, and SPDIF. Defaults to Free.
