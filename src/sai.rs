@@ -43,6 +43,7 @@ pub enum SaiDevice {
     Two,
 }
 
+#[derive(Clone, Copy)]
 #[repr(u8)]
 /// Select Master or Slave mode. Sets xCR1 register, MODE field.
 pub enum SaiMode {
@@ -889,14 +890,26 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         #[cfg(not(feature = "h7"))]
         let len = len as u16;
 
+        let cfg_datasize = match sai_channel {
+            SaiChannel::A => self.config_a.datasize,
+            SaiChannel::B => self.config_b.datasize,
+        };
+
+        let datasize = match cfg_datasize {
+            DataSize::S8 => dma::DataSize::S8,
+            DataSize::S10 => dma::DataSize::S16,
+            DataSize::S16 => dma::DataSize::S16,
+            _ => dma::DataSize::S32,
+        };
+
         dma.cfg_channel(
             dma_channel,
             periph_addr,
             ptr as u32,
             len,
             dma::Direction::ReadFromMem,
-            dma::DataSize::S32, // todo?
-            dma::DataSize::S32, // todo?
+            datasize,
+            datasize,
             channel_cfg,
         );
 
@@ -953,12 +966,12 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         #[cfg(not(feature = "h7"))]
         let len = len as u16;
 
-        let sai_cfg = match sai_channel {
-            SaiChannel::A => self.config_a,
-            SaiChannel::B => self.config_b,
+        let cfg_datasize = match sai_channel {
+            SaiChannel::A => self.config_a.datasize,
+            SaiChannel::B => self.config_b.datasize,
         };
 
-        let datasize = match sai_cfg.datasize {
+        let datasize = match cfg_datasize {
             DataSize::S8 => dma::DataSize::S8,
             DataSize::S10 => dma::DataSize::S16,
             DataSize::S16 => dma::DataSize::S16,
