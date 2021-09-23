@@ -6,7 +6,7 @@
 
 use crate::{
     clocks::SpeedError,
-    pac::{self, CRS, FLASH, RCC},
+    pac::{self, FLASH, RCC},
     rcc_en_reset,
 };
 
@@ -1380,7 +1380,7 @@ impl Default for Clocks {
 /// startup it is also possible to combine automatic trimming with manual trimming action."
 /// Note: This is for HSI48 only. Note that the HSI will turn off after entering Stop or Standby.
 pub fn enable_crs(sync_src: CrsSyncSrc) {
-    let crs = unsafe { &(*CRS::ptr()) };
+    let crs = unsafe { &(*pac::CRS::ptr()) };
     let rcc = unsafe { &(*RCC::ptr()) };
 
     // todo: CRSEN missing on l4x5 pac: https://github.com/stm32-rs/stm32-rs/issues/572
