@@ -58,6 +58,8 @@ Operationally tested on the following devices:
   - `memory.x`: `FLASH` and `RAM` lines
   - `.cargo/config.toml`: `runner` and `target` lines.
 
+
+### Details
 Review the [syntax overview example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/syntax_overview)
 for example uses of many of this library's features. Copy and paste its whole folder (It's set up
 using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml` 
@@ -132,7 +134,7 @@ fn main() -> ! {
 ```
 
 ## Compatible with RTIC
-[Real-Time Interrupt-driven Concurrency (RTIC)](Real-Time Interrupt-driven Concurrency) is
+[Real-Time Interrupt-driven Concurrency](https://rtic.rs/0.5/book/en/) is
 a light-weight framework that manages safely sharing state between contexts. Eg between ISRs and the main loop. Our examples use global `Mutex`es, `RefCell`s, and `Cell`s, sometimes
 with macros to simplify syntax; you could easily substitue RTIC syntax.
 
@@ -141,7 +143,7 @@ There are some areas where design philosophy is different. For example: GPIO
 type-checking, level-of-abstraction from registers/PAC, role of DMA, role of `embedded-hal` traits in the API, 
 feature parity among STM32 families, code documentation, code structure, and clock config.
 
-If you'd like of these HALs, check them out [on the stm32-rs Github](https://github.com/stm32-rs).
+If you'd like of these HALs, check them out on the [stm32-rs Github](https://github.com/stm32-rs).
 You may prefer them if you prioritize strict type checks on GPIO pins, for example.
 
    
