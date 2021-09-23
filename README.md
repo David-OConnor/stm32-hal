@@ -47,6 +47,8 @@ Operationally tested on the following devices:
 
 
 ## Getting started
+- [Install Rust](https://www.rust-lang.org/tools/install)
+
 Review the [syntax overview example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/syntax_overview)
 for example uses of many of this library's features. Copy and paste its whole folder (It's set up
 using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml` 
@@ -124,6 +126,9 @@ fn main() -> ! {
 There are some areas where design philosophy is different. For example: GPIO 
 type-checking, level-of-abstraction from registers/PAC, role of DMA, role of `embedded-hal` traits in the API, 
 feature parity among STM32 families, code documentation, code structure, and clock config.
+
+If you'd like of these HALs, check them out [on the stm32-rs Github](https://github.com/stm32-rs).
+You may prefer them if you prioritize strict type checks on GPIO pins, for example.
 
    
 ## Docs caveat
