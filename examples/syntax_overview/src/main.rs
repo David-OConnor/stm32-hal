@@ -170,8 +170,7 @@ fn main() -> ! {
     let mut adc = Adc::new_adc1(
         dp.ADC1,
         AdcDevice::One,
-        &mut dp.ADC_COMMON,
-        adc::ClockMode::default(),
+        Default::default(),
         &clock_cfg,
     );
 

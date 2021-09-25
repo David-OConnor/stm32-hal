@@ -65,12 +65,7 @@ fn main() -> ! {
     // Set the RTC to trigger an interrupt every 30 seconds.
     rtc.set_wakeup(&mut dp.EXTI, 30.);
 
-    let mut adc = Adc::new_adc1(
-        dp.ADC1,
-        &mut dp.ADC_COMMON,
-        adc::CkMode::default(),
-        &clock_cfg,
-    );
+    let mut adc = Adc::new_adc1(dp.ADC1, Default::default(), &clock_cfg);
 
     // Set up our ADC as a global variable accessible in interrupts, now that it's initialized.
     free(|cs| {

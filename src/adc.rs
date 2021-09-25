@@ -221,6 +221,28 @@ impl Default for Align {
     }
 }
 
+// todo: Document this config struct
+
+/// Initial configuration data for the I2C peripheral.
+pub struct AdcConfig {
+    pub clock_mode: ClockMode,
+    pub operation_mode: OperationMode,
+    // Most families use u8 values for calibration, but H7 uses u16.
+    pub cal_single_ended: Option<u16>, // Stored calibration value for single-ended
+    pub cal_differential: Option<u16>, // Stored calibration value for differential
+}
+
+impl Default for AdcConfig {
+    fn default() -> Self {
+        Self {
+            clock_mode: Default::default(),
+            operation_mode: OperationMode::OneShot,
+            cal_single_ended: None,
+            cal_differential: None,
+        }
+    }
+}
+
 /// Represents an Analog to Digital Converter (ADC) peripheral.
 pub struct Adc<R> {
     /// ADC Register
@@ -228,11 +250,8 @@ pub struct Adc<R> {
     // Note: We don't own the common regs; pass them mutably where required, since they may be used
     // by a different ADC.
     device: AdcDevice,
-    ckmode: ClockMode,
-    operation_mode: OperationMode,
-    // Most families use u8 values for calibration, but H7 uses u16.
-    cal_single_ended: Option<u16>, // Stored calibration value for single-ended
-    cal_differential: Option<u16>, // Stored calibration value for differential
+    pub cfg: AdcConfig,
+    /// This field is managed internally, and is set up on init.
     vdda_calibrated: f32,
 }
 
@@ -246,12 +265,19 @@ macro_rules! hal {
                 pub fn [<new_ $adc>](
                     regs: pac::$ADC,
                     device: AdcDevice,
-                    common_regs : &mut pac::$ADC_COMMON,
-                    ckmode: ClockMode,
-                    clocks: &Clocks,
+                    cfg: AdcConfig,
+                    clock_cfg: &Clocks,
                 ) -> Self {
+                    let mut result = Self {
+                        regs,
+                        device,
+                        cfg,
+                        vdda_calibrated: 0.
+                    };
+
                     free(|_| {
                         let rcc = unsafe { &(*RCC::ptr()) };
+                        let common_regs = unsafe { &*pac::$ADC_COMMON::ptr() };
 
                         paste! {
                             cfg_if! {
@@ -269,30 +295,21 @@ macro_rules! hal {
                                 }
                             }
                         }
+
+                        common_regs.ccr.modify(|_, w| unsafe { w.ckmode().bits(result.cfg.clock_mode as u8) });
                     });
 
-                    let mut result = Self {
-                        regs,
-                        device,
-                        ckmode,
-                        operation_mode: OperationMode::OneShot,
-                        cal_single_ended: None,
-                        cal_differential: None,
-                        vdda_calibrated: 0.
-                    };
-
-                    common_regs.ccr.modify(|_, w| unsafe { w.ckmode().bits(result.ckmode as u8) });
                     result.set_align(Align::default());
 
-                    result.advregen_enable(clocks);
+                    result.advregen_enable(clock_cfg);
 
-                    result.calibrate(InputType::SingleEnded, clocks);
-                    result.calibrate(InputType::Differential, clocks);
+                    result.calibrate(InputType::SingleEnded, clock_cfg);
+                    result.calibrate(InputType::Differential, clock_cfg);
 
                     // Reference Manual: "ADEN bit cannot be set during ADCAL=1
                     // and 4 ADC clock cycle after the ADCAL
                     // bit is cleared by hardware."
-                    let adc_per_cpu_cycles = match result.ckmode {
+                    let adc_per_cpu_cycles = match result.cfg.clock_mode {
                         ClockMode::Async => unimplemented!(),
                         ClockMode::SyncDiv1 => 1,
                         ClockMode::SyncDiv2 => 2,
@@ -301,10 +318,13 @@ macro_rules! hal {
                     asm::delay(adc_per_cpu_cycles * 4);
                     result.enable();
 
-                    result.setup_oneshot(); // todo: Setup Continuous
+                    match result.cfg.operation_mode {
+                        OperationMode::OneShot => result.setup_oneshot(),
+                        OperationMode::Continuous => (),// todo: Setup Continuous
+                    }
 
                     // Set up VDDA only after the ADC is otherwise enabled.
-                    result.setup_vdda(common_regs, clocks);
+                    result.setup_vdda(clock_cfg);
 
                     result
                 }
@@ -329,7 +349,7 @@ macro_rules! hal {
 
                 self.set_sequence_len(1);
 
-                self.operation_mode = OperationMode::OneShot;
+                self.cfg.operation_mode = OperationMode::OneShot;
             }
 
             /// Set the ADC conversion sequence length, between 1 and 16.
@@ -529,13 +549,13 @@ macro_rules! hal {
                         let val = self.regs.calfact.read().calfact_s().bits();
                         #[cfg(not(feature = "h7"))]
                         let val = val as u16;
-                        self.cal_single_ended = Some(val);
+                        self.cfg.cal_single_ended = Some(val);
                     }
                     InputType::Differential => {
                          let val = self.regs.calfact.read().calfact_d().bits();
                          #[cfg(not(feature = "h7"))]
                          let val = val as u16;
-                         self.cal_differential = Some(val);
+                         self.cfg.cal_differential = Some(val);
                     }
                 }
 
@@ -556,12 +576,12 @@ macro_rules! hal {
 
 
                 // 2. Write CALFACT_S and CALFACT_D with the new calibration factors.
-                if let Some(cal) = self.cal_single_ended {
+                if let Some(cal) = self.cfg.cal_single_ended {
                     #[cfg(not(feature = "h7"))]
                     let cal = cal as u8;
                     self.regs.calfact.modify(|_, w| unsafe { w.calfact_s().bits(cal) });
                 }
-                if let Some(cal) = self.cal_differential {
+                if let Some(cal) = self.cfg.cal_differential {
                     #[cfg(not(feature = "h7"))]
                     let cal = cal as u8;
                     self.regs.calfact.modify(|_, w| unsafe { w.calfact_d().bits(cal) });
@@ -657,19 +677,20 @@ macro_rules! hal {
 
             /// Set up the internal voltage reference, to improve conversion from reading
             /// to voltage accuracy. See L44 RM, section 16.4.34: "Monitoring the internal voltage reference"
-            fn setup_vdda(&mut self, regs_common: &mut pac::$ADC_COMMON, clocks: &Clocks) {
+            fn setup_vdda(&mut self, clock_cfg: &Clocks) {
                 // todo: Using ints intead of floats here and in read_voltage, for use on Cortex M0s?
                 // todo: May need to use mv.
-                regs_common.ccr.modify(|_, w| w.vrefen().set_bit());
+                let common_regs = unsafe { &*pac::$ADC_COMMON::ptr() };
+
+                common_regs.ccr.modify(|_, w| w.vrefen().set_bit());
                 // "Table 24. Embedded internal voltage reference" states that it takes a maximum of 12 us
                 // to stabilize the internal voltage reference, we wait a little more.
-                let mut delay = (15_000_000) / clocks.sysclk();
+                let mut delay = (15_000_000) / clock_cfg.sysclk();
                 // https://github.com/rust-embedded/cortex-m/pull/328
                 if delay < 2 {  // Work around a bug in cortex-m.
                     delay = 2;
                 }
                 asm::delay(delay);
-
 
                 // (From L4xx-hal) "Table 24. Embedded internal voltage reference" states that the sample time needs to be
                 // at a minimum 4 us. With 640.5 ADC cycles we have a minimum of 8 us at 80 MHz, leaving
@@ -698,22 +719,11 @@ macro_rules! hal {
 
                     let dp = unsafe { pac::Peripherals::steal() };
 
-                    cfg_if! {
-                        if #[cfg(feature = "f3")] {
-                            let mut common_regs = dp.ADC1_2;
-                        } else if #[cfg(any(feature = "l4", feature = "l5"))] {
-                            let mut common_regs = dp.ADC_COMMON;
-                        } else {
-                            let mut common_regs = dp.ADC12_COMMON;
-                        }
-                    }
-
                     let mut adc1 = Adc::new_adc1(
                         dp.ADC1,
                         AdcDevice::One,
-                        &mut common_regs,
-                        ClockMode::default(),
-                        clocks,
+                        Default::default(),
+                        clock_cfg,
                     );
                     adc1.set_sample_time(0, SampleTime::T601);
                     let reading = adc1.read(0);
@@ -735,8 +745,7 @@ macro_rules! hal {
                 let vref_reading = 0.; // todo handle this! Weird macro issue (chicken+egg?)
 
                 // self.set_sample_time(0, old_sample_time);
-                regs_common.ccr.modify(|_, w| w.vrefen().clear_bit());
-
+                common_regs.ccr.modify(|_, w| w.vrefen().clear_bit());
 
                 // The VDDA power supply voltage applied to the microcontroller may be subject to variation or
                 // not precisely known. The embedded internal voltage reference (VREFINT) and its calibration

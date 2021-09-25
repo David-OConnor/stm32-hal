@@ -44,13 +44,7 @@ fn main() -> ! {
     // but not all)
     let _adc_pin = Pin::new(Port::B, 0, PinMode::Analog);
 
-    let mut adc = Adc::new_adc1(
-        dp.ADC1,
-        AdcDevice::One,
-        &mut dp.ADC_COMMON,
-        ClockMode::default(),
-        &clock_cfg,
-    );
+    let mut adc = Adc::new_adc1(dp.ADC1, AdcDevice::One, Default::default(), &clock_cfg);
 
     // 1: Confiuration options:
 
