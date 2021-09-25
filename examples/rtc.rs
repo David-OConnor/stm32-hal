@@ -71,12 +71,7 @@ fn main() -> ! {
         let hours = rtc.get_hours();
 
         // Enter a low power mode.
-        low_power::stop(
-            &mut cp.SCB,
-            &mut dp.PWR,
-            low_power::StopMode::One,
-            &clock_cfg,
-        );
+        low_power::stop(low_power::StopMode::One);
 
         // Turn back on the PLL, which is disabled by `stop` mode.
         clocks.reselect_input();

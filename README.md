@@ -129,7 +129,7 @@ fn main() -> ! {
 
     loop {
         i2c.write(0x50, &[1, 2, 3]);
-        low_power::sleep_now(&mut cp.SCB);
+        low_power::sleep_now();
     }
 }
 ```

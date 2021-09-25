@@ -203,7 +203,7 @@ fn main() -> ! {
         // Enter a low power mode. The program will wake once an interrupt fires.
         // For example, the timer and GPIO interrupt above. But we haven't unmasked
         // their lines, so they won't work - see the `interrupts` example for that.
-        low_power::sleep_now(&mut cp.SCB);
+        low_power::sleep_now();
     }
 }
 

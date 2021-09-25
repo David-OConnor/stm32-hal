@@ -85,7 +85,7 @@ fn main() -> ! {
     }
 
     loop {
-        low_power::sleep_now(&mut SCB);
+        low_power::sleep_now();
     }
 }
 

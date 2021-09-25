@@ -93,12 +93,7 @@ fn main() -> ! {
 
     loop {
         // Enter a low power mode.
-        low_power::stop(
-            &mut cp.SCB,
-            &mut dp.PWR,
-            low_power::StopMode::Two,
-            &clock_cfg,
-        );
+        low_power::stop(low_power::StopMode::Two);
 
         // Turn back on the PLL.
         clocks.reselect_input();

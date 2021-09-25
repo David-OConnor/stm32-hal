@@ -9,7 +9,7 @@ use crate::{
 #[cfg(any(feature = "l4", feature = "l5"))]
 use crate::clocks::MsiRange;
 
-use cortex_m::{asm::wfi, peripheral::SCB};
+use cortex_m::{asm::wfi, peripheral::SCB, Peripherals};
 
 use cfg_if::cfg_if;
 
@@ -29,7 +29,10 @@ pub enum StopMode {
 /// You must select an MSI speed of 2Mhz or lower. Note that you may need to adjust peripheral
 /// implementations that rely on system clock or APB speed.
 #[cfg(any(feature = "l4", feature = "l5"))]
-pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange, rcc: &mut RCC, pwr: &mut PWR) {
+pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) {
+    let rcc = unsafe { &(*RCC::ptr()) };
+    let pwr = unsafe { &(*PWR::ptr()) };
+
     // Decrease the system clock frequency below 2 MHz
     if speed as u8 > MsiRange::R2M as u8 {
         panic!("Selected Msi speed must be 2Mhz or lower to enter use low power run.")
@@ -43,7 +46,9 @@ pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange, rcc: &mut RCC, pwr: &
 /// Return to normal run mode from low-power run. Requires you to increase the clock speed
 /// manually after running this.
 #[cfg(any(feature = "l4", feature = "l5"))]
-pub fn return_from_low_power_run(pwr: &mut PWR) {
+pub fn return_from_low_power_run() {
+    let pwr = unsafe { &(*PWR::ptr()) };
+
     // LPR = 0
     pwr.cr1.modify(|_, w| w.lpr().clear_bit());
 
@@ -56,12 +61,14 @@ pub fn return_from_low_power_run(pwr: &mut PWR) {
 /// Place the system in sleep now mode. To enter `low-power sleep now`, enter low power mode
 /// (eg `low_power_mode()`) before running this. RM, table 25 and 26
 #[cfg(not(feature = "h7"))]
-pub fn sleep_now(scb: &mut SCB) {
-    sleep(scb);
+pub fn sleep_now() {
+    sleep();
 }
 
 /// F303 RM, table 19.
-pub fn sleep_on_exit(scb: &mut SCB) {
+pub fn sleep_on_exit() {
+    let mut scb = unsafe { Peripherals::steal().SCB };
+
     // WFI (Wait for Interrupt) (eg `cortext_m::asm::wfi()) or WFE (Wait for Event) while:
 
     // SLEEPDEEP = 0 and SLEEPONEXIT = 1
@@ -81,7 +88,10 @@ cfg_if::cfg_if! {
         /// Interrupt vector must be enabled in the NVIC). Refer to Table 82.
         /// F303 RM, table 20. F4 RM, Table 27. H742 RM, Table 38. (CSrtop on H7).
         /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
-        pub fn stop(scb: &mut SCB, pwr: &mut PWR) {
+        pub fn stop() {
+            let mut scb = unsafe { Peripherals::steal().SCB };
+            let pwr = unsafe { &(*PWR::ptr()) };
+
             // todo: On some F4 variants, you may need to `select voltage regulator
             // todo mode by configuring LPDS, MRUDS, LPUDS and UDEN bits in PWR_CR.`
             //WFI (Wait for Interrupt) or WFE (Wait for Event) while:
@@ -113,7 +123,10 @@ cfg_if::cfg_if! {
         /// NRST pin, IWDG Reset.
         /// F303 RM, table 21.
         /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
-        pub fn standby(scb: &mut SCB, pwr: &mut PWR) {
+        pub fn standby() {
+            let mut scb = unsafe { Peripherals::steal().SCB };
+            let pwr = unsafe { &(*PWR::ptr()) };
+
             // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
 
             // Set SLEEPDEEP bit in ARM® Cortex®-M4 System Control register
@@ -138,7 +151,10 @@ cfg_if::cfg_if! {
         /// G0 RMs, tables 30, 31, 32.
         /// G4 Table 45, 47, 47.
         /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
-        pub fn stop(scb: &mut SCB, pwr: &mut PWR, mode: StopMode) {
+        pub fn stop(mode: StopMode) {
+            let mut scb = unsafe { Peripherals::steal().SCB };
+            let pwr = unsafe { &(*PWR::ptr()) };
+
             // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
             // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
             scb.set_sleepdeep();
@@ -159,7 +175,10 @@ cfg_if::cfg_if! {
 
         /// Enter `Standby` mode. See L44 RM table 28. G4 table 47.
         /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
-        pub fn standby(scb: &mut SCB, pwr: &mut PWR) {
+        pub fn standby() {
+            let mut scb = unsafe { Peripherals::steal().SCB };
+            let pwr = unsafe { &(*PWR::ptr()) };
+
             // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
             scb.set_sleepdeep();
 
@@ -217,7 +236,10 @@ cfg_if::cfg_if! {
 
         /// Enter `Shutdown mode` mode: the lowest-power of the 3 low-power states avail. See
         /// L4 Table 31. G4 table 48.
-        pub fn shutdown(scb: &mut SCB, pwr: &mut PWR) {
+        pub fn shutdown() {
+            let mut scb = unsafe { Peripherals::steal().SCB };
+            let pwr = unsafe { &(*PWR::ptr()) };
+
             // – SLEEPDEEP bit is set in Cortex®-M4 System Control register
             scb.set_sleepdeep();
             // – No interrupt (for WFI) or event (for WFE) is pending
@@ -250,12 +272,14 @@ cfg_if::cfg_if! {
         /// The CSleep mode applies only to the CPU subsystem. In CSleep mode, the CPU clock is
         /// stopped. The CPU subsystem peripheral clocks operate according to the values of
         /// PERxLPEN bits in RCC_C1_xxxxENR or RCC_DnxxxxENR. See H743 RM, Table 37.
-        pub fn csleep(scb: &mut SCB) {
-            sleep(scb);
+        pub fn csleep() {
+            sleep();
         }
 
         ///  Stops clocks on the CPU subsystem. H742 RM, Table 38.
-        pub fn cstop(scb: &mut SCB, pwr: &mut PWR) {
+        pub fn cstop() {
+            let mut scb = unsafe { Peripherals::steal().SCB };
+
             // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
 
             // Set SLEEPDEEP bit in ARM® Cortex®-M4 System Control register
@@ -290,7 +314,7 @@ cfg_if::cfg_if! {
         // /// NRST pin, IWDG Reset.
         // /// RM, table 21.
         // /// Run `Clocks::reselect_input()` after to re-enable PLL etc after exiting this mode.
-        // pub fn standby(scb: &mut SCB, pwr: &mut PWR) {
+        // pub fn standby() {
         //     // WFI (Wait for Interrupt) or WFE (Wait for Event) while:
         //
         //     // Set SLEEPDEEP bit in ARM® Cortex®-M4 System Control register
@@ -315,9 +339,12 @@ cfg_if::cfg_if! {
 
 /// This function is used by both `sleep_now` (non-H7), and `csleep` (H7), so that the names
 /// can correctly reflect functionality.
-fn sleep(scb: &mut SCB) {
+fn sleep() {
     // todo: This function is identical to `sleep_now`, but we'd like to keep the separate
     // todo name for H7.
+
+    let mut scb = unsafe { Peripherals::steal().SCB };
+
     // WFI (Wait for Interrupt) (eg `cortext_m::asm::wfi()) or WFE (Wait for Event) while:
     // – SLEEPDEEP = 0
     // – No interrupt (for WFI) or event (for WFE) is pending

@@ -153,7 +153,7 @@ fn main() -> ! {
     loop {
         // Wait until we receive communication over UART; code to handle readings are handled in
         // the `USART1` ISR below.
-        low_power::sleep_now(&mut cp.SCB);
+        low_power::sleep_now();
     }
 }
 

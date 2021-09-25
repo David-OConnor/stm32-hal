@@ -108,7 +108,7 @@ fn main() -> ! {
     // and is compatible with the `embedded_hal::blocking::i2c traits.
 
     loop {
-        low_power::sleep_now(&mut SCB);
+        low_power::sleep_now();
     }
 }
 
