@@ -146,7 +146,6 @@ feature parity among STM32 families, code documentation, code structure, and clo
 
 If you'd like to learn more about these HALs, check them out on the [stm32-rs Github](https://github.com/stm32-rs).
 You may prefer them if you prioritize strict type checks on GPIO pins, for example.
-
    
 ## Docs caveat
 The Rust docs page is built for `STM32L4x3`, and some aspects are not accurate for other
@@ -277,6 +276,9 @@ where
     }
 }
 ```
+
+[This blog article](https://www.anyleaf.org/blog/writing-embedded-firmware-using-rust) provides some information
+on using this library, as well as background information on Rust embedded in general.
 
 
 ## STM32WB and WL radio

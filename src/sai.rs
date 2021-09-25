@@ -75,10 +75,10 @@ pub enum ClockStrobe {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// Set which bit is transmitted first: Least significant, or Most significant. You may have to
-/// choose the one used by your SAI device. Sets xCR1 register, FSOFF field.
-/// This bit is set and cleared by software. It is meaningless and is not used in AC’97 or SPDIF audio
-/// block configuration. This bit must be configured when the audio block is disabled.
+/// Frame synchronization offset.
+/// Depending on the audio protocol targeted in the application, the Frame synchronization
+/// signal can be asserted when transmitting the last bit or the first bit of the audio frame (this is
+/// the case in I2S standard protocol and in MSB-justified protocol, respectively).
 /// Sets FRCR register, FSOFF field.
 pub enum FsOffset {
     /// FS is asserted on the first bit of the slot 0.
@@ -118,9 +118,9 @@ pub enum FsSignal {
 /// choose the one used by your SAI device. Sets xCR1 register, LSBFIRST field.
 pub enum FirstBit {
     /// Data are transferred with MSB first
-    LsbFirst = 0,
+    MsbFirst = 0,
     /// Data are transferred with LSB first
-    MsbFirst = 1,
+    LsbFirst = 1,
 }
 
 #[derive(Clone, Copy)]
@@ -325,6 +325,13 @@ pub struct SaiConfig {
     /// The FIFO threshold configures when the FREQ interrupt is generated based on how full
     /// the FIFO is.
     pub fifo_thresh: FifoThresh,
+    /// These bits are set and cleared by software.
+    /// The value set in this bitfield defines the position of the first data transfer bit in the slot. It represents
+    /// an offset value. In transmission mode, the bits outside the data field are forced to 0. In reception
+    /// mode, the extra received bits are discarded.
+    /// These bits must be set when the audio block is disabled.
+    /// They are ignored in AC’97 or SPDIF mode.
+    pub first_bit_offset: u8,
     /// Enable Pulse Density Modulation (PDM) functionality, eg for digital microphones.
     /// See the relevant ST Application note: AN5027
     pub pdm_mode: bool,
@@ -352,6 +359,7 @@ impl Default for SaiConfig {
             fs_polarity: FsPolarity::ActiveHigh,
             fs_signal: FsSignal::FrameAndChannel, // Use FrameAndChannel for I2S.
             num_slots: 2,
+            first_bit_offset: 0,
             fifo_thresh: FifoThresh::T1_4,
             // todo: PDM enum.
             pdm_mode: false,
@@ -372,13 +380,23 @@ impl SaiConfig {
             // ie 1 word per channel
             // Note that we include some settings here that are present in default,
             // for explicitness. (ie required by I2S, but perhaps arbitrary in default)
-            fs_offset: FsOffset::BeforeFirstBit, // todo ?
+            first_bit: FirstBit::MsbFirst,
+            // H743 RM: Frame schronization offset: Depending on the audio protocol targeted in the
+            // application, the Frame synchronization signal can be asserted when transmitting
+            // the last bit or the first bit of the audio frame (this is the case in I2S standard
+            // protocol and in MSB-justified protocol, respectively)
+            fs_offset: FsOffset::BeforeFirstBit,
             // RM: this bit has to be set for I2S or MSB/LSB-justified protocols.
             fs_signal: FsSignal::FrameAndChannel,
             protocol: Protocol::Free,
             datasize: DataSize::S24,
             frame_length: 64,
             num_slots: 2,
+            // From the INMP441 datasheet: The default data format is I²S (two’s complement), MSB-first.
+            // In this format, the MSB of each word is delayed by one SCK cycle from
+            // the start of each half-frame
+            // Note that this is already handled by by `fs_offset`.
+            first_bit_offset: 0,
             fifo_thresh: FifoThresh::T1_4,
             pdm_mode: false,
 
@@ -636,6 +654,9 @@ where
             w.frl().bits((config_b.frame_length - 1) as u8)
         });
 
+        assert!(config_a.first_bit_offset <= 0b11111);
+        assert!(config_b.first_bit_offset <= 0b11111);
+
         // Each SLOTEN bit corresponds to a slot position from 0 to 15 (maximum 16 slots).
         // So, to enable the first 2 slots, we set 0b11. The code below calculates this.
         let slot_en_bits = (2_u16.pow(config_a.num_slots as u32) - 1);
@@ -648,9 +669,8 @@ where
             // The slot size must be higher or equal to the data size. If this condition is not respected, the behavior
             // of the SAI will be undetermined.
             // For now, we set the slot size is equivalent to the data size. (0)
-            w.slotsz().bits(0);
-            // todo: SLotz = 0 for PDM?
-            w.fboff().bits(0) // todo: User-customizable? No offset in receiver mode?
+            w.slotsz().bits(0); // SLOTSZ = 0 makes slot size equivalent to data size.
+            w.fboff().bits(config_a.first_bit_offset)
         });
 
         let slot_en_bits = 2_u16.pow(config_b.num_slots as u32) - 1;
@@ -658,7 +678,7 @@ where
             w.sloten().bits(slot_en_bits);
             w.nbslot().bits(config_b.num_slots - 1);
             w.slotsz().bits(0);
-            w.fboff().bits(0)
+            w.fboff().bits(config_b.first_bit_offset)
         });
 
         // The PDM function is intended to be used in conjunction with SAI_A subblock configured in

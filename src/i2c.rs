@@ -418,7 +418,7 @@ where
         }
     }
 
-    /// Read multiple words to a buffer.
+    /// Read multiple words to a buffer. Can return an error state rela
     pub fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
@@ -440,7 +440,7 @@ where
         Ok(())
     }
 
-    /// Write an array of words
+    /// Write an array of words. Can return an error due to Bus, Arbitration, or NACK.
     pub fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
@@ -462,7 +462,7 @@ where
         Ok(())
     }
 
-    /// Write and read an array of words.
+    /// Write and read an array of words. Can return an error due to Bus, Arbitration, or NACK.
     pub fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
@@ -559,7 +559,7 @@ where
     }
 
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
-    /// Read data, using DMA. See L44 RM, 37.4.16: "Transmissino using DMA"
+    /// Read data, using DMA. See L44 RM, 37.4.16: "Transmission using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
     /// For a single write, set `autoend` to `true`. For a write_read and other use cases,
     /// set it to `false`.
