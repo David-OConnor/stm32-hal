@@ -80,6 +80,9 @@
 //! }
 //! ```
 //!
+//! [This article](https://www.anyleaf.org/blog/writing-embedded-firmware-using-rust) provides some information
+//! on using this library, as well as background information on Rust embedded in general.
+//!
 //! ## Docs caveat
 //! This Rust docs page is built for `STM32L4x3`, and some aspects are not accurate for other
 //! variants. We currently don't have a good solution to this problem, and may
