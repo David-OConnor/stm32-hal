@@ -107,7 +107,6 @@ use stm32_hal2::{
 
 #[entry]
 fn main() -> ! {
-    let mut cp = cortex_m::Peripherals::take().unwrap();
     let mut dp = pac::Peripherals::take().unwrap();
 
     let clock_cfg = Clocks::default();
@@ -277,7 +276,7 @@ where
 }
 ```
 
-[This blog article](https://www.anyleaf.org/blog/writing-embedded-firmware-using-rust) provides some information
+[This article](https://www.anyleaf.org/blog/writing-embedded-firmware-using-rust) provides some information
 on using this library, as well as background information on Rust embedded in general.
 
 

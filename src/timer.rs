@@ -274,7 +274,7 @@ macro_rules! hal {
                     timer
                 }
             }
-            /// Enable a specific type of ADC interrupt.
+            /// Enable a specific type of Timer interrupt.
             pub fn enable_interrupt(&mut self, interrupt: TimerInterrupt) {
                 match interrupt {
                     TimerInterrupt::Update => self.regs.dier.modify(|_, w| w.uie().set_bit()),

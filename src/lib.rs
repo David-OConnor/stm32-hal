@@ -54,7 +54,6 @@
 //!
 //! #[entry]
 //! fn main() -> ! {
-//!     let mut cp = cortex_m::Peripherals::take().unwrap();
 //!     let mut dp = pac::Peripherals::take().unwrap();
 //!
 //!     let clock_cfg = Clocks::default();

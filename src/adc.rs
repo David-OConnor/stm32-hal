@@ -33,6 +33,7 @@ const MAX_ADVREGEN_STARTUP_US: u32 = 10;
 /// We are simulating an enum due to how the `embedded-hal` trait is set up.
 /// This will be fixed in a future version of EH.
 #[allow(non_snake_case)]
+#[cfg(feature = "embedded-hal")]
 pub mod AdcChannel {
     pub struct C1;
     pub struct C2;
@@ -68,18 +69,30 @@ pub enum AdcDevice {
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
-/// ADC interrupts. See L44 RM, section 16.5: ADC interrupts
+/// ADC interrupts. See L44 RM, section 16.5: ADC interrupts. Set in the IER register, and cleared
+/// in the ISR register.
 pub enum AdcInterrupt {
+    /// ADC ready (ADRDYIE field)
     Ready,
+    /// End of regular conversion interrupt enable (EOCIE field)
     EndOfConversion,
+    /// End of regular sequence of conversions (EOSIE field)
     EndOfSequence,
+    /// End of injected conversion (JEOCIE field)
     EndofConversionInjected,
+    /// End of injected sequence of conversions (JEOSIE field)
     EndOfSequenceInjected,
+    /// Analog watchdog 1 interrupt (AWD1IE field)
     Watchdog1,
+    /// Analog watchdog 2 interrupt (AWD2IE field)
     Watchdog2,
+    /// Analog watchdog 3 interrupt (AWD3IE field)
     Watchdog3,
+    /// End of sampling flag interrupt enable for regular conversions (EOSMPIE field)
     EndOfSamplingPhase,
+    /// Overrun (OVRIE field)
     Overrun,
+    /// Injected Context Queue Overflow (JQOVFIE field)
     InjectedOverflow,
 }
 

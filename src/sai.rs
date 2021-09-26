@@ -790,10 +790,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
     }
 
     /// Read 2 words of data from a channel: Left and Right channel, in that order.
-    /// A read from the SR register empties the FIFO if the FIFO is not empty
     pub fn read(&self, channel: SaiChannel) -> (u32, u32) {
-        // while self.regs.cha.sr.read().flvl().bits() == FifoThresh::Empty as u8 {} // todo?
-
         match channel {
             SaiChannel::A => (
                 self.regs.cha.dr.read().bits(),
@@ -804,13 +801,6 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
                 self.regs.chb.dr.read().bits(),
             ),
         }
-
-        // todo: Check FIFO level?
-        //
-        // match audio_ch.sr.read().flvl().variant() {
-        //     Val(sr::FLVL_A::EMPTY) => Err(nb::Error::WouldBlock),
-        //     _ => Ok((audio_ch.dr.read().bits(), audio_ch.dr.read().bits())),
-        // }
     }
 
     /// Send 2 words of data to a single channel: Left and right channel, in that order.
