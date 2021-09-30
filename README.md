@@ -232,12 +232,12 @@ where
 
         // 1. Select the hit to track by setting the HIT bits in the FCRDR_TR register. 
         #[cfg(feature = "h8")]
-        self.regs.tr.modify(|_, w| unsafe { w.HIT().bits(hit_num) });
+        self.regs.tr.modify(|_, w| unsafe { w.hit().bits(hit_num) });
         #[cfg(feature = "g5")]
-        self.regs.tr.modify(|_, w| unsafe { w.HITN().bits(hit_num) });
+        self.regs.tr.modify(|_, w| unsafe { w.hitn().bits(hit_num) });
 
         // 2. Begin tracking by setting the TRKEN bit in the FCRDR_TR register.
-        self.regs.tr.modify(|_, w| w.TRKEN().set_bit());
+        self.regs.tr.modify(|_, w| w.trken().set_bit());
 
         // In tracking mode, the TA flag can be monitored to make sure that the radar
         // is still tracking the target.

@@ -66,6 +66,7 @@ fn main() -> ! {
     rtc.set_wakeup(&mut dp.EXTI, 30.);
 
     let mut adc = Adc::new_adc1(dp.ADC1, Default::default(), &clock_cfg);
+    adc.enable_interrupt(AdcInterrupt::EndOfConversion);
 
     // Set up our ADC as a global variable accessible in interrupts, now that it's initialized.
     free(|cs| {
@@ -98,12 +99,12 @@ fn main() -> ! {
 #[interrupt]
 /// GPIO interrupt
 fn EXTI0() {
-    free(|cs| {
-        unsafe {
-            // Clear the interrupt flag, to prevent continous firing.
-            (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr0().set_bit());
-        }
+    unsafe {
+        // Clear the interrupt flag, to prevent continous firing.
+        (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr0().set_bit());
+    }
 
+    free(|cs| {
         let bouncing = BOUNCING.borrow(cs);
         if bouncing.get() {
             return;

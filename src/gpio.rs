@@ -203,416 +203,67 @@ pub enum Edge {
     Falling,
 }
 
-// Reduce DRY for setting fields.
+// These macros are used to interate over pin number, for use with PAC fields.
 macro_rules! set_field {
-    ($pin:expr, $port_letter:expr, $reg:ident, $field:ident, $bit:ident, $val:expr, [$($num:expr),+]) => {
+    ($regs: expr, $pin:expr, $reg:ident, $field:ident, $bit:ident, $val:expr, [$($num:expr),+]) => {
         paste! {
             unsafe {
-                match $port_letter {
-                    Port::A => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOA::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    Port::B => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOB::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(feature = "wl"))]
-                    Port::C => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOC::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(feature = "f410", feature = "wl")))]
-                    Port::D => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOD::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
-                    Port::E => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOE::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(
-                        feature = "f401",
-                        feature = "f410",
-                        feature = "f411",
-                        feature = "l4x1",
-                        feature = "l4x2",
-                        feature = "l412",
-                        feature = "l4x3",
-                        feature = "wb",
-                        feature = "wl"
-                        )))]
-                    Port::F => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOF::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(
-                        feature = "f373",
-                        feature = "f301",
-                        feature = "f3x4",
-                        feature = "f410",
-                        feature = "l4",
-                        feature = "g0",
-                        feature = "g4",
-                        feature = "wb",
-                        feature = "wl"
-                    )))]
-                    Port::H => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOH::ptr()).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
+                match $pin {
+                    $(
+                        $num => (*$regs).$reg.modify(|_, w| w.[<$field $num>]().$bit($val)),
+                    )+
+                    _ => panic!("GPIO pins must be 0 - 15."),
                 }
             }
         }
     }
 }
 
-// Reduce DRY for setting fields.
 macro_rules! set_alt {
-    ($pin:expr, $port_letter:expr, $field_af:ident, $val:expr, [$(($num:expr, $lh:ident)),+]) => {
+    ($regs: expr, $pin:expr, $field_af:ident, $val:expr, [$(($num:expr, $lh:ident)),+]) => {
         paste! {
             unsafe {
-                match $port_letter {
-                    Port::A => {
-                        match $pin {
-                            $(
-                                $num => {
-                                    (*pac::GPIOA::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
-                                    (*pac::GPIOA::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
-                                    (*pac::GPIOA::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
-                                }
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
+                match $pin {
+                    $(
+                        $num => {
+                            (*$regs).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
+                            #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
+                            (*$regs).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
+                            #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
+                            (*$regs).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
                         }
-                    }
-                    Port::B => {
-                        match $pin {
-                            $(
-                                $num => {
-                                    (*pac::GPIOB::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
-                                    (*pac::GPIOB::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
-                                    (*pac::GPIOB::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
-                                }
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(feature = "wl"))]
-                    Port::C => {
-                        match $pin {
-                            $(
-                                $num => {
-                                    (*pac::GPIOC::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
-                                    (*pac::GPIOC::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
-                                    (*pac::GPIOC::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
-                                }
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(feature = "f410", feature = "wl")))]
-                    Port::D => {
-                        match $pin {
-                            $(
-                                $num => {
-                                    (*pac::GPIOD::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
-                                    (*pac::GPIOD::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
-                                    (*pac::GPIOD::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
-                                }
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
-                    Port::E => {
-                        match $pin {
-                            $(
-                                $num => {
-                                    (*pac::GPIOE::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
-                                    (*pac::GPIOE::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
-                                    (*pac::GPIOE::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
-                                }
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(
-                        feature = "f401",
-                        feature = "f410",
-                        feature = "f411",
-                        feature = "l4x1",
-                        feature = "l4x2",
-                        feature = "l412",
-                        feature = "l4x3",
-                        feature = "wb",
-                        feature = "wl"
-                        )))]
-                    Port::F => {
-                        match $pin {
-                            $(
-                                $num => {
-                                    (*pac::GPIOF::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
-                                    (*pac::GPIOF::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
-                                    (*pac::GPIOF::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
-                                }
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(
-                        feature = "f373",
-                        feature = "f301",
-                        feature = "f3x4",
-                        feature = "f410",
-                        feature = "l4",
-                        feature = "g0",
-                        feature = "g4",
-                        feature = "wb",
-                        feature = "wl"
-                    )))]
-                    Port::H => {
-                        match $pin {
-                            $(
-                                $num => {
-                                    (*pac::GPIOH::ptr()).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                                    #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
-                                    (*pac::GPIOH::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                                    #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
-                                    (*pac::GPIOH::ptr()).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
-                                }
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
+                    )+
+                    _ => panic!("GPIO pins must be 0 - 15."),
                 }
             }
         }
     }
 }
 
-// todo: DRY on port feature gates for these macros
-
-// Reduce DRY getting input data
 macro_rules! get_input_data {
-    ($pin:expr, $port_letter:expr, [$($num:expr),+]) => {
+    ($regs: expr, $pin:expr, [$($num:expr),+]) => {
         paste! {
             unsafe {
-                match $port_letter {
-                    Port::A => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOA::ptr()).idr.read().[<idr $num>]().bit_is_set(),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    Port::B => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOB::ptr()).idr.read().[<idr $num>]().bit_is_set(),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(feature = "wl"))]
-                    Port::C => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOC::ptr()).idr.read().[<idr $num>]().bit_is_set(),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(feature = "f410", feature = "wl")))]
-                    Port::D => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOD::ptr()).idr.read().[<idr $num>]().bit_is_set(),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
-                    Port::E => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOE::ptr()).idr.read().[<idr $num>]().bit_is_set(),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(
-                        feature = "f401",
-                        feature = "f410",
-                        feature = "f411",
-                        feature = "l4x1",
-                        feature = "l4x2",
-                        feature = "l412",
-                        feature = "l4x3",
-                        feature = "wb",
-                        feature = "wl"
-                        )))]
-                    Port::F => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOF::ptr()).idr.read().[<idr $num>]().bit_is_set(),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(
-                        feature = "f373",
-                        feature = "f301",
-                        feature = "f3x4",
-                        feature = "f410",
-                        feature = "l4",
-                        feature = "g0",
-                        feature = "g4",
-                        feature = "wb",
-                        feature = "wl"
-                    )))]
-                    Port::H => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOH::ptr()).idr.read().[<idr $num>]().bit_is_set(),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
+                match $pin {
+                    $(
+                        $num => (*$regs).idr.read().[<idr $num>]().bit_is_set(),
+                    )+
+                    _ => panic!("GPIO pins must be 0 - 15."),
                 }
             }
         }
     }
 }
 
-// Reduce DRY setting pin state
 macro_rules! set_state {
-    ($pin:expr, $port_letter:expr, $offset: expr, [$($num:expr),+]) => {
+    ($regs: expr, $pin:expr, $offset: expr, [$($num:expr),+]) => {
         paste! {
             unsafe {
-                match $port_letter {
-                    Port::A => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOA::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    Port::B => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOB::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(feature = "wl"))]
-                    Port::C => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOC::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(feature = "f410", feature = "wl")))]
-                    Port::D => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOD::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(feature = "f301", feature = "f3x4", feature = "f410", feature = "g0", feature = "wb", feature = "wl")))]
-                    Port::E => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOE::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(
-                        feature = "f401",
-                        feature = "f410",
-                        feature = "f411",
-                        feature = "l4x1",
-                        feature = "l4x2",
-                        feature = "l412",
-                        feature = "l4x3",
-                        feature = "wb",
-                        feature = "wl"
-                        )))]
-                    Port::F => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOF::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
-                    #[cfg(not(any(
-                        feature = "f373",
-                        feature = "f301",
-                        feature = "f3x4",
-                        feature = "f410",
-                        feature = "l4",
-                        feature = "g0",
-                        feature = "g4",
-                        feature = "wb",
-                        feature = "wl"
-                    )))]
-                    Port::H => {
-                        match $pin {
-                            $(
-                                $num => (*pac::GPIOH::ptr()).bsrr.write(|w| w.bits(1 << ($offset + $num))),
-                            )+
-                            _ => panic!("GPIO pins must be 0 - 15."),
-                        }
-                    }
+                match $pin {
+                    $(
+                        $num => (*$regs).bsrr.write(|w| w.bits(1 << ($offset + $num))),
+                    )+
+                    _ => panic!("GPIO pins must be 0 - 15."),
                 }
             }
         }
@@ -621,7 +272,7 @@ macro_rules! set_state {
 
 // todo: Consolidate these exti macros
 
-/// Reduce DRY for setting up interrupts.
+// Reduce DRY for setting up interrupts.
 macro_rules! set_exti {
     ($pin:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr)),+]) => {
         let exti = unsafe { &(*pac::EXTI::ptr()) };
@@ -750,9 +401,55 @@ pub struct Pin {
     pub pin: u8,
 }
 
-// todo: Critical sections on unsafe calls to avoid race conditions?
-
 impl Pin {
+    /// Internal function to get the appropriate GPIO block pointer.
+    const fn regs(&self) -> *const pac::gpioa::RegisterBlock {
+        // Note that we use this `const` fn and pointer casting since not all ports actually
+        // deref to GPIOA in PAC.
+        match self.port {
+            Port::A => crate::pac::GPIOA::ptr(),
+            Port::B => crate::pac::GPIOB::ptr() as _,
+            #[cfg(not(feature = "wl"))]
+            Port::C => crate::pac::GPIOC::ptr() as _,
+            #[cfg(not(any(feature = "f410", feature = "wl")))]
+            Port::D => crate::pac::GPIOD::ptr() as _,
+            #[cfg(not(any(
+                feature = "f301",
+                feature = "f3x4",
+                feature = "f410",
+                feature = "g0",
+                feature = "wb",
+                feature = "wl"
+            )))]
+            Port::E => crate::pac::GPIOE::ptr() as _,
+            #[cfg(not(any(
+                feature = "f401",
+                feature = "f410",
+                feature = "f411",
+                feature = "l4x1",
+                feature = "l4x2",
+                feature = "l412",
+                feature = "l4x3",
+                feature = "wb",
+                feature = "wl"
+            )))]
+            Port::F => crate::pac::GPIOF::ptr() as _,
+            // G,
+            #[cfg(not(any(
+                feature = "f373",
+                feature = "f301",
+                feature = "f3x4",
+                feature = "f410",
+                feature = "l4",
+                feature = "g0",
+                feature = "g4",
+                feature = "wb",
+                feature = "wl"
+            )))]
+            Port::H => crate::pac::GPIOH::ptr() as _,
+        }
+    }
+
     /// Create a new pin, with a specific mode. Enables the RCC peripheral clock to the port,
     /// if not already enabled.
     pub fn new(port: Port, pin: u8, mode: PinMode) -> Self {
@@ -1009,8 +706,8 @@ impl Pin {
     /// Set pin mode. Eg, Output, Input, Analog, or Alt. Sets the `MODER` register.
     pub fn mode(&mut self, value: PinMode) {
         set_field!(
+            self.regs(),
             self.pin,
-            self.port,
             moder,
             moder,
             bits,
@@ -1026,8 +723,8 @@ impl Pin {
     /// Set output type. Sets the `OTYPER` register.
     pub fn output_type(&mut self, value: OutputType) {
         set_field!(
+            self.regs(),
             self.pin,
-            self.port,
             otyper,
             ot,
             bit,
@@ -1039,8 +736,8 @@ impl Pin {
     /// Set output speed to Low, Medium, or High. Sets the `OSPEEDR` register.
     pub fn output_speed(&mut self, value: OutputSpeed) {
         set_field!(
+            self.regs(),
             self.pin,
-            self.port,
             ospeedr,
             ospeedr,
             bits,
@@ -1052,8 +749,8 @@ impl Pin {
     /// Set internal pull resistor: Pull up, pull down, or floating. Sets the `PUPDR` register.
     pub fn pull(&mut self, value: Pull) {
         set_field!(
+            self.regs(),
             self.pin,
-            self.port,
             pupdr,
             pupdr,
             bits,
@@ -1062,13 +759,13 @@ impl Pin {
         );
     }
 
-    // It appears f373 doesn't have lckr on ports C or E. (PAC error?)
+    // TODO: F373 doesn't have LOCKR on ports C, E, F. You can impl for others
     #[cfg(not(feature = "f373"))]
     /// Lock or unlock a port configuration. Sets the `LCKR` register.
     pub fn cfg_lock(&mut self, value: CfgLock) {
         set_field!(
+            self.regs(),
             self.pin,
-            self.port,
             lckr,
             lck,
             bit,
@@ -1081,8 +778,8 @@ impl Pin {
     /// and `is_low()`. Reads from the `IDR` register.
     pub fn get_state(&mut self) -> PinState {
         let val = get_input_data!(
+            self.regs(),
             self.pin,
-            self.port,
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
         );
         if val {
@@ -1101,8 +798,8 @@ impl Pin {
         };
 
         set_state!(
+            self.regs(),
             self.pin,
-            self.port,
             offset,
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
         );
@@ -1114,15 +811,15 @@ impl Pin {
 
         cfg_if! {
             if #[cfg(any(feature = "l5", feature = "g0", feature = "wb"))] {
-                set_alt!(self.pin, self.port, afsel, value, [(0, l), (1, l), (2, l),
+                set_alt!(self.regs(), self.pin, afsel, value, [(0, l), (1, l), (2, l),
                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                     (13, h), (14, h), (15, h)])
             } else if #[cfg(feature = "h7")] {
-                set_alt!(self.pin, self.port, afr, value, [(0, l), (1, l), (2, l),
+                set_alt!(self.regs(), self.pin, afr, value, [(0, l), (1, l), (2, l),
                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                     (13, h), (14, h), (15, h)])
             } else {  // f3, f4, l4, g4, wl(?)
-                set_alt!(self.pin, self.port, afr, value, [(0, l), (1, l), (2, l),
+                set_alt!(self.regs(), self.pin, afr, value, [(0, l), (1, l), (2, l),
                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                     (13, h), (14, h), (15, h)])
             }
@@ -1173,8 +870,8 @@ impl Pin {
     /// Check if the pin's input voltage is high. Reads from the `IDR` register.
     pub fn is_high(&self) -> bool {
         get_input_data!(
+            self.regs(),
             self.pin,
-            self.port,
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
         )
     }

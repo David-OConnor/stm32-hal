@@ -13,6 +13,8 @@ cfg_if! {
         /// Note that this corresponds to Bits 16:15: Applicable only to some models,
         ///303xB/C etc use only bit 16, with bit 15 at reset value (0?) but it's equiv. 303xD/E and xE use bits 16:15.
         pub enum PllSrc {
+            // todo: This is wrong for F303 xD and xE! These have 2 additional fields,
+            // todo and setting HSE here will actually use HSI, but without the div2!
             HsiDiv2,
             Hse(u32),  // Freq in Hz
         }
@@ -27,6 +29,27 @@ cfg_if! {
                 }
             }
        }
+
+       // #[cfg(feature = "f303xE")]
+       // pub enum PllSrc {
+       //      HsiDiv2,
+       //      Hsi,
+       //      Hse(u32),  // Freq in Hz
+       //  }
+       //
+       // #[cfg(feature = "f303xE")]
+       // impl PllSrc {
+       //     /// Required instead of u8 repr due to numerical value on non-uniform discrim being experimental.
+       //     /// (ie, can't set on `Pll(Pllsrc)`.
+       //     fn bits(&self) -> u8 {
+       //         match self {
+       //             Self::HsiDiv2 => 0b00,
+       //             Self::Hsi(_) => 0b01,
+       //             Self::Hse(_) => 0b10,
+       //         }
+       //     }
+       // }
+
    } else if #[cfg(feature = "f4")] {
            #[derive(Clone, Copy)]
             /// The clocks source input used by the PLL.

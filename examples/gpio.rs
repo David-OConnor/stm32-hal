@@ -133,6 +133,7 @@ fn main() -> ! {
     // Unmask interrupt lines associated with the input pins we've configured interrupts
     // for in `setup_pins`.
     unsafe {
+        // EXTI line 3 is associated with pins numbered 0 (PA3, PB3 etc)
         NVIC::unmask(pac::Interrupt::EXTI3);
         NVIC::unmask(pac::Interrupt::EXTI4);
         NVIC::unmask(pac::Interrupt::TIM15);

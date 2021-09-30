@@ -418,7 +418,7 @@ where
         }
     }
 
-    /// Read multiple words to a buffer. Can return an error state rela
+    /// Read multiple words to a buffer. Can return an error due to Bus, Arbitration, or NACK.
     pub fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
