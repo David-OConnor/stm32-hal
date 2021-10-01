@@ -362,6 +362,12 @@ pub mod crc;
 // WB doesn't have a DAC. Some G0 variants do - add it! Most F4 variants have it, some don't
 pub mod dac;
 
+// #[cfg(not(any(
+//     feature = "f4",
+// )))]
+#[cfg(feature = "h7")] // todo: Add dfsdm to more variants
+pub mod dfsdm;
+
 // todo: G0 missing many DMA registers like CCR?
 // todo: F4 needs some mods. So, only working on L4 and G4.
 // todo: L5 has a PAC bug on CCR registers past 1.

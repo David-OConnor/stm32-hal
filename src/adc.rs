@@ -268,7 +268,7 @@ pub struct Adc<R> {
     vdda_calibrated: f32,
 }
 
-// Abstract implementation of ADC functionality
+// todo: Remove this macro, and replace using a `regs` fn like you use in GPIO.
 macro_rules! hal {
     ($ADC:ident, $ADC_COMMON:ident, $adc:ident, $rcc_num:tt) => {
         impl Adc<pac::$ADC> {

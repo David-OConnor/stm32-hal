@@ -29,6 +29,8 @@ use crate::{
 use cfg_if::cfg_if;
 use paste::paste;
 
+// todo: Split into Basic Timer, Advanced Timer etc impl macros.
+
 // todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
 
 #[derive(Clone, Copy, Debug)]
@@ -237,8 +239,8 @@ impl OutputCompare {
 
 /// Represents a timer peripheral.
 pub struct Timer<TIM> {
-    clock_speed: u32, // Associated timer clock speed in Hz.
     pub regs: TIM,    // Register block for the specific timer.
+    clock_speed: u32, // Associated timer clock speed in Hz.
 }
 
 macro_rules! hal {

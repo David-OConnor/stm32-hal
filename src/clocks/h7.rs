@@ -180,13 +180,23 @@ impl ApbPrescaler {
 
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
-/// SAI clock input source. Sets RCC_D2CCIP1R register, SAIxSEL fields.
+/// SAI clock input source. Sets RCC_D2CCIP1R register, SAIxSEL field.
 pub enum SaiSrc {
     Pll1Q = 0b000,
     Pll2P = 0b001,
     Pll3P = 0b010,
     I2sCkin = 0b011,
     PerClk = 0100,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// SAI clock input source. Sets RCC_D2CCIP1R register, DFSDM1SEL field.
+pub enum DfsdmSrc {
+    /// rcc_pclk2 is selected as DFSDM1 Clk kernel clock (default after reset)
+    Pclk2 = 0,
+    /// sys_ck clock is selected as DFSDM1 Clk kernel clock
+    Sysclk = 1,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -307,6 +317,8 @@ pub struct Clocks {
     pub sai1_src: SaiSrc,
     /// SAI2 and SAI3 kernel clock source selection
     pub sai23_src: SaiSrc,
+    /// DFSDM1 kernel clock source selection
+    pub dfsdm1_src: DfsdmSrc,
 }
 
 impl Clocks {
@@ -458,6 +470,13 @@ impl Clocks {
         rcc.d3cfgr
             .modify(|_, w| unsafe { w.d3ppre().bits(self.d3_prescaler as u8) });
 
+        #[cfg(not(feature = "h7b3"))]
+        rcc.d2ccip1r.modify(|_, w| unsafe {
+            w.sai1sel().bits(self.sai1_src as u8);
+            w.sai23sel().bits(self.sai23_src as u8);
+            w.dfsdm1sel().bit(self.dfsdm1_src as u8 != 0)
+        });
+
         // Set USART2 to HSI, and USB to HSI48. Temp hardcoded.
         // todo: Add config enums for these, and add them as Clocks fields.
         #[cfg(not(feature = "h7b3"))]
@@ -599,12 +618,6 @@ impl Clocks {
                 while rcc.cr.read().pll3rdy().bit_is_clear() {}
             }
         }
-
-        #[cfg(not(feature = "h7b3"))]
-        rcc.d2ccip1r.modify(|_, w| unsafe {
-            w.sai1sel().bits(self.sai1_src as u8);
-            w.sai23sel().bits(self.sai23_src as u8)
-        });
 
         if self.hsi48_on {
             rcc.cr.modify(|_, w| w.hsi48on().set_bit());
@@ -888,6 +901,7 @@ impl Default for Clocks {
             vos_range: VosRange::VOS1,
             sai1_src: SaiSrc::Pll1Q,
             sai23_src: SaiSrc::Pll1Q,
+            dfsdm1_src: DfsdmSrc::Pclk2,
         }
     }
 }

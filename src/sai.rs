@@ -1,9 +1,5 @@
-//! Serial audio interface support. Used for I2S, PCM/DSP, TDM, AC'97 etc.
+//! Serial audio interface (SAI) support. Used for I2S, PCM/DSP, TDM, AC'97 etc.
 //! See L443 Reference Manual, section 41. H743 FM, section 51.
-//!
-//! For now, only supports a limited set of I2S features.
-
-// todo: WIP
 
 use core::ops::Deref;
 
@@ -414,6 +410,7 @@ impl SaiConfig {
             // These first settings (up to `pdm_mode1) are taken directly from Table 422.
             //Mode must be MASTER receiver
             mode: SaiMode::MasterReceiver,
+
             // Free protocol for TDM
             protocol: Protocol::Free,
             // Signal transitions occur on the rising edge of the SCK_A bit clock. Signals
@@ -428,16 +425,20 @@ impl SaiConfig {
             fs_polarity: FsPolarity::ActiveHigh,
             // FS is asserted on the first bit of slot 0
             fs_offset: FsOffset::FirstBit,
-            // fboff is also 0, but that's currently hard set to 0 and is not part of the config.
-            // Same for slotsz, hard set to 0.
-            // No need to generate a master clock MCLK
+            // No offset on slot
+            first_bit_offset: 0,
             master_clock: MasterClock::NotUsed,
 
-            /// These next 3 settings may depend on master clock speed, sample rate, and number
-            /// of mics.
-            frame_length: 16,
+            // These next 3 settings may depend on master clock speed, sample rate, and number
+            // of mics. See table 423.
+            // This is currently set for 2 mics, 1 slot of 16-bits per frame.
+            // 3.072Mhz SAI freq.
+            // RM: FRL = (16 x (MICNBR + 1)) - 1
+            frame_length: (16 * (num_mics as u8 as u16 + 1)) - 1,
+            // todo: Make these more flexible instead of hard-coded
             datasize: DataSize::S16,
             num_slots: 1,
+            fifo_thresh: FifoThresh::Empty,
 
             pdm_mode: true,
             num_pdm_mics: num_mics,
@@ -480,8 +481,7 @@ where
     R: Deref<Target = sai::RegisterBlock>,
 {
     /// Initialize a SAI peripheral, including  enabling and resetting
-    /// its RCC peripheral clock. For now, set up with default clocks selected.
-    /// ie, pll1q.
+    /// its RCC peripheral clock.
     pub fn new(
         regs: R,
         device: SaiDevice,
@@ -686,8 +686,10 @@ where
         // timing signals provided by the TDM interface of SAI_A and adapts them to generate a
         // bitstream clock (SAI_CK[m]).
 
-        // todo: Confirm if PDM channel B can be used. I think it can't.
-        // Enabling the PDM interface
+        // AN: The PDM function is intended to be used in conjunction with SAI_A sub-block, configured in
+        // Time Division Multiplexing (TDM) master mode. It cannot be used with SAI_B sub-block
+
+        // Enabling the PDM interface (H743 RM, section 51.4.10)
         // To enable the PDM interface, follow the sequence below:
         // 1. Configure SAI_A in TDM master mode (see Table 422).
         // (Above. Although we don't check this)
@@ -789,19 +791,31 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         }
     }
 
-    /// Read 2 words of data from a channel: Left and Right channel, in that order.
-    pub fn read(&self, channel: SaiChannel) -> (u32, u32) {
+    /// Read a word of data.
+    pub fn read(&self, channel: SaiChannel) -> u32 {
         match channel {
-            SaiChannel::A => (
-                self.regs.cha.dr.read().bits(),
-                self.regs.cha.dr.read().bits(),
-            ),
-            SaiChannel::B => (
-                self.regs.chb.dr.read().bits(),
-                self.regs.chb.dr.read().bits(),
-            ),
+            SaiChannel::A => self.regs.cha.dr.read().bits(),
+            SaiChannel::B => self.regs.chb.dr.read().bits(),
         }
     }
+
+    // /// Read 2 words of data from a channel: Left and Right channel, in that order.
+    // pub fn read(&self, channel: SaiChannel) -> (u32, u32) {
+    //     // // todo TEMP TS!
+    //     let reading = self.regs.cha.dr.read().bits();
+    //     return (reading, reading);
+    //
+    //     match channel {
+    //         SaiChannel::A => (
+    //             self.regs.cha.dr.read().bits(),
+    //             self.regs.cha.dr.read().bits(),
+    //         ),
+    //         SaiChannel::B => (
+    //             self.regs.chb.dr.read().bits(),
+    //             self.regs.chb.dr.read().bits(),
+    //         ),
+    //     }
+    // }
 
     /// Send 2 words of data to a single channel: Left and right channel, in that order.
     /// A write to the SR register loads the FIFO provided the FIFO is not full.

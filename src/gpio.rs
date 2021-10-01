@@ -383,7 +383,7 @@ macro_rules! set_exti_g0 {
                     $num => {
                         exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());  // unmask
                         exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($trigger));  // Rising trigger
-                        exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit(!$trigger));   // Falling trigger
+                        exti.ftsr1.modify(|_, w| w.[<tf $num>]().bit(!$trigger));   // Falling trigger
                         exti
                             .[<exticr $crnum>]
                             .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
