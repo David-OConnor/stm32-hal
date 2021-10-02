@@ -870,8 +870,8 @@ impl Clocks {
 }
 
 impl Default for Clocks {
-    /// This default configures clocks with the HSI, and a 240Mhz sysclock speed.
-    /// Peripheral clocks are all set to 112.5Mhz, with timer clocks at 225Mhz.
+    /// This default configures clocks with the HSI, and a 400Mhz sysclock speed.
+    /// Peripheral and timer clocks are set to 100Mhz or 200Mhz, depending on their limits.
     /// HSE output is not bypassed.
     /// todo: Not 248Mhz due to an issue with wait states on Table 17 not showing higher than 225Mhz
     /// // todo HCLK unless in VOS0.

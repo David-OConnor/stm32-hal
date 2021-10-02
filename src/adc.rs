@@ -828,8 +828,7 @@ macro_rules! hal {
             /// Read data from a conversion. In OneShot mode, this will generally be run right
             /// after `start_conversion`.
             pub fn read_result(&mut self) -> u16 {
-                // todo: read_volatile to be more efficient due to only reading 16 bits?
-                self.regs.dr.read().bits() as u16
+                self.regs.dr.read().rdata().bits()
             }
 
             /// Take a single reading, in OneShot mode
@@ -852,6 +851,7 @@ macro_rules! hal {
             ) where
                 D: Deref<Target = dma_p::RegisterBlock>,
             {
+                // todo: Continuous / circular etc DMA!
 
                 let (ptr, len) = (buf.as_mut_ptr(), buf.len());
                 // The software is allowed to write (dmaen and dmacfg) only when ADSTART=0 and JADSTART=0 (which
