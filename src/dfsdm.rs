@@ -31,7 +31,9 @@ use crate::dma::DmaInput;
 pub enum DfsdmChannel {
     C0,
     C1,
+    #[cfg(not(any(feature = "l4")))]
     C2,
+    #[cfg(not(any(feature = "l4")))]
     C3,
 }
 
@@ -320,6 +322,103 @@ where
         // Only one injected conversion can be ongoing at a given time. Thus, any request to launch
         // an injected conversion is ignored if another request for an injected conversion has already
         // been issued but not yet completed.
+    }
+
+    /// Read regular conversion data from the FLTxRDATAR register. Suitable for use after a conversion is complete.
+    pub fn read(&self, channel: DfsdmChannel) -> u32 {
+        match channel {
+            DfsdmChannel::C0 => self.regs.dfsdm0_rdatar.read().rdata().bits(),
+            DfsdmChannel::C1 => self.regs.dfsdm1_rdatar.read().rdata().bits(),
+            DfsdmChannel::C2 => self.regs.dfsdm2_rdatar.read().rdata().bits(),
+            DfsdmChannel::C3 => self.regs.dfsdm3_rdatar.read().rdata().bits(),
+        }
+        // todo: RDATACH to know which channel was converted??
+        // todo isn't this implied to the register we choose to sue?
+    }
+
+    /// Read injected conversion data from the FLTxJDATAR register.
+    /// Suitable for use after a conversion is complete.
+    pub fn read_injected(&self, channel: DfsdmChannel) -> u32 {
+        match channel {
+            DfsdmChannel::C0 => self.regs.dfsdm0_jdatar.read().jdata().bits(),
+            DfsdmChannel::C1 => self.regs.dfsdm1_jdatar.read().jdata().bits(),
+            DfsdmChannel::C2 => self.regs.dfsdm2_jdatar.read().jdata().bits(),
+            DfsdmChannel::C3 => self.regs.dfsdm3_jdatar.read().jdata().bits(),
+        }
+        // todo: JDATACH to know which channel was converted??
+        // todo isn't this implied to the register we choose to sue?
+    }
+
+    /// Read data from SAI with DMA. H743 RM, section 30.6: DFSDM DMA transfer
+    /// To decrease the CPU intervention, conversions can be transferred into memory using a
+    // DMA transfer. A DMA transfer for injected conversions is enabled by setting bit JDMAEN=1
+    // in DFSDM_FLTxCR1 register. A DMA transfer for regular conversions is enabled by setting
+    // bit RDMAEN=1 in DFSDM_FLTxCR1 register.
+    // Note: With a DMA transfer, the interrupt flag is automatically cleared at the end of the injected or
+    // regular conversion (JEOCF or REOCF bit in DFSDM_FLTxISR register) because DMA is
+    // reading DFSDM_FLTxJDATAR or DFSDM_FLTxRDATAR register
+    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
+    pub unsafe fn read_dma<D>(
+        &mut self,
+        buf: &mut [u32],
+        dfsdm_channel: DfsdmChannel,
+        dma_channel: DmaChannel,
+        channel_cfg: ChannelCfg,
+        dma: &mut Dma<D>,
+    ) where
+        D: Deref<Target = dma_p::RegisterBlock>,
+    {
+        let (ptr, len) = (buf.as_mut_ptr(), buf.len());
+
+        // todo: DMA2 support.
+
+        #[cfg(any(feature = "f3", feature = "l4"))]
+        let channel = match sai_channel {
+            DfsdmChannel::C0 => DmaInput::DfsdmCh0.dma1_channel(),
+            DfsdmChannel::C1 => DmaInput::DfsdmCh1.dma1_channel(),
+        };
+
+        #[cfg(feature = "l4")]
+        match dfsdm_channel {
+            DfsdmChannel::C0 => dma.channel_select(DmaInput::DfsdmCh0),
+            DfsdmChannel::C1 => dma.channel_select(DmaInput::DfsdmCh1),
+        };
+
+        match dfsdm_channel {
+            DfsdmChannel::C0 => self.regs.dfsdm0_cr1.modify(|_, w| w.jdmaen().set_bit()),
+            DfsdmChannel::C1 => self.regs.dfsdm1_cr1.modify(|_, w| w.jdmaen().set_bit()),
+            #[cfg(not(any(feature = "l4")))]
+            DfsdmChannel::C2 => self.regs.dfsdm2_cr1.modify(|_, w| w.jdmaen().set_bit()),
+            #[cfg(not(any(feature = "l4")))]
+            DfsdmChannel::C3 => self.regs.dfsdm3_cr1.modify(|_, w| w.jdmaen().set_bit()),
+        }
+
+        // todo: Injected?
+
+        let periph_addr = match dfsdm_channel {
+            DfsdmChannel::C0 => &self.regs.dfsdm0_rdatar as *const _ as u32,
+            DfsdmChannel::C1 => &self.regs.dfsdm1_rdatar as *const _ as u32,
+            #[cfg(not(any(feature = "l4")))]
+            DfsdmChannel::C2 => &self.regs.dfsdm2_rdatar as *const _ as u32,
+            #[cfg(not(any(feature = "l4")))]
+            DfsdmChannel::C3 => &self.regs.dfsdm3_rdatar as *const _ as u32,
+        };
+
+        #[cfg(feature = "h7")]
+        let len = len as u32;
+        #[cfg(not(feature = "h7"))]
+        let len = len as u16;
+
+        dma.cfg_channel(
+            dma_channel,
+            periph_addr,
+            ptr as u32,
+            len,
+            dma::Direction::ReadFromPeriph,
+            dma::DataSize::S32, // For 24 bits
+            dma::DataSize::S32,
+            channel_cfg,
+        );
     }
 
     /// Enable a specific type of interrupt. See H743 RM, section 30.5: DFSDM interrupts

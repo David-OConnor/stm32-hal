@@ -866,7 +866,7 @@ macro_rules! hal {
                 // L44 RM, Table 41. "DMA1 requests for each channel
                 // todo: DMA2 support.
                 #[cfg(any(feature = "f3", feature = "l4"))]
-                let channel = match self.device {
+                let dma_channel = match self.device {
                     AdcDevice::One => DmaInput::Adc1.dma1_channel(),
                     AdcDevice::Two => DmaInput::Adc2.dma1_channel(),
                     _ => panic!("DMA on ADC beyond 2 is not supported. If it is for your MCU, please submit an issue \

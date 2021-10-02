@@ -873,7 +873,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
 
         // L44 RM, Table 41. "DMA1 requests for each channel"
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel = match sai_channel {
+        let dma_channel = match sai_channel {
             SaiChannel::A => DmaInput::Sai1A.dma1_channel(),
             SaiChannel::B => DmaInput::Sai1B.dma1_channel(),
         };
@@ -964,7 +964,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         // todo: DMA2 support.
 
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel = match sai_channel {
+        let dma_channel = match sai_channel {
             SaiChannel::A => DmaInput::Sai1A.dma1_channel(),
             SaiChannel::B => DmaInput::Sai1B.dma1_channel(),
         };

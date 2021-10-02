@@ -79,6 +79,16 @@ pub enum DmaInput {
     Adc5 = 39,
     Sai1A = 108,
     Sai1B = 109,
+    // todo: These SAI2 values are bogus; can't find on G4 DMA mux.
+    Sai2A = 203,
+    Sai2B = 204,
+    Dfsdm1Ch0 = 101,
+    Dfsdm1Ch1 = 102,
+    Dfsdm1Ch2 = 103,
+    Dfsdm1Ch3 = 104,
+    // todo: Can't find DFSDM periph on G4 rm: These assigned values are bogus.
+    DfsdmCh0 = 200,
+    DfsdmCh1 = 201,
 }
 
 // todo: Trigger, synchronization etc mappings. Perhaps DmaTrigger, DmaSync enums etc.
@@ -123,6 +133,10 @@ pub enum DmaInput {
     Sai1B = 88,
     Sai2A = 89,
     Sai2B = 90,
+    Dfsdm1Ch0 = 101,
+    Dfsdm1Ch1 = 102,
+    Dfsdm1Ch2 = 103,
+    Dfsdm1Ch3 = 104,
 }
 
 impl DmaInput {
@@ -165,6 +179,11 @@ impl DmaInput {
             // Self::Adc3 => 37,
             // Self::Adc4 => 38,
             // Self::Adc5 => 39,
+            // Note: Sai1 appears to be DMA2 only.
+            Self::Sai2A => DmaChannel::C6,
+            Self::Sai2B => DmaChannel::C7,
+            Self::Dfsdm1Ch0 => DmaChannel::C5,
+            Self::Dfsdm1Ch1 => DmaChannel::C6,
             _ => unimplemented!(),
         }
     }

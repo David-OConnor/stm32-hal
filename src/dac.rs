@@ -374,23 +374,19 @@ where
     {
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
-        // todo: Impl these non-DMAMUx features.
         // // L44 RM, Table 41. "DMA1 requests for each channel
         // // todo: DMA2 support.
-        // #[cfg(any(feature = "f3", feature = "l4"))]
-        //     let channel = match self.device {
-        //     AdcDevice::One => DmaInput::Adc1.dma1_channel(),
-        //     AdcDevice::Two => DmaInput::Adc2.dma1_channel(),
-        //     _ => panic!("DMA on ADC beyond 2 is not supported. If it is for your MCU, please submit an issue \
-        //         or PR on Github.")
-        // };
-        //
-        // #[cfg(feature = "l4")]
-        // match self.device {
-        //     AdcDevice::One => dma.channel_select(DmaInput::Adc1),
-        //     AdcDevice::Two => dma.channel_select(DmaInput::Adc2),
-        //     _ => unimplemented!(),
-        // }
+        #[cfg(any(feature = "f3", feature = "l4"))]
+        let dma_channel = match dac_channel {
+            DacChannel::C1 => DmaInput::Dac1Ch1.dma1_channel(),
+            DacChannel::C2 => DmaInput::Dac1Ch2.dma1_channel(),
+        };
+
+        #[cfg(feature = "l4")]
+        match dac_channel {
+            DacChannel::C1 => dma.channel_select(DmaInput::Dac1Ch1),
+            DacChannel::C2 => dma.channel_select(DmaInput::Dac1Ch2),
+        };
 
         // H743 RM, section 26.4.8: DMA requests
         // Each DAC channel has a DMA capability. Two DMA channels are used to service DAC
