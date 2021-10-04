@@ -685,12 +685,14 @@ macro_rules! pwm_features {
                             }
                         }
                     } else {
-                        match channel {
-                            TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr().bits(duty)),
-                            TimChannel::C2 => self.regs.ccr2.write(|w| w.ccr().bits(duty)),
-                            TimChannel::C3 => self.regs.ccr3.write(|w| w.ccr().bits(duty)),
-                            #[cfg(not(feature = "wl"))]
-                            TimChannel::C4 => self.regs.ccr4.write(|w| w.ccr().bits(duty)),
+                        unsafe {
+                            match channel {
+                                TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr().bits(duty)),
+                                TimChannel::C2 => self.regs.ccr2.write(|w| w.ccr().bits(duty)),
+                                TimChannel::C3 => self.regs.ccr3.write(|w| w.ccr().bits(duty)),
+                                #[cfg(not(feature = "wl"))]
+                                TimChannel::C4 => self.regs.ccr4.write(|w| w.ccr().bits(duty)),
+                            }
                         }
                     }
                 }
@@ -839,12 +841,12 @@ macro_rules! pwm_features {
 hal!(TIM1, tim1, 2);
 
 #[cfg(not(any(
-    feature = "f373",
-    feature = "f4",
-    feature = "l4",
-    feature = "l5",
-    feature = "g0",
-    feature = "wl",  // todo: PAC issue?
+feature = "f373",
+feature = "f4",
+feature = "l4",
+feature = "l5",
+feature = "g0",
+feature = "wl",  // todo: PAC issue?
 )))]
 pwm_features!(TIM1, u16);
 
@@ -865,12 +867,12 @@ cfg_if! {
 pwm_features!(TIM2, u16);
 
 #[cfg(not(any(
-    feature = "l5",
-    feature = "g070",
-    feature = "g4",
-    feature = "f410",
-    feature = "wb",
-    feature = "wl",  // todo: PAC issue?
+feature = "l5",
+feature = "g070",
+feature = "g4",
+feature = "f410",
+feature = "wb",
+feature = "wl",  // todo: PAC issue?
 )))]
 pwm_features!(TIM2, u32);
 
@@ -886,6 +888,7 @@ pwm_features!(TIM2, u32);
 hal!(TIM3, tim3, 1);
 
 #[cfg(not(any(
+    feature = "f301",
     feature = "l4x1",
     feature = "l4x3",
     feature = "l5",
