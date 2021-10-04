@@ -1156,7 +1156,7 @@ impl Clocks {
                     PllSrc::Msi(range) => range.value() as u32,
                     PllSrc::Hsi => 16_000_000,
                     PllSrc::Hse(freq) => freq,
-                    PllSrc::None => 0, // todo?
+                    PllSrc::None => unimplemented!(),
                 };
                 input_freq / self.pll.divm.value() as u32 * self.pll.divn as u32
                     / self.pll.divr.value() as u32
@@ -1257,6 +1257,38 @@ impl Clocks {
                     self.apb2() * 2
                 }
             }
+        }
+    }
+
+    /// Get the SAI audio clock freq
+    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
+    pub fn sai1_speed(&self) -> u32 {
+        let pll_src = match self.input_src {
+            InputSrc::Msi(msi_rng) => PllSrc::Msi(msi_rng),
+            InputSrc::Hsi => PllSrc::Hsi,
+            InputSrc::Hse(freq) => PllSrc::Hse(freq),
+            InputSrc::Pll(pll_src) => pll_src,
+        };
+
+        // todo: DRY with `sysclk`
+        let input_freq = match pll_src {
+            PllSrc::Msi(range) => range.value() as u32,
+            PllSrc::Hsi => 16_000_000,
+            PllSrc::Hse(freq) => freq,
+            PllSrc::None => unimplemented!(),
+        };
+
+        match self.sai1_src {
+            SaiSrc::PllSai1P => {
+                input_freq / self.pll.divm.value() as u32 * self.pll.divn as u32
+                    / self.pll.divp.value() as u32
+            }
+            SaiSrc::Pllp => {
+                input_freq / self.pll.divm.value() as u32 * self.pllsai1.divn as u32
+                    / self.pllsai1.divp.value() as u32
+            }
+            SaiSrc::Hsi => 16_000_000,
+            SaiSrc::ExtClk => unimplemented!(),
         }
     }
 

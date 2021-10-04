@@ -184,10 +184,10 @@ where
                         if #[cfg(not(feature = "f4"))] {
                             rcc_en_reset!(apb1, usart2, rcc);
                         } else {
-                            // Notice the `usart` vs `uart` asymmetry.
+                            // `usart` vs `uart`
                             rcc.apb1enr.modify(|_, w| w.usart2en().set_bit());
-                            rcc.apb1rstr.modify(|_, w| w.uart2rst().set_bit());
-                            rcc.apb1rstr.modify(|_, w| w.uart2rst().clear_bit());
+                            rcc.apb1rstr.modify(|_, w| w.usart2rst().set_bit());
+                            rcc.apb1rstr.modify(|_, w| w.usart2rst().clear_bit());
                         }
                     }
                 }
@@ -208,8 +208,8 @@ where
                             rcc_en_reset!(apb1, usart3, rcc);
                         } else {
                             rcc.apb1enr.modify(|_, w| w.usart3en().set_bit());
-                            rcc.apb1rstr.modify(|_, w| w.uart3rst().set_bit());
-                            rcc.apb1rstr.modify(|_, w| w.uart3rst().clear_bit());
+                            rcc.apb1rstr.modify(|_, w| w.usart3rst().set_bit());
+                            rcc.apb1rstr.modify(|_, w| w.usart3rst().clear_bit());
                         }
                     }
                 } // UsartDevice::Four => {

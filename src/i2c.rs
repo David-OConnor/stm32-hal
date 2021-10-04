@@ -274,7 +274,14 @@ where
 
         // Set SCLL (SCL low time) to be half the duty period
         // associated with the target frequency.
-        let scll_val = presc_const / (2 * freq);
+        // todo: QC this is right if you peg presc_val at 16.
+        let scll_val;
+        if presc_val == 16 {
+            // IF we peg presc, we need to modify out calculation of scll (??)
+            scll_val = (t_i2cclk / presc_val) / (2 * freq);
+        } else {
+            scll_val = presc_const / (2 * freq);
+        }
 
         // SCLH is smaller than SCLH. For standard mode it's close, although
         // in the example tables, 20% different for 100Khz, and 2% different for

@@ -10,14 +10,19 @@ use crate::{
     rcc_en_reset,
 };
 
+#[cfg(not(feature = "l5"))]
+use crate::pac::dfsdm as dfsdm_p;
+#[cfg(feature = "l5")]
+use crate::pac::dfsdm1 as dfsdm_p;
+
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
-feature = "f3",
-feature = "l4",
-feature = "g4",
-feature = "h7",
-feature = "wb"
+    feature = "f3",
+    feature = "l4",
+    feature = "g4",
+    feature = "h7",
+    feature = "wb"
 ))]
 use crate::pac::dma1 as dma_p;
 
@@ -168,7 +173,7 @@ impl Default for DfsdmConfig {
             filter_order: FilterOrder::Sinc4, // From the PDM mic AN
             filter_oversampling_ratio: 64,    // From the PDM mic AN
             integrator_oversampling_ratio: 1, // From the PDM mic AN
-            right_shift_bits: 0x02, // From the PDM mic AN
+            right_shift_bits: 0x02,           // From the PDM mic AN
             // right_shift_bits: 0x00, // From the PDM mic AN
             spi_clock: SpiClock::Internal,
         }
@@ -183,15 +188,19 @@ pub struct Dfsdm<R> {
 }
 
 impl<R> Dfsdm<R>
-    where
-        R: Deref<Target = pac::dfsdm::RegisterBlock>,
+where
+    R: Deref<Target = dfsdm_p::RegisterBlock>,
+    R: Deref<Target = dfsdm_p::RegisterBlock>,
 {
     /// Initialize a DFSDM peripheral, including  enabling and resetting
     /// its RCC peripheral clock.
     pub fn new(regs: R, config: DfsdmConfig, clock_cfg: &Clocks) -> Self {
         free(|cs| {
             let rcc = unsafe { &(*RCC::ptr()) };
+            #[cfg(not(feature = "l4"))]
             rcc_en_reset!(apb2, dfsdm1, rcc);
+            #[cfg(feature = "l4")]
+            rcc_en_reset!(apb2, dfsdm, rcc);
         });
 
         // The frequency of this CKOUT signal is derived from DFSDM clock or from audio clock (see
@@ -214,18 +223,18 @@ impl<R> Dfsdm<R>
             DfsdmClockSrc::AudioClk => clock_cfg.sai1_speed(),
         };
 
-        let divider = clock_speed / (config.sampling_freq * config.filter_oversampling_ratio as u32);
+        let divider =
+            clock_speed / (config.sampling_freq * config.filter_oversampling_ratio as u32);
 
         // 1- 255: Defines the division of system clock for the serial clock output for CKOUT signal in range 2 -
         // 256 (Divider = CKOUTDIV+1).
         // CKOUTDIV also defines the threshold for a clock absence detection.
         assert!(divider >= 2); // (1 is invalid. 2 would disable the output clock.)
 
-        regs.ch0.cfgr1
-            .modify(|_, w| unsafe {
-                w.ckoutsrc().bit(config.clock_src as u8 != 0);
-                w.ckoutdiv().bits(divider as u8 - 1)
-            });
+        regs.ch0.cfgr1.modify(|_, w| unsafe {
+            w.ckoutsrc().bit(config.clock_src as u8 != 0);
+            w.ckoutdiv().bits(divider as u8 - 1)
+        });
 
         // Configuring the input serial interface
         // The following parameters must be configured for the input serial interface:
@@ -358,8 +367,8 @@ impl<R> Dfsdm<R>
                     w.rch().bits(channel as u8);
                     w.dfen().set_bit()
                 });
-
             }
+            #[cfg(not(any(feature = "l4")))]
             Filter::F2 => {
                 self.regs.flt2.fcr.modify(|_, w| unsafe {
                     w.ford().bits(self.config.filter_order as u8);
@@ -373,8 +382,8 @@ impl<R> Dfsdm<R>
                     w.rch().bits(channel as u8);
                     w.dfen().set_bit()
                 });
-
             }
+            #[cfg(not(any(feature = "l4")))]
             Filter::F3 => {
                 self.regs.flt3.fcr.modify(|_, w| unsafe {
                     w.ford().bits(self.config.filter_order as u8);
@@ -401,56 +410,80 @@ impl<R> Dfsdm<R>
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
-                self.regs.ch0.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs
+                    .ch0
+                    .cfgr2
+                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
             },
             DfsdmChannel::C1 => unsafe {
                 self.regs.ch1.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
-                self.regs.ch1.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs
+                    .ch1
+                    .cfgr2
+                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
             },
             DfsdmChannel::C2 => unsafe {
                 self.regs.ch2.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
-                self.regs.ch2.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs
+                    .ch2
+                    .cfgr2
+                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
             },
             DfsdmChannel::C3 => unsafe {
                 self.regs.ch3.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
-                self.regs.ch3.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs
+                    .ch3
+                    .cfgr2
+                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
             },
             DfsdmChannel::C4 => unsafe {
                 self.regs.ch4.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
-                self.regs.ch4.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs
+                    .ch4
+                    .cfgr2
+                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
             },
             DfsdmChannel::C5 => unsafe {
                 self.regs.ch5.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
-                self.regs.ch5.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs
+                    .ch5
+                    .cfgr2
+                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
             },
             DfsdmChannel::C6 => unsafe {
                 self.regs.ch6.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
-                self.regs.ch6.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs
+                    .ch6
+                    .cfgr2
+                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
             },
             DfsdmChannel::C7 => unsafe {
                 self.regs.ch7.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
-                self.regs.ch7.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs
+                    .ch7
+                    .cfgr2
+                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
             },
         }
     }
@@ -463,7 +496,9 @@ impl<R> Dfsdm<R>
         match channel {
             Filter::F0 => self.regs.flt0.cr1.modify(|_, w| w.dfen().clear_bit()),
             Filter::F1 => self.regs.flt1.cr1.modify(|_, w| w.dfen().clear_bit()),
+            #[cfg(not(any(feature = "l4")))]
             Filter::F2 => self.regs.flt2.cr1.modify(|_, w| w.dfen().clear_bit()),
+            #[cfg(not(any(feature = "l4")))]
             Filter::F3 => self.regs.flt3.cr1.modify(|_, w| w.dfen().clear_bit()),
         }
     }
@@ -496,7 +531,7 @@ impl<R> Dfsdm<R>
                     // channel y-1.
                     w.sitp().bits(1)
                 });
-            },
+            }
             DfsdmChannel::C1 => {
                 self.regs.ch1.cfgr1.modify(|_, w| unsafe {
                     w.chinsel().clear_bit();
@@ -507,7 +542,7 @@ impl<R> Dfsdm<R>
                     w.chinsel().set_bit();
                     w.sitp().bits(1)
                 });
-            },
+            }
             DfsdmChannel::C2 => {
                 self.regs.ch2.cfgr1.modify(|_, w| unsafe {
                     w.chinsel().clear_bit();
@@ -518,7 +553,7 @@ impl<R> Dfsdm<R>
                     w.chinsel().set_bit();
                     w.sitp().bits(1)
                 });
-            },
+            }
             DfsdmChannel::C3 => {
                 self.regs.ch3.cfgr1.modify(|_, w| unsafe {
                     w.chinsel().clear_bit();
@@ -529,7 +564,7 @@ impl<R> Dfsdm<R>
                     w.chinsel().set_bit();
                     w.sitp().bits(1)
                 });
-            },
+            }
             _ => unimplemented!(),
         }
 
@@ -547,7 +582,9 @@ impl<R> Dfsdm<R>
         match filter {
             Filter::F0 => self.regs.flt0.cr1.modify(|_, w| w.rswstart().set_bit()),
             Filter::F1 => self.regs.flt1.cr1.modify(|_, w| w.rswstart().set_bit()),
+            #[cfg(not(any(feature = "l4")))]
             Filter::F2 => self.regs.flt2.cr1.modify(|_, w| w.rswstart().set_bit()),
+            #[cfg(not(any(feature = "l4")))]
             Filter::F3 => self.regs.flt3.cr1.modify(|_, w| w.rswstart().set_bit()),
         }
 
@@ -572,7 +609,9 @@ impl<R> Dfsdm<R>
         match filter {
             Filter::F0 => self.regs.flt0.cr1.modify(|_, w| w.jswstart().set_bit()),
             Filter::F1 => self.regs.flt1.cr1.modify(|_, w| w.jswstart().set_bit()),
+            #[cfg(not(any(feature = "l4")))]
             Filter::F2 => self.regs.flt2.cr1.modify(|_, w| w.jswstart().set_bit()),
+            #[cfg(not(any(feature = "l4")))]
             Filter::F3 => self.regs.flt3.cr1.modify(|_, w| w.jswstart().set_bit()),
         }
 
@@ -602,7 +641,9 @@ impl<R> Dfsdm<R>
         match filter {
             Filter::F0 => self.regs.flt0.rdatar.read().rdata().bits(),
             Filter::F1 => self.regs.flt1.rdatar.read().rdata().bits(),
+            #[cfg(not(any(feature = "l4")))]
             Filter::F2 => self.regs.flt2.rdatar.read().rdata().bits(),
+            #[cfg(not(any(feature = "l4")))]
             Filter::F3 => self.regs.flt3.rdatar.read().rdata().bits(),
         }
         // todo: RDATACH to know which channel was converted??
@@ -615,7 +656,9 @@ impl<R> Dfsdm<R>
         match filter {
             Filter::F0 => self.regs.flt0.jdatar.read().jdata().bits(),
             Filter::F1 => self.regs.flt1.jdatar.read().jdata().bits(),
+            #[cfg(not(any(feature = "l4")))]
             Filter::F2 => self.regs.flt2.jdatar.read().jdata().bits(),
+            #[cfg(not(any(feature = "l4")))]
             Filter::F3 => self.regs.flt3.jdatar.read().jdata().bits(),
         }
         // todo: JDATACH to know which channel was converted??
@@ -646,15 +689,15 @@ impl<R> Dfsdm<R>
         // todo: DMA2 support.
 
         #[cfg(any(feature = "f3", feature = "l4"))]
-            let dma_channel = match sai_channel {
-            Filter::F0 => DmaInput::DfsdmF0.dma1_channel(),
-            Filter::F1 => DmaInput::DfsdmF1.dma1_channel(),
+        let dma_channel = match filter {
+            Filter::F0 => DmaInput::Dfsdm1F0.dma1_channel(),
+            Filter::F1 => DmaInput::Dfsdm1F1.dma1_channel(),
         };
 
         #[cfg(feature = "l4")]
         match filter {
-            Filter::F0 => dma.channel_select(DmaInput::DfsdmF0),
-            Filter::F1 => dma.channel_select(DmaInput::DfsdmF1),
+            Filter::F0 => dma.channel_select(DmaInput::Dfsdm1F0),
+            Filter::F1 => dma.channel_select(DmaInput::Dfsdm1F1),
         };
 
         match filter {
@@ -680,7 +723,6 @@ impl<R> Dfsdm<R>
 
         // todo: Do we want this? If so, where?
         // self.start_conversion(filter);
-
 
         #[cfg(feature = "h7")]
         let len = len as u32;
@@ -725,6 +767,7 @@ impl<R> Dfsdm<R>
                     DfsdmInterrupt::ChannelClockAbsense => w.ckabie().set_bit(),
                 });
             }
+            #[cfg(not(any(feature = "l4")))]
             Filter::F2 => {
                 self.regs.flt2.cr2.modify(|_, w| match interrupt_type {
                     DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),
@@ -736,6 +779,7 @@ impl<R> Dfsdm<R>
                     DfsdmInterrupt::ChannelClockAbsense => w.ckabie().set_bit(),
                 });
             }
+            #[cfg(not(any(feature = "l4")))]
             Filter::F3 => {
                 self.regs.flt3.cr2.modify(|_, w| match interrupt_type {
                     DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),

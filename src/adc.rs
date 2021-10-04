@@ -19,11 +19,11 @@ use paste::paste;
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
-feature = "f3",
-feature = "l4",
-feature = "g4",
-feature = "h7",
-feature = "wb"
+    feature = "f3",
+    feature = "l4",
+    feature = "g4",
+    feature = "h7",
+    feature = "wb"
 ))]
 use crate::pac::dma1 as dma_p;
 

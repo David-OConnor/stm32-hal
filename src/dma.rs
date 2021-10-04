@@ -1370,7 +1370,8 @@ where
                         DmaInterrupt::FifoError => self.regs.hifcr.write(|w| w.cfeif7().set_bit()),
                     }
                 }
-            } else {
+                // todo: G0 PAC 0.14 had a reversion where these flags used to work, but now don't.
+            } else if #[cfg(not(feature = "g0"))] {
                 self.regs.ifcr.write(|w| match channel {
                     DmaChannel::C1 => match interrupt {
                         DmaInterrupt::TransferError => w.cteif1().set_bit(),
