@@ -1100,7 +1100,8 @@ where
         atomic::compiler_fence(Ordering::SeqCst);
     }
 
-    #[cfg(not(feature = "h7"))]
+    // todo: G0 removed from this fn due to a bug introduced in PAC 0.13
+    #[cfg(not(any(feature = "h7", feature = "g0")))]
     pub fn transfer_is_complete(&mut self, channel: DmaChannel) -> bool {
         let isr_val = self.regs.isr.read();
         match channel {
