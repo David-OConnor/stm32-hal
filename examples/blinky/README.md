@@ -73,7 +73,7 @@ Let's incorporate that into `Cargo.toml`:
 ```
 [dependencies]
 cortex-m = "0.7.3"
-cortex-m-rt = "0.6.15"
+cortex-m-rt = "0.7.0"
 ```
 
 Now the very important part - stm32-hal2 dependency. As I already mentioned before, this library can talk to multiple boards with a similar API. This means that when you're configuring your project, you need to make sure
@@ -107,7 +107,7 @@ edition = "2018"
 
 [dependencies]
 cortex-m = "0.7.3"
-cortex-m-rt = "0.6.15"
+cortex-m-rt = "0.7.0"
 stm32-hal2 = { version = "^0.2.11", features = ["f401", "f4rt"]}
 ```
 

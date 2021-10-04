@@ -239,7 +239,7 @@ where
                 SpiDevice::Three => {
                     cfg_if! {
                         // Note `sp3en` mixed with `spi3rst`; why we can't use the usual macro.
-                        if #[cfg(any(feature = "l4x3", feature = "l5"))] {
+                        if #[cfg(feature = "l5")] {
                             rcc.apb1enr1.modify(|_, w| w.sp3en().set_bit());
                             rcc.apb1rstr1.modify(|_, w| w.spi3rst().set_bit());
                             rcc.apb1rstr1.modify(|_, w| w.spi3rst().clear_bit());

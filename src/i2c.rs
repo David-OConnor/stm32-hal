@@ -253,7 +253,14 @@ where
         };
 
         // This is (offset by 1) which we set as the prescaler.
-        let presc_val = t_i2cclk / presc_const;
+        let mut presc_val = t_i2cclk / presc_const;
+
+        // The tables don't show faster I2C input clocks than 48Mhz, but it often will be.
+        // For example, an 80Mhz APB clock will peg prescaler at its maximum value.
+        // Let's just set it to this max. (Maybe we should use fast mode etc if this is so?)
+        if presc_val > 16 {
+            presc_val = 16;
+        }
 
         // Hit the target freq by setting up t_scll (Period of SCL low)
         // to be half the whole period. These constants

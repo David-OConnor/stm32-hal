@@ -788,6 +788,24 @@ impl Clocks {
         }
     }
 
+    /// Get the SAI1 audio clock freq
+    pub fn sai1_speed(&self) -> u32 {
+        let pll_src = match self.input_src {
+            InputSrc::Pll1(pll_src) => pll_src,
+            InputSrc::Csi => PllSrc::Csi,
+            InputSrc::Hsi(div) => PllSrc::Hsi(div),
+            InputSrc::Hse(freq) => PllSrc::Hse(freq)
+        };
+
+        match self.sai1_src {
+            SaiSrc::Pll1Q => self.pll_input_speed(pll_src, 1) * self.pll1.divn as u32 / self.pll1.divq as u32,
+            SaiSrc::Pll2P => self.pll_input_speed(pll_src, 1) * self.pll2.divn as u32 / self.pll2.divp as u32,
+            SaiSrc::Pll3P => self.pll_input_speed(pll_src, 1) * self.pll3.divn as u32 / self.pll3.divp as u32,
+            SaiSrc::I2sCkin => unimplemented!(),
+            SaiSrc::PerClk => unimplemented!(),
+        }
+    }
+
     pub fn validate_speeds(&self) -> Result<(), SpeedError> {
         // todo: This depends on variant
         // let max_clock = 550_000_000;

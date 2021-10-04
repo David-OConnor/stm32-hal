@@ -13,11 +13,11 @@ use crate::{
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
-    feature = "f3",
-    feature = "l4",
-    feature = "g4",
-    feature = "h7",
-    feature = "wb"
+feature = "f3",
+feature = "l4",
+feature = "g4",
+feature = "h7",
+feature = "wb"
 ))]
 use crate::pac::dma1 as dma_p;
 
@@ -75,12 +75,26 @@ pub enum FilterOrder {
 #[derive(Clone, Copy)]
 #[repr(u8)]
 /// Toggle clock clourse between system and audio clocks. Sets CH0CFGR1 register, CKOUTSRC field.
-/// (todo: Typo from othe rRM??)
 pub enum DfsdmClockSrc {
     /// Source for output clock is from system clock
     SysClk = 0,
     /// Source for output clock is from audio clock
+    /// H7:  Audio clock source is SAI1 clock selected by SAI1SEL[1:0] field in RCC configuration
     AudioClk = 1,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// SPI clock select for a given channel.
+pub enum SpiClock {
+    /// Clock coming from external CKINy input - sampling point according SITP[1:0
+    External = 0,
+    /// Clock coming from internal CKOUT output - sampling point according SITP[1:0]
+    Internal = 1,
+    /// Clock coming from internal CKOUT - sampling point on each second CKOUT falling edge
+    InternalFalling = 2,
+    /// Clock coming from internal CKOUT output - sampling point on each second CKOUT rising edge.
+    InternalRising = 3,
 }
 
 #[derive(Clone, Copy)]
@@ -121,24 +135,42 @@ pub enum Continuous {
 
 /// Configuration for the DFSDM peripheral.
 pub struct DfsdmConfig {
+    /// Set the clock source to Sysclk, or Audio clock. Audio clock appears to be the SAI clock source,
+    /// at least on H7. (?)
+    /// Defaults to Audio clock.
     pub clock_src: DfsdmClockSrc,
-    // pub continuous: Continuous, // todo: Fast, per Example cfg of PDM?
+    /// Sampling frequency. Used to adjust clock divider. Defaults to 48kHz. (48_000_000)
+    pub sampling_freq: u32,
+    /// Sample as one-shot, continuous, or continuous fast-mode. Defaults to continuous fast mode.
     pub continuous: Continuous,
+    /// Sinc filter order. Defaults to Sinc4.
     pub filter_order: FilterOrder,
-    // Sinc filter oversampling ratio. Also known as decimation ratio
+    /// Sinc filter oversampling ratio. Also known as decimation ratio
     pub filter_oversampling_ratio: u16,
-    // Integrator oversampling ratio. Also known as averaging (?) ratio
+    /// Integrator oversampling ratio. Also known as averaging (?) ratio
     pub integrator_oversampling_ratio: u8,
+    /// To have the result aligned to a 24-bit value, each channel defines a number of right bit shifts
+    /// which will be applied on each conversion result (injected or regular) from a given channel.
+    /// The data bit shift number is stored in DTRBS[4:0] bits in DFSDM_CHyCFGR2 register.
+    /// The right bit-shift is rounding the result to nearest integer value. The sign of shifted result is
+    /// maintained, in order to have valid 24-bit signed format of result data.
+    pub right_shift_bits: u8,
+    /// SPI clock select for channel y. Ie internal or external.
+    pub spi_clock: SpiClock,
 }
 
 impl Default for DfsdmConfig {
     fn default() -> Self {
         Self {
             clock_src: DfsdmClockSrc::AudioClk,
+            sampling_freq: 48_000,
             continuous: Continuous::ContinuousFastMode,
             filter_order: FilterOrder::Sinc4, // From the PDM mic AN
             filter_oversampling_ratio: 64,    // From the PDM mic AN
             integrator_oversampling_ratio: 1, // From the PDM mic AN
+            right_shift_bits: 0x02, // From the PDM mic AN
+            // right_shift_bits: 0x00, // From the PDM mic AN
+            spi_clock: SpiClock::Internal,
         }
     }
 }
@@ -151,12 +183,12 @@ pub struct Dfsdm<R> {
 }
 
 impl<R> Dfsdm<R>
-where
-    R: Deref<Target = pac::dfsdm::RegisterBlock>,
+    where
+        R: Deref<Target = pac::dfsdm::RegisterBlock>,
 {
     /// Initialize a DFSDM peripheral, including  enabling and resetting
     /// its RCC peripheral clock.
-    pub fn new(regs: R, config: DfsdmConfig) -> Self {
+    pub fn new(regs: R, config: DfsdmConfig, clock_cfg: &Clocks) -> Self {
         free(|cs| {
             let rcc = unsafe { &(*RCC::ptr()) };
             rcc_en_reset!(apb2, dfsdm1, rcc);
@@ -172,14 +204,28 @@ where
         // PDM mic AN: The clock divider value must respect the following formula:
         // Divider = DFSDM Clock Source / (AUDIO_SAMPLING_FREQUENCY ×
         // DECIMATION_FACTOR)
+        // (Note that for a 3.072Mhz clock , 64 decimation factor and 48K audio, te divider
+        // works out to 1)
         // todo: Temp hardcoding audio sampling ratio to 48_000 and clock speed.
-        let clock_speed = 3_072_000;
-        let audio_sampling_freq = 48_000;
-        let divider = clock_speed / (audio_sampling_freq * config.filter_oversampling_ratio as u32);
 
-        // Note that for the defaults we have here, this actually works out to 1.
-        regs.ch0cfgr1
-            .modify(|_, w| unsafe { w.ckoutsrc().bit(config.clock_src as u8 != 0) });
+        let clock_speed = match config.clock_src {
+            DfsdmClockSrc::SysClk => clock_cfg.sysclk(),
+            // todo: Conflicting docs on if this is apb2 or audio clock, and I'm not sure what audio clock is
+            DfsdmClockSrc::AudioClk => clock_cfg.sai1_speed(),
+        };
+
+        let divider = clock_speed / (config.sampling_freq * config.filter_oversampling_ratio as u32);
+
+        // 1- 255: Defines the division of system clock for the serial clock output for CKOUT signal in range 2 -
+        // 256 (Divider = CKOUTDIV+1).
+        // CKOUTDIV also defines the threshold for a clock absence detection.
+        assert!(divider >= 2); // (1 is invalid. 2 would disable the output clock.)
+
+        regs.ch0.cfgr1
+            .modify(|_, w| unsafe {
+                w.ckoutsrc().bit(config.clock_src as u8 != 0);
+                w.ckoutdiv().bits(divider as u8 - 1)
+            });
 
         // Configuring the input serial interface
         // The following parameters must be configured for the input serial interface:
@@ -203,14 +249,7 @@ where
         // channel analog watchdog filter parameters and channel short-circuit detector
         // parameters. Configurations are defined in CHyAWSCDR register.
 
-        // todo: FOSR config for filter SINC etc.
-
-        // todo: Continuous and fast continuous modes.
-
-        // todo: AN says set continuous
-        // todo Software trigger to start regular conversion
-        // todo no injection.
-        // todo Use Sing 4 or 5 filter. Set this in config. Also
+        // todo: Software trigger
 
         Self { regs, config }
     }
@@ -222,17 +261,21 @@ where
     /// enable bit CHEN in CHyCFGR1 and FLTx enable bit DFEN in
     /// FLTxCR1).
     pub fn enable(&mut self) {
-        self.regs.ch0cfgr1.modify(|_, w| w.dfsdmen().set_bit());
+        // todo temp!
+        // self.regs.ch0.cfgr1.modify(|_, w| unsafe { w.datmpx().bits(2) });
+
+        self.regs.ch0.cfgr1.modify(|_, w| w.dfsdmen().set_bit());
     }
 
     /// Disables the DFSDM peripheral.
     /// DFSDM must be globally disabled (by DFSDMEN=0 in CH0CFGR1) before
     /// stopping the system clock to enter in the STOP mode of the device
     pub fn disable(&mut self) {
-        self.regs.ch0cfgr1.modify(|_, w| w.dfsdmen().clear_bit());
+        self.regs.ch0.cfgr1.modify(|_, w| w.dfsdmen().clear_bit());
     }
 
-    /// Configures and enables the DFSDM filter for a given channel.
+    /// Configures and enables the DFSDM filter for a given channel, and enables
+    /// that channel.
     /// Digital filter x FLTx (x=0..3) is enabled by setting DFEN=1 in the
     /// FLTxCR1 register. Once FLTx is enabled (DFEN=1), both Sincx
     /// digital filter unit and integrator unit are reinitialized.
@@ -240,9 +283,7 @@ where
         // Setting RCONT in the FLTxCR1 register causes regular conversions to execute in
         // continuous mode. RCONT=1 means that the channel selected by RCH[2:0] is converted
         // repeatedly after ‘1’ is written to RSWSTART.
-        // RM0433 Rev 7 1153/3319
-        // RM0433 Digital filter for sigma delta modulators (DFSDM)
-        // 1184
+
         // The regular conversions executing in continuous mode can be stopped by writing ‘0’ to
         // RCONT. After clearing RCONT, the on-going conversion is stopped immediately.
         // In continuous mode, the data rate can be increased by setting the FAST bit in the
@@ -279,81 +320,138 @@ where
 
         assert!(self.config.filter_oversampling_ratio <= 1_023);
 
+        // DFSDM on-off control
+        // The DFSDM interface is globally enabled by setting DFSDMEN=1 in the
+        // DFSDM_CH0CFGR1 register. Once DFSDM is globally enabled, all input channels (y=0..7)
+        // and digital filters DFSDM_FLTx (x=0..3) start to work if their enable bits are set (channel
+        // enable bit CHEN in DFSDM_CHyCFGR1 and DFSDM_FLTx enable bit DFEN in
+        // DFSDM_FLTxCR1).
+        // Digital filter x DFSDM_FLTx (x=0..3) is enabled by setting DFEN=1 in the
+        // DFSDM_FLTxCR1 register. Once DFSDM_FLTx is enabled (DFEN=1), both Sincx
+        // digital filter unit and integrator unit are reinitialized.
+
         match filter {
             Filter::F0 => {
-                self.regs.flt0cr1.modify(|_, w| unsafe {
+                self.regs.flt0.fcr.modify(|_, w| unsafe {
+                    w.ford().bits(self.config.filter_order as u8);
+                    w.fosr().bits(self.config.filter_oversampling_ratio - 1);
+                    w.iosr().bits(self.config.integrator_oversampling_ratio - 1)
+                });
+                self.regs.flt0.cr1.modify(|_, w| unsafe {
                     w.rcont().bit(self.config.continuous != Continuous::OneShot);
                     w.fast()
                         .bit(self.config.continuous == Continuous::ContinuousFastMode);
                     w.rch().bits(channel as u8);
                     w.dfen().set_bit()
                 });
-                self.regs.flt0fcr.modify(|_, w| unsafe {
-                    w.ford().bits(self.config.filter_order as u8);
-                    w.fosr().bits(self.config.filter_oversampling_ratio);
-                    w.iosr().bits(self.config.integrator_oversampling_ratio)
-                })
             }
             Filter::F1 => {
-                self.regs.flt1cr1.modify(|_, w| unsafe {
+                self.regs.flt1.fcr.modify(|_, w| unsafe {
+                    w.ford().bits(self.config.filter_order as u8);
+                    w.fosr().bits(self.config.filter_oversampling_ratio - 1);
+                    w.iosr().bits(self.config.integrator_oversampling_ratio - 1)
+                });
+                self.regs.flt1.cr1.modify(|_, w| unsafe {
                     w.rcont().bit(self.config.continuous != Continuous::OneShot);
                     w.fast()
                         .bit(self.config.continuous == Continuous::ContinuousFastMode);
                     w.rch().bits(channel as u8);
                     w.dfen().set_bit()
                 });
-                self.regs.flt1fcr.modify(|_, w| unsafe {
-                    w.ford().bits(self.config.filter_order as u8);
-                    w.fosr().bits(self.config.filter_oversampling_ratio);
-                    w.iosr().bits(self.config.integrator_oversampling_ratio)
-                })
+
             }
             Filter::F2 => {
-                self.regs.flt2cr1.modify(|_, w| unsafe {
+                self.regs.flt2.fcr.modify(|_, w| unsafe {
+                    w.ford().bits(self.config.filter_order as u8);
+                    w.fosr().bits(self.config.filter_oversampling_ratio - 1);
+                    w.iosr().bits(self.config.integrator_oversampling_ratio - 1)
+                });
+                self.regs.flt2.cr1.modify(|_, w| unsafe {
                     w.rcont().bit(self.config.continuous != Continuous::OneShot);
                     w.fast()
                         .bit(self.config.continuous == Continuous::ContinuousFastMode);
                     w.rch().bits(channel as u8);
                     w.dfen().set_bit()
                 });
-                self.regs.flt2fcr.modify(|_, w| unsafe {
-                    w.ford().bits(self.config.filter_order as u8);
-                    w.fosr().bits(self.config.filter_oversampling_ratio);
-                    w.iosr().bits(self.config.integrator_oversampling_ratio)
-                })
+
             }
             Filter::F3 => {
-                self.regs.flt3cr1.modify(|_, w| unsafe {
+                self.regs.flt3.fcr.modify(|_, w| unsafe {
+                    w.ford().bits(self.config.filter_order as u8);
+                    w.fosr().bits(self.config.filter_oversampling_ratio - 1);
+                    w.iosr().bits(self.config.integrator_oversampling_ratio - 1)
+                });
+                self.regs.flt3.cr1.modify(|_, w| unsafe {
                     w.rcont().bit(self.config.continuous != Continuous::OneShot);
                     w.fast()
                         .bit(self.config.continuous == Continuous::ContinuousFastMode);
                     w.rch().bits(channel as u8);
                     w.dfen().set_bit()
                 });
-                self.regs.flt3fcr.modify(|_, w| unsafe {
-                    w.ford().bits(self.config.filter_order as u8);
-                    w.fosr().bits(self.config.filter_oversampling_ratio);
-                    w.iosr().bits(self.config.integrator_oversampling_ratio)
-                })
             }
         }
 
+        // Channel y (y=0..7) is enabled by setting CHEN=1 in the DFSDM_CHyCFGR1 register.
+        // Once the channel is enabled, it receives serial data from the external Σ∆ modulator or
+        // parallel internal data sources (ADCs or CPU/DMA wire from memory).
+
         match channel {
-            DfsdmChannel::C0 => self.regs.flt0cr1.modify(|_, w| unsafe {
-                w.rcont().bit(self.config.continuous != Continuous::OneShot);
-                w.fast()
-                    .bit(self.config.continuous == Continuous::ContinuousFastMode);
-                w.rch().bits(channel as u8);
-                w.dfen().set_bit()
-            }),
-            DfsdmChannel::C1 => self.regs.flt1cr1.modify(|_, w| unsafe {
-                w.rcont().bit(self.config.continuous != Continuous::OneShot);
-                w.fast()
-                    .bit(self.config.continuous == Continuous::ContinuousFastMode);
-                w.rch().bits(channel as u8);
-                w.dfen().set_bit()
-            }),
-            _ => unimplemented!(),
+            DfsdmChannel::C0 => unsafe {
+                self.regs.ch0.cfgr1.modify(|_, w| {
+                    w.spicksel().bits(self.config.spi_clock as u8);
+                    w.chen().set_bit()
+                });
+                self.regs.ch0.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+            },
+            DfsdmChannel::C1 => unsafe {
+                self.regs.ch1.cfgr1.modify(|_, w| {
+                    w.spicksel().bits(self.config.spi_clock as u8);
+                    w.chen().set_bit()
+                });
+                self.regs.ch1.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+            },
+            DfsdmChannel::C2 => unsafe {
+                self.regs.ch2.cfgr1.modify(|_, w| {
+                    w.spicksel().bits(self.config.spi_clock as u8);
+                    w.chen().set_bit()
+                });
+                self.regs.ch2.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+            },
+            DfsdmChannel::C3 => unsafe {
+                self.regs.ch3.cfgr1.modify(|_, w| {
+                    w.spicksel().bits(self.config.spi_clock as u8);
+                    w.chen().set_bit()
+                });
+                self.regs.ch3.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+            },
+            DfsdmChannel::C4 => unsafe {
+                self.regs.ch4.cfgr1.modify(|_, w| {
+                    w.spicksel().bits(self.config.spi_clock as u8);
+                    w.chen().set_bit()
+                });
+                self.regs.ch4.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+            },
+            DfsdmChannel::C5 => unsafe {
+                self.regs.ch5.cfgr1.modify(|_, w| {
+                    w.spicksel().bits(self.config.spi_clock as u8);
+                    w.chen().set_bit()
+                });
+                self.regs.ch5.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+            },
+            DfsdmChannel::C6 => unsafe {
+                self.regs.ch6.cfgr1.modify(|_, w| {
+                    w.spicksel().bits(self.config.spi_clock as u8);
+                    w.chen().set_bit()
+                });
+                self.regs.ch6.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+            },
+            DfsdmChannel::C7 => unsafe {
+                self.regs.ch7.cfgr1.modify(|_, w| {
+                    w.spicksel().bits(self.config.spi_clock as u8);
+                    w.chen().set_bit()
+                });
+                self.regs.ch7.cfgr2.modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+            },
         }
     }
 
@@ -363,10 +461,10 @@ where
     /// FLTxAWSR and FLTxISR (which are reset).
     pub fn disable_filter(&mut self, channel: Filter) {
         match channel {
-            Filter::F0 => self.regs.flt0cr1.modify(|_, w| w.dfen().clear_bit()),
-            Filter::F1 => self.regs.flt1cr1.modify(|_, w| w.dfen().clear_bit()),
-            Filter::F2 => self.regs.flt2cr1.modify(|_, w| w.dfen().clear_bit()),
-            Filter::F3 => self.regs.flt3cr1.modify(|_, w| w.dfen().clear_bit()),
+            Filter::F0 => self.regs.flt0.cr1.modify(|_, w| w.dfen().clear_bit()),
+            Filter::F1 => self.regs.flt1.cr1.modify(|_, w| w.dfen().clear_bit()),
+            Filter::F2 => self.regs.flt2.cr1.modify(|_, w| w.dfen().clear_bit()),
+            Filter::F3 => self.regs.flt3.cr1.modify(|_, w| w.dfen().clear_bit()),
         }
     }
 
@@ -378,68 +476,63 @@ where
         // • PDM microphone signals (data, clock) will be connected to DFSDM input serial channel
         // y (DATINy, CKOUT) pins.
         // (Handled by hardware connections and GPIO config)
-        // • Channel y will be configured: CHINSEL = 0 (input from given channel pins: DATINy,
-        // CKINy).
-        // todo: Consolidate these calls if you can
 
         match channel {
-            DfsdmChannel::C0 => self.regs.ch0cfgr1.modify(|_, w| w.chinsel().clear_bit()),
-            DfsdmChannel::C1 => self.regs.ch1cfgr1.modify(|_, w| w.chinsel().clear_bit()),
-            DfsdmChannel::C2 => self.regs.ch2cfgr1.modify(|_, w| w.chinsel().clear_bit()),
-            DfsdmChannel::C3 => self.regs.ch3cfgr1.modify(|_, w| w.chinsel().clear_bit()),
+            DfsdmChannel::C0 => {
+                self.regs.ch0.cfgr1.modify(|_, w| unsafe {
+                    // • Channel y will be configured: CHINSEL = 0 (input from given channel pins: DATINy,
+                    // CKINy).
+                    w.chinsel().clear_bit();
+                    // • Channel y: SITP[1:0] = 0 (rising edge to strobe data) => left audio channel on channel
+                    // y.
+                    w.sitp().bits(0)
+                });
+
+                self.regs.ch7.cfgr1.modify(|_, w| unsafe {
+                    // • Channel (y-1) (modulo 8) will be configured: CHINSEL = 1 (input from the following
+                    // channel ((y-1)+1) pins: DATINy, CKINy).
+                    w.chinsel().set_bit();
+                    // • Channel (y-1): SITP[1:0] = 1 (falling edge to strobe data) => right audio channel on
+                    // channel y-1.
+                    w.sitp().bits(1)
+                });
+            },
+            DfsdmChannel::C1 => {
+                self.regs.ch1.cfgr1.modify(|_, w| unsafe {
+                    w.chinsel().clear_bit();
+                    w.sitp().bits(0)
+                });
+
+                self.regs.ch0.cfgr1.modify(|_, w| unsafe {
+                    w.chinsel().set_bit();
+                    w.sitp().bits(1)
+                });
+            },
+            DfsdmChannel::C2 => {
+                self.regs.ch2.cfgr1.modify(|_, w| unsafe {
+                    w.chinsel().clear_bit();
+                    w.sitp().bits(0)
+                });
+
+                self.regs.ch1.cfgr1.modify(|_, w| unsafe {
+                    w.chinsel().set_bit();
+                    w.sitp().bits(1)
+                });
+            },
+            DfsdmChannel::C3 => {
+                self.regs.ch3.cfgr1.modify(|_, w| unsafe {
+                    w.chinsel().clear_bit();
+                    w.sitp().bits(0)
+                });
+
+                self.regs.ch2.cfgr1.modify(|_, w| unsafe {
+                    w.chinsel().set_bit();
+                    w.sitp().bits(1)
+                });
+            },
             _ => unimplemented!(),
         }
-        // • Channel (y-1) (modulo 8) will be configured: CHINSEL = 1 (input from the following
-        // channel ((y-1)+1) pins: DATINy, CKINy).
-        match channel {
-            DfsdmChannel::C0 => self.regs.ch0cfgr1.modify(|_, w| w.chinsel().set_bit()),
-            DfsdmChannel::C1 => self.regs.ch1cfgr1.modify(|_, w| w.chinsel().set_bit()),
-            DfsdmChannel::C2 => self.regs.ch2cfgr1.modify(|_, w| w.chinsel().set_bit()),
-            DfsdmChannel::C3 => self.regs.ch3cfgr1.modify(|_, w| w.chinsel().set_bit()),
-            _ => unimplemented!(),
-        }
-        // • Channel y: SITP[1:0] = 0 (rising edge to strobe data) => left audio channel on channel
-        // y.
-        match channel {
-            DfsdmChannel::C0 => self
-                .regs
-                .ch0cfgr1
-                .modify(|_, w| unsafe { w.sitp().bits(0) }),
-            DfsdmChannel::C1 => self
-                .regs
-                .ch1cfgr1
-                .modify(|_, w| unsafe { w.sitp().bits(0) }),
-            DfsdmChannel::C2 => self
-                .regs
-                .ch2cfgr1
-                .modify(|_, w| unsafe { w.sitp().bits(0) }),
-            DfsdmChannel::C3 => self
-                .regs
-                .ch3cfgr1
-                .modify(|_, w| unsafe { w.sitp().bits(0) }),
-            _ => unimplemented!(),
-        }
-        // • Channel (y-1): SITP[1:0] = 1 (falling edge to strobe data) => right audio channel on
-        // channel y-1.
-        match channel {
-            DfsdmChannel::C0 => self
-                .regs
-                .ch0cfgr1
-                .modify(|_, w| unsafe { w.sitp().bits(1) }),
-            DfsdmChannel::C1 => self
-                .regs
-                .ch1cfgr1
-                .modify(|_, w| unsafe { w.sitp().bits(1) }),
-            DfsdmChannel::C2 => self
-                .regs
-                .ch2cfgr1
-                .modify(|_, w| unsafe { w.sitp().bits(1) }),
-            DfsdmChannel::C3 => self
-                .regs
-                .ch3cfgr1
-                .modify(|_, w| unsafe { w.sitp().bits(1) }),
-            _ => unimplemented!(),
-        }
+
         // • Two DFSDM DfsdmChannels will be assigned to channel y and channel (y-1) (to DfsdmChannel left and
         // right channels from PDM microphone).
     }
@@ -452,10 +545,10 @@ where
         // Regular conversions can be launched using the following methods:
         // • Software: by writing ‘1’ to RSWSTART in the FLTxCR1 register.
         match filter {
-            Filter::F0 => self.regs.flt0cr1.modify(|_, w| w.rswstart().set_bit()),
-            Filter::F1 => self.regs.flt1cr1.modify(|_, w| w.rswstart().set_bit()),
-            Filter::F2 => self.regs.flt2cr1.modify(|_, w| w.rswstart().set_bit()),
-            Filter::F3 => self.regs.flt3cr1.modify(|_, w| w.rswstart().set_bit()),
+            Filter::F0 => self.regs.flt0.cr1.modify(|_, w| w.rswstart().set_bit()),
+            Filter::F1 => self.regs.flt1.cr1.modify(|_, w| w.rswstart().set_bit()),
+            Filter::F2 => self.regs.flt2.cr1.modify(|_, w| w.rswstart().set_bit()),
+            Filter::F3 => self.regs.flt3.cr1.modify(|_, w| w.rswstart().set_bit()),
         }
 
         // • Synchronous with FLT0 if RSYNC=1: for FLTx (x>0), a regular
@@ -477,10 +570,10 @@ where
         // Injected conversions can be launched using the following methods:
         // • Software: writing ‘1’ to JSWSTART in the FLTxCR1 register.
         match filter {
-            Filter::F0 => self.regs.flt0cr1.modify(|_, w| w.jswstart().set_bit()),
-            Filter::F1 => self.regs.flt1cr1.modify(|_, w| w.jswstart().set_bit()),
-            Filter::F2 => self.regs.flt2cr1.modify(|_, w| w.jswstart().set_bit()),
-            Filter::F3 => self.regs.flt3cr1.modify(|_, w| w.jswstart().set_bit()),
+            Filter::F0 => self.regs.flt0.cr1.modify(|_, w| w.jswstart().set_bit()),
+            Filter::F1 => self.regs.flt1.cr1.modify(|_, w| w.jswstart().set_bit()),
+            Filter::F2 => self.regs.flt2.cr1.modify(|_, w| w.jswstart().set_bit()),
+            Filter::F3 => self.regs.flt3.cr1.modify(|_, w| w.jswstart().set_bit()),
         }
 
         // • Trigger: JEXTSEL[4:0] selects the trigger signal while JEXTEN activates the trigger
@@ -507,10 +600,10 @@ where
     /// Read regular conversion data from the FLTxRDATAR register. Suitable for use after a conversion is complete.
     pub fn read(&self, filter: Filter) -> u32 {
         match filter {
-            Filter::F0 => self.regs.flt0rdatar.read().rdata().bits(),
-            Filter::F1 => self.regs.flt1rdatar.read().rdata().bits(),
-            Filter::F2 => self.regs.flt2rdatar.read().rdata().bits(),
-            Filter::F3 => self.regs.flt3rdatar.read().rdata().bits(),
+            Filter::F0 => self.regs.flt0.rdatar.read().rdata().bits(),
+            Filter::F1 => self.regs.flt1.rdatar.read().rdata().bits(),
+            Filter::F2 => self.regs.flt2.rdatar.read().rdata().bits(),
+            Filter::F3 => self.regs.flt3.rdatar.read().rdata().bits(),
         }
         // todo: RDATACH to know which channel was converted??
         // todo isn't this implied to the register we choose to sue?
@@ -520,10 +613,10 @@ where
     /// Suitable for use after a conversion is complete.
     pub fn read_injected(&self, filter: Filter) -> u32 {
         match filter {
-            Filter::F0 => self.regs.flt0jdatar.read().jdata().bits(),
-            Filter::F1 => self.regs.flt1jdatar.read().jdata().bits(),
-            Filter::F2 => self.regs.flt2jdatar.read().jdata().bits(),
-            Filter::F3 => self.regs.flt3jdatar.read().jdata().bits(),
+            Filter::F0 => self.regs.flt0.jdatar.read().jdata().bits(),
+            Filter::F1 => self.regs.flt1.jdatar.read().jdata().bits(),
+            Filter::F2 => self.regs.flt2.jdatar.read().jdata().bits(),
+            Filter::F3 => self.regs.flt3.jdatar.read().jdata().bits(),
         }
         // todo: JDATACH to know which channel was converted??
         // todo isn't this implied to the register we choose to sue?
@@ -531,12 +624,12 @@ where
 
     /// Read data from SAI with DMA. H743 RM, section 30.6: DFSDM DMA transfer
     /// To decrease the CPU intervention, conversions can be transferred into memory using a
-    // DMA transfer. A DMA transfer for injected conversions is enabled by setting bit JDMAEN=1
-    // in FLTxCR1 register. A DMA transfer for regular conversions is enabled by setting
-    // bit RDMAEN=1 in FLTxCR1 register.
-    // Note: With a DMA transfer, the interrupt flag is automatically cleared at the end of the injected or
-    // regular conversion (JEOCF or REOCF bit in FLTxISR register) because DMA is
-    // reading FLTxJDATAR or FLTxRDATAR register
+    /// DMA transfer. A DMA transfer for injected conversions is enabled by setting bit JDMAEN=1
+    /// in FLTxCR1 register. A DMA transfer for regular conversions is enabled by setting
+    /// bit RDMAEN=1 in FLTxCR1 register.
+    /// Note: With a DMA transfer, the interrupt flag is automatically cleared at the end of the injected or
+    /// regular conversion (JEOCF or REOCF bit in FLTxISR register) because DMA is
+    /// reading FLTxJDATAR or FLTxRDATAR register
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     pub unsafe fn read_dma<D>(
         &mut self,
@@ -553,36 +646,41 @@ where
         // todo: DMA2 support.
 
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel = match sai_channel {
-            Filter::F0 => DmaInput::DfsdmCh0.dma1_channel(),
-            Filter::F1 => DmaInput::DfsdmCh1.dma1_channel(),
+            let dma_channel = match sai_channel {
+            Filter::F0 => DmaInput::DfsdmF0.dma1_channel(),
+            Filter::F1 => DmaInput::DfsdmF1.dma1_channel(),
         };
 
         #[cfg(feature = "l4")]
         match filter {
-            Filter::F0 => dma.channel_select(DmaInput::DfsdmCh0),
-            Filter::F1 => dma.channel_select(DmaInput::DfsdmCh1),
+            Filter::F0 => dma.channel_select(DmaInput::DfsdmF0),
+            Filter::F1 => dma.channel_select(DmaInput::DfsdmF1),
         };
 
         match filter {
-            Filter::F0 => self.regs.flt0cr1.modify(|_, w| w.jdmaen().set_bit()),
-            Filter::F1 => self.regs.flt1cr1.modify(|_, w| w.jdmaen().set_bit()),
+            Filter::F0 => self.regs.flt0.cr1.modify(|_, w| w.rdmaen().set_bit()),
+            Filter::F1 => self.regs.flt1.cr1.modify(|_, w| w.rdmaen().set_bit()),
             #[cfg(not(any(feature = "l4")))]
-            Filter::F2 => self.regs.flt2cr1.modify(|_, w| w.jdmaen().set_bit()),
+            Filter::F2 => self.regs.flt2.cr1.modify(|_, w| w.rdmaen().set_bit()),
             #[cfg(not(any(feature = "l4")))]
-            Filter::F3 => self.regs.flt3cr1.modify(|_, w| w.jdmaen().set_bit()),
+            Filter::F3 => self.regs.flt3.cr1.modify(|_, w| w.rdmaen().set_bit()),
         }
 
-        // todo: Injected?
-
         let periph_addr = match filter {
-            Filter::F0 => &self.regs.flt0rdatar as *const _ as u32,
-            Filter::F1 => &self.regs.flt1rdatar as *const _ as u32,
+            Filter::F0 => &self.regs.flt0.rdatar as *const _ as u32,
+            Filter::F1 => &self.regs.flt1.rdatar as *const _ as u32,
             #[cfg(not(any(feature = "l4")))]
-            Filter::F2 => &self.regs.flt2rdatar as *const _ as u32,
+            Filter::F2 => &self.regs.flt2.rdatar as *const _ as u32,
             #[cfg(not(any(feature = "l4")))]
-            Filter::F3 => &self.regs.flt3rdatar as *const _ as u32,
+            Filter::F3 => &self.regs.flt3.rdatar as *const _ as u32,
         };
+
+        // todo: Injected support. Should just need to add the option flag and enable `jdmaen()` bits
+        // todo instead of `rdmaen()`, and use the `jdatar` periph addr.
+
+        // todo: Do we want this? If so, where?
+        // self.start_conversion(filter);
+
 
         #[cfg(feature = "h7")]
         let len = len as u32;
@@ -606,7 +704,7 @@ where
         // todo: Macro to reduce DRY here?
         match channel {
             Filter::F0 => {
-                self.regs.flt0cr2.modify(|_, w| match interrupt_type {
+                self.regs.flt0.cr2.modify(|_, w| match interrupt_type {
                     DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),
                     DfsdmInterrupt::EndOfConversion => w.reocie().set_bit(),
                     DfsdmInterrupt::DataOverrunInjected => w.jovrie().set_bit(),
@@ -617,7 +715,7 @@ where
                 });
             }
             Filter::F1 => {
-                self.regs.flt1cr2.modify(|_, w| match interrupt_type {
+                self.regs.flt1.cr2.modify(|_, w| match interrupt_type {
                     DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),
                     DfsdmInterrupt::EndOfConversion => w.reocie().set_bit(),
                     DfsdmInterrupt::DataOverrunInjected => w.jovrie().set_bit(),
@@ -628,7 +726,7 @@ where
                 });
             }
             Filter::F2 => {
-                self.regs.flt2cr2.modify(|_, w| match interrupt_type {
+                self.regs.flt2.cr2.modify(|_, w| match interrupt_type {
                     DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),
                     DfsdmInterrupt::EndOfConversion => w.reocie().set_bit(),
                     DfsdmInterrupt::DataOverrunInjected => w.jovrie().set_bit(),
@@ -639,7 +737,7 @@ where
                 });
             }
             Filter::F3 => {
-                self.regs.flt3cr2.modify(|_, w| match interrupt_type {
+                self.regs.flt3.cr2.modify(|_, w| match interrupt_type {
                     DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),
                     DfsdmInterrupt::EndOfConversion => w.reocie().set_bit(),
                     DfsdmInterrupt::DataOverrunInjected => w.jovrie().set_bit(),

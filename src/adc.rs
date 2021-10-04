@@ -18,7 +18,13 @@ use paste::paste;
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
-#[cfg(any(feature = "f3", feature = "l4", feature = "g4", feature = "h7"))]
+#[cfg(any(
+feature = "f3",
+feature = "l4",
+feature = "g4",
+feature = "h7",
+feature = "wb"
+))]
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "f4", feature = "l5")))]
@@ -828,6 +834,9 @@ macro_rules! hal {
             /// Read data from a conversion. In OneShot mode, this will generally be run right
             /// after `start_conversion`.
             pub fn read_result(&mut self) -> u16 {
+                #[cfg(feature = "l4")]
+                return self.regs.dr.read().bits() as u16;
+                #[cfg(not(feature = "l4"))]
                 self.regs.dr.read().rdata().bits()
             }
 
@@ -839,7 +848,8 @@ macro_rules! hal {
 
             // todo: fn read_voltage, using vrefint and L4xx-hal style calibration?
 
-            #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
+            // todo: H7 having issues with adc3 etc. Fix at least for adc1 and 2.
+            #[cfg(not(any(feature = "g0", feature = "f4", feature = "h7", feature = "l5")))]
             /// Take a one shot reading, using DMA. See L44 RM, 16.4.27: "DMA one shot mode".
             /// Note that the `channel` argument is only used on F3 and L4.
             pub unsafe fn read_dma<D>(
@@ -851,8 +861,6 @@ macro_rules! hal {
             ) where
                 D: Deref<Target = dma_p::RegisterBlock>,
             {
-                // todo: Continuous / circular etc DMA!
-
                 let (ptr, len) = (buf.as_mut_ptr(), buf.len());
                 // The software is allowed to write (dmaen and dmacfg) only when ADSTART=0 and JADSTART=0 (which
                 // ensures that no conversion is ongoing)
@@ -921,11 +929,16 @@ macro_rules! hal {
                 // • Scan sequence is stopped and reset.
                 // • The DMA is stopped.
 
+                #[cfg(feature = "h7")]
+                let len = len as u32;
+                #[cfg(not(feature = "h7"))]
+                let len = len as u16;
+
                 dma.cfg_channel(
                     dma_channel,
                     &self.regs.dr as *const _ as u32,
                     ptr as u32,
-                    len as u16,
+                    len,
                     dma::Direction::ReadFromPeriph,
                     dma::DataSize::S16,
                     dma::DataSize::S16,

@@ -10,7 +10,7 @@ defmt = "0.2.3"
 defmt-rtt = "0.2.0"
 
 cortex-m = "0.7.3"
-cortex-m-rt = "0.6.15"
+cortex-m-rt = "0.7.0"
 stm32-hal2 = { version = "^1.2.0", features = ["f401", "f4rt"]}
 
 [features]
