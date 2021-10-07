@@ -14,7 +14,7 @@ use cortex_m::{
 use cortex_m_rt::entry;
 
 use stm32_hal2::{
-    adc::{Adc, AdcChannel, AdcInterrupt, Align, ClockMode, InputType, OperationMode, SampleTime},
+    adc::{Adc, AdcChannel, AdcDevice, AdcInterrupt, Align, ClockMode, InputType, OperationMode, SampleTime},
     clocks::Clocks,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
@@ -42,7 +42,7 @@ fn main() -> ! {
     // but not all)
     let _adc_pin = Pin::new(Port::B, 0, PinMode::Analog);
 
-    let mut adc = Adc::new_adc1(dp.ADC1, Default::default(), &clock_cfg);
+    let mut adc = Adc::new_adc1(dp.ADC1, AdcDevice::One, Default::default(), &clock_cfg);
 
     // 1: Confiuration options:
 

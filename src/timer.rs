@@ -839,6 +839,7 @@ cfg_if! {
         feature = "f401",
         feature = "f410",
         feature = "f411",
+        feature = "f413",
         feature = "g031",
         feature = "g041",
         feature = "g070",
