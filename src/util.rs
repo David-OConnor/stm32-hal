@@ -32,7 +32,7 @@ cfg_if::cfg_if! {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(any(feature = "l5", feature = "g0"))] {
+    if #[cfg(any(feature = "l5", feature = "g0", feature = "wl"))] {
         use crate::pac::ADC as ADC1;
 
     } else {
@@ -431,6 +431,9 @@ cfg_if::cfg_if! {
     } else {
         impl RccPeriph for DAC1 {
             fn en_reset(rcc: &RegisterBlock) {
+                #[cfg(feature = "wl")]
+                rcc.apb1enr1.modify(|_, w| w.dac1en().set_bit());
+                #[cfg(not(feature = "wl"))]
                 rcc_en_reset!(apb1, dac1, rcc);
             }
         }

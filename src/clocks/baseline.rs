@@ -751,6 +751,9 @@ impl Clocks {
 
         rcc.cr.modify(|_, w| {
             // Enable bypass mode on HSE, since we're using a ceramic oscillator.
+            #[cfg(feature = "wl")]
+            return w.hsebyppwr().bit(self.hse_bypass);
+            #[cfg(not(feature = "wl"))]
             w.hsebyp().bit(self.hse_bypass)
         });
 

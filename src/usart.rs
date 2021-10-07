@@ -467,11 +467,8 @@ where
                     w.addm7().set_bit();
                     // Set the character to detect
                     cfg_if! {
-                        if #[cfg(any(feature = "f3", feature = "l4", feature = "h7"))] {
+                        if #[cfg(any(feature = "f3", feature = "l4", feature = "h7", feature = "wl"))] {
                             w.add().bits(char)
-                        } else if #[cfg(feature = "wl")] {
-                            w.add3_0().bits(char & 0b1111);
-                            w.add7_4().bits(char & (0b1111 << 4))
                         } else { // todo: Is this right, or backwards?
                             w.add0_3().bits(char & 0b1111);
                             w.add4_7().bits(char & (0b1111 << 4))
