@@ -12,10 +12,7 @@ use crate::{
     rcc_en_reset,
 };
 
-#[cfg(not(feature = "g4"))]
 use crate::pac::USB;
-#[cfg(feature = "g4")]
-use crate::pac::USB_FS_DEVICE as USB;
 
 pub use stm32_usbd::UsbBus;
 use stm32_usbd::UsbPeripheral;
