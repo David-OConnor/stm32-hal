@@ -22,9 +22,9 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     self,
     clocks::Clocks,
-    dac::{Dac, DacBits, DacChannel, DacDevice},
+    dac::{Dac, DacBits, DacChannel},
     gpio::{OutputType, Pin, PinMode, Port},
-    i2c::{I2c, I2cDevice},
+    i2c::I2c,
     low_power,
     pac::{self, interrupt, I2C1, USART1},
     prelude::*,
@@ -104,7 +104,7 @@ fn main() -> ! {
     setup_pins();
 
     // Set up I2C for the TI ADS1115 ADC.
-    let i2c = I2c::new(dp.I2C1, I2cDevice::One, Default::default(), &clock_cfg);
+    let i2c = I2c::new(dp.I2C1, Default::default(), &clock_cfg);
 
     // todo: Once on new QFN MCU: Gain 0, 1, 2 -> PA6, PA7, PB0
     // Set up pins used to control the gain-resistor-selecting multiplexer.
@@ -116,7 +116,7 @@ fn main() -> ! {
 
     // todo: Precision voltage ref on VDDA and VSSA, to improve accuracy?
     // set up the DAC, to control voltage into the conductivity circuit.
-    let dac = Dac::new(dp.DAC1, DacDevice::One, DacBits::TwelveR, 3.3);
+    let dac = Dac::new(dp.DAC1, DacBits::TwelveR, 3.3);
 
     // `pwm_timer` is used to change polarity-switching rate of the excitation
     // current across the probe terminals, using an analog switch.

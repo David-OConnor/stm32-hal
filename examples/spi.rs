@@ -21,7 +21,7 @@ use stm32_hal2::{
     low_power,
     pac::{self, interrupt},
     prelude::*,
-    spi::{self, BaudRate, Spi, SpiConfig, SpiDevice, SpiMode},
+    spi::{self, BaudRate, Spi, SpiConfig, SpiMode},
 };
 
 make_globals!((SPI, Spi<SPI1>), (DMA, Dma<DMA1>),);
@@ -58,7 +58,6 @@ fn main() -> ! {
     // Set up an SPI peripheral, running at 4Mhz, in SPI mode 0.
     let spi = Spi::new(
         dp.SPI1,
-        SpiDevice::One,
         spi_cfg,
         BaudRate::Div32, // Eg 80Mhz apb clock / 32 = 2.5Mhz SPI clock.
     );

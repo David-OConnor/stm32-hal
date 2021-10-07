@@ -659,7 +659,7 @@ where
 
         // Each SLOTEN bit corresponds to a slot position from 0 to 15 (maximum 16 slots).
         // So, to enable the first 2 slots, we set 0b11. The code below calculates this.
-        let slot_en_bits = (2_u16.pow(config_a.num_slots as u32) - 1);
+        let slot_en_bits = 2_u16.pow(config_a.num_slots as u32) - 1;
         // let slot_en_bits = 0xF; // todo TS
         regs.cha.slotr.modify(|_, w| unsafe {
             w.sloten().bits(slot_en_bits);

@@ -14,7 +14,9 @@ use stm32_hal2::{
     clocks::Clocks,
     gpio::{Edge, Pin, PinMode, Port},
     low_power, pac,
-    timer::{CountDir, OutputCompare, TimChannel, Timer, TimerInterrupt},
+    timer::{
+        BasicTimer, CountDir, MasterModeSelection, OutputCompare, TimChannel, Timer, TimerInterrupt,
+    },
 };
 
 #[entry]
@@ -53,6 +55,17 @@ fn main() -> ! {
     // used in `set_freq`.
     pwm_timer.set_auto_reload(100);
     pwm_timer.set_prescaler(100);
+
+    // Set up a basic timer, eg for DAC triggering
+    let mut dac_timer = BasicTimer::new(
+        dp.TIM6,
+        clock_cfg.sai1_speed() as f32 / (64. * 8.),
+        &clock_cfg,
+    );
+
+    //  The update event is selected as a trigger output (TRGO). For instance a
+    // master timer can then be used as a prescaler for a slave timer.
+    dac_timer.set_mastermode(MasterModeSelection::Update);
 
     // Unmask the interrupt line.
     unsafe {

@@ -215,7 +215,6 @@ where
         // DECIMATION_FACTOR)
         // (Note that for a 3.072Mhz clock , 64 decimation factor and 48K audio, te divider
         // works out to 1)
-        // todo: Temp hardcoding audio sampling ratio to 48_000 and clock speed.
 
         let clock_speed = match config.clock_src {
             DfsdmClockSrc::SysClk => clock_cfg.sysclk(),
@@ -646,8 +645,6 @@ where
             #[cfg(not(any(feature = "l4")))]
             Filter::F3 => self.regs.flt3.rdatar.read().rdata().bits(),
         }
-        // todo: RDATACH to know which channel was converted??
-        // todo isn't this implied to the register we choose to sue?
     }
 
     /// Read injected conversion data from the FLTxJDATAR register.
@@ -717,6 +714,7 @@ where
             #[cfg(not(any(feature = "l4")))]
             Filter::F3 => &self.regs.flt3.rdatar as *const _ as u32,
         };
+        // let periph_addr = ch1.datinr as *const _ as u32; // todo try it
 
         // todo: Injected support. Should just need to add the option flag and enable `jdmaen()` bits
         // todo instead of `rdmaen()`, and use the `jdatar` periph addr.

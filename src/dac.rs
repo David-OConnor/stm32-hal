@@ -6,7 +6,7 @@ use cortex_m::{delay::Delay, interrupt::free};
 
 use crate::{
     pac::{self, RCC},
-    rcc_en_reset,
+    util::RccPeriph,
 };
 
 cfg_if! {
@@ -60,26 +60,6 @@ pub enum DacMode {
 }
 
 use cfg_if::cfg_if;
-
-#[derive(Clone, Copy)]
-/// Select the DAC to use.
-pub enum DacDevice {
-    // Note: F3 has up to 2 DACs. G4 has up to 4. L4, L5, G0, and H7(?) have only 1.
-    // WB doesn't have a DAC(?), so it doesn't import this module.
-    One,
-    #[cfg(any(
-        feature = "f303",
-        feature = "f373",
-        feature = "f3x4",
-        feature = "f4",
-        feature = "g4"
-    ))]
-    Two,
-    #[cfg(feature = "g4")]
-    Three,
-    #[cfg(feature = "g4")]
-    Four,
-}
 
 #[derive(Clone, Copy)]
 /// Select the channel to output to. Most MCUs only use 2 channels.
@@ -163,7 +143,6 @@ pub enum Trigger {
 /// Represents a Digital to Analog Converter (DAC) peripheral.
 pub struct Dac<R> {
     pub regs: R,
-    device: DacDevice,
     bits: DacBits,
     vref: f32,
 }
@@ -172,37 +151,14 @@ pub struct Dac<R> {
 
 impl<R> Dac<R>
 where
-    R: Deref<Target = dac_p::RegisterBlock>,
+    R: Deref<Target = dac_p::RegisterBlock> + RccPeriph,
 {
     /// Initialize a DAC peripheral, including  enabling and resetting
     /// its RCC peripheral clock. `vref` is in volts.
-    pub fn new(regs: R, device: DacDevice, bits: DacBits, vref: f32) -> Self {
+    pub fn new(regs: R, bits: DacBits, vref: f32) -> Self {
         free(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
-
-            cfg_if! {
-                if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
-                    rcc_en_reset!(apb1, dac12, rcc);
-                } else if #[cfg(feature = "f3")] {
-                    match device {
-                        DacDevice::One => { rcc_en_reset!(apb1, dac1, rcc); }
-                        #[cfg(any(feature = "f303", feature = "f373", feature = "f3x4", feature = "f4", feature = "g4"))]
-                        DacDevice::Two => { rcc_en_reset!(apb1, dac2, rcc); }
-                    };
-                } else if #[cfg(feature = "g4")] {
-                    match device {
-                        DacDevice::One => { rcc_en_reset!(ahb2, dac1, rcc); }
-                        DacDevice::Two => { rcc_en_reset!(ahb2, dac2, rcc); }
-                        DacDevice::Three => { rcc_en_reset!(ahb2, dac3, rcc); }
-                        DacDevice::Four => { rcc_en_reset!(ahb2, dac4, rcc); }
-                    };
-                } else if #[cfg(feature = "f4")] {
-                    // F4 only uses 1 enable, despite having 2 devices. (each with 1 channel)
-                    rcc_en_reset!(apb1, dac, rcc);
-                } else {
-                    rcc_en_reset!(apb1, dac1, rcc);
-                }
-            }
+            R::en_reset(rcc);
         });
 
         // See H743 RM, Table 227 for info on the buffer.
@@ -221,12 +177,7 @@ where
             w.mode2().bits(mode as u8)
         });
 
-        Self {
-            regs,
-            device,
-            bits,
-            vref,
-        }
+        Self { regs, bits, vref }
     }
 
     /// Calibrate the DAC output buffer by performing a "User
@@ -374,8 +325,6 @@ where
     {
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
-        // // L44 RM, Table 41. "DMA1 requests for each channel
-        // // todo: DMA2 support.
         #[cfg(any(feature = "f3", feature = "l4"))]
         let dma_channel = match dac_channel {
             DacChannel::C1 => DmaInput::Dac1Ch1.dma1_channel(),

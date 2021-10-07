@@ -5,6 +5,8 @@
 
 // todo: WB and WL should support pwm features
 
+use core::ops::Deref;
+
 use num_traits::float::Float;
 
 use cortex_m::interrupt::free;
@@ -18,12 +20,13 @@ use embedded_hal::{
 #[cfg(feature = "embedded-hal")]
 use void::Void;
 
-// todo: LPTIM (low-power timers)
+// todo: LPTIM (low-power timers) and HRTIM (high-resolution timers)
 
 use crate::{
     clocks::Clocks,
     pac::{self, RCC},
     rcc_en_reset,
+    util::RccPeriph,
 };
 
 use cfg_if::cfg_if;
@@ -261,19 +264,19 @@ macro_rules! hal {
                         1 => clocks.apb1_timer(),
                         _ => clocks.apb2_timer(),
                     };
-                    let mut timer = Timer { clock_speed, regs };
+                    let mut result = Timer { clock_speed, regs };
 
-                    timer.set_freq(freq).ok();
+                    result.set_freq(freq).ok();
 
                     // Trigger an update event to load the prescaler value to the clock
                     // NOTE(write): uses all bits in this register.
-                    timer.regs.egr.write(|w| w.ug().set_bit());
+                    result.regs.egr.write(|w| w.ug().set_bit());
                     // The above line raises an update event which will indicate
                     // that the timer is already finished. Since this is not the case,
                     // it should be cleared
-                    timer.clear_interrupt(TimerInterrupt::Update);
+                    result.clear_interrupt(TimerInterrupt::Update);
 
-                    timer
+                    result
                 }
             }
             /// Enable a specific type of Timer interrupt.
@@ -377,16 +380,11 @@ macro_rules! hal {
 
             /// Read the current counter value.
             pub fn countdown(&self) -> u32 {
+                // todo: This depends on resolution. We read the whole
+                // todo res and pass a u32 just in case.
+                // self.regs.cnt.read().cnt().bits()
                 self.regs.cnt.read().bits()
             }
-
-            // todo: Can't implement this yet due to not being avail on all timers; need
-            // todo add a sep impl etc.
-            // /// Allow selected information to be sent in master mode to slave timers for
-            // /// synchronization (TRGO).
-            // pub fn set_mastermode(&self, mode: MasterMode) {
-            //     self.regs.cr2.modify(|_, w| w.mms().bits(mode as u8));
-            // }
         }
 
         #[cfg(feature = "embedded-hal")]
@@ -701,9 +699,9 @@ macro_rules! pwm_features {
             /// Return the integer associated with the maximum duty period.
             /// todo: Duty could be u16 for low-precision timers.
             pub fn get_max_duty(&self) -> $res {
-                #[cfg(any(feature = "g0", feature = "wl"))]
+                #[cfg(any(feature = "g0", feature = "g4", feature = "wl"))]
                 return self.regs.arr.read().bits();
-                #[cfg(not(any(feature = "g0", feature = "wl")))]
+                #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
                 return self.regs.arr.read().arr().bits();
             }
 
@@ -834,8 +832,133 @@ macro_rules! pwm_features {
     };
 }
 
+// todo: Concepts for non-macro approach
+// todo: Basic timers are easier to handle, since they generally deref to tim6.
+
+/// Configuration for the Basic timer.
+cfg_if! {
+    if #[cfg(not(any(
+        feature = "f401",
+        feature = "f410",
+        feature = "f411",
+        feature = "g031",
+        feature = "g041",
+        feature = "g070",
+        feature = "g030",
+        feature = "wb",
+        feature = "wl"
+    )))]  {
+        /// Represents a Basic timer, used primarily to trigger the onboard DAC. Eg Tim6 or Tim7.
+        pub struct BasicTimer<R> {
+            pub regs: R,
+            clock_speed: u32,
+        }
+
+        impl<R> BasicTimer<R>
+            where
+                R: Deref<Target = pac::tim6::RegisterBlock> + RccPeriph,
+        {
+            /// Initialize a Basic timer, including  enabling and resetting
+            /// its RCC peripheral clock.
+            pub fn new(
+                regs: R,
+                freq: f32,
+                clock_cfg: &Clocks,
+            ) -> Self {
+                free(|cs| {
+                    let rcc = unsafe { &(*RCC::ptr()) };
+                    R::en_reset(rcc)
+                });
+
+                // Self { regs, config, clock_speed: clocks.apb1_timer()  }
+                let mut result = Self { regs, clock_speed: clock_cfg.apb1_timer()  };
+
+                result.set_freq(freq).ok();
+                result
+            }
+
+            // todo: These fns are DRY from GP timer code!
+
+            /// Enable the timer.
+            pub fn enable(&mut self) {
+                self.regs.cr1.modify(|_, w| w.cen().set_bit());
+            }
+
+            /// Disable the timer.
+            pub fn disable(&mut self) {
+                self.regs.cr1.modify(|_, w| w.cen().clear_bit());
+            }
+
+            /// Check if the timer is enabled.
+            pub fn is_enabled(&self) -> bool {
+                self.regs.cr1.read().cen().bit_is_set()
+            }
+
+            /// Set the timer period, in seconds. Overrides the period or frequency set
+            /// in the constructor. If you use `center` aligned PWM, make sure to
+            /// enter twice the freq you normally would.
+            pub fn set_period(&mut self, time: f32) -> Result<(), ValueError> {
+                assert!(time > 0.);
+                self.set_freq(1. / time)
+            }
+
+            /// Set the timer frequency, in Hz. Overrides the period or frequency set
+            /// in the constructor. If you use `center` aligned PWM, make sure to
+            /// enter twice the freq you normally would.
+            pub fn set_freq(&mut self, freq: f32) -> Result<(), ValueError> {
+                assert!(freq > 0.);
+                let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;
+
+                self.regs.arr.write(|w| unsafe { w.bits(arr.into()) });
+                self.regs.psc.write(|w| unsafe { w.bits(psc.into()) });
+
+                Ok(())
+            }
+
+            /// Set the auto-reload register value. Used for adjusting frequency.
+            pub fn set_auto_reload(&mut self, arr: u16) {
+                self.regs.arr.write(|w| unsafe { w.bits(arr.into()) });
+            }
+
+            /// Set the prescaler value. Used for adjusting frequency.
+            pub fn set_prescaler(&mut self, psc: u16) {
+                self.regs.psc.write(|w| unsafe { w.bits(psc.into()) });
+            }
+
+            /// Reset the countdown; set the counter to 0.
+            pub fn reset_countdown(&mut self) {
+                self.regs.cnt.write(|w| unsafe { w.bits(0) });
+            }
+
+            /// Read the current counter value.
+            pub fn countdown(&self) -> u16 {
+                self.regs.cnt.read().cnt().bits()
+            }
+
+            /// Allow selected information to be sent in master mode to slave timers for
+            /// synchronization (TRGO).
+            pub fn set_mastermode(&self, mode: MasterModeSelection) {
+                self.regs.cr2.modify(|_, w| unsafe { w.mms().bits(mode as u8) });
+            }
+        }
+    }
+}
+
 // We only implement `pwm_features` for general purpose timers. Perhaps we should implement
 // for advanced-control timers too.
+
+// todo: Non-macro refactor base timer reg blocks:
+
+// GP 32-bit: Tim2
+// 2, 3, 4, 5
+
+// GP 16-bit:
+// 15, 16, 17 // (9-14 on F4) 14 on G0
+
+// Basic:
+// 6, 7
+
+// Advanced: 1/8/20
 
 #[cfg(not(any(feature = "f373")))]
 hal!(TIM1, tim1, 2);
@@ -899,7 +1022,7 @@ hal!(TIM3, tim3, 1);
 )))]
 pwm_features!(TIM3, u16);
 
-#[cfg(feature = "g0")]
+#[cfg(any(feature = "g0", feature = "g4"))]
 pwm_features!(TIM3, u32);
 
 cfg_if! {
@@ -913,6 +1036,7 @@ cfg_if! {
         feature = "l4x3",
         feature = "l552",
         feature = "g0",
+        feature = "g4",
         feature = "wb",
         feature = "wl"
     )))] {
@@ -931,6 +1055,7 @@ cfg_if! {
         feature = "l4x3",
         feature = "l5",
         feature = "g0",
+        feature = "g4",
         feature = "wb",
         feature = "wl"
     )))] {
@@ -962,36 +1087,6 @@ cfg_if! {
         pwm_features!(TIM5, u32);
    }
 }
-
-cfg_if! {
-    if #[cfg(not(any(
-        feature = "f401",
-        feature = "f410",
-        feature = "f411",
-        feature = "g031",
-        feature = "g041",
-        feature = "g070",
-        feature = "g030",
-        feature = "wb",
-        feature = "wl"
-    )))] {
-        hal!(TIM6, tim6, 1);
-    }
-}
-
-#[cfg(not(any(
-    feature = "f301",
-    feature = "f302",
-    feature = "f401",
-    feature = "f410",
-    feature = "f411",
-    feature = "g031",
-    feature = "g041",
-    feature = "g030",
-    feature = "wb",
-    feature = "wl"
-)))]
-hal!(TIM7, tim7, 1);
 
 #[cfg(any(
     feature = "f303",

@@ -2,7 +2,7 @@
 //! Provides APIs to configure, read, and write from
 //! I2C, with blocking, nonblocking, and DMA functionality.
 
-use cast::{u16, u8};
+use cast::u16;
 use core::ops::Deref;
 
 use cortex_m::interrupt::free;
@@ -13,7 +13,7 @@ use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::{
     clocks::Clocks,
     pac::{self, RCC},
-    rcc_en_reset,
+    util::{DmaPeriph, RccPeriph},
 };
 
 #[cfg(any(feature = "g0"))]
@@ -86,19 +86,6 @@ pub enum Error {
 }
 
 #[derive(Clone, Copy)]
-pub enum I2cDevice {
-    One,
-    #[cfg(not(any(feature = "wb", feature = "f3x4")))]
-    Two,
-    #[cfg(any(feature = "h7", feature = "wb"))]
-    Three,
-    // Four ommitted for now; just need to add some non-standard
-    // periph clock setup/enable
-    // #[cfg(any(feature = "l5", feature = "h7"))]
-    // Four,
-}
-
-#[derive(Clone, Copy)]
 #[repr(u8)]
 /// Set master or slave mode. Sets the __ register, _ field.
 pub enum I2cMode {
@@ -135,7 +122,6 @@ pub enum AddressBits {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-// #[repr(u8)]
 /// Set the number of address bits to 7 or 10. Sets the CR1 register, ANFOFF and DNF fields.
 pub enum NoiseFilter {
     /// Analog noise filter enabled.
@@ -184,37 +170,19 @@ impl Default for I2cConfig {
 /// Represents an Inter-Integrated Circuit (I2C) peripheral.
 pub struct I2c<R> {
     pub regs: R,
-    device: I2cDevice,
     pub cfg: I2cConfig,
 }
 
 impl<R> I2c<R>
 where
-    R: Deref<Target = pac::i2c1::RegisterBlock>,
+    R: Deref<Target = pac::i2c1::RegisterBlock> + DmaPeriph + RccPeriph,
 {
     /// Initialize a I2C peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock. `freq` is in Hz.
-    pub fn new(regs: R, device: I2cDevice, cfg: I2cConfig, clocks: &Clocks) -> Self {
+    pub fn new(regs: R, cfg: I2cConfig, clocks: &Clocks) -> Self {
         free(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
-
-            match device {
-                I2cDevice::One => {
-                    rcc_en_reset!(apb1, i2c1, rcc);
-                }
-                #[cfg(not(any(feature = "wb", feature = "f3x4")))]
-                I2cDevice::Two => {
-                    rcc_en_reset!(apb1, i2c2, rcc);
-                }
-                #[cfg(any(feature = "h7", feature = "wb"))]
-                I2cDevice::Three => {
-                    rcc_en_reset!(apb1, i2c3, rcc);
-                } // todo: APB1LR2 on L5, and AHB4 on H7. Fix it.
-                  // #[cfg(any(feature = "l5", feature = "h7"))]
-                  // I2cDevice::Four => {
-                  //     rcc_en_reset!(apb1, i2c4, rcc);
-                  // }
-            }
+            R::en_reset(rcc);
         });
 
         // Make sure the I2C unit is disabled so we can configure it
@@ -389,7 +357,7 @@ where
             regs.cr1.modify(|_, w| w.nostretch().bit(cfg.nostretch));
         }
 
-        let mut result = Self { regs, device, cfg };
+        let mut result = Self { regs, cfg };
 
         if result.cfg.smbus {
             result.enable_smbus();
@@ -592,21 +560,10 @@ where
 
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
-        // todo: DMA2 support.
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel = match self.device {
-            I2cDevice::One => DmaInput::I2c1Tx.dma1_channel(),
-            #[cfg(not(any(feature = "wb", feature = "f3x4")))]
-            I2cDevice::Two => DmaInput::I2c2Tx.dma1_channel(),
-            #[cfg(any(feature = "h7", feature = "wb"))]
-            I2cDevice::Three => DmaInput::I2c3Tx.dma1_channel(),
-        };
-
+        let channel = R::write_chan();
         #[cfg(feature = "l4")]
-        match self.device {
-            I2cDevice::One => dma.channel_select(DmaInput::I2c1Tx),
-            I2cDevice::Two => dma.channel_select(DmaInput::I2c2Tx),
-        }
+        R::write_sel(dma);
 
         // DMA (Direct Memory Access) can be enabled for transmission by setting the TXDMAEN bit
         // in the I2C_CR1 register. Data is loaded from an SRAM area configured using the DMA
@@ -671,21 +628,10 @@ where
 
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
-        // todo: DMA2 support.
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel = match self.device {
-            I2cDevice::One => DmaInput::I2c1Rx.dma1_channel(),
-            #[cfg(not(any(feature = "wb", feature = "f3x4")))]
-            I2cDevice::Two => DmaInput::I2c2Rx.dma1_channel(),
-            #[cfg(any(feature = "h7", feature = "wb"))]
-            I2cDevice::Three => DmaInput::I231Rx.dma1_channel(),
-        };
-
+        let channel = R::read_chan();
         #[cfg(feature = "l4")]
-        match self.device {
-            I2cDevice::One => dma.channel_select(DmaInput::I2c1Rx),
-            I2cDevice::Two => dma.channel_select(DmaInput::I2c2Rx),
-        }
+        R::read_sel(dma);
 
         // DMA (Direct Memory Access) can be enabled for reception by setting the RXDMAEN bit in
         // the I2C_CR1 register. Data is loaded from the I2C_RXDR register to an SRAM area

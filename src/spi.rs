@@ -11,7 +11,7 @@ use embedded_hal::spi::FullDuplex;
 
 use crate::{
     pac::{self, RCC},
-    rcc_en_reset,
+    util::{DmaPeriph, RccPeriph},
 };
 
 #[cfg(feature = "g0")]
@@ -56,21 +56,6 @@ pub enum SpiInterrupt {
     RxBufNotEmpty,
     /// Error (ERRIE)
     Error,
-}
-
-#[derive(Clone, Copy)]
-pub enum SpiDevice {
-    One,
-    #[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
-    Two,
-    #[cfg(not(any(
-        feature = "f3x4",
-        feature = "f410",
-        feature = "g0",
-        feature = "wb",
-        feature = "wl"
-    )))]
-    Three,
 }
 
 /// Set the factor to divide the APB clock by to set baud rate. Sets `SPI_CR1` register, `BR` field.
@@ -206,49 +191,19 @@ impl Default for SpiConfig {
 /// Represents a Serial Peripheral Interface (SPI) peripheral.
 pub struct Spi<R> {
     pub regs: R,
-    device: SpiDevice,
     pub cfg: SpiConfig,
 }
 
 impl<R> Spi<R>
 where
-    R: Deref<Target = pac::spi1::RegisterBlock>,
+    R: Deref<Target = pac::spi1::RegisterBlock> + DmaPeriph + RccPeriph,
 {
     /// Initialize an SPI peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock.
-    pub fn new(regs: R, device: SpiDevice, cfg: SpiConfig, baud_rate: BaudRate) -> Self {
+    pub fn new(regs: R, cfg: SpiConfig, baud_rate: BaudRate) -> Self {
         free(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
-
-            match device {
-                SpiDevice::One => {
-                    #[cfg(not(feature = "f301"))] // todo: Not sure what's going on  here.
-                    rcc_en_reset!(apb2, spi1, rcc);
-                }
-                #[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
-                SpiDevice::Two => {
-                    rcc_en_reset!(apb1, spi2, rcc);
-                }
-                #[cfg(not(any(
-                    feature = "f3x4",
-                    feature = "f410",
-                    feature = "g0",
-                    feature = "wb",
-                    feature = "wl"
-                )))]
-                SpiDevice::Three => {
-                    cfg_if! {
-                        // Note `sp3en` mixed with `spi3rst`; why we can't use the usual macro.
-                        if #[cfg(feature = "l5")] {
-                            rcc.apb1enr1.modify(|_, w| w.sp3en().set_bit());
-                            rcc.apb1rstr1.modify(|_, w| w.spi3rst().set_bit());
-                            rcc.apb1rstr1.modify(|_, w| w.spi3rst().clear_bit());
-                        } else {
-                            rcc_en_reset!(apb1, spi3, rcc);
-                        }
-                    }
-                }
-            }
+            R::en_reset(rcc);
         });
 
         cfg_if! {
@@ -375,7 +330,7 @@ where
             // todo: This lets you use hardware CS management, and seems to be teh way the RM
             // todo steers you towards regardless.
         }
-        Spi { regs, device, cfg }
+        Spi { regs, cfg }
     }
 
     /// Change the SPI baud rate.
@@ -559,48 +514,9 @@ where
 
         // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let tx_channel = match self.device {
-            SpiDevice::One => DmaInput::Spi1Tx.dma1_channel(),
-            #[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
-            SpiDevice::Two => DmaInput::Spi2Tx.dma1_channel(),
-            #[cfg(not(any(
-                feature = "f3x4",
-                feature = "f410",
-                feature = "g0",
-                feature = "wb",
-                feature = "wl"
-            )))]
-            SpiDevice::Three => panic!(
-                "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
-                or PR on Github."
-            ),
-        };
-
-        // #[cfg(any(feature = "f3", feature = "l4"))]
-        // let rx_channel = match self.device {
-        //     SpiDevice::One => DmaInput::Spi1Rx.dma1_channel(),
-        //     #[cfg(not(feature = "f3x4"))]
-        //     SpiDevice::Two => DmaInput::Spi2Rx.dma1_channel(),
-        //     #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
-        //     SpiDevice::Three => panic!(
-        //         "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
-        //         or PR on Github."
-        //     ),
-        // };
-
+        let channel = R::write_chan();
         #[cfg(feature = "l4")]
-        match self.device {
-            SpiDevice::One => {
-                dma.channel_select(DmaInput::Spi1Tx);
-                // dma.channel_select(DmaInput::Spi1Rx);
-            }
-            SpiDevice::Two => {
-                dma.channel_select(DmaInput::Spi2Tx);
-                // dma.channel_select(DmaInput::Spi2Rx);
-            }
-            #[cfg(not(any(feature = "f3x4", feature = "f410", feature = "g0")))]
-            _ => unimplemented!(),
-        };
+        R::write_sel(dma);
 
         #[cfg(feature = "h7")]
         let periph_addr = &self.regs.txdr as *const _ as u32;
@@ -643,37 +559,9 @@ where
         self.regs.cr2.modify(|_, w| w.rxdmaen().set_bit());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel = match self.device {
-            SpiDevice::One => DmaInput::Spi1Rx.dma1_channel(),
-            #[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
-            SpiDevice::Two => DmaInput::Spi2Rx.dma1_channel(),
-            #[cfg(not(any(
-                feature = "f3x4",
-                feature = "f410",
-                feature = "g0",
-                feature = "wb",
-                feature = "wl"
-            )))]
-            _ => panic!(
-                "DMA on SPI3 is not supported. If it is for your MCU, please submit an issue \
-                or PR on Github."
-            ),
-        };
-
+        let channel = R::read_chan();
         #[cfg(feature = "l4")]
-        match self.device {
-            SpiDevice::One => dma.channel_select(DmaInput::Spi1Rx),
-            #[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
-            SpiDevice::Two => dma.channel_select(DmaInput::Spi2Rx),
-            #[cfg(not(any(
-                feature = "f3x4",
-                feature = "f410",
-                feature = "g0",
-                feature = "wb",
-                feature = "wl"
-            )))]
-            _ => unimplemented!(),
-        };
+        R::read_sel(dma);
 
         #[cfg(feature = "h7")]
         let periph_addr = &self.regs.rxdr as *const _ as u32;

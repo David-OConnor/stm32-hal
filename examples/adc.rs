@@ -23,6 +23,7 @@ use stm32_hal2::{
     gpio::{Pin, PinMode, Port},
     low_power, pac,
     traits::ClockCfg,
+    util::{DmaPeriph, RccPeriph},
 };
 
 #[entry]

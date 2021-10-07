@@ -32,12 +32,12 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     self,
     clocks::Clocks,
-    dac::{Dac, DacBits, DacChannel, DacDevice, Trigger},
+    dac::{Dac, DacBits, DacChannel, Trigger},
     debug_workaround,
     dma::{self, Dma, DmaChannel},
     gpio::{OutputType, Pin, PinMode, Port},
     low_power, pac,
-    timer::Timer,
+    timer::{BasicTimer, MasterModeSelection, TimerDevice},
 };
 
 use defmt_rtt as _; // global logger
@@ -99,15 +99,15 @@ fn main() -> ! {
     // trigger outputs.
     // We set this timer to the sample rate in Hz.
     // This timer triggers a transfer of one word from the DMA buffer into the DAC output register.
-    let mut dac_timer = Timer::new_tim6(dp.TIM6, timer_freq, &clock_cfg);
+    let mut dac_timer = BasicTimer::new(dp.TIM6, TimerDevice::T6, timer_freq, &clock_cfg);
 
     //  The update event is selected as a trigger output (TRGO). For instance a
     // master timer can then be used as a prescaler for a slave timer.
-    dac_timer.set_master_mode(MasterMode::Update);
+    dac_timer.set_mastermode(MasterModeSelection::Update);
 
     let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
 
-    let mut dac = Dac::new(dp.DAC, DacDevice::One, DacBits::TwelveR, 3.3);
+    let mut dac = Dac::new(dp.DAC, DacBits::TwelveR, 3.3);
     dac.calibrate_buffer(DacChannel::C1, &mut delay);
     dac.set_trigger(DacChannel::C1, Trigger::Tim6);
 

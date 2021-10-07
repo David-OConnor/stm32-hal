@@ -99,7 +99,7 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::Clocks,
     gpio::{Pin, Port, PinMode, OutputType},
-    i2c::{I2c, I2cDevice},
+    i2c::I2c,
     low_power,
     pac,
     timer::{Timer, TimerInterrupt},
@@ -124,7 +124,7 @@ fn main() -> ! {
     let mut sda = Pin::new(Port::B, 7, PinMode::Alt(4));
     sda.output_type(OutputType::OpenDrain);
 
-    let i2c = I2c::new(dp.I2C1, I2cDevice::One, Default::default(), &clock_cfg);
+    let i2c = I2c::new(dp.I2C1, Default::default(), &clock_cfg);
 
     loop {
         i2c.write(0x50, &[1, 2, 3]);

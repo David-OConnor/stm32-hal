@@ -696,9 +696,11 @@ impl Rtc {
     /// Set the year component of the RTC's current date.
     pub fn set_year(&mut self, year: u16) -> Result<(), Error> {
         if !(1970..=2038).contains(&year) {
+            // todo: Is this right?
             return Err(Error::InvalidInputData);
         }
-        let (yt, yu) = bcd2_encode(year as u32)?;
+        let (yt, yu) = bcd2_encode(year as u32 - 2_000)?;
+        // todo RTC is 2000 based ? Not sure best way to handle this.
         self.edit_regs(true, |regs| {
             regs.dr
                 .modify(|_, w| unsafe { w.yt().bits(yt).yu().bits(yu) })
@@ -711,10 +713,11 @@ impl Rtc {
     /// WeekDay is set using the `set_weekday` method
     pub fn set_date(&mut self, date: &NaiveDate) -> Result<(), Error> {
         if date.year() < 1970 {
+            // todo: Is this right?
             return Err(Error::InvalidInputData);
         }
 
-        let (yt, yu) = bcd2_encode((date.year() - 1970) as u32)?;
+        let (yt, yu) = bcd2_encode((date.year() - 2_000) as u32)?;
         let (mt, mu) = bcd2_encode(date.month())?;
         let (dt, du) = bcd2_encode(date.day())?;
 
@@ -735,11 +738,12 @@ impl Rtc {
     /// Set the current datetime.
     pub fn set_datetime(&mut self, date: &NaiveDateTime) -> Result<(), Error> {
         if date.year() < 1970 {
+            // todo is this right?
             return Err(Error::InvalidInputData);
         }
 
         self.set_24h_fmt();
-        let (yt, yu) = bcd2_encode((date.year() - 1970) as u32)?;
+        let (yt, yu) = bcd2_encode((date.year() - 2_000) as u32)?;
         let (mt, mu) = bcd2_encode(date.month())?;
         let (dt, du) = bcd2_encode(date.day())?;
 

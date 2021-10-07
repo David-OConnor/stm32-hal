@@ -26,16 +26,16 @@ use stm32_hal2::{
     self,
     adc::{self, Adc, AdcChannel, AdcDevice},
     clocks::Clocks,
-    dac::{Dac, DacChannel, DacDevice, DacBits},
+    dac::{Dac, DacChannel, DacBits},
     dma::{Dma, DmaChannel, DmaInterrupt, DmaReadBuf, DmaWriteBuf},
     flash::Flash,
     gpio::{Edge, Pin, Port, PinMode, OutputType, Pull},
-    i2c::{I2c, I2cDevice},
+    i2c::I2c,
     low_power,
     pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
     usart::{Usart, UsartDevice, UsartInterrupt, UsartConfig},
-    spi::{self, BaudRate, Spi, SpiConfig, SpiDevice, SpiMode},
+    spi::{self, BaudRate, Spi, SpiConfig, SpiMode},
     timer::{Timer, TimerInterrupt},
 };
 
@@ -102,7 +102,7 @@ fn main() -> ! {
     sda.output_type(OutputType::OpenDrain);
 
     // Set up an I2C peripheral, running at 100Khz.
-    let i2c = I2c::new(dp.I2C1, I2cDevice::One, Default::default(), &clock_cfg);
+    let i2c = I2c::new(dp.I2C1, Default::default(), &clock_cfg);
 
     // Configure pins for I2c.
     let _sck = Pin::new(Port::A, 5, PinMode::Alt(5));
@@ -120,7 +120,6 @@ fn main() -> ! {
     // Set up an SPI peripheral, running at 4Mhz, in SPI mode 0.
     let spi = Spi::new(
         dp.SPI1,
-        SpiDevice::One,
         spi_cfg,
         BadRate::Div32,  // Eg 80Mhz apb clock / 32 = 2.5Mhz SPI clock.
     );
@@ -179,7 +178,7 @@ fn main() -> ! {
 
     // Set up the Digital-to-analog converter
     let mut _dac_pin = Pin::new(Port::A, 12, PinMode::Analog);
-    let mut dac = Dac::new(dp.DAC1, DacDevice::One, Bits::TwelveR, 3.3);
+    let mut dac = Dac::new(dp.DAC1, Bits::TwelveR, 3.3);
     dac.enable(DacChannel::C1);
 
     dac.write(DacChannel::C1, 2_048); // Set DAC output voltage to half VCC, eg 1.65V
