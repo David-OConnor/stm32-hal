@@ -446,15 +446,17 @@ pub mod usart;
 cfg_if::cfg_if! {
     if #[cfg(all(
         feature = "usb",
-        any(
-            feature = "f303",
-            feature = "l4x2",
-            feature = "l412",
-            feature = "l4x3",
-            feature = "l5",
-            feature = "g4",
-            feature = "wb",
-        )
+        all(
+            any(
+                feature = "f303",
+                feature = "l4x2",
+                feature = "l412",
+                feature = "l4x3",
+                feature = "l5",
+                feature = "g4",
+                feature = "wb",
+            ),
+        not(feature = "g4a1"))
     ))] {
         pub mod usb;
     } else if #[cfg(all(
