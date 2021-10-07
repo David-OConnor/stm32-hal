@@ -1,6 +1,6 @@
 [package]
 name = "stm32-hal2"
-version = "1.2.1"
+version = "1.3.0"
 authors = ["David O'Connor <david.alan.oconnor@gmail.com>"]
 description = "Hardware abstraction layer for the STM32 MCUs"
 keywords = ["no-std", "stm32", "embedded", "embedded-hal"]
@@ -12,7 +12,7 @@ categories = [
 repository = "https://github.com/David-OConnor/stm32-hal"
 documentation = "https://docs.rs/stm32-hal2"
 readme = "README.md"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 exclude = [".gitignore"]
 edition = "2018"
 

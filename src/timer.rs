@@ -639,7 +639,7 @@ macro_rules! pwm_features {
                             #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4.read().bits(),
                         }
-                    } else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
+                    } else if #[cfg(any(feature = "wb", feature = "wl"))] {
                         match channel {
                             TimChannel::C1 => self.regs.ccr1.read().ccr1().bits(),
                             TimChannel::C2 => self.regs.ccr2.read().ccr2().bits(),
@@ -672,7 +672,7 @@ macro_rules! pwm_features {
                             #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4.read().bits(),
                         };
-                    } else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
+                    } else if #[cfg(any(feature = "wb", feature = "wl"))] {
                         unsafe {
                             match channel {
                                 TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr1().bits(duty)),
@@ -697,12 +697,11 @@ macro_rules! pwm_features {
             }
 
             /// Return the integer associated with the maximum duty period.
-            /// todo: Duty could be u16 for low-precision timers.
             pub fn get_max_duty(&self) -> $res {
-                #[cfg(any(feature = "g0", feature = "g4", feature = "wl"))]
+                #[cfg(feature = "g0")]
                 return self.regs.arr.read().bits();
-                #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
-                return self.regs.arr.read().arr().bits();
+                #[cfg(not(feature = "g0"))]
+                self.regs.arr.read().arr().bits()
             }
 
             /// Set timer alignment to Edge, or one of 3 center modes.
@@ -915,6 +914,14 @@ cfg_if! {
                 Ok(())
             }
 
+            /// Return the integer associated with the maximum duty period.
+            pub fn get_max_duty(&self) -> u16 {
+                #[cfg(feature = "l5")]
+                return self.regs.arr.read().bits() as u16;
+                #[cfg(not(feature = "l5"))]
+                self.regs.arr.read().arr().bits()
+            }
+
             /// Set the auto-reload register value. Used for adjusting frequency.
             pub fn set_auto_reload(&mut self, arr: u16) {
                 self.regs.arr.write(|w| unsafe { w.bits(arr.into()) });
@@ -932,6 +939,9 @@ cfg_if! {
 
             /// Read the current counter value.
             pub fn countdown(&self) -> u16 {
+                #[cfg(feature = "l5")]
+                return self.regs.cnt.read().bits() as u16;
+                #[cfg(not(feature = "l5"))]
                 self.regs.cnt.read().cnt().bits()
             }
 
@@ -969,11 +979,12 @@ feature = "f4",
 feature = "l4",
 feature = "l5",
 feature = "g0",
+feature = "g4",
 feature = "wl",  // todo: PAC issue?
 )))]
 pwm_features!(TIM1, u16);
 
-#[cfg(any(feature = "g0"))]
+#[cfg(any(feature = "g0", feature = "g4"))]
 pwm_features!(TIM1, u32);
 
 cfg_if! {
@@ -985,14 +996,14 @@ cfg_if! {
     }
 }
 
-// todo: G4 has tim2, and it's 32-bit, but there may be a PAC error here; pac expects arr to be 16 bit.
-#[cfg(any(feature = "g4"))]
-pwm_features!(TIM2, u16);
+// // todo: G4 has tim2, and it's 32-bit, but there may be a PAC error here; pac expects arr to be 16 bit.
+// #[cfg(any(feature = "g4"))]
+// pwm_features!(TIM2, u16);
 
 #[cfg(not(any(
 feature = "l5",
 feature = "g070",
-feature = "g4",
+// feature = "g4",
 feature = "f410",
 feature = "wb",
 feature = "wl",  // todo: PAC issue?
@@ -1017,6 +1028,7 @@ hal!(TIM3, tim3, 1);
     feature = "l5",
     feature = "f410",
     feature = "g0",
+    feature = "g4",
     feature = "wb",
     feature = "wl"
 )))]

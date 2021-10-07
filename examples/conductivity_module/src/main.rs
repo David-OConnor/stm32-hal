@@ -29,7 +29,7 @@ use stm32_hal2::{
     pac::{self, interrupt, I2C1, USART1},
     prelude::*,
     timer::{CountDir, OutputCompare, TimChannel, Timer},
-    usart::{Usart, UsartConfig, UsartDevice, UsartInterrupt},
+    usart::{Usart, UsartConfig, UsartInterrupt},
 };
 
 use defmt_rtt as _; // global logger
@@ -128,7 +128,6 @@ fn main() -> ! {
     // Setup UART for connecting to the host
     let mut uart = Usart::new(
         dp.USART1,
-        UsartDevice::One,
         9_600,
         UsartConfig::default(),
         &clock_cfg,

@@ -24,7 +24,7 @@ use panic_probe as _;
 // less here.
 use stm32_hal2::{
     self,
-    adc::{self, Adc, AdcChannel, AdcDevice},
+    adc::{self, Adc, AdcChannel},
     clocks::Clocks,
     dac::{Dac, DacChannel, DacBits},
     dma::{Dma, DmaChannel, DmaInterrupt, DmaReadBuf, DmaWriteBuf},
@@ -34,7 +34,7 @@ use stm32_hal2::{
     low_power,
     pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
-    usart::{Usart, UsartDevice, UsartInterrupt, UsartConfig},
+    usart::{Usart, UsartInterrupt, UsartConfig},
     spi::{self, BaudRate, Spi, SpiConfig, SpiMode},
     timer::{Timer, TimerInterrupt},
 };
@@ -132,7 +132,6 @@ fn main() -> ! {
     // Setup UART for connecting to the host
     let mut uart = Usart::new(
         dp.USART1,
-        UsartDevice::One,
         9_600,
         UsartConfig::default(),
         &clock_cfg,
@@ -146,7 +145,6 @@ fn main() -> ! {
     };
     let mut uart = Usart::new(
         dp.USART1,
-        UsartDevice::One,
         9_600,
         usart_cfg,
         &clock_cfg,
@@ -168,7 +166,6 @@ fn main() -> ! {
 
     let mut adc = Adc::new_adc1(
         dp.ADC1,
-        AdcDevice::One,
         Default::default(),
         &clock_cfg,
     );

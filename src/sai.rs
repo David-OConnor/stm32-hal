@@ -5,7 +5,12 @@ use core::ops::Deref;
 
 use cortex_m::interrupt::free;
 
-use crate::{clocks::Clocks, pac::RCC, rcc_en_reset};
+use crate::{
+    clocks::Clocks,
+    pac::RCC,
+    rcc_en_reset,
+    util::{DmaPeriph, RccPeriph},
+};
 
 #[cfg(not(feature = "h7"))]
 use crate::pac::sai1 as sai;
@@ -30,14 +35,6 @@ use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
-
-#[derive(Clone, Copy)]
-/// Specify the SAI device to use. Used internally for setting the appropriate APB.
-pub enum SaiDevice {
-    One,
-    #[cfg(feature = "h7")]
-    Two,
-}
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
@@ -478,30 +475,14 @@ pub struct Sai<R> {
 
 impl<R> Sai<R>
 where
-    R: Deref<Target = sai::RegisterBlock>,
+    R: Deref<Target = sai::RegisterBlock> + RccPeriph,
 {
     /// Initialize a SAI peripheral, including  enabling and resetting
     /// its RCC peripheral clock.
-    pub fn new(
-        regs: R,
-        device: SaiDevice,
-        config_a: SaiConfig,
-        config_b: SaiConfig,
-        clocks: &Clocks,
-    ) -> Self {
+    pub fn new(regs: R, config_a: SaiConfig, config_b: SaiConfig, clocks: &Clocks) -> Self {
         free(|cs| {
             let rcc = unsafe { &(*RCC::ptr()) };
-
-            match device {
-                SaiDevice::One => {
-                    rcc_en_reset!(apb2, sai1, rcc);
-                }
-                // todo: What other MCUs support what SAI#s?
-                #[cfg(feature = "h7")]
-                SaiDevice::Two => {
-                    rcc_en_reset!(apb2, sai2, rcc);
-                } // todo: More devices for H7
-            }
+            R::en_reset(rcc);
         });
 
         // todo: Do we always want to configure and enable both A and B?

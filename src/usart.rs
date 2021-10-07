@@ -10,7 +10,7 @@
 use crate::{
     clocks::Clocks,
     pac::{self, RCC},
-    rcc_en_reset,
+    util::{BaudPeriph, DmaPeriph, RccPeriph},
 };
 use core::ops::Deref;
 
@@ -83,28 +83,6 @@ impl WordLen {
 }
 
 #[derive(Clone, Copy)]
-/// Specify the Usart device to use. Used internally for setting the appropriate APB.
-pub enum UsartDevice {
-    One,
-    #[cfg(not(any(feature = "wb", feature = "wl")))]
-    Two,
-    #[cfg(not(any(
-        feature = "f401",
-        feature = "f410",
-        feature = "f411",
-        feature = "f412",
-        feature = "f413",
-        feature = "l4x1",
-        feature = "g0",
-        feature = "wb",
-        feature = "wl",
-    )))]
-    Three,
-    // Four,  todo
-    // Five,
-}
-
-#[derive(Clone, Copy)]
 #[repr(u8)]
 /// Set Oversampling16 or Oversampling8 modes.
 pub enum OverSampling {
@@ -154,79 +132,23 @@ impl Default for UsartConfig {
 /// Represents the USART peripheral, for serial communications.
 pub struct Usart<R> {
     pub regs: R,
-    device: UsartDevice,
     baud: u32,
     config: UsartConfig,
 }
 
 impl<R> Usart<R>
 where
-    R: Deref<Target = pac::usart1::RegisterBlock>,
+    R: Deref<Target = pac::usart1::RegisterBlock> + DmaPeriph + RccPeriph + BaudPeriph,
 {
     /// Initialize a U[s]ART peripheral, including configuration register writes, and enabling and
     /// resetting its RCC peripheral clock. `baud` is the baud rate, in bytes-per-second.
-    pub fn new(
-        regs: R,
-        device: UsartDevice,
-        baud: u32,
-        config: UsartConfig,
-        clock_cfg: &Clocks,
-    ) -> Self {
+    pub fn new(regs: R, baud: u32, config: UsartConfig, clock_cfg: &Clocks) -> Self {
         free(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
-            match device {
-                UsartDevice::One => {
-                    rcc_en_reset!(apb2, usart1, rcc);
-                }
-                #[cfg(not(any(feature = "wb", feature = "wl")))]
-                UsartDevice::Two => {
-                    cfg_if! {
-                        if #[cfg(not(feature = "f4"))] {
-                            rcc_en_reset!(apb1, usart2, rcc);
-                        } else {
-                            // `usart` vs `uart`
-                            rcc.apb1enr.modify(|_, w| w.usart2en().set_bit());
-                            rcc.apb1rstr.modify(|_, w| w.usart2rst().set_bit());
-                            rcc.apb1rstr.modify(|_, w| w.usart2rst().clear_bit());
-                        }
-                    }
-                }
-                #[cfg(not(any(
-                    feature = "f401",
-                    feature = "f410",
-                    feature = "f411",
-                    feature = "f412",
-                    feature = "f413",
-                    feature = "l4x1",
-                    feature = "g0",
-                    feature = "wb",
-                    feature = "wl",
-                )))]
-                UsartDevice::Three => {
-                    cfg_if! {
-                        if #[cfg(not(feature = "f4"))] {
-                            rcc_en_reset!(apb1, usart3, rcc);
-                        } else {
-                            rcc.apb1enr.modify(|_, w| w.usart3en().set_bit());
-                            rcc.apb1rstr.modify(|_, w| w.usart3rst().set_bit());
-                            rcc.apb1rstr.modify(|_, w| w.usart3rst().clear_bit());
-                        }
-                    }
-                } // UsartDevice::Four => {
-                  //     rcc_en_reset!(apb1, uart4, rcc);
-                  // }
-                  // UsartDevice::Five => {
-                  //     rcc_en_reset!(apb1, usart5, rcc);
-                  // }
-            }
+            R::en_reset(rcc);
         });
 
-        let mut result = Self {
-            regs,
-            device,
-            baud,
-            config,
-        };
+        let mut result = Self { regs, baud, config };
 
         // This should already be disabled on power up, but disable here just in case;
         // some bits can't be set with USART enabled.
@@ -298,10 +220,7 @@ where
         }
 
         // To set BAUD rate, see L4 RM section 38.5.4: "USART baud rate generation".
-        let fclk = match self.device {
-            UsartDevice::One => clock_cfg.apb2(),
-            _ => clock_cfg.apb1(),
-        };
+        let fclk = R::baud(clock_cfg);
 
         let usart_div = match self.config.oversampling {
             OverSampling::O16 => fclk / baud,
@@ -416,38 +335,10 @@ where
         // To map a DMA channel for USART transmission, use
         // the following procedure (x denotes the channel number):
 
-        // todo: This channel selection is confirmed for L4 only - check other families
-        // todo DMA channel mapping
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel = match self.device {
-            UsartDevice::One => DmaInput::Usart1Tx.dma1_channel(),
-            #[cfg(not(any(feature = "wb", feature = "wl")))]
-            UsartDevice::Two => DmaInput::Usart2Tx.dma1_channel(),
-            #[cfg(not(any(
-                feature = "f401",
-                feature = "f410",
-                feature = "f411",
-                feature = "f412",
-                feature = "f413",
-                feature = "l4x1",
-                feature = "g0",
-                feature = "wb",
-                feature = "wl",
-            )))]
-            UsartDevice::Three => DmaInput::Usart3Tx.dma1_channel(),
-        };
-
-        // todo: These are only valid for DMA1!
+        let channel = R::write_chan();
         #[cfg(feature = "l4")]
-        match self.device {
-            UsartDevice::One => dma.channel_select(DmaInput::Usart1Tx),
-            #[cfg(not(feature = "wb"))]
-            UsartDevice::Two => dma.channel_select(DmaInput::Usart2Tx),
-            #[cfg(not(feature = "l4x1"))]
-            UsartDevice::Three => dma.channel_select(DmaInput::Usart3Tx),
-        }
-
-        // Note that we need neither channel select, nor multiplex for F3.
+        R::write_sel(dma);
 
         // todo: Pri and Circular as args?
 
@@ -509,30 +400,9 @@ where
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel = match self.device {
-            UsartDevice::One => DmaInput::Usart1Rx.dma1_channel(),
-            #[cfg(not(any(feature = "wb", feature = "wl")))]
-            UsartDevice::Two => DmaInput::Usart2Rx.dma1_channel(),
-            #[cfg(not(any(
-                feature = "f401",
-                feature = "f410",
-                feature = "f411",
-                feature = "f412",
-                feature = "f413",
-                feature = "l4x1",
-                feature = "g0",
-                feature = "wb",
-            )))]
-            UsartDevice::Three => DmaInput::Usart3Rx.dma1_channel(),
-        };
-
+        let channel = R::read_chan();
         #[cfg(feature = "l4")]
-        match self.device {
-            UsartDevice::One => dma.channel_select(DmaInput::Usart1Rx),
-            UsartDevice::Two => dma.channel_select(DmaInput::Usart2Rx),
-            #[cfg(not(feature = "l4x1"))]
-            UsartDevice::Three => dma.channel_select(DmaInput::Usart3Rx),
-        }
+        R::read_sel(dma);
 
         #[cfg(feature = "h7")]
         let len = len as u32;
