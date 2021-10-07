@@ -834,7 +834,6 @@ macro_rules! pwm_features {
 // todo: Concepts for non-macro approach
 // todo: Basic timers are easier to handle, since they generally deref to tim6.
 
-/// Configuration for the Basic timer.
 cfg_if! {
     if #[cfg(not(any(
         feature = "f401",

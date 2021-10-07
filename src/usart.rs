@@ -563,7 +563,7 @@ pub enum Error {
 // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> Read<u8> for Usart<R>
 where
-    R: Deref<Target = pac::usart1::RegisterBlock>,
+    R: Deref<Target = pac::usart1::RegisterBlock> + DmaPeriph + RccPeriph + BaudPeriph,
 {
     type Error = Error;
 
@@ -594,7 +594,7 @@ where
 // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> Write<u8> for Usart<R>
 where
-    R: Deref<Target = pac::usart1::RegisterBlock>,
+    R: Deref<Target = pac::usart1::RegisterBlock> + DmaPeriph + RccPeriph + BaudPeriph,
 {
     type Error = Error;
 
@@ -644,7 +644,7 @@ where
 // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> blocking::serial::Write<u8> for Usart<R>
 where
-    R: Deref<Target = pac::usart1::RegisterBlock>,
+    R: Deref<Target = pac::usart1::RegisterBlock> + DmaPeriph + RccPeriph + BaudPeriph,
 {
     type Error = Error;
 

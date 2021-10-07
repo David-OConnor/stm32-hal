@@ -4,8 +4,13 @@ use core::ops::Deref;
 
 use crate::{
     clocks::Clocks,
-    pac::{self, rcc::RegisterBlock, DMA1},
+    pac::{self, rcc::RegisterBlock},
 };
+
+#[cfg(feature = "g0")]
+use crate::pac::DMA as DMA1;
+#[cfg(not(feature = "g0"))]
+use crate::pac::DMA1;
 
 // todo: L5 has a PAC bug on CCR registers past 1.
 #[cfg(not(any(feature = "f4", feature = "l5")))]
@@ -27,7 +32,7 @@ cfg_if::cfg_if! {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "l5")] {
+    if #[cfg(any(feature = "l5", feature = "g0"))] {
         use crate::pac::ADC as ADC1;
 
     } else {
@@ -492,6 +497,7 @@ impl DmaPeriph for pac::I2C2 {
     }
 }
 
+#[cfg(any(feature = "h7", feature = "wb"))]
 impl DmaPeriph for pac::I2C3 {
     #[cfg(any(feature = "f3", feature = "l4"))]
     fn read_chan() -> DmaChannel {
@@ -559,6 +565,13 @@ impl DmaPeriph for pac::SPI2 {
     }
 }
 
+#[cfg(not(any(
+    feature = "f3x4",
+    feature = "f410",
+    feature = "g0",
+    feature = "wb",
+    feature = "wl"
+)))]
 impl DmaPeriph for pac::SPI3 {
     #[cfg(any(feature = "f3", feature = "l4"))]
     fn read_chan() -> DmaChannel {
