@@ -12,7 +12,7 @@ use cortex_m::{
 use cortex_m_rt::entry;
 
 use stm32_hal::{
-    adc::{Adc, AdcDevice, AdcChannel},
+    adc::{Adc, AdcChannel, AdcDevice},
     clocks::Clocks,
     gpio::{Edge, Pin, PinMode, Port},
     low_power,

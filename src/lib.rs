@@ -114,6 +114,8 @@
 // todo oncoe this is in stable.
 // #![feature(doc_cfg)]
 
+// todo: H7B3 has too many changes in v14 PAC; not supporting at this time. (2021-10-07)
+
 #[cfg(not(any(
     feature = "f301",
     feature = "f302",
