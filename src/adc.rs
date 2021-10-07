@@ -837,7 +837,7 @@ macro_rules! hal {
                 #[cfg(feature = "l4")]
                 return self.regs.dr.read().bits() as u16;
                 #[cfg(not(feature = "l4"))]
-                self.regs.dr.read().rdata().bits()
+                return self.regs.dr.read().rdata().bits() as u16;
             }
 
             /// Take a single reading, in OneShot mode

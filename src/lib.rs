@@ -529,15 +529,19 @@ pub fn debug_workaround() {
         let dbgmcu = unsafe { &(*pac::DBGMCU::ptr()) };
 
         cfg_if::cfg_if! {
-            if #[cfg(not(feature = "h7"))] {
+            if #[cfg(all(feature = "h7", not(feature = "h747cm7")))] {
+                dbgmcu.cr.modify(|_, w| w.dbgsleep_d1().set_bit());
+                dbgmcu.cr.modify(|_, w| w.dbgstop_d1().set_bit());
+                dbgmcu.cr.modify(|_, w| w.dbgstby_d1().set_bit());
+            } else if #[cfg(feature = "h7")] {
+                dbgmcu.cr.modify(|_, w| w.dbgslpd1().set_bit());
+                dbgmcu.cr.modify(|_, w| w.dbgstpd1().set_bit());
+                dbgmcu.cr.modify(|_, w| w.dbgstbd1().set_bit());
+            } else {
                 #[cfg(not(feature = "l5"))]
                 dbgmcu.cr.modify(|_, w| w.dbg_sleep().set_bit());
                 dbgmcu.cr.modify(|_, w| w.dbg_stop().set_bit());
                 dbgmcu.cr.modify(|_, w| w.dbg_standby().set_bit());
-            } else {
-                dbgmcu.cr.modify(|_, w| w.dbgsleep_d1().set_bit());
-                dbgmcu.cr.modify(|_, w| w.dbgstop_d1().set_bit());
-                dbgmcu.cr.modify(|_, w| w.dbgstby_d1().set_bit());
             }
         }
     });
