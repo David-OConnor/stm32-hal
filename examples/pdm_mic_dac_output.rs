@@ -2,6 +2,9 @@
 //! It passes the signal through with no processing, other than reducing bit resolution.
 //! Demonstrates use of DFSDM, DAC, DMA, and timers. Uses RTIC.
 //!
+//! It uses double-buffered input and output to prevent conflicts between reading and
+//! writing the buffers. Uses circular DMA for both input and output.
+//!
 //! In practice, you might perform some DSP between input and output. For example, using
 //! the CMSIS-DSP library wrapped with Bindgen.
 //!
