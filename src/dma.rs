@@ -288,7 +288,7 @@ pub enum Direction {
     MemToMem = 2,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 #[repr(u8)]
 /// Set in CCR.
 /// Can only be set when channel is disabled.

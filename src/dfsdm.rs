@@ -173,8 +173,8 @@ impl Default for DfsdmConfig {
             filter_order: FilterOrder::Sinc4, // From the PDM mic AN
             filter_oversampling_ratio: 64,    // From the PDM mic AN
             integrator_oversampling_ratio: 1, // From the PDM mic AN
-            right_shift_bits: 0x02,           // From the PDM mic AN
-            // right_shift_bits: 0x00, // From the PDM mic AN
+            // right_shift_bits: 0x02,           // From the PDM mic AN
+            right_shift_bits: 0x00, // From the PDM mic AN
             spi_clock: SpiClock::Internal,
         }
     }
@@ -257,8 +257,6 @@ where
         // channel analog watchdog filter parameters and channel short-circuit detector
         // parameters. Configurations are defined in CHyAWSCDR register.
 
-        // todo: Software trigger
-
         Self { regs, config }
     }
 
@@ -269,9 +267,6 @@ where
     /// enable bit CHEN in CHyCFGR1 and FLTx enable bit DFEN in
     /// FLTxCR1).
     pub fn enable(&mut self) {
-        // todo temp!
-        // self.regs.ch0.cfgr1.modify(|_, w| unsafe { w.datmpx().bits(2) });
-
         self.regs.ch0.cfgr1.modify(|_, w| w.dfsdmen().set_bit());
     }
 
@@ -287,6 +282,8 @@ where
     /// Digital filter x FLTx (x=0..3) is enabled by setting DFEN=1 in the
     /// FLTxCR1 register. Once FLTx is enabled (DFEN=1), both Sincx
     /// digital filter unit and integrator unit are reinitialized.
+    /// Note that this function sets `DFEN`, so run it `after` configuring other settings such
+    /// as DMA.
     pub fn enable_filter(&mut self, filter: Filter, channel: DfsdmChannel) {
         // Setting RCONT in the FLTxCR1 register causes regular conversions to execute in
         // continuous mode. RCONT=1 means that the channel selected by RCH[2:0] is converted
@@ -714,13 +711,12 @@ where
             #[cfg(not(any(feature = "l4")))]
             Filter::F3 => &self.regs.flt3.rdatar as *const _ as u32,
         };
-        // let periph_addr = ch1.datinr as *const _ as u32; // todo try it
 
         // todo: Injected support. Should just need to add the option flag and enable `jdmaen()` bits
         // todo instead of `rdmaen()`, and use the `jdatar` periph addr.
 
         // todo: Do we want this? If so, where?
-        // self.start_conversion(filter);
+        self.start_conversion(filter);
 
         #[cfg(feature = "h7")]
         let len = len as u32;

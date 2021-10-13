@@ -908,7 +908,9 @@ impl Default for Clocks {
             pll2: PllCfg::disabled(),
             pll3: PllCfg::disabled(),
             d1_core_prescaler: HclkPrescaler::Div1,
-            d1_prescaler: ApbPrescaler::Div1,
+            // todo: APB3 clock now showing in Cube as max of 120Mhz? (From D1Pre)
+            // d1_prescaler: ApbPrescaler::Div1,
+            d1_prescaler: ApbPrescaler::Div2,
             /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
             hclk_prescaler: HclkPrescaler::Div2,
             d2_prescaler1: ApbPrescaler::Div2,

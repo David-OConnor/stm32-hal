@@ -75,6 +75,10 @@ The [conductivity module example](https://github.com/David-OConnor/stm32-hal/tre
 is a complete example of simple production firmware. It uses the DAC, I2C, Timer, and UART peripherals,
 with a simple interupt-based control flow.
 
+The [PDM mic, DAC output passthrough example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/pdm_mic_dac_output.rs)
+demonstrates how to read audio from a digital mic, output it to headphones or speakers using the DAC, and use DMA
+to do this with minimal CPU intervention. It conducts minimal processing, but can be modified to process using DSP.
+
 Additional examples in the [examples folder](https://github.com/David-OConnor/stm32-hal/tree/main/examples) demonstrate
 how to use various STM32 peripherals; most of these examples focus on a single peripheral.
 

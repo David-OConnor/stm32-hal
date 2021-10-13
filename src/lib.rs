@@ -371,6 +371,7 @@ pub mod dac;
     feature = "l4x2",
     feature = "l412",
     feature = "l4x3",
+    feature = "l4x6",
     feature = "g0",
     feature = "g4",
     feature = "wb",

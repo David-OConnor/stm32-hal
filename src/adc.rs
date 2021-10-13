@@ -864,10 +864,9 @@ macro_rules! hal {
                 let (ptr, len) = (buf.as_mut_ptr(), buf.len());
                 // The software is allowed to write (dmaen and dmacfg) only when ADSTART=0 and JADSTART=0 (which
                 // ensures that no conversion is ongoing)
-                // Todo: Should these settings be handled in `init`?
                 self.stop_conversions();
                 self.regs.cfgr.modify(|_, w| {
-                    w.dmacfg().clear_bit(); // (one shot mode)  todo: Circular mode option; dmacfg=1.
+                    w.dmacfg().bit(channel_cfg.circular == dma::Circular::Enabled);
                     w.dmaen().set_bit()
                 });
 
