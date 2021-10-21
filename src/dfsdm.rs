@@ -173,8 +173,7 @@ impl Default for DfsdmConfig {
             filter_order: FilterOrder::Sinc4, // From the PDM mic AN
             filter_oversampling_ratio: 64,    // From the PDM mic AN
             integrator_oversampling_ratio: 1, // From the PDM mic AN
-            // right_shift_bits: 0x02,           // From the PDM mic AN
-            right_shift_bits: 0x00, // From the PDM mic AN
+            right_shift_bits: 0,              // PDM mic AN uses 0x02
             spi_clock: SpiClock::Internal,
         }
     }
@@ -400,86 +399,88 @@ where
         // Once the channel is enabled, it receives serial data from the external Σ∆ modulator or
         // parallel internal data sources (ADCs or CPU/DMA wire from memory).
 
+        // Note that we must set some settings like `dtrbs` before enabling the channel.
+
         match channel {
             DfsdmChannel::C0 => unsafe {
-                self.regs.ch0.cfgr1.modify(|_, w| {
-                    w.spicksel().bits(self.config.spi_clock as u8);
-                    w.chen().set_bit()
-                });
                 self.regs
                     .ch0
                     .cfgr2
                     .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
-            },
-            DfsdmChannel::C1 => unsafe {
-                self.regs.ch1.cfgr1.modify(|_, w| {
+                self.regs.ch0.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
+            },
+            DfsdmChannel::C1 => unsafe {
                 self.regs
                     .ch1
                     .cfgr2
                     .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
-            },
-            DfsdmChannel::C2 => unsafe {
-                self.regs.ch2.cfgr1.modify(|_, w| {
+                self.regs.ch1.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
+            },
+            DfsdmChannel::C2 => unsafe {
                 self.regs
                     .ch2
                     .cfgr2
                     .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
-            },
-            DfsdmChannel::C3 => unsafe {
-                self.regs.ch3.cfgr1.modify(|_, w| {
+                self.regs.ch2.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
+            },
+            DfsdmChannel::C3 => unsafe {
                 self.regs
                     .ch3
                     .cfgr2
                     .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
-            },
-            DfsdmChannel::C4 => unsafe {
-                self.regs.ch4.cfgr1.modify(|_, w| {
+                self.regs.ch3.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
+            },
+            DfsdmChannel::C4 => unsafe {
                 self.regs
                     .ch4
                     .cfgr2
                     .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
-            },
-            DfsdmChannel::C5 => unsafe {
-                self.regs.ch5.cfgr1.modify(|_, w| {
+                self.regs.ch4.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
+            },
+            DfsdmChannel::C5 => unsafe {
                 self.regs
                     .ch5
                     .cfgr2
                     .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
-            },
-            DfsdmChannel::C6 => unsafe {
-                self.regs.ch6.cfgr1.modify(|_, w| {
+                self.regs.ch5.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
+            },
+            DfsdmChannel::C6 => unsafe {
                 self.regs
                     .ch6
                     .cfgr2
                     .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
-            },
-            DfsdmChannel::C7 => unsafe {
-                self.regs.ch7.cfgr1.modify(|_, w| {
+                self.regs.ch6.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
+            },
+            DfsdmChannel::C7 => unsafe {
                 self.regs
                     .ch7
                     .cfgr2
                     .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs.ch7.cfgr1.modify(|_, w| {
+                    w.spicksel().bits(self.config.spi_clock as u8);
+                    w.chen().set_bit()
+                });
             },
         }
     }

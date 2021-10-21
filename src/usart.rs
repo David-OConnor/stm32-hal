@@ -201,6 +201,7 @@ where
         // 6. Set the TE bit in USART_CR1 to send an idle frame as first transmission.
         // 6. Set the RE bit USART_CR1. This enables the receiver which begins searching for a
         // start bit.
+
         result.regs.cr1.modify(|_, w| {
             w.te().set_bit();
             w.re().set_bit()
@@ -220,6 +221,9 @@ where
         }
 
         // To set BAUD rate, see L4 RM section 38.5.4: "USART baud rate generation".
+        // todo: This assumes the USART clock is APB1 or 2 depending on which USART.
+        // todo: Take into account the selectable USART clock in both
+        // todo util::baud implementation, and `clocks` module.
         let fclk = R::baud(clock_cfg);
 
         let usart_div = match self.config.oversampling {

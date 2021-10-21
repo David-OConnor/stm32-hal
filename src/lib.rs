@@ -473,6 +473,17 @@ cfg_if::cfg_if! {
 
 mod util;
 
+// Note: Some F4 variants support RNG, but we haven't figured out the details yet. Send a PR if interested.
+#[cfg(not(any(
+    feature = "f3",
+    feature = "f4",
+    feature = "g030",
+    feature = "g031",
+    feature = "g070",
+    feature = "g071"
+)))]
+mod rng;
+
 // todo: should these helper macros be removed from this library? It has nothing to do with STM32.
 
 /// Syntax helper for getting global variables of the form `Mutex<RefCell<Option>>>` from an interrupt-free

@@ -78,6 +78,7 @@ with a simple interupt-based control flow.
 The [PDM mic, DAC output passthrough example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/pdm_mic_dac_output.rs)
 demonstrates how to read audio from a digital microphone, output it to headphones or speakers using the DAC, and use DMA
 to do this efficiently. It conducts minimal processing, but can be modified to process using DSP between input and output.
+This example uses RTIC.
 
 Additional examples in the [examples folder](https://github.com/David-OConnor/stm32-hal/tree/main/examples) demonstrate
 how to use various STM32 peripherals; most of these examples focus on a single peripheral.

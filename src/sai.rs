@@ -135,7 +135,8 @@ pub enum NumPdmMics {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// FIFO threshold. Affects xCR2 reg, FTH field.
+/// FIFO threshold. Affects xCR2 reg, FTH field. Affects when SAI interrupts, and
+/// DMA transfers occur.
 pub enum FifoThresh {
     /// FIFO empty
     Empty = 0b000,
@@ -354,7 +355,6 @@ impl Default for SaiConfig {
             num_slots: 2,
             first_bit_offset: 0,
             fifo_thresh: FifoThresh::T1_4,
-            // todo: PDM enum.
             pdm_mode: false,
             num_pdm_mics: NumPdmMics::N2,
             pdm_clock_used: 1,
@@ -497,6 +497,7 @@ where
 
         // 0 and 1 both divide the clock by 1.
         let mckdiv_a = 1;
+        let mckdiv_a = 2; // todo: temp TS
         let mckdiv_b = 1;
 
         // mckdiv = SAI clock / (sampling freq * 256) ?? (512 for oversampling?)

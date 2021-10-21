@@ -1432,7 +1432,7 @@ where
     feature = "wl",
 ))]
 /// Configure a specific DMA channel to work with a specific peripheral.
-pub fn mux(channel: DmaChannel, input: DmaInput, mux: &DMAMUX) {
+pub fn mux(channel: DmaChannel, input: DmaInput, mux: &mut DMAMUX) {
     // Note: This is similar in API and purpose to `channel_select` above,
     // for different families. We're keeping it as a separate function instead
     // of feature-gating within the same function so the name can be recognizable

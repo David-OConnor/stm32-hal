@@ -59,6 +59,8 @@ static mut OUTPUT_BUF_R: [u16; BLOCK_SIZE * 2] = [0; BLOCK_SIZE * 2];
 
 // If `x_BUF_WRITING_RIGHT` is true, we're reading from the left half of the buffer, and writing from
 // the right. If false, we're reading from the right half and writing to the left.
+// Note that if using an external DAC from the SAI peripheral, we don't need this, since
+// input and output would be on the same clock.
 static OUTPUT_BUF_WRITING_RIGHT: AtomicBool = AtomicBool::new(false);
 
 /// Set up the pins that have structs that don't need to be accessed after.
@@ -132,21 +134,21 @@ mod app {
 
         // Tim6 and Tim7 are internally connected to the DAC and are able to drive it through their
         // trigger outputs.
-        // We set this timer to the sample rate in Hz.
         let mut dac_timer = BasicTimer::new(
             dp.TIM6,
             clock_cfg.sai1_speed() as f32 / (64. * 2.),
             &clock_cfg,
         );
 
-        //  The update event is selected as a trigger output (TRGO). For instance a
+        // The update event is selected as a trigger output (TRGO). For instance a
         // master timer can then be used as a prescaler for a slave timer.
         dac_timer.set_mastermode(MasterModeSelection::Update);
 
         let mut dac = Dac::new(dp.DAC, DacBits::TwelveR, 3.3);
         dac.set_trigger(DacChannel::C1, Trigger::Tim6);
 
-        // Temp timer to read teh buffer once in a while.
+        // This timer allows us to periodically view the output waveform, eg for inspection and
+        // plotting.
         let mut read_timer = Timer::new_tim3(dp.TIM3, 1., &clock_cfg);
         read_timer.enable_interrupt(TimerInterrupt::Update);
 
@@ -169,9 +171,6 @@ mod app {
 
         dma.enable_interrupt(DmaChannel::C0, DmaInterrupt::HalfTransfer);
         dma.enable_interrupt(DmaChannel::C0, DmaInterrupt::TransferComplete);
-
-        // dma.enable_interrupt(DmaChannel::C1, DmaInterrupt::HalfTransfer);
-        // dma.enable_interrupt(DmaChannel::C1, DmaInterrupt::TransferComplete);
 
         dma.enable_interrupt(DmaChannel::C2, DmaInterrupt::HalfTransfer);
         dma.enable_interrupt(DmaChannel::C2, DmaInterrupt::TransferComplete);

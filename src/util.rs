@@ -122,6 +122,16 @@ macro_rules! rcc_en_reset {
             }
         }}
     };
+    (ahb3, $periph:expr, $rcc:expr) => {
+        paste::paste! { cfg_if::cfg_if! {
+            if #[cfg(feature = "placeholder")] {
+            } else {
+                $rcc.ahb3enr.modify(|_, w| w.[<$periph en>]().set_bit());
+                $rcc.ahb3rstr.modify(|_, w| w.[<$periph rst>]().set_bit());
+                $rcc.ahb3rstr.modify(|_, w| w.[<$periph rst>]().clear_bit());
+            }
+        }}
+    };
 }
 
 // todo: This trait is currently a one-off for usart
