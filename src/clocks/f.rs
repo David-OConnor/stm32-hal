@@ -590,7 +590,7 @@ impl Clocks {
     }
 
     #[cfg(feature = "f3")]
-    /// Calculate the systick, and input frequency, in  Hz.
+    /// Calculate the sysclock frequency, in  Hz.
     fn calc_sysclock(&self) -> u32 {
         match self.input_src {
             InputSrc::Pll(pll_src) => match pll_src {
@@ -605,9 +605,9 @@ impl Clocks {
     }
 
     #[cfg(feature = "f4")]
-    /// Calculate the systick, and input frequency, in  Hz.
+    /// Calculate the sysclock frequency, in  Hz.
     fn calc_sysclock(&self) -> u32 {
-        let sysclk = match self.input_src {
+        match self.input_src {
             InputSrc::Hsi => 16_000_000,
             InputSrc::Hse(freq) => freq,
             InputSrc::Pll(pll_src) => {
@@ -617,9 +617,7 @@ impl Clocks {
                 };
                 input_freq / self.pllm as u32 * self.plln as u32 / self.pllp.value() as u32
             }
-        };
-
-        sysclk
+        }
     }
 
     /// Check if the PLL is enabled. This is useful if checking wheather to re-enable the PLL
@@ -633,10 +631,6 @@ impl Clocks {
     pub fn pll_is_enabled(&self) -> bool {
         let rcc = unsafe { &(*RCC::ptr()) };
         rcc.cr.read().pllon().bit_is_set()
-    }
-
-    pub fn sysclk(&self) -> u32 {
-        return self.calc_sysclock();
     }
 
     pub fn hclk(&self) -> u32 {

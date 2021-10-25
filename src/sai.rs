@@ -333,6 +333,8 @@ pub struct SaiConfig {
     pub num_pdm_mics: NumPdmMics,
     /// Which PDM CK line to enable. Must be 1-4. Defaults to 1. (CK1 in User manuals)
     pub pdm_clock_used: u8,
+    /// Master clock divider. Divides the kernel clock input. Defaults to 0, for no division.
+    pub mckdiv: u8,
 }
 
 impl Default for SaiConfig {
@@ -358,6 +360,7 @@ impl Default for SaiConfig {
             pdm_mode: false,
             num_pdm_mics: NumPdmMics::N2,
             pdm_clock_used: 1,
+            mckdiv: 0,
         }
     }
 }
@@ -489,22 +492,17 @@ where
 
         // Set the master clock divider.
 
-        // todo: Set these based on inputting a sampling freq and SAI clock speed.
-        // todo: Hard coded now for 98Mhz SAI clock, 48K sampling, and no master out.
         // See H7 RM, Table 421.
-        // let mckdiv_a = 32;
-        // let mckdiv_b = 32;
-
-        // 0 and 1 both divide the clock by 1.
-        let mckdiv_a = 1;
-        let mckdiv_a = 2; // todo: temp TS
-        let mckdiv_b = 1;
 
         // mckdiv = SAI clock / (sampling freq * 256) ?? (512 for oversampling?)
 
         // with NOMCK = 1: (No master clock
         // F_SCK = F_sai_ker_ck / MCKDIV
         // F_FS = F_sai_ker_ck / ((FRL + 1) * MCKDIV)
+
+        // 6-bit fields.
+        assert!(config_a.mckdiv <= 0b111111);
+        assert!(config_b.mckdiv <= 0b111111);
 
         // For info on modes, reference H743 RM, section 51.4.3: "Configuring and
         // Enabling SAI modes".
@@ -535,7 +533,7 @@ where
             // first. This bit has no meaning in SPDIF audio protocol since in SPDIF data are always transferred
             // with LSB first
             w.lsbfirst().bit(config_a.first_bit as u8 != 0);
-            w.mckdiv().bits(mckdiv_a)
+            w.mckdiv().bits(config_a.mckdiv)
         });
         // todo: MCKEN vice NOMCK?? Make sure your enum reflects how you handle it.
 
@@ -553,7 +551,7 @@ where
             #[cfg(not(feature = "l4"))]
             w.osr().bit(config_b.oversampling_ratio as u8 != 0);
             w.lsbfirst().bit(config_b.first_bit as u8 != 0);
-            w.mckdiv().bits(mckdiv_b)
+            w.mckdiv().bits(config_a.mckdiv)
         });
 
         // todo: Add this to config and don't hard-set.

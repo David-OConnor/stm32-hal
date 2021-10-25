@@ -733,6 +733,7 @@ impl Clocks {
         rcc.cr.read().pll1on().bit_is_set()
     }
 
+    /// Calculate the sysclock frequency, in hz.
     pub fn sysclk(&self) -> u32 {
         match self.input_src {
             InputSrc::Pll1(pll_src) => {

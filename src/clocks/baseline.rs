@@ -1150,7 +1150,7 @@ impl Clocks {
         while rcc.cr.read().msirdy().bit_is_clear() {}
     }
 
-    /// Calculate the systick, and input frequency, in Hz.
+    /// Calculate the sysclock frequency, in hz.
     pub fn sysclk(&self) -> u32 {
         match self.input_src {
             InputSrc::Pll(pll_src) => {
