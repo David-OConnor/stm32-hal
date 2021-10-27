@@ -1068,6 +1068,8 @@ where
         // When a channel transfer error occurs, the EN bit of the DMA_CCRx register is cleared by
         // hardware. This EN bit can not be set again by software to re-activate the channel x, until the
         // TEIFx bit of the DMA_ISR register is set
+
+        // todo: See if you need and /or can remove this
         atomic::compiler_fence(Ordering::SeqCst);
     }
 
@@ -1097,6 +1099,7 @@ where
         // When a channel transfer error occurs, the EN bit of the DMA_CCRx register is cleared by
         // hardware. This EN bit can not be set again by software to re-activate the channel x, until the
         // TEIFx bit of the DMA_ISR register is set
+        // todo: See if you need and /or can remove this
         atomic::compiler_fence(Ordering::SeqCst);
     }
 

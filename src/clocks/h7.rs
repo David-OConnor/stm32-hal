@@ -81,6 +81,7 @@ impl InputSrc {
 /// field has no effect for PLL1.
 pub struct PllCfg {
     pub enabled: bool,
+    // pub fractional: bool,
     pub pllp_en: bool,
     pub pllq_en: bool,
     pub pllr_en: bool,
@@ -96,6 +97,7 @@ impl Default for PllCfg {
         // todo: Different defaults for different variants.
         Self {
             enabled: true,
+            // fractional: false,
             pllp_en: true,
             pllq_en: false,
             pllr_en: false,

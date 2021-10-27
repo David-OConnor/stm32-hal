@@ -495,8 +495,8 @@ where
     /// By clearing DFEN, any conversion which may be in progress is immediately stopped and
     /// FLTx is put into stop mode. All register settings remain unchanged except
     /// FLTxAWSR and FLTxISR (which are reset).
-    pub fn disable_filter(&mut self, channel: Filter) {
-        match channel {
+    pub fn disable_filter(&mut self, filter: Filter) {
+        match filter {
             Filter::F0 => self.regs.flt0.cr1.modify(|_, w| w.dfen().clear_bit()),
             Filter::F1 => self.regs.flt1.cr1.modify(|_, w| w.dfen().clear_bit()),
             #[cfg(not(any(feature = "l4")))]

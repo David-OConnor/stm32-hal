@@ -706,8 +706,7 @@ impl Clocks {
             return Err(SpeedError::new("Sysclk out of limits"));
         }
 
-        #[cfg(feature = "f411")]
-        if self.hclk() > 50_000_000 {
+        if self.hclk() > max_hclk {
             return Err(SpeedError::new("Hclk out of limits"));
         }
 
