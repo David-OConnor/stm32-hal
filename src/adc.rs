@@ -242,7 +242,7 @@ impl Default for Align {
 
 // todo: Document this config struct
 
-/// Initial configuration data for the I2C peripheral.
+/// Initial configuration data for the ADC peripheral.
 pub struct AdcConfig {
     pub clock_mode: ClockMode,
     pub operation_mode: OperationMode,

@@ -401,7 +401,7 @@ impl Clocks {
 
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
-        let sysclk = self.calc_sysclock();
+        let sysclk = self.sysclk();
 
         // todo: We don't yet take into account other voltage settings for f4 wait states.
         let hclk = sysclk / self.hclk_prescaler.value() as u32;
@@ -591,7 +591,7 @@ impl Clocks {
 
     #[cfg(feature = "f3")]
     /// Calculate the sysclock frequency, in  Hz.
-    fn calc_sysclock(&self) -> u32 {
+    pub fn sysclk(&self) -> u32 {
         match self.input_src {
             InputSrc::Pll(pll_src) => match pll_src {
                 PllSrc::HsiDiv2 => 4_000_000 * self.pll_mul.value() as u32,
@@ -606,7 +606,7 @@ impl Clocks {
 
     #[cfg(feature = "f4")]
     /// Calculate the sysclock frequency, in  Hz.
-    fn calc_sysclock(&self) -> u32 {
+    pub fn sysclk(&self) -> u32 {
         match self.input_src {
             InputSrc::Hsi => 16_000_000,
             InputSrc::Hse(freq) => freq,
@@ -696,10 +696,8 @@ impl Clocks {
         cfg_if! {
             if #[cfg(any(feature = "f401", feature = "f405"))] {
                 let max_hclk = 42_000_000;
-            } else if #[cfg(feature = "f411")] {
-                let max_hclk = 50_000_000;
             } else {
-                let max_hclk = self.sysclk(); // todo: placeholder.
+                let max_hclk = max_clock;
             }
         }
 
@@ -749,7 +747,8 @@ impl Default for Clocks {
     }
 
     #[cfg(feature = "f4")]
-    /// This preset configures common with a HSI, and 180Mhz sysclck. APB1 and 2 are
+    /// This preset configures common with a HSI, and 180Mhz sysclck for most variants. 100Mhz for F411,
+    ///and 84Mhz for F401. APB1 and 2 are
     /// clocked at 45Mhz. APB1 and 2 timers are clocked at 90Mhz. Not valid for USB.
     fn default() -> Self {
         Self {

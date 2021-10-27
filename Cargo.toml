@@ -14,7 +14,7 @@ documentation = "https://docs.rs/stm32-hal2"
 readme = "README.md"
 license = "MIT"
 exclude = [".gitignore"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 cortex-m = "0.7.3"

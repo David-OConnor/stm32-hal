@@ -222,7 +222,7 @@ impl HsiDiv {
 
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
-/// Range for the VSO. See H743 RM, section 6.8.6: PWR D3 domain control register. Sets PWR_D3CR,
+/// Range for the VOS. See H743 RM, section 6.8.6: PWR D3 domain control register. Sets PWR_D3CR,
 /// `VOS` field.
 pub enum VosRange {
     /// 1.26 V - 1.40 V
@@ -760,7 +760,7 @@ impl Clocks {
     }
 
     pub fn usb(&self) -> u32 {
-        // let (input_freq, _) = calc_sysclock(self.input_src, self.divm1, self.divn1, self.divp1);
+        // let (input_freq, _) = sysclock(self.input_src, self.divm1, self.divn1, self.divp1);
         // (input_freq * 1_000_000) as u32 / self.divm1 as u32 * self.pll_sai1_mul as u32 / 2
         0 // todo
     }

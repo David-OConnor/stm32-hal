@@ -163,7 +163,7 @@ pub enum OversamplingRatio {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// Specify wheather sub-clocks A and B are synchronized.
+/// Specify wheather sub-clocks A and B are synchronized. Sets xCR1 register, SYNCEN field.
 pub enum SyncMode {
     /// Audio sub-block in asynchronous mode
     Async = 0b00,
