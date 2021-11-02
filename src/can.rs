@@ -40,7 +40,7 @@ where
     #[cfg(not(feature = "f4"))]
     /// Initialize a CAH peripheral, including  enabling and resetting
     /// its RCC peripheral clock.
-    pub fn new<P>(regs: R, rcc: &mut RCC) -> Self {
+    pub fn new(regs: R, rcc: &mut RCC) -> Self {
         #[cfg(feature = "f3")]
         rcc_en_reset!(apb1, can, rcc);
         #[cfg(feature = "l4")]
