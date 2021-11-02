@@ -20,14 +20,6 @@ use crate::pac::can1 as can;
 
 use cfg_if::cfg_if;
 
-#[cfg(feature = "f4")]
-#[derive(Clone, Copy)]
-/// Specify the CAN device to use. Used internally for setting the appropriate APB.
-pub enum CanDevice {
-    One,
-    Two,
-}
-
 /// Interface to the CAN peripheral.
 pub struct Can<R> {
     pub regs: R,
@@ -38,7 +30,7 @@ where
     R: Deref<Target = can::RegisterBlock>,
 {
     #[cfg(not(feature = "f4"))]
-    /// Initialize a CAH peripheral, including  enabling and resetting
+    /// Initialize a CAN peripheral, including  enabling and resetting
     /// its RCC peripheral clock.
     pub fn new<P>(regs: R, rcc: &mut RCC) -> Self {
         #[cfg(feature = "f3")]
@@ -50,17 +42,10 @@ where
     }
 
     #[cfg(feature = "f4")]
-    /// Initialize a CAH peripheral, including  enabling and resetting
+    /// Initialize a CAN peripheral, including  enabling and resetting
     /// its RCC peripheral clock.
-    pub fn new(regs: R, device: CanDevice, rcc: &mut RCC) -> Self {
-        match device {
-            CanDevice::One => {
-                rcc_en_reset!(apb1, can1, rcc);
-            }
-            CanDevice::Two => {
-                rcc_en_reset!(apb1, can2, rcc);
-            }
-        }
+    pub fn new(regs: R, rcc: &mut RCC) -> Self {
+        rcc_en_reset!(apb1, can1, rcc); // This assumes CAN1.
 
         Self { regs }
     }

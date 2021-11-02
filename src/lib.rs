@@ -144,9 +144,15 @@
     feature = "g030",
     feature = "g031",
     feature = "g041",
+    feature = "g050",
+    feature = "g051",
+    feature = "g061",
     feature = "g070",
     feature = "g071",
     feature = "g081",
+    feature = "g0b0",
+    feature = "g0b1",
+    feature = "g0c1",
     feature = "g431",
     feature = "g441",
     feature = "g471",
@@ -246,6 +252,9 @@ pub use stm32l5::stm32l552 as pac;
 #[cfg(feature = "l562")]
 pub use stm32l5::stm32l562 as pac;
 
+// todo: Test and make accomodations for recently added G0 variants 50, 51, 61, B0, B1 and C1, in
+// todo the individual modules.
+
 // G0 PAC
 #[cfg(feature = "g030")]
 pub use stm32g0::stm32g030 as pac;
@@ -256,6 +265,15 @@ pub use stm32g0::stm32g031 as pac;
 #[cfg(feature = "g041")]
 pub use stm32g0::stm32g041 as pac;
 
+#[cfg(feature = "g050")]
+pub use stm32g0::stm32g050 as pac;
+
+#[cfg(feature = "g051")]
+pub use stm32g0::stm32g051 as pac;
+
+#[cfg(feature = "g061")]
+pub use stm32g0::stm32g061 as pac;
+
 #[cfg(feature = "g070")]
 pub use stm32g0::stm32g070 as pac;
 
@@ -264,6 +282,15 @@ pub use stm32g0::stm32g071 as pac;
 
 #[cfg(feature = "g081")]
 pub use stm32g0::stm32g081 as pac;
+
+#[cfg(feature = "g0b0")]
+pub use stm32g0::stm32g0b0 as pac;
+
+#[cfg(feature = "g0b1")]
+pub use stm32g0::stm32g0b1 as pac;
+
+#[cfg(feature = "g0c1")]
+pub use stm32g0::stm32g0c1 as pac;
 
 // G4 PAC
 #[cfg(feature = "g431")]

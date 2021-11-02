@@ -336,6 +336,12 @@ macro_rules! hal {
                 self.regs.cr1.read().cen().bit_is_set()
             }
 
+            /// Check the current counter value.
+            pub fn counter_val(&self) -> u32 {
+                self.regs.cnt.read().bits()
+            }
+
+
             /// Set the timer period, in seconds. Overrides the period or frequency set
             /// in the constructor. If you use `center` aligned PWM, make sure to
             /// enter twice the freq you normally would.
@@ -376,6 +382,20 @@ macro_rules! hal {
             /// Reset the countdown; set the counter to 0.
             pub fn reset_countdown(&mut self) {
                 self.regs.cnt.write(|w| unsafe { w.bits(0) });
+            }
+
+            /// Re-initialize the counter and generates an update of the registers. Note that the prescaler
+            /// counter is cleared too (anyway the prescaler ratio is not affected). The counter is cleared.
+            /// When changing timer frequency (or period) via PSC, you may need to run this. Alternatively, change
+            /// the freq in an update ISR.
+            /// Note from RM, PSC reg: PSC contains the value to be loaded in the active prescaler
+            /// register at each update event
+            /// (including when the counter is cleared through UG bit of TIMx_EGR register or through
+            /// trigger controller when configured in “reset mode”).'
+            /// If you're doing something where the updates can wait a cycle, this isn't required. (eg PWM
+            /// with changing duty period).
+            pub fn reinitialize(&mut self) {
+                self.regs.egr.write(|w| w.ug().set_bit());
             }
 
             /// Read the current counter value.

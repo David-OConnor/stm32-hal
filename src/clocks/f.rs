@@ -710,11 +710,6 @@ impl Clocks {
             return Err(SpeedError::new("Hclk out of limits"));
         }
 
-        #[cfg(not(feature = "f411"))]
-        if self.hclk() > max_clock {
-            return Err(SpeedError::new("Hclk out of limits"));
-        }
-
         if self.apb1() > max_clock {
             return Err(SpeedError::new("Apb1 out of limits"));
         }

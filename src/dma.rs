@@ -536,6 +536,7 @@ where
             }
         }
 
+        atomic::compiler_fence(Ordering::SeqCst);
         unsafe {
             match channel {
                 DmaChannel::C1 => {
@@ -886,6 +887,8 @@ where
             .par
             .write(|w| unsafe { w.bits(periph_addr) });
 
+        atomic::compiler_fence(Ordering::SeqCst);
+
         // 2. Set the memory address in the DMA_CMARx register.
         // The data is written to/read from the memory after the peripheral event or after the
         // channel is enabled in memory-to-memory mode.
@@ -930,7 +933,6 @@ where
         // for info on why we use `compiler_fence` here:
         // "We use Ordering::Release to prevent all preceding memory operations from being moved
         // after [starting DMA], which performs a volatile write."
-        atomic::compiler_fence(Ordering::Release);
 
         let cr = &self.regs.st[channel as usize].cr;
         cr.modify(|_, w| w.en().clear_bit());
@@ -1068,9 +1070,6 @@ where
         // When a channel transfer error occurs, the EN bit of the DMA_CCRx register is cleared by
         // hardware. This EN bit can not be set again by software to re-activate the channel x, until the
         // TEIFx bit of the DMA_ISR register is set
-
-        // todo: See if you need and /or can remove this
-        atomic::compiler_fence(Ordering::SeqCst);
     }
 
     /// Stop DMA.
@@ -1099,8 +1098,6 @@ where
         // When a channel transfer error occurs, the EN bit of the DMA_CCRx register is cleared by
         // hardware. This EN bit can not be set again by software to re-activate the channel x, until the
         // TEIFx bit of the DMA_ISR register is set
-        // todo: See if you need and /or can remove this
-        atomic::compiler_fence(Ordering::SeqCst);
     }
 
     // todo: G0 removed from this fn due to a bug introduced in PAC 0.13
@@ -1261,6 +1258,38 @@ where
             DmaInterrupt::FifoError => self.regs.st[channel as usize]
                 .fcr
                 .modify(|_, w| w.feie().set_bit()),
+        }
+
+        if originally_enabled {
+            cr.modify(|_, w| w.en().set_bit());
+            while cr.read().en().bit_is_clear() {}
+        }
+    }
+    
+    /// Disable a specific type of interrupt. Note that the `TransferComplete` interrupt
+    /// is enabled automatically, by the `cfg_channel` method.
+    /// todo: Non-H7 version too!
+    #[cfg(feature = "h7")]
+    pub fn disable_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
+        // Can only be set when the channel is disabled.
+        // todo: Is this true for disabling interrupts true, re the channel must be disabled?
+        let cr = &self.regs.st[channel as usize].cr;
+
+        let originally_enabled = cr.read().en().bit_is_set();
+
+        if originally_enabled {
+            cr.modify(|_, w| w.en().clear_bit());
+            while cr.read().en().bit_is_set() {}
+        }
+
+        match interrupt {
+            DmaInterrupt::TransferError => cr.modify(|_, w| w.teie().clear_bit()),
+            DmaInterrupt::HalfTransfer => cr.modify(|_, w| w.htie().clear_bit()),
+            DmaInterrupt::TransferComplete => cr.modify(|_, w| w.tcie().clear_bit()),
+            DmaInterrupt::DirectModeError => cr.modify(|_, w| w.dmeie().clear_bit()),
+            DmaInterrupt::FifoError => self.regs.st[channel as usize]
+                .fcr
+                .modify(|_, w| w.feie().clear_bit()),
         }
 
         if originally_enabled {

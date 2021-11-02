@@ -55,6 +55,14 @@ impl Rng {
         return self.regs.dr.read().bits() as i32;
     }
 
+    /// Return true if a reading is available.
+    pub fn reading_ready(&mut self) -> bool {
+        #[cfg(feature = "l5")]
+        return self.regs.rng_sr.read().drdy().bit_is_set();
+        #[cfg(not(feature = "l5"))]
+        return self.regs.sr.read().drdy().bit_is_set();
+    }
+
     /// Enable an interrupt. An interrupt isgenerated when a random number is ready or when an error
     /// occurs. Therefore at each interrupt, check that: No error occured (SEIS and CEIS bits should be set
     /// to 0 in the RNG_SR register. A random number is ready. The DRDY bit must be set to 1 in the
