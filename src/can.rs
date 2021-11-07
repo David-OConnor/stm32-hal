@@ -3,7 +3,7 @@
 //!
 //! Requires the `can` feature.
 
-// todo: Decouble from the `bxCAN` crate, remove the feature, and add fdCAN support.
+// todo: Add fdCAN support.
 
 use bxcan;
 use core::ops::Deref;

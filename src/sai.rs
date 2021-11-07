@@ -772,10 +772,10 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
     }
 
     /// Read a word of data.
-    pub fn read(&self, channel: SaiChannel) -> u32 {
+    pub fn read(&self, channel: SaiChannel) -> i32 {
         match channel {
-            SaiChannel::A => self.regs.cha.dr.read().bits(),
-            SaiChannel::B => self.regs.chb.dr.read().bits(),
+            SaiChannel::A => self.regs.cha.dr.read().bits() as i32,
+            SaiChannel::B => self.regs.chb.dr.read().bits() as i32,
         }
     }
 
@@ -799,18 +799,18 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
 
     /// Send 2 words of data to a single channel: Left and right channel, in that order.
     /// A write to the SR register loads the FIFO provided the FIFO is not full.
-    pub fn write(&mut self, channel: SaiChannel, left_word: u32, right_word: u32) {
+    pub fn write(&mut self, channel: SaiChannel, left_word: i32, right_word: i32) {
         match channel {
             SaiChannel::A => self
                 .regs
                 .cha
                 .dr
-                .write(|w| unsafe { w.bits(left_word).bits(right_word) }),
+                .write(|w| unsafe { w.bits(left_word as u32).bits(right_word as u32) }),
             SaiChannel::B => self
                 .regs
                 .chb
                 .dr
-                .write(|w| unsafe { w.bits(left_word).bits(right_word) }),
+                .write(|w| unsafe { w.bits(left_word as u32).bits(right_word as u32) }),
         }
 
         // todo: Why 2 words?
@@ -839,7 +839,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     pub unsafe fn write_dma<D>(
         &mut self,
-        buf: &[u32], // todo size?
+        buf: &[i32], // todo size?
         sai_channel: SaiChannel,
         dma_channel: DmaChannel,
         channel_cfg: ChannelCfg,
@@ -928,7 +928,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     pub unsafe fn read_dma<D>(
         &mut self,
-        buf: &mut [u32], // todo size?
+        buf: &mut [i32], // todo size?
         sai_channel: SaiChannel,
         dma_channel: DmaChannel,
         channel_cfg: ChannelCfg,
