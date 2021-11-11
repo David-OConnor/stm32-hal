@@ -398,7 +398,9 @@ macro_rules! set_exti_g0 {
 
 /// Represents a single GPIO pin. Allows configuration, and reading/setting state.
 pub struct Pin {
+    /// The GPIO Port letter. Eg A, B, C.
     pub port: Port,
+    /// The pin number: 1 - 15.
     pub pin: u8,
 }
 
@@ -452,7 +454,7 @@ impl Pin {
     }
 
     /// Create a new pin, with a specific mode. Enables the RCC peripheral clock to the port,
-    /// if not already enabled.
+    /// if not already enabled. Example: `let pa1 = Pin::new(Port::A, 1);`
     pub fn new(port: Port, pin: u8, mode: PinMode) -> Self {
         assert!(pin <= 15, "Pin must be 0 - 15.");
 
