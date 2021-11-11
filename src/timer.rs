@@ -341,7 +341,6 @@ macro_rules! hal {
                 self.regs.cnt.read().bits()
             }
 
-
             /// Set the timer period, in seconds. Overrides the period or frequency set
             /// in the constructor. If you use `center` aligned PWM, make sure to
             /// enter twice the freq you normally would.

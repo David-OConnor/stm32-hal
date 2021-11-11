@@ -226,8 +226,8 @@ where
         // We want it to round to nearest divider, not floor round. Let's say our clock speed is slightly lower than
         // the target - we might get a divider calculated to be 3.99. With integer math, that would round down to 3,
         // and be effectively wrong - hence the floats.
-        let divider =
-            clock_speed as f32 / (config.sampling_freq * config.filter_oversampling_ratio as u32) as f32;
+        let divider = clock_speed as f32
+            / (config.sampling_freq * config.filter_oversampling_ratio as u32) as f32;
         let divider = divider.round() as u8;
 
         // 1- 255: Defines the division of system clock for the serial clock output for CKOUT signal in range 2 -

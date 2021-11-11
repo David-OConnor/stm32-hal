@@ -305,7 +305,6 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - H7 clock default is suitable for single-core 480Mhz variants only.
 - PWM input unimplemented
 - CRC unimplemented for L5, F4, G0, and G4
-- Flash read/write unimplemented on H7
 - Low power timers (LPTIM) and low power usart (LPUSART) unimplemented
 - ADC unimplemented on F4
 - ADC3 unimplemented on H7

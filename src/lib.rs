@@ -413,7 +413,6 @@ pub mod dfsdm;
 #[cfg(not(any(feature = "f4", feature = "l5")))]
 pub mod dma;
 
-#[cfg(not(feature = "h7"))] // todo
 pub mod flash;
 
 pub mod gpio;

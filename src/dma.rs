@@ -1265,7 +1265,7 @@ where
             while cr.read().en().bit_is_clear() {}
         }
     }
-    
+
     /// Disable a specific type of interrupt. Note that the `TransferComplete` interrupt
     /// is enabled automatically, by the `cfg_channel` method.
     /// todo: Non-H7 version too!
