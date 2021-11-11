@@ -72,7 +72,7 @@ pub enum Error {
 fn check_illegal(regs: &FLASH) -> Result<(), Error> {
     // todo: QC this fn and its l5 variant.
 
-    let sr = regs.sr1.read();
+    let sr = regs.sr.read();
 
     cfg_if! {
         if #[cfg(any(feature = "f3"))] {
@@ -177,7 +177,7 @@ impl Flash {
     /// Unlock the flash memory, allowing writes. See L4 Reference manual, section 3.3.5.
     pub fn unlock(&mut self) -> Result<(), Error> {
         #[cfg(not(feature = "h7"))]
-        let regs = self.regs;
+        let regs = &self.regs;
         #[cfg(feature = "h7")]
         let regs = self.regs.bank1();
 
@@ -218,9 +218,9 @@ impl Flash {
         self.unlock()?;
 
         #[cfg(not(feature = "h7"))]
-        let regs = self.regs;
+        let regs = &self.regs;
         #[cfg(feature = "h7")]
-        let regs = self.regs.bank1();
+        let regs = &self.regs.bank1();
 
         // 1. Check that no Flash memory operation is ongoing by checking the BSY bit in the Flash
         // status register (FLASH_SR).
@@ -232,7 +232,7 @@ impl Flash {
 
         // 2. Check and clear all error programming flags due to a previous programming. If not,
         // PGSERR is set.
-        if check_illegal(&regs).is_err() {
+        if check_illegal(regs).is_err() {
             self.lock();
             return Err(Error::Illegal);
         };
@@ -447,9 +447,9 @@ impl Flash {
         self.unlock()?;
 
         #[cfg(not(feature = "h7"))]
-        let regs = self.regs;
+        let regs = &self.regs;
         #[cfg(feature = "h7")]
-        let regs = self.regs.bank1();
+        let regs = &self.regs.bank1();
 
         // To perform a bank Mass Erase, follow the procedure below:
         // RM0351 Rev 7 105/1903
@@ -465,7 +465,7 @@ impl Flash {
 
         // 2. Check and clear all error programming flags due to a previous programming. If not,
         // PGSERR is set.
-        if check_illegal(&regs).is_err() {
+        if check_illegal(regs).is_err() {
             self.lock();
             return Err(Error::Illegal);
         };
@@ -611,9 +611,9 @@ impl Flash {
         self.unlock()?;
 
         #[cfg(not(feature = "h7"))]
-        let regs = self.regs;
+        let regs = &self.regs;
         #[cfg(feature = "h7")]
-        let regs = self.regs.bank1();
+        let regs = &self.regs.bank1();
 
         let sr = regs.sr.read();
         if sr.bsy().bit_is_set() {
@@ -623,7 +623,7 @@ impl Flash {
 
         // 2. Check and clear all error programming flags due to a previous programming. If not,
         // PGSERR is set.
-        if check_illegal(&regs).is_err() {
+        if check_illegal(regs).is_err() {
             self.lock();
             return Err(Error::Illegal);
         };
