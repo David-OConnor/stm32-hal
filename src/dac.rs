@@ -546,7 +546,7 @@ where
     #[cfg(not(any(feature = "l5", feature = "g4")))] // todo: PAC ommission? SR missing on L5/G4? In RM.
     /// Clear the DMA Underrun interrupt - the only interrupt available.
     pub fn clear_interrupt(&mut self, channel: DacChannel) {
-        self.regs.sr.modify(|_, w| match channel {
+        self.regs.sr.write(|w| match channel {
             DacChannel::C1 => w.dmaudr1().set_bit(),
             #[cfg(not(feature = "wl"))]
             DacChannel::C2 => w.dmaudr2().set_bit(),

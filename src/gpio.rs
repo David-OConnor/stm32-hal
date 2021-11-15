@@ -495,7 +495,7 @@ impl Pin {
                     cfg_if! {
                         if #[cfg(feature = "f3")] {
                             if rcc.ahbenr.read().iopben().bit_is_clear() {
-                                rcc_en_reset!(ahb1, iopa, rcc);
+                                rcc_en_reset!(ahb1, iopb, rcc);
                             }
                         } else if #[cfg(feature = "h7")] {
                             if rcc.ahb4enr.read().gpioben().bit_is_clear() {
@@ -525,7 +525,7 @@ impl Pin {
                     cfg_if! {
                         if #[cfg(feature = "f3")] {
                             if rcc.ahbenr.read().iopcen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, iopa, rcc);
+                                rcc_en_reset!(ahb1, iopc, rcc);
                             }
                         } else if #[cfg(feature = "h7")] {
                             if rcc.ahb4enr.read().gpiocen().bit_is_clear() {
@@ -555,7 +555,7 @@ impl Pin {
                     cfg_if! {
                         if #[cfg(feature = "f3")] {
                             if rcc.ahbenr.read().iopden().bit_is_clear() {
-                                rcc_en_reset!(ahb1, iopa, rcc);
+                                rcc_en_reset!(ahb1, iopd, rcc);
                             }
                         } else if #[cfg(feature = "h7")] {
                             if rcc.ahb4enr.read().gpioden().bit_is_clear() {
@@ -592,7 +592,7 @@ impl Pin {
                     cfg_if! {
                         if #[cfg(feature = "f3")] {
                             if rcc.ahbenr.read().iopeen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, iopa, rcc);
+                                rcc_en_reset!(ahb1, iope, rcc);
                             }
                         } else if #[cfg(feature = "h7")] {
                             if rcc.ahb4enr.read().gpioeen().bit_is_clear() {
@@ -632,7 +632,7 @@ impl Pin {
                     cfg_if! {
                         if #[cfg(feature = "f3")] {
                             if rcc.ahbenr.read().iopfen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, iopa, rcc);
+                                rcc_en_reset!(ahb1, iopf, rcc);
                             }
                         } else if #[cfg(feature = "h7")] {
                             if rcc.ahb4enr.read().gpiofen().bit_is_clear() {
@@ -672,7 +672,7 @@ impl Pin {
                     cfg_if! {
                         if #[cfg(feature = "f3")] {
                             if rcc.ahbenr.read().iophen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, iopa, rcc);
+                                rcc_en_reset!(ahb1, ioph, rcc);
                             }
                         } else if #[cfg(feature = "h7")] {
                             if rcc.ahb4enr.read().gpiohen().bit_is_clear() {

@@ -359,14 +359,7 @@ pub mod adc;
 // WB and WL?
 #[cfg(all(
     feature = "can",
-    any(
-        all(feature = "f3", not(feature = "f301")),
-        all(
-            feature = "f4",
-            not(any(feature = "f401", feature = "f410", feature = "f411"))
-        ),
-        feature = "l4"
-    )
+    not(any(feature = "f301", feature = "f401", feature = "f410", feature = "f411"))
 ))]
 pub mod can;
 

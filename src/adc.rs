@@ -965,7 +965,7 @@ macro_rules! hal {
             /// Clear an interrupt flag of the specified type. Consider running this in the
             /// corresponding ISR.
             pub fn clear_interrupt(&mut self, interrupt: AdcInterrupt) {
-                self.regs.isr.modify(|_, w| match interrupt {
+                self.regs.isr.write(|w| match interrupt {
                     AdcInterrupt::Ready => w.adrdy().set_bit(),
                     AdcInterrupt::EndOfConversion => w.eoc().set_bit(),
                     AdcInterrupt::EndOfSequence => w.eos().set_bit(),

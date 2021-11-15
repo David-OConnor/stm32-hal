@@ -302,7 +302,7 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
 - USB unimplemented for H7
 - USART interrupts unimplemented on F4
-- H7 clock default is suitable for single-core 480Mhz variants only.
+- H7 clock default is suitable for single-core 400MHz and 480MHz variants only.
 - PWM input unimplemented
 - CRC unimplemented for L5, F4, G0, and G4
 - Low power timers (LPTIM) and low power usart (LPUSART) unimplemented

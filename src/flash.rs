@@ -1,6 +1,5 @@
 //! Read and write onboard flash memory.
-//! The Flash memory is organized as 72-bit wide memory cells (64 bits plus 8 ECC bits) that
-//! can be used for storing both code and data constants.
+//! Note that on dual bank variants, only bank 1 is supported for now.
 
 // Note that most of the code for L5 and U5 is feature-gated due to different
 // register names, differentiating secure and non-secure. We keep them in the same file
@@ -43,10 +42,9 @@ enum _DualBank {
 }
 
 #[derive(Clone, Copy)]
-pub enum BanksToErase {
-    Bank1,
-    Bank2,
-    Both,
+pub enum Bank {
+    B1,
+    B2,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -220,7 +218,7 @@ impl Flash {
         #[cfg(not(feature = "h7"))]
         let regs = &self.regs;
         #[cfg(feature = "h7")]
-        let regs = &self.regs.bank1();
+        let regs = &self.regs.bank1(); // todo: Don't hard code bank1
 
         // 1. Check that no Flash memory operation is ongoing by checking the BSY bit in the Flash
         // status register (FLASH_SR).
@@ -442,14 +440,20 @@ impl Flash {
     }
 
     #[cfg(not(feature = "l5"))]
-    pub fn erase_bank(&mut self, banks: BanksToErase) -> Result<(), Error> {
+    /// Erase one or both banks.
+    pub fn erase_bank(&mut self, bank: Bank) -> Result<(), Error> {
         // todo: DRY
+        // (H7): 2. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration
+        // protection (only if register is not already unlocked).
         self.unlock()?;
 
         #[cfg(not(feature = "h7"))]
         let regs = &self.regs;
         #[cfg(feature = "h7")]
-        let regs = &self.regs.bank1();
+        let regs = &match bank {
+            Bank::B1 => self.regs.bank1(),
+            Bank::B2 => self.regs.bank2(),
+        };
 
         // To perform a bank Mass Erase, follow the procedure below:
         // RM0351 Rev 7 105/1903
@@ -457,6 +461,8 @@ impl Flash {
         // 139
         // 1. Check that no Flash memory operation is ongoing by checking the BSY bit in the
         // FLASH_SR register.
+        // (H7): 1. Check and clear (optional) all the error flags due to previous programming/erase
+        // operation. Refer to Section 4.7: FLASH error management for details.
         let sr = regs.sr.read();
         if sr.bsy().bit_is_set() {
             self.lock();
@@ -478,12 +484,15 @@ impl Flash {
                 #[cfg(not(feature = "h7"))]
                 regs.cr.modify(|_, w| w.mer().clear_bit());
                 #[cfg(feature = "h7")]
+                // 3. Set the BER1/2 bit in the FLASH_CR1/2 register corresponding to the targeted bank.
                 regs.cr.modify(|_, w| w.ber().clear_bit());
 
                 // 4. Set the STRT bit in the FLASH_CR register.
                 #[cfg(not(feature = "h7"))]
                 regs.cr.modify(|_, w| w.strt().set_bit());
                 #[cfg(feature = "h7")]
+                // Set the START1/2 bit in the FLASH_CR1/2 register to start the bank erase operation.
+                // Then wait until the QW1/2 bit is cleared in the corresponding FLASH_SR1/2 register.
                 regs.cr.modify(|_, w| w.start().set_bit());
             } else if #[cfg(any(feature = "g0"))] {
                 regs.cr.modify(|_, w| w.mer().clear_bit());
@@ -491,14 +500,10 @@ impl Flash {
                 regs.cr.modify(|_, w| w.mer1().clear_bit());
             } else {
                 match banks {
-                    BanksToErase::Bank1 => {
+                    Bank::B1 => {
                         regs.cr.modify(|_, w| w.mer1().clear_bit());
                     }
-                    BanksToErase::Bank2 => {
-                        regs.cr.modify(|_, w| w.mer2().clear_bit());
-                    }
-                    BanksToErase::Both => {
-                        regs.cr.modify(|_, w| w.mer1().clear_bit());
+                    Bank::B2 => {
                         regs.cr.modify(|_, w| w.mer2().clear_bit());
                     }
                 }
@@ -600,6 +605,8 @@ impl Flash {
         Ok(())
     }
 
+    // todo: For H7 etc, accept a bank argument.
+
     #[cfg(not(feature = "l5"))]
     /// Write the contents of a page. Must be erased first. See L4 RM, section 3.3.7.
     pub fn write_page(&mut self, page: usize, data: &[u64]) -> Result<(), Error> {
@@ -633,7 +640,11 @@ impl Flash {
 
         // 4. Perform the data write operation at the desired memory address, inside main memory
         // block or OTP area. Only double word can be programmed.
+
+        #[cfg(not(feature = "h7"))]
         let mut address = page_to_address(page) as *mut u32;
+        #[cfg(feature = "h7")]
+        let mut address = sector_to_address(page, Bank::B1) as *mut u32;
 
         for dword in data {
             unsafe {
@@ -769,24 +780,74 @@ impl Flash {
         Ok(())
     }
 
+    #[cfg(not(feature = "h7"))]
     /// Read a single 64-bit memory cell, indexed by its page, and an offset from the page.
     pub fn read(&self, page: usize, offset: isize) -> u64 {
         let addr = page_to_address(page) as *const u64;
         unsafe { core::ptr::read(addr.offset(offset)) }
     }
 
+    // #[cfg(not(feature = "h7"))]
     /// Read flash memory at a given page and offset into a buffer.
     pub fn read_to_buffer(&self, page: usize, offset: isize, buff: &mut [u8]) {
+        // H742 RM, section 4.3.8:
+        // Single read sequence
+        // The recommended simple read sequence is the following:
+        // 1. Freely perform read accesses to any AXI-mapped area.
+        // 2. The embedded Flash memory effectively executes the read operation from the read
+        // command queue buffer as soon as the non-volatile memory is ready and the previously
+        // requested operations on this specific bank have been served.
+
         // todo: This is untested.
+        #[cfg(not(feature = "h7"))]
         let addr = page_to_address(page) as *const u8; // todo is this right?
+        // let addr = page_to_address(page).as_ptr(); // todo is this right?
+        #[cfg(feature = "h7")]
+        // todo: Don't hard-code bank1.
+        let addr = sector_to_address(page, Bank::B1) as *const u8; // todo is this right?
+                                                                   // let addr = sector_to_address(page, Bank::B1).as_ptr(); // todo is this right?
 
         for val in buff {
             *val = unsafe { core::ptr::read(addr.offset(offset)) }
         }
     }
+
+    // #[cfg(feature = "h7")]
+    // /// Read flash memory at a given page and offset into a buffer.
+    // ///    H742 RM, section 4.3.8:
+    // /// Single read sequence
+    // /// The recommended simple read sequence is the following:
+    // /// 1. Freely perform read accesses to any AXI-mapped area.
+    // /// 2. The embedded Flash memory effectively executes the read operation from the read
+    // /// command queue buffer as soon as the non-volatile memory is ready and the previously
+    // /// requested operations on this specific bank have been served.
+    // pub fn read_to_buffer(&self, sector: usize, offset: isize, buff: &mut [u8]) {
+    //     //  todo: H7 can read in 64 bit, 32 bit, 16 bit, or one byte granularities.
+    //     //     // todo: H7 uses 256 bit words for writing and erasing.
+    //     // for val in buff {
+    //     for i in buff.len() {
+    //         let val = buff[i]
+    //         *val = unsafe { core::ptr::read(addr.offset(i)) };
+    //     }
+    // }
 }
 
-/// Calculate the address of the start of a given page. Each page is 2,048 Kb.
+#[cfg(not(feature = "h7"))]
+/// Calculate the address of the start of a given page. Each page is 2,048 Kb for non-H7.
+/// For H7, sectors are 128Kb, with 8 sectors per bank.
 fn page_to_address(page: usize) -> usize {
-    0x0800_0000 + page as usize * 2048
+    0x0800_0000 + page * 2048
+}
+
+#[cfg(feature = "h7")]
+/// Calculate the address of the start of a given page. Each page is 2,048 Kb for non-H7.
+/// For H7, sectors are 128Kb, with 8 sectors per bank.
+fn sector_to_address(sector: usize, bank: Bank) -> usize {
+    let starting_pt = match bank {
+        Bank::B1 => 0x0800_0000,
+        // todo: This isn't the same bank2 starting point for all H7 variants!
+        Bank::B2 => 0x0810_0000,
+    };
+
+    starting_pt + sector * 0x2_0000
 }

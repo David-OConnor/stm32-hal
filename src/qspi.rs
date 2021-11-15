@@ -239,7 +239,7 @@ impl Qspi {
 
     /// Clear an interrupt flag
     pub fn clear_interrupt(&mut self, interrupt: QspiInterrupt) {
-        self.regs.fcr.modify(|_, w| match interrupt {
+        self.regs.fcr.write(|w| match interrupt {
             QspiInterrupt::FifoThreshold => panic!("Can't clear that interrupt manually."),
             QspiInterrupt::StatusMatch => w.csmf().set_bit(),
             QspiInterrupt::TransferComplete => w.ctcf().set_bit(),

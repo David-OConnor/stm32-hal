@@ -310,20 +310,20 @@ macro_rules! hal {
                 // of setting it.
                 // todo: Overcapture flags for each CC? DMA interrupts?
                 match interrupt {
-                    TimerInterrupt::Update => self.regs.sr.modify(|_, w| w.uif().clear_bit()),
+                    TimerInterrupt::Update => self.regs.sr.write(|w| w.uif().clear_bit()),
                     // todo: Only DIER is in PAC. PAC BUG? Only avail on some timers?
-                    // TimerInterrupt::Trigger => self.regs.sr.modify(|_, w| w.tif().clear_bit()),
-                    // TimerInterrupt::CaptureCompare1 => self.regs.sr.modify(|_, w| w.cc1if().clear_bit()),
-                    // TimerInterrupt::CaptureCompare2 => self.regs.sr.modify(|_, w| w.cc2if().clear_bit()),
-                    // TimerInterrupt::CaptureCompare3 => self.regs.sr.modify(|_, w| w.cc3if().clear_bit()),
-                    // TimerInterrupt::CaptureCompare4 => self.regs.sr.modify(|_, w| w.cc4if().clear_bit()),
+                    // TimerInterrupt::Trigger => self.regs.sr.write(|w| w.tif().clear_bit()),
+                    // TimerInterrupt::CaptureCompare1 => self.regs.sr.write(|w| w.cc1if().clear_bit()),
+                    // TimerInterrupt::CaptureCompare2 => self.regs.sr.write(|w| w.cc2if().clear_bit()),
+                    // TimerInterrupt::CaptureCompare3 => self.regs.sr.write(|w| w.cc3if().clear_bit()),
+                    // TimerInterrupt::CaptureCompare4 => self.regs.sr.write(|w| w.cc4if().clear_bit()),
                     _ => unimplemented!("Clearing DMA flags is unimplemented using this function."),
                 }
             }
 
             /// Enable the timer.
             pub fn enable(&mut self) {
-                self.regs.cr1.modify(|_, w| w.cen().set_bit());
+                self.regs.cr1.write(|w| w.cen().set_bit());
             }
 
             /// Disable the timer.
