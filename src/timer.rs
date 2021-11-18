@@ -283,6 +283,7 @@ macro_rules! hal {
             pub fn enable_interrupt(&mut self, interrupt: TimerInterrupt) {
                 match interrupt {
                     TimerInterrupt::Update => self.regs.dier.modify(|_, w| w.uie().set_bit()),
+                    // todo: Only DIER is in PAC, or some CCs. PAC BUG? Only avail on some timers/MCUs?
                     // TimerInterrupt::Trigger => self.regs.dier.modify(|_, w| w.tie().set_bit()),
                     // TimerInterrupt::CaptureCompare1 => self.regs.dier.modify(|_, w| w.cc1ie().set_bit()),
                     // TimerInterrupt::CaptureCompare2 => self.regs.dier.modify(|_, w| w.cc2ie().set_bit()),
@@ -295,7 +296,6 @@ macro_rules! hal {
                     // TimerInterrupt::CaptureCompare2Dma => self.regs.dier.modify(|_, w| w.ccd2de().set_bit()),
                     // TimerInterrupt::CaptureCompare3Dma => self.regs.dier.modify(|_, w| w.cc3de().set_bit()),
                     // TimerInterrupt::CaptureCompare4Dma => self.regs.dier.modify(|_, w| w.cc4de().set_bit()),
-                    // todo: Only DIER is in PAC. PAC BUG? Only avail on some timers?
                     _ => unimplemented!("TODO TEMP PROBLEMS"),
                 }
             }
@@ -307,17 +307,20 @@ macro_rules! hal {
             /// interrupt handler.
             pub fn clear_interrupt(&mut self, interrupt: TimerInterrupt) {
                 // Note that unlike other clear interrupt functions, for this, we clear the bit instead
-                // of setting it.
+                // of setting it. Due to the way our SVDs are set up not working well with this atomic clear,
+                // we need to make sure we write 1s to the rest of the bits.
                 // todo: Overcapture flags for each CC? DMA interrupts?
-                match interrupt {
-                    TimerInterrupt::Update => self.regs.sr.write(|w| w.uif().clear_bit()),
-                    // todo: Only DIER is in PAC. PAC BUG? Only avail on some timers?
-                    // TimerInterrupt::Trigger => self.regs.sr.write(|w| w.tif().clear_bit()),
-                    // TimerInterrupt::CaptureCompare1 => self.regs.sr.write(|w| w.cc1if().clear_bit()),
-                    // TimerInterrupt::CaptureCompare2 => self.regs.sr.write(|w| w.cc2if().clear_bit()),
-                    // TimerInterrupt::CaptureCompare3 => self.regs.sr.write(|w| w.cc3if().clear_bit()),
-                    // TimerInterrupt::CaptureCompare4 => self.regs.sr.write(|w| w.cc4if().clear_bit()),
-                    _ => unimplemented!("Clearing DMA flags is unimplemented using this function."),
+                unsafe {
+                    match interrupt {
+                        TimerInterrupt::Update => self.regs.sr.write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
+                        // todo: Only DIER is in PAC, or some CCs. PAC BUG? Only avail on some timers?
+                        // TimerInterrupt::Trigger => self.regs.sr.write(|w| w.bits(0xffff_ffff).tif().clear_bit()),
+                        // TimerInterrupt::CaptureCompare1 => self.regs.sr.write(|w| w.bits(0xffff_ffff).cc1if().clear_bit()),
+                        // TimerInterrupt::CaptureCompare2 => self.regs.sr.write(|w| w.bits(0xffff_ffff).cc2if().clear_bit()),
+                        // TimerInterrupt::CaptureCompare3 => self.regs.sr.write(|w| w.bits(0xffff_ffff).cc3if().clear_bit()),
+                        // TimerInterrupt::CaptureCompare4 => self.regs.sr.write(|w| w.bits(0xffff_ffff).cc4if().clear_bit()),
+                        _ => unimplemented!("Clearing DMA flags is unimplemented using this function."),
+                    }
                 }
             }
 
@@ -1030,26 +1033,26 @@ feature = "wl",  // todo: PAC issue?
 pwm_features!(TIM2, u32);
 
 #[cfg(not(any(
-    feature = "f301",
-    feature = "l4x1",
-    feature = "l412",
-    feature = "l4x3",
-    feature = "f410",
-    feature = "wb",
-    feature = "wl"
+feature = "f301",
+feature = "l4x1",
+feature = "l412",
+feature = "l4x3",
+feature = "f410",
+feature = "wb",
+feature = "wl"
 )))]
 hal!(TIM3, tim3, 1);
 
 #[cfg(not(any(
-    feature = "f301",
-    feature = "l4x1",
-    feature = "l4x3",
-    feature = "l5",
-    feature = "f410",
-    feature = "g0",
-    feature = "g4",
-    feature = "wb",
-    feature = "wl"
+feature = "f301",
+feature = "l4x1",
+feature = "l4x3",
+feature = "l5",
+feature = "f410",
+feature = "g0",
+feature = "g4",
+feature = "wb",
+feature = "wl"
 )))]
 pwm_features!(TIM3, u16);
 
@@ -1120,24 +1123,24 @@ cfg_if! {
 }
 
 #[cfg(any(
-    feature = "f303",
-    feature = "l4x5",
-    feature = "l4x6",
-    feature = "l562",
-    feature = "g4"
+feature = "f303",
+feature = "l4x5",
+feature = "l4x6",
+feature = "l562",
+feature = "g4"
 ))]
 hal!(TIM8, tim8, 2);
 
 // Todo: the L5 PAC has an address error on TIM15 - remove it until solved.
 #[cfg(not(any(
-    feature = "l5",
-    feature = "f4",
-    feature = "g031",
-    feature = "g031",
-    feature = "g041",
-    feature = "g030",
-    feature = "wb",
-    feature = "wl"
+feature = "l5",
+feature = "f4",
+feature = "g031",
+feature = "g031",
+feature = "g041",
+feature = "g030",
+feature = "wb",
+feature = "wl"
 )))]
 hal!(TIM15, tim15, 2);
 

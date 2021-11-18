@@ -176,7 +176,8 @@ wle5 = ["stm32wl/stm32wle5", "wl"]
 usb = ["stm32-usbd"]
 usbotg_fs = ["synopsys-usb-otg/fs"]
 usbotg_hs = ["synopsys-usb-otg/hs"]
-can = ["bxcan", "fdcan"] # todo: Only import the one used?
+bx_can = ["bxcan"]
+fd_can = ["fdcan"]
 embedded_hal = ["embedded-hal"]
 
 # These features are used to featured gate sections of code that apply
