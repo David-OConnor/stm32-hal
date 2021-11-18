@@ -801,7 +801,7 @@ impl Flash {
         // todo: This is untested.
         #[cfg(not(feature = "h7"))]
         let addr = page_to_address(page) as *const u8; // todo is this right?
-        // let addr = page_to_address(page).as_ptr(); // todo is this right?
+                                                       // let addr = page_to_address(page).as_ptr(); // todo is this right?
         #[cfg(feature = "h7")]
         // todo: Don't hard-code bank1.
         let addr = sector_to_address(page, Bank::B1) as *const u8; // todo is this right?

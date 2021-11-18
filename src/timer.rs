@@ -312,14 +312,19 @@ macro_rules! hal {
                 // todo: Overcapture flags for each CC? DMA interrupts?
                 unsafe {
                     match interrupt {
-                        TimerInterrupt::Update => self.regs.sr.write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
+                        TimerInterrupt::Update => self
+                            .regs
+                            .sr
+                            .write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
                         // todo: Only DIER is in PAC, or some CCs. PAC BUG? Only avail on some timers?
                         // TimerInterrupt::Trigger => self.regs.sr.write(|w| w.bits(0xffff_ffff).tif().clear_bit()),
                         // TimerInterrupt::CaptureCompare1 => self.regs.sr.write(|w| w.bits(0xffff_ffff).cc1if().clear_bit()),
                         // TimerInterrupt::CaptureCompare2 => self.regs.sr.write(|w| w.bits(0xffff_ffff).cc2if().clear_bit()),
                         // TimerInterrupt::CaptureCompare3 => self.regs.sr.write(|w| w.bits(0xffff_ffff).cc3if().clear_bit()),
                         // TimerInterrupt::CaptureCompare4 => self.regs.sr.write(|w| w.bits(0xffff_ffff).cc4if().clear_bit()),
-                        _ => unimplemented!("Clearing DMA flags is unimplemented using this function."),
+                        _ => unimplemented!(
+                            "Clearing DMA flags is unimplemented using this function."
+                        ),
                     }
                 }
             }
@@ -1033,26 +1038,26 @@ feature = "wl",  // todo: PAC issue?
 pwm_features!(TIM2, u32);
 
 #[cfg(not(any(
-feature = "f301",
-feature = "l4x1",
-feature = "l412",
-feature = "l4x3",
-feature = "f410",
-feature = "wb",
-feature = "wl"
+    feature = "f301",
+    feature = "l4x1",
+    feature = "l412",
+    feature = "l4x3",
+    feature = "f410",
+    feature = "wb",
+    feature = "wl"
 )))]
 hal!(TIM3, tim3, 1);
 
 #[cfg(not(any(
-feature = "f301",
-feature = "l4x1",
-feature = "l4x3",
-feature = "l5",
-feature = "f410",
-feature = "g0",
-feature = "g4",
-feature = "wb",
-feature = "wl"
+    feature = "f301",
+    feature = "l4x1",
+    feature = "l4x3",
+    feature = "l5",
+    feature = "f410",
+    feature = "g0",
+    feature = "g4",
+    feature = "wb",
+    feature = "wl"
 )))]
 pwm_features!(TIM3, u16);
 
@@ -1123,24 +1128,24 @@ cfg_if! {
 }
 
 #[cfg(any(
-feature = "f303",
-feature = "l4x5",
-feature = "l4x6",
-feature = "l562",
-feature = "g4"
+    feature = "f303",
+    feature = "l4x5",
+    feature = "l4x6",
+    feature = "l562",
+    feature = "g4"
 ))]
 hal!(TIM8, tim8, 2);
 
 // Todo: the L5 PAC has an address error on TIM15 - remove it until solved.
 #[cfg(not(any(
-feature = "l5",
-feature = "f4",
-feature = "g031",
-feature = "g031",
-feature = "g041",
-feature = "g030",
-feature = "wb",
-feature = "wl"
+    feature = "l5",
+    feature = "f4",
+    feature = "g031",
+    feature = "g031",
+    feature = "g041",
+    feature = "g030",
+    feature = "wb",
+    feature = "wl"
 )))]
 hal!(TIM15, tim15, 2);
 

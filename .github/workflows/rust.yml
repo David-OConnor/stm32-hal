@@ -31,9 +31,9 @@ jobs:
           components: rust-src
           override: true
       - name: Build
-        run: cargo build --features=${{ matrix.mcu }},can,usb --lib
+        run: cargo build --features=${{ matrix.mcu }},usb --lib
       - name: Run tests
-        run: cargo test --features=${{ matrix.mcu }},can,usb --lib
+        run: cargo test --features=${{ matrix.mcu }},usb --lib
 
   seven:
     name: Thumbv7
@@ -113,6 +113,6 @@ jobs:
             components: rust-src
             override: true
         - name: Build
-          run: cargo build --features=${{ matrix.mcu }},can,usb --lib
+          run: cargo build --features=${{ matrix.mcu }},usb --lib
         - name: Run tests
-          run: cargo test --features=${{ matrix.mcu }},can,usb --lib
+          run: cargo test --features=${{ matrix.mcu }},usb --lib

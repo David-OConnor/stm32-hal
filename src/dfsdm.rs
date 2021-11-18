@@ -73,10 +73,6 @@ pub enum FilterOrder {
     Sinc4 = 4,
     /// Sinc5 filter type
     Sinc5 = 5,
-    /// Sinc6 filter type
-    Sinc6 = 6,
-    /// Sinc7 filter type
-    Sinc7 = 7,
 }
 
 #[derive(Clone, Copy)]
@@ -506,9 +502,8 @@ where
         }
     }
 
-    /// Configure for PDM microphone(s). Configures the right channel as the `channel` argument here,
-    /// and the left channel as `channel` - 1. So, Channel options for this argument must be C1, C2,
-    /// or C3; this corresponds to the right channel. H742 RM, section 30.4.4
+    /// Configure for PDM microphone(s). Configures the left channel as the `channel` argument here,
+    /// and the right channel as `channel` - 1. H742 RM, section 30.4.4
     pub fn setup_pdm_mics(&mut self, channel: DfsdmChannel) {
         // Configuration of serial channels for PDM microphone input:
         // • PDM microphone signals (data, clock) will be connected to DFSDM input serial channel
