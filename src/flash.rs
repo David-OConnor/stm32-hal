@@ -500,12 +500,8 @@ impl Flash {
                 regs.cr.modify(|_, w| w.mer1().clear_bit());
             } else {
                 match banks {
-                    Bank::B1 => {
-                        regs.cr.modify(|_, w| w.mer1().clear_bit());
-                    }
-                    Bank::B2 => {
-                        regs.cr.modify(|_, w| w.mer2().clear_bit());
-                    }
+                    Bank::B1 => regs.cr.modify(|_, w| w.mer1().clear_bit()),
+                    Bank::B2 => regs.cr.modify(|_, w| w.mer2().clear_bit()),
                 }
 
                 // 4. Set the STRT bit in the FLASH_CR register.
@@ -526,7 +522,7 @@ impl Flash {
 
     #[cfg(feature = "l5")]
     /// Mass erase: L5 RM section 6.3.6
-    pub fn erase_bank(&mut self, banks: BanksToErase, security: Security) -> Result<(), Error> {
+    pub fn erase_bank(&mut self, bank: Bank, security: Security) -> Result<(), Error> {
         self.unlock(security)?;
 
         match security {
@@ -550,17 +546,9 @@ impl Flash {
 
                 // 3. Set the MER1 bit or/and MER2 (depending on the bank) in the Flash control register
                 // (FLASH_CR). Both banks can be selected in the same operation.
-                match banks {
-                    BanksToErase::Bank1 => {
-                        self.regs.nscr.modify(|_, w| w.nsmer1().clear_bit());
-                    }
-                    BanksToErase::Bank2 => {
-                        self.regs.nscr.modify(|_, w| w.nsmer2().clear_bit());
-                    }
-                    BanksToErase::Both => {
-                        self.regs.nscr.modify(|_, w| w.nsmer1().clear_bit());
-                        self.regs.nscr.modify(|_, w| w.nsmer2().clear_bit());
-                    }
+                match bank {
+                    Bank::B1 => self.regs.nscr.modify(|_, w| w.nsmer1().clear_bit()),
+                    Bank::B2 => self.regs.nscr.modify(|_, w| w.nsmer2().clear_bit()),
                 }
 
                 // 4. Set the NSSTRT bit in the FLASH_NSCR register.
@@ -581,17 +569,9 @@ impl Flash {
                     return Err(Error::Illegal);
                 };
 
-                match banks {
-                    BanksToErase::Bank1 => {
-                        self.regs.seccr.modify(|_, w| w.secmer1().clear_bit());
-                    }
-                    BanksToErase::Bank2 => {
-                        self.regs.seccr.modify(|_, w| w.secmer2().clear_bit());
-                    }
-                    BanksToErase::Both => {
-                        self.regs.seccr.modify(|_, w| w.secmer1().clear_bit());
-                        self.regs.seccr.modify(|_, w| w.secmer2().clear_bit());
-                    }
+                match bank {
+                    Bank::B1 => self.regs.seccr.modify(|_, w| w.secmer1().clear_bit()),
+                    Bank::B2 => self.regs.seccr.modify(|_, w| w.secmer2().clear_bit()),
                 }
 
                 self.regs.seccr.modify(|_, w| w.secstrt().set_bit());
