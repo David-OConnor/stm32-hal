@@ -635,27 +635,27 @@ where
     }
 
     /// Read regular conversion data from the FLTxRDATAR register. Suitable for use after a conversion is complete.
-    pub fn read(&self, filter: Filter) -> u32 {
+    pub fn read(&self, filter: Filter) -> i32 {
         match filter {
-            Filter::F0 => self.regs.flt0.rdatar.read().rdata().bits(),
-            Filter::F1 => self.regs.flt1.rdatar.read().rdata().bits(),
+            Filter::F0 => self.regs.flt0.rdatar.read().rdata().bits() as i32,
+            Filter::F1 => self.regs.flt1.rdatar.read().rdata().bits() as i32,
             #[cfg(not(any(feature = "l4")))]
-            Filter::F2 => self.regs.flt2.rdatar.read().rdata().bits(),
+            Filter::F2 => self.regs.flt2.rdatar.read().rdata().bits() as i32,
             #[cfg(not(any(feature = "l4")))]
-            Filter::F3 => self.regs.flt3.rdatar.read().rdata().bits(),
+            Filter::F3 => self.regs.flt3.rdatar.read().rdata().bits() as i32,
         }
     }
 
     /// Read injected conversion data from the FLTxJDATAR register.
     /// Suitable for use after a conversion is complete.
-    pub fn read_injected(&self, filter: Filter) -> u32 {
+    pub fn read_injected(&self, filter: Filter) -> i32 {
         match filter {
-            Filter::F0 => self.regs.flt0.jdatar.read().jdata().bits(),
-            Filter::F1 => self.regs.flt1.jdatar.read().jdata().bits(),
+            Filter::F0 => self.regs.flt0.jdatar.read().jdata().bits() as i32,
+            Filter::F1 => self.regs.flt1.jdatar.read().jdata().bits() as i32,
             #[cfg(not(any(feature = "l4")))]
-            Filter::F2 => self.regs.flt2.jdatar.read().jdata().bits(),
+            Filter::F2 => self.regs.flt2.jdatar.read().jdata().bits() as i32,
             #[cfg(not(any(feature = "l4")))]
-            Filter::F3 => self.regs.flt3.jdatar.read().jdata().bits(),
+            Filter::F3 => self.regs.flt3.jdatar.read().jdata().bits() as i32,
         }
         // todo: JDATACH to know which channel was converted??
         // todo isn't this implied to the register we choose to sue?
@@ -672,7 +672,7 @@ where
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     pub unsafe fn read_dma<D>(
         &mut self,
-        buf: &mut [u32],
+        buf: &mut [i32],
         filter: Filter,
         dma_channel: DmaChannel,
         channel_cfg: ChannelCfg,

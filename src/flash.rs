@@ -499,7 +499,7 @@ impl Flash {
             } else if #[cfg(any(feature = "g4"))] {
                 regs.cr.modify(|_, w| w.mer1().clear_bit());
             } else {
-                match banks {
+                match bank {
                     Bank::B1 => regs.cr.modify(|_, w| w.mer1().clear_bit()),
                     Bank::B2 => regs.cr.modify(|_, w| w.mer2().clear_bit()),
                 }
