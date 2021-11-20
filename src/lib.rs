@@ -410,10 +410,10 @@ pub mod flash;
 
 pub mod gpio;
 
-#[cfg(feature = "wb")]
-pub mod bluetooth;
-#[cfg(feature = "wb")]
-pub mod tl_mbox; // Mailbox for communicating with the RF core.
+// #[cfg(feature = "wb")]
+// pub mod bluetooth;
+// #[cfg(feature = "wb")]
+// pub mod tl_mbox; // Mailbox for communicating with the RF core.
 
 #[cfg(feature = "wb")]
 pub mod hsem;

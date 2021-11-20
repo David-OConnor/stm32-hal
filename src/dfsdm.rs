@@ -167,6 +167,8 @@ pub struct DfsdmConfig {
     /// automatically added to the output result. The offset correction value is usually the result of a
     /// calibration routine embedded within the microcontroller software that performs the offset
     /// calibration calculation and stores the correction into the offset register. Defaults to 0.
+    /// This  must be a 24 bit signed integer, which Rust doesn't support. So, to make it negative, you might
+    /// use something like this: `offset:(1<<24) - 1_000;`
     pub offset: u32,
     /// SPI clock select for channel y. Ie internal or external.
     pub spi_clock: SpiClock,

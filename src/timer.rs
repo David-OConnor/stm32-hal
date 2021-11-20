@@ -269,12 +269,9 @@ macro_rules! hal {
                     result.set_freq(freq).ok();
 
                     // Trigger an update event to load the prescaler value to the clock
-                    // NOTE(write): uses all bits in this register.
-                    result.regs.egr.write(|w| w.ug().set_bit());
-                    // The above line raises an update event which will indicate
-                    // that the timer is already finished. Since this is not the case,
-                    // it should be cleared
-                    result.clear_interrupt(TimerInterrupt::Update);
+                    // NOTE(write): uses all bits in this register. This also clears the interrupt flag,
+                    // which the EGER update will generate.
+                    result.reinitialize();
 
                     result
                 }
@@ -296,6 +293,27 @@ macro_rules! hal {
                     // TimerInterrupt::CaptureCompare2Dma => self.regs.dier.modify(|_, w| w.ccd2de().set_bit()),
                     // TimerInterrupt::CaptureCompare3Dma => self.regs.dier.modify(|_, w| w.cc3de().set_bit()),
                     // TimerInterrupt::CaptureCompare4Dma => self.regs.dier.modify(|_, w| w.cc4de().set_bit()),
+                    _ => unimplemented!("TODO TEMP PROBLEMS"),
+                }
+            }
+            
+            /// Disable a specific type of Timer interrupt.
+            pub fn disable_interrupt(&mut self, interrupt: TimerInterrupt) {
+                match interrupt {
+                    TimerInterrupt::Update => self.regs.dier.modify(|_, w| w.uie().clear_bit()),
+                    // todo: Only DIER is in PAC, or some CCs. PAC BUG? Only avail on some timers/MCUs?
+                    // TimerInterrupt::Trigger => self.regs.dier.modify(|_, w| w.tie().clear_bit()),
+                    // TimerInterrupt::CaptureCompare1 => self.regs.dier.modify(|_, w| w.cc1ie().clear_bit()),
+                    // TimerInterrupt::CaptureCompare2 => self.regs.dier.modify(|_, w| w.cc2ie().clear_bit()),
+                    // TimerInterrupt::CaptureCompare3 => self.regs.dier.modify(|_, w| w.cc3ie().clear_bit()),
+                    // TimerInterrupt::CaptureCompare4 => self.regs.dier.modify(|_, w| w.cc4ie().clear_bit()),
+                    #[cfg(not(feature = "f3"))] // todo: Not working on some variants
+                    TimerInterrupt::UpdateDma => self.regs.dier.modify(|_, w| w.ude().clear_bit()),
+                    // TimerInterrupt::TriggerDma => self.regs.dier.modify(|_, w| w.tde().clear_bit()),
+                    // TimerInterrupt::CaptureCompare1Dma => self.regs.dier.modify(|_, w| w.cc1de().clear_bit()),
+                    // TimerInterrupt::CaptureCompare2Dma => self.regs.dier.modify(|_, w| w.ccd2de().clear_bit()),
+                    // TimerInterrupt::CaptureCompare3Dma => self.regs.dier.modify(|_, w| w.cc3de().clear_bit()),
+                    // TimerInterrupt::CaptureCompare4Dma => self.regs.dier.modify(|_, w| w.cc4de().clear_bit()),
                     _ => unimplemented!("TODO TEMP PROBLEMS"),
                 }
             }
@@ -403,6 +421,7 @@ macro_rules! hal {
             /// with changing duty period).
             pub fn reinitialize(&mut self) {
                 self.regs.egr.write(|w| w.ug().set_bit());
+                self.clear_interrupt(TimerInterrupt::Update);
             }
 
             /// Read the current counter value.
@@ -480,15 +499,8 @@ macro_rules! hal {
 
                 self.set_freq(freq.into()).ok();
 
-                // Trigger an update event to load the prescaler value to the clock
-                // NOTE(write): uses all bits in this register.
-                self.regs.egr.write(|w| w.ug().set_bit());
-                // The above line raises an update event which will indicate
-                // that the timer is already finished. Since this is not the case,
-                // it should be cleared
-                self.clear_interrupt(TimerInterrupt::Update);
+                self.reinitialize();
 
-                // start counter
                 self.enable();
             }
 
@@ -852,7 +864,7 @@ macro_rules! pwm_features {
                 // "As the preload registers are transferred to the shadow registers only when an update event
                 // occurs, before starting the counter, you have to initialize all the registers by setting the UG
                 // bit in the TIMx_EGR register."
-                self.regs.egr.write(|w| w.ug().set_bit()); // Update
+                self.reinitialize();
             }
         }
     };
