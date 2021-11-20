@@ -136,7 +136,11 @@ pub enum Continuous {
     ContinuousFastMode,
 }
 
+// todo: Not sure how to handle the 24 bit signed data throughout!!
+
 /// Configuration for the DFSDM peripheral.
+/// All operations in the DFSDM peripheral are in signed format (filtering, integration, offset
+/// correction, right bit shift).
 pub struct DfsdmConfig {
     /// Set the clock source to Sysclk, or Audio clock. Audio clock appears to be the SAI clock source,
     /// at least on H7. (?)
@@ -158,6 +162,12 @@ pub struct DfsdmConfig {
     /// The right bit-shift is rounding the result to nearest integer value. The sign of shifted result is
     /// maintained, in order to have valid 24-bit signed format of result data.
     pub right_shift_bits: u8,
+    /// The offset correction allows to calibrate the external sigma-delta modulator offset error. The
+    /// user configures the offset register with a signed 24-bit correction, and this register is
+    /// automatically added to the output result. The offset correction value is usually the result of a
+    /// calibration routine embedded within the microcontroller software that performs the offset
+    /// calibration calculation and stores the correction into the offset register. Defaults to 0.
+    pub offset: u32,
     /// SPI clock select for channel y. Ie internal or external.
     pub spi_clock: SpiClock,
 }
@@ -171,7 +181,8 @@ impl Default for DfsdmConfig {
             filter_order: FilterOrder::Sinc4, // From the PDM mic AN
             filter_oversampling_ratio: 64,    // From the PDM mic AN
             integrator_oversampling_ratio: 1, // From the PDM mic AN
-            right_shift_bits: 0,              // PDM mic AN uses 0x02
+            right_shift_bits: 0, // PDM mic AN uses 0x02. 8 seems right to get to 24 bit signed?
+            offset: 0,
             spi_clock: SpiClock::Internal,
         }
     }
@@ -210,7 +221,7 @@ where
         // PDM mic AN: The clock divider value must respect the following formula:
         // Divider = DFSDM Clock Source / (AUDIO_SAMPLING_FREQUENCY ×
         // DECIMATION_FACTOR)
-        // (Note that for a 3.072Mhz clock , 64 decimation factor and 48K audio, te divider
+        // (Note that for a 3.072Mhz clock , 64 decimation factor and 48K audio, the divider
         // works out to 1. With a 12.288Mhz clock, and the same factors, it's 4.)
 
         let clock_speed = match config.clock_src {
@@ -403,82 +414,84 @@ where
 
         // Note that we must set some settings like `dtrbs` before enabling the channel.
 
+        assert!(self.config.offset <= (1 << 24));
+
         match channel {
             DfsdmChannel::C0 => unsafe {
-                self.regs
-                    .ch0
-                    .cfgr2
-                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs.ch0.cfgr2.modify(|_, w| {
+                    w.dtrbs().bits(self.config.right_shift_bits);
+                    w.offset().bits(self.config.offset)
+                });
                 self.regs.ch0.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
             },
             DfsdmChannel::C1 => unsafe {
-                self.regs
-                    .ch1
-                    .cfgr2
-                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs.ch1.cfgr2.modify(|_, w| {
+                    w.dtrbs().bits(self.config.right_shift_bits);
+                    w.offset().bits(self.config.offset)
+                });
                 self.regs.ch1.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
             },
             DfsdmChannel::C2 => unsafe {
-                self.regs
-                    .ch2
-                    .cfgr2
-                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs.ch2.cfgr2.modify(|_, w| {
+                    w.dtrbs().bits(self.config.right_shift_bits);
+                    w.offset().bits(self.config.offset)
+                });
                 self.regs.ch2.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
             },
             DfsdmChannel::C3 => unsafe {
-                self.regs
-                    .ch3
-                    .cfgr2
-                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs.ch3.cfgr2.modify(|_, w| {
+                    w.dtrbs().bits(self.config.right_shift_bits);
+                    w.offset().bits(self.config.offset)
+                });
                 self.regs.ch3.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
             },
             DfsdmChannel::C4 => unsafe {
-                self.regs
-                    .ch4
-                    .cfgr2
-                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs.ch4.cfgr2.modify(|_, w| {
+                    w.dtrbs().bits(self.config.right_shift_bits);
+                    w.offset().bits(self.config.offset)
+                });
                 self.regs.ch4.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
             },
             DfsdmChannel::C5 => unsafe {
-                self.regs
-                    .ch5
-                    .cfgr2
-                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs.ch5.cfgr2.modify(|_, w| {
+                    w.dtrbs().bits(self.config.right_shift_bits);
+                    w.offset().bits(self.config.offset)
+                });
                 self.regs.ch5.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
             },
             DfsdmChannel::C6 => unsafe {
-                self.regs
-                    .ch6
-                    .cfgr2
-                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs.ch6.cfgr2.modify(|_, w| {
+                    w.dtrbs().bits(self.config.right_shift_bits);
+                    w.offset().bits(self.config.offset)
+                });
                 self.regs.ch6.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
                 });
             },
             DfsdmChannel::C7 => unsafe {
-                self.regs
-                    .ch7
-                    .cfgr2
-                    .modify(|_, w| w.dtrbs().bits(self.config.right_shift_bits));
+                self.regs.ch7.cfgr2.modify(|_, w| {
+                    w.dtrbs().bits(self.config.right_shift_bits);
+                    w.offset().bits(self.config.offset)
+                });
                 self.regs.ch7.cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
                     w.chen().set_bit()
@@ -635,14 +648,33 @@ where
     }
 
     /// Read regular conversion data from the FLTxRDATAR register. Suitable for use after a conversion is complete.
+    /// "Signed data format in registers: Data is in a signed format in registers for final output data,
+    /// analog watchdog, extremes detector, offset correction. The msb of output data word
+    /// represents the sign of value (two’s complement format)."
+    ///
+    /// See H742 RM, section 30.4.13: Data unitblock for details.
+    /// "The right bit-shift of final data is performed in this module because the final data width is 24-
+    /// bit and data coming from the processing path can be up to 32 bits. This right bit-shift is
+    /// configurable in the range 0-31 bits for each selected input channel (see DTRBS[4:0] bits in
+    /// DFSDM_CHyCFGR2 register). The right bit-shift is rounding the result to nearest integer
+    /// value. The sign of shifted result is maintained - to have valid 24-bit signed format of result
+    /// data.
+    /// In the next step, an offset correction of the result is performed. The offset correction value
+    /// (OFFSET[23:0] stored in register DFSDM_CHyCFGR2) is subtracted from the output data
+    /// for a given channel. Data in the OFFSET[23:0] field is set by software by the appropriate
+    /// calibration routine."
     pub fn read(&self, filter: Filter) -> i32 {
         match filter {
-            Filter::F0 => self.regs.flt0.rdatar.read().rdata().bits() as i32,
-            Filter::F1 => self.regs.flt1.rdatar.read().rdata().bits() as i32,
+            // We read the whole register, then convert to i32, then shift right, so we can take
+            // advantage of the sign bit being in the same place in the data register as for 32-bit
+            // integers in Rust. (Data is the left 24 most bits of the register. The shift discards
+            // the other fields).
+            Filter::F0 => (self.regs.flt0.rdatar.read().bits() as i32) >> 8,
+            Filter::F1 => (self.regs.flt1.rdatar.read().bits() as i32) >> 8,
             #[cfg(not(any(feature = "l4")))]
-            Filter::F2 => self.regs.flt2.rdatar.read().rdata().bits() as i32,
+            Filter::F2 => (self.regs.flt2.rdatar.read().bits() as i32) >> 8,
             #[cfg(not(any(feature = "l4")))]
-            Filter::F3 => self.regs.flt3.rdatar.read().rdata().bits() as i32,
+            Filter::F3 => (self.regs.flt3.rdatar.read().bits() as i32) >> 8,
         }
     }
 
@@ -650,12 +682,12 @@ where
     /// Suitable for use after a conversion is complete.
     pub fn read_injected(&self, filter: Filter) -> i32 {
         match filter {
-            Filter::F0 => self.regs.flt0.jdatar.read().jdata().bits() as i32,
-            Filter::F1 => self.regs.flt1.jdatar.read().jdata().bits() as i32,
+            Filter::F0 => (self.regs.flt0.jdatar.read().bits() as i32) >> 8,
+            Filter::F1 => (self.regs.flt1.jdatar.read().bits() as i32) >> 8,
             #[cfg(not(any(feature = "l4")))]
-            Filter::F2 => self.regs.flt2.jdatar.read().jdata().bits() as i32,
+            Filter::F2 => (self.regs.flt2.jdatar.read().bits() as i32) >> 8,
             #[cfg(not(any(feature = "l4")))]
-            Filter::F3 => self.regs.flt3.jdatar.read().jdata().bits() as i32,
+            Filter::F3 => (self.regs.flt3.jdatar.read().bits() as i32) >> 8,
         }
         // todo: JDATACH to know which channel was converted??
         // todo isn't this implied to the register we choose to sue?
@@ -669,6 +701,11 @@ where
     /// Note: With a DMA transfer, the interrupt flag is automatically cleared at the end of the injected or
     /// regular conversion (JEOCF or REOCF bit in FLTxISR register) because DMA is
     /// reading FLTxJDATAR or FLTxRDATAR register
+    ///
+    /// Note that this reads the entire rdatar register into memory, not just the rdata field.
+    /// You need to shift the result 8 bits to the result after reading the values from memory
+    /// to discard the other fields. (The integer signing is unchanged, since the 24-bit integer data
+    /// is aligned to the left of the 32-bit register, which maps to an `i32` here.)
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     pub unsafe fn read_dma<D>(
         &mut self,
