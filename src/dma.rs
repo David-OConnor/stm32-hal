@@ -16,9 +16,9 @@ use crate::{
     rcc_en_reset,
 };
 
-#[cfg(feature = "g0")]
+#[cfg(all(feature = "g0", not(feature = "g0b0"), not(feature = "g0b1"), not(feature = "g0c1")))]
 use crate::pac::dma;
-#[cfg(not(feature = "g0"))]
+#[cfg(any(not(feature = "g0"), feature = "g0b0", feature = "g0b1", feature = "g0c1"))]
 use crate::pac::dma1 as dma;
 
 #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "wl"))]
@@ -427,7 +427,7 @@ where
             cfg_if! {
                 if #[cfg(feature = "f3")] {
                     rcc.ahbenr.modify(|_, w| w.dma1en().set_bit()); // no dmarst on F3.
-                } else if #[cfg(feature = "g0")] {
+                } else if #[cfg(all(feature = "g0", not(feature = "g0b0"), not(feature = "g0b1"), not(feature = "g0c1")))] {
                     rcc_en_reset!(ahb1, dma, rcc);
                 } else {
                     rcc_en_reset!(ahb1, dma1, rcc);

@@ -453,8 +453,12 @@ pub mod qspi;
     feature = "f4",
     feature = "g030",
     feature = "g031",
+    feature = "g050",
+    feature = "g051",
     feature = "g070",
-    feature = "g071"
+    feature = "g071",
+    feature = "g0b0",
+    feature = "g0b1",
 )))]
 pub mod rng;
 
@@ -473,6 +477,11 @@ pub mod sai;
 pub mod spi;
 
 pub mod timer;
+
+#[cfg(not(any(
+feature = "g0b1",
+feature = "g0c1",
+)))]
 pub mod usart;
 
 // See note at top of `usb` module for info on G0; not avail on modules the PAC has avail.

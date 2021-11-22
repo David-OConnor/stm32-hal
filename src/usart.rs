@@ -16,7 +16,7 @@ use core::ops::Deref;
 
 use cortex_m::interrupt::free;
 
-#[cfg(feature = "g0")]
+#[cfg(all(feature = "g0", not(feature = "g0b0"), not(feature = "g0b1"), not(feature = "g0c1")))]
 use crate::pac::dma as dma_p;
 #[cfg(any(
     feature = "f3",
@@ -25,6 +25,9 @@ use crate::pac::dma as dma_p;
     feature = "h7",
     feature = "wb",
     feature = "wl",
+    feature = "g0b0",
+    feature = "g0b1",
+    feature = "g0c1",
 ))]
 use crate::pac::dma1 as dma_p;
 

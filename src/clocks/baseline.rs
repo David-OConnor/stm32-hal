@@ -800,7 +800,7 @@ impl Clocks {
             while rcc.cr.read().pllrdy().bit_is_set() {}
 
             cfg_if! {
-                if #[cfg(feature = "g0")] {
+                if #[cfg(all(feature = "g0", not(feature = "g0b0"), not(feature = "g0b1"), not(feature = "g0c1")))] {
                     rcc.pllsyscfgr.modify(|_, w| unsafe {
                         w.pllsrc().bits(pll_src.bits());
                         w.pllren().bit(true);
@@ -826,7 +826,7 @@ impl Clocks {
             }
 
             cfg_if! {
-                if #[cfg(feature = "g0")] {
+                if #[cfg(all(feature = "g0", not(feature = "g0b0"), not(feature = "g0b1"), not(feature = "g0c1")))] {
                     // Set Pen, Qen, and Ren after we enable the PLL.
                     rcc.pllsyscfgr.modify(|_, w| {
                         // w.pllpen().set_bit();

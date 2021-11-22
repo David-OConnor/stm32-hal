@@ -247,7 +247,7 @@ pub struct Timer<TIM> {
 }
 
 macro_rules! hal {
-    ($TIMX:ident, $tim:ident, $apb:expr) => {
+    ($TIMX:ident, $tim:ident, $apb:expr, $($fc:tt)*) => {
         impl Timer<pac::$TIMX> {
             paste! {
                 /// Configures a TIM peripheral as a periodic count down timer
@@ -364,7 +364,7 @@ macro_rules! hal {
 
             /// Check the current counter value.
             pub fn counter_val(&self) -> u32 {
-                self.regs.cnt.read().bits()
+                self.regs.cnt$($fc)*.read().bits()
             }
 
             /// Set the timer period, in seconds. Overrides the period or frequency set
@@ -406,7 +406,7 @@ macro_rules! hal {
 
             /// Reset the countdown; set the counter to 0.
             pub fn reset_countdown(&mut self) {
-                self.regs.cnt.write(|w| unsafe { w.bits(0) });
+                self.regs.cnt$($fc)*.write(|w| unsafe { w.bits(0) });
             }
 
             /// Re-initialize the counter and generates an update of the registers. Note that the prescaler
@@ -428,8 +428,8 @@ macro_rules! hal {
             pub fn countdown(&self) -> u32 {
                 // todo: This depends on resolution. We read the whole
                 // todo res and pass a u32 just in case.
-                // self.regs.cnt.read().cnt().bits()
-                self.regs.cnt.read().bits()
+                // self.regs.cnt$($fc)*.read().cnt().bits()
+                self.regs.cnt$($fc)*.read().bits()
             }
         }
 
@@ -1010,7 +1010,7 @@ cfg_if! {
 // Advanced: 1/8/20
 
 #[cfg(not(any(feature = "f373")))]
-hal!(TIM1, tim1, 2);
+hal!(TIM1, tim1, 2,);
 
 #[cfg(not(any(
 feature = "f373",
@@ -1030,8 +1030,18 @@ cfg_if! {
     if #[cfg(not(any(
         feature = "f410",
         feature = "g070",
+        feature = "g0b0",
+        feature = "g0b1",
+        feature = "g0c1"
     )))] {
-        hal!(TIM2, tim2, 1);
+        hal!(TIM2, tim2, 1,);
+    }
+    else if #[cfg(any(
+            feature = "g0b0",
+            feature = "g0b1",
+            feature = "g0c1"
+    ))] {
+        hal!(TIM2, tim2, 1, ());
     }
 }
 
@@ -1056,9 +1066,19 @@ pwm_features!(TIM2, u32);
     feature = "l4x3",
     feature = "f410",
     feature = "wb",
-    feature = "wl"
+    feature = "wl",
+    feature = "g0b0",
+    feature = "g0b1",
+    feature = "g0c1"
 )))]
-hal!(TIM3, tim3, 1);
+hal!(TIM3, tim3, 1,);
+
+#[cfg(any(
+feature = "g0b0",
+feature = "g0b1",
+feature = "g0c1"
+))]
+hal!(TIM3, tim3, 1, ());
 
 #[cfg(not(any(
     feature = "f301",
@@ -1091,7 +1111,7 @@ cfg_if! {
         feature = "wb",
         feature = "wl"
     )))] {
-        hal!(TIM4, tim4, 1);
+        hal!(TIM4, tim4, 1,);
     }
 }
 
@@ -1123,7 +1143,7 @@ cfg_if! {
        feature = "h7",
        all(feature = "f4", not(feature = "f410")),
    ))] {
-        hal!(TIM5, tim5, 1);
+        hal!(TIM5, tim5, 1,);
    }
 }
 
@@ -1146,7 +1166,7 @@ cfg_if! {
     feature = "l562",
     feature = "g4"
 ))]
-hal!(TIM8, tim8, 2);
+hal!(TIM8, tim8, 2,);
 
 // Todo: the L5 PAC has an address error on TIM15 - remove it until solved.
 #[cfg(not(any(
@@ -1159,10 +1179,10 @@ hal!(TIM8, tim8, 2);
     feature = "wb",
     feature = "wl"
 )))]
-hal!(TIM15, tim15, 2);
+hal!(TIM15, tim15, 2,);
 
 #[cfg(not(feature = "f4"))]
-hal!(TIM16, tim16, 2);
+hal!(TIM16, tim16, 2,);
 
 cfg_if! {
     if #[cfg(not(any(
@@ -1172,7 +1192,7 @@ cfg_if! {
         feature = "l4x3",
         feature = "f4",
     )))] {
-        hal!(TIM17, tim17, 2);
+        hal!(TIM17, tim17, 2,);
     }
 }
 
@@ -1182,12 +1202,12 @@ cfg_if! {
 
 cfg_if! {
     if #[cfg(any(feature = "f373"))] {
-        hal!(TIM12, tim12, 1);
-        hal!(TIM13, tim13, 1);
-        hal!(TIM14, tim14, 1);
-        hal!(TIM19, tim19, 2);
+        hal!(TIM12, tim12, 1,);
+        hal!(TIM13, tim13, 1,);
+        hal!(TIM14, tim14, 1,);
+        hal!(TIM19, tim19, 2,);
     }
 }
 
 #[cfg(any(feature = "f303"))]
-hal!(TIM20, tim20, 2);
+hal!(TIM20, tim20, 2,);
