@@ -458,7 +458,6 @@ impl Flash {
         // To perform a bank Mass Erase, follow the procedure below:
         // RM0351 Rev 7 105/1903
         // RM0351 Embedded Flash memory (FLASH)
-        // 139
         // 1. Check that no Flash memory operation is ongoing by checking the BSY bit in the
         // FLASH_SR register.
         // (H7): 1. Check and clear (optional) all the error flags due to previous programming/erase
