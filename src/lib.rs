@@ -406,8 +406,13 @@ pub mod dfsdm;
 #[cfg(not(any(feature = "f4", feature = "l5")))]
 pub mod dma;
 
-#[cfg(not(feature = "h747cm7"))] // PAC error on bank 2 accessor for H747cm7.
+#[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))] // PAC error on bank 2 accessor for H747cmx.
 pub mod flash;
+
+// todo: PAC doesn't yet support these newer H7 MCUs that use FMAC.
+// #[cfg(any(feature = "h723", feature = "h725", feature = "h733", feature = "h735"))]
+// todo: Also G4.
+// pub mod fmac;
 
 pub mod gpio;
 
