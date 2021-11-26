@@ -23,7 +23,7 @@ fn main() -> ! {
     let cp = cortex_m::Peripherals::take().unwrap();
     let mut dp = pac::Peripherals::take().unwrap();
 
-    defmt::info!("Hello, world!");
+    defmt::println!("Hello, world!");
 
     let clock_cfg = Clocks::default();
 

@@ -194,7 +194,7 @@ fn main() -> ! {
     // }
 
     loop {
-        defmt::info!("Looping!"); // A print statement using DEFMT.
+        defmt::println!("Looping!"); // A print statement using DEFMT.
         // Enter a low power mode. The program will wake once an interrupt fires.
         // For example, the timer and GPIO interrupt above. But we haven't unmasked
         // their lines, so they won't work - see the `interrupts` example for that.

@@ -10,6 +10,10 @@
 //!
 //! You'd also likely use the SAI peripheral in conjunction with an external codec for output.
 //! We use DAC here for simplicity, but it's only 12-bits, and may be too noisy.
+//!
+//! Additionally, DFSDM has poor frequency response when sampled down to the final sample rate.
+//! To avoid this, you may wish to sample it down to FS * 4, then use a FIR lowpass filter and decimator
+//! (Such as the one in CMSIS-DSP) to arrive at the final sample rate.
 
 #![no_main]
 #![no_std]
@@ -68,7 +72,7 @@ pub fn setup_pins() {
     // Set `dac_pin` to analog mode, to prevent parasitic power use.
     // DAC1_OUT1 is on PA4. DAC1_OUT2 is on PA5.
     let _dac_pin_l = Pin::new(Port::A, 4, PinMode::Analog);
-    // let _dac_pin_r = Pin::new(Port::A, 5, PinMode::Analog);
+    let _dac_pin_r = Pin::new(Port::A, 5, PinMode::Analog);
 
     let _dfsdm_ckout = Pin::new(Port::D, 3, PinMode::Alt(3));
     let _dfsdm_data1 = Pin::new(Port::D, 6, PinMode::Alt(4));
@@ -162,11 +166,8 @@ mod app {
 
         let mut dma = Dma::new(dp.DMA1);
 
-        // The commented-out lines below can be uncommented (and modified and tested...) to use a second
-        // DFSDM microphone connected to the same pins.
-
         dma::mux(DmaChannel::C0, dma::DmaInput::Dfsdm1F0, &mut dp.DMAMUX1);
-        // dma::mux(DmaChannel::C1, dma::DmaInput::Dfsdm1F1, &mut dp.DMAMUX1);
+        dma::mux(DmaChannel::C1, dma::DmaInput::Dfsdm1F1, &mut dp.DMAMUX1);
         dma::mux(DmaChannel::C2, dma::DmaInput::DacCh1, &mut dp.DMAMUX1);
 
         dma.enable_interrupt(DmaChannel::C0, DmaInterrupt::HalfTransfer);
@@ -188,22 +189,23 @@ mod app {
                 &mut dma,
             );
         }
-        //
-        // unsafe {
-        //     dfsdm.read_dma(
-        //         &mut INPUT_BUF_R,
-        //         Filter::F1,
-        //         DmaChannel::C1,
-        //         dma::ChannelCfg {
-        //             circular: dma::Circular::Enabled,
-        //             priority: dma::Priority::High,
-        //             ..Default::default()
-        //         },
-        //         &mut dma,
-        //     );
-        // }
+
+        unsafe {
+            dfsdm.read_dma(
+                &mut INPUT_BUF_R,
+                Filter::F1,
+                DmaChannel::C1,
+                dma::ChannelCfg {
+                    circular: dma::Circular::Enabled,
+                    priority: dma::Priority::High,
+                    ..Default::default()
+                },
+                &mut dma,
+            );
+        }
 
         dac.enable(DacChannel::C1);
+        dac.enable(DacChannel::C2);
         dac_timer.enable();
         read_timer.enable();
 
@@ -221,11 +223,11 @@ mod app {
         }
 
         dfsdm.enable_filter(Filter::F0, DfsdmChannel::C1);
-        // dfsdm.enable_filter(Filter::F1, DfsdmChannel::C7);
+        dfsdm.enable_filter(Filter::F1, DfsdmChannel::C0);
         dfsdm.enable();
 
         dfsdm.start_conversion(Filter::F0);
-        // dfsdm.start_conversion(Filter::F1);
+        dfsdm.start_conversion(Filter::F1);
 
         (Shared { dfsdm, dma }, Local { dac }, init::Monotonics())
     }
@@ -239,7 +241,7 @@ mod app {
 
     #[task(binds = DMA1_STR0, shared = [dma], priority = 2)]
     /// DFSDM left channel DMA ISR
-    fn dma1_str0(cx: dma1_str0::Context) {
+    fn dfsdm_isr(cx: dfsdm_isr::Context) {
         let mut input_modifier = 0;
         let mut output_modifier = 0;
 
@@ -272,7 +274,7 @@ mod app {
 
     #[task(binds = DMA1_STR2, shared = [dma], priority = 2)]
     /// DAC DMA ISR
-    fn dma1_str2(cx: dma1_str2::Context) {
+    fn dac_isr(cx: dac_isr::Context) {
         if cx.shared.dma.regs.lisr.read().tcif2().bit_is_set() {
             // Transfer complete: DAC will now output from the left half of the buffer,
             // so write to the buffer's right half.
@@ -289,12 +291,12 @@ mod app {
     }
 
     #[task(binds = TIM3, priority = 1)]
-    fn tim3(cx: tim3::Context) {
+    fn timer_isr(cx: timer_isr::Context) {
         unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().clear_bit()) }
 
         // Try pasting this output into Python etc to plot!
         unsafe {
-            defmt::info!("Output buffer: {:?}", OUTPUT_BUF_L);
+            defmt::println!("Output buffer: {:?}", OUTPUT_BUF_L);
         }
     }
 }
@@ -305,14 +307,6 @@ mod app {
 fn panic() -> ! {
     cortex_m::asm::udf()
 }
-
-static COUNT: AtomicUsize = AtomicUsize::new(0);
-defmt::timestamp!("{=usize}", {
-    // NOTE(no-CAS) `timestamps` runs with interrupts disabled
-    let n = COUNT.load(Ordering::Relaxed);
-    COUNT.store(n + 1, Ordering::Relaxed);
-    n
-});
 
 /// Terminates the application and makes `probe-run` exit with exit-code = 0
 pub fn exit() -> ! {

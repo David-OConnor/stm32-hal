@@ -84,12 +84,12 @@ fn main() -> ! {
 
     cs.set_high();
 
-    defmt::info!("Data: {}", read_buf);
+    defmt::println!("Data: {}", read_buf);
 
     // Alternatively, use the blocking, non-DMA SPI API` (Also supports `embedded-hal` traits):
     spi.write(&write_buf).ok();
     spi.transfer(&mut read_buf).ok();
-    defmt::info!("Data: {}", read_buf);
+    defmt::println!("Data: {}", read_buf);
 
     // Assign peripheral structs as global, so we can access them in interrupts.
     free(|cs| {
@@ -132,7 +132,7 @@ fn DMA1_CH3() {
 /// This interrupt fires when a DMA read is complete
 fn DMA1_CH2() {
     free(|cs| {
-        defmt::info!("SPI DMA STOPPED");
+        defmt::println!("SPI DMA STOPPED");
         access_global!(DMA, dma, cs);
         access_global!(SPI, spi, cs);
 
@@ -144,4 +144,18 @@ fn DMA1_CH2() {
             // (*pac::GPIOB::ptr()).bsrr.write(|w| w.bits(1 << 15));
         }
     })
+}
+
+// same panicking *behavior* as `panic-probe` but doesn't print a panic message
+// this prevents the panic message being printed *twice* when `defmt::panic` is invoked
+#[defmt::panic_handler]
+fn panic() -> ! {
+    cortex_m::asm::udf()
+}
+
+/// Terminates the application and makes `probe-run` exit with exit-code = 0
+pub fn exit() -> ! {
+    loop {
+        cortex_m::asm::bkpt();
+    }
 }

@@ -352,7 +352,7 @@ fn main() -> ! {
     // this line is required if you want to take advantage of ST-Link
     stm32_hal2::debug_workaround();
 
-    defmt::info!("Hello, world!");
+    defmt::println!("Hello, world!");
 
     let clock_cfg = Clocks::default();
     // Write the clock configuration to the MCU. If you wish, you can modify `clocks` above

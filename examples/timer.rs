@@ -86,8 +86,22 @@ fn TIM3() {
         // If you have access to the timer variable, eg through a Mutex, you can do this instead:
         // countdown_timer_clear_interrupt(TimerInterrupt::Update);
 
-        defmt::info!("Countdown expired");
+        defmt::println!("Countdown expired");
     });
 
     // Do something.
+}
+
+// same panicking *behavior* as `panic-probe` but doesn't print a panic message
+// this prevents the panic message being printed *twice* when `defmt::panic` is invoked
+#[defmt::panic_handler]
+fn panic() -> ! {
+    cortex_m::asm::udf()
+}
+
+/// Terminates the application and makes `probe-run` exit with exit-code = 0
+pub fn exit() -> ! {
+    loop {
+        cortex_m::asm::bkpt();
+    }
 }

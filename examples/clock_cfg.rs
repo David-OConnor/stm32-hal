@@ -143,9 +143,23 @@ fn main() -> ! {
     clock_cfg.setup().unwrap();
 
     // Show speeds.
-    defmt::info!("Speeds: {:?}", clock_cfg.calc_speeds());
+    defmt::println!("Speeds: {:?}", clock_cfg.calc_speeds());
 
     loop {
         low_power::sleep_now();
+    }
+}
+
+// same panicking *behavior* as `panic-probe` but doesn't print a panic message
+// this prevents the panic message being printed *twice* when `defmt::panic` is invoked
+#[defmt::panic_handler]
+fn panic() -> ! {
+    cortex_m::asm::udf()
+}
+
+/// Terminates the application and makes `probe-run` exit with exit-code = 0
+pub fn exit() -> ! {
+    loop {
+        cortex_m::asm::bkpt();
     }
 }
