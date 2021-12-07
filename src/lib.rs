@@ -437,6 +437,9 @@ pub mod ipcc;
 
 pub mod low_power;
 
+#[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
+pub mod power;
+
 // F3, F4, L5, G0, and WL don't have Quad SPI.
 #[cfg(not(any(
 feature = "f3",
