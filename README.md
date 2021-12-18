@@ -300,6 +300,7 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - SAI unimplemented on G4
 - DMA unimplemented on F4
 - The DMA2 peripheral is unimplemented
+- H7 BDMA and MDMA unimplemented
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
 - USB unimplemented for H7
 - USART interrupts unimplemented on F4

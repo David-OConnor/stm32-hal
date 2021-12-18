@@ -736,7 +736,8 @@ impl Clocks {
         rcc.cr.read().pll1on().bit_is_set()
     }
 
-    /// Calculate the sysclock frequency, in hz.
+    /// Calculate the sysclock frequency, in hz. Note that for dual core variants, this is for CPU1.
+    /// CPU2 syclock is equal to the HCLK, so use the `hclk()` method.
     pub fn sysclk(&self) -> u32 {
         match self.input_src {
             InputSrc::Pll1(pll_src) => {
@@ -757,6 +758,8 @@ impl Clocks {
         self.sysclk() / self.d1_core_prescaler.value() as u32 / self.hclk_prescaler.value() as u32
     }
 
+    /// Return the systick speed. Note that for dual core variants, this is for CPU1.
+    /// CPU2 systick is equal to the HCLK (possibly divided by 8), so use the `hclk()` method.
     pub fn systick(&self) -> u32 {
         // todo: There's an optional /8 divider we're not taking into account here.
         self.d1cpreclk()

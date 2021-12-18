@@ -403,6 +403,7 @@ pub mod dfsdm;
 // todo: G0 missing many DMA registers like CCR?
 // todo: F4 needs some mods. So, only working on L4 and G4.
 // todo: L5 has a PAC bug on CCR registers past 1.
+// https://github.com/stm32-rs/stm32-rs/issues/551
 #[cfg(not(any(feature = "f4", feature = "l5")))]
 pub mod dma;
 
