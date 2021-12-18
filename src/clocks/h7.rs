@@ -365,6 +365,7 @@ impl Clocks {
                 // PWR D3 domain control register (PWR D3 domain control register (PWR_D3CR))
                 pwr.d3cr
                     .modify(|_, w| unsafe { w.vos().bits(VosRange::VOS1 as u8) });
+                while pwr.d3cr.read().vosrdy().bit_is_clear() {}
 
                 // 2. Enable the SYSCFG clock in the RCC by setting the SYSCFGEN bit in the
                 // RCC_APB4ENR register.
@@ -911,8 +912,6 @@ impl Default for Clocks {
             pll2: PllCfg::disabled(),
             pll3: PllCfg::disabled(),
             d1_core_prescaler: HclkPrescaler::Div1,
-            // todo: APB3 clock now showing in Cube as max of 120Mhz? (From D1Pre)
-            // d1_prescaler: ApbPrescaler::Div1,
             d1_prescaler: ApbPrescaler::Div2,
             /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
             hclk_prescaler: HclkPrescaler::Div2,
@@ -937,7 +936,9 @@ impl Default for Clocks {
 
 #[cfg(not(feature = "h7b3"))]
 impl Clocks {
-    /// Full speed of 480Mhz, with VC0 range 0.
+    /// Full speed of 480Mhz, with VC0 range 0. Note that special consideration needs to be taken
+    /// when using low power modes (ie anything with wfe or wfi) in this mode; may need to manually
+    /// disable and re-enable it.
     pub fn full_speed() -> Self {
         Self {
             pll1: PllCfg {

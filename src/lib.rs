@@ -31,7 +31,7 @@
 //! ```toml
 //! cortex-m = "0.7.3"
 //! cortex-m-rt = "0.6.13"
-//! stm32-hal2 = { version = "^1.0.1", features = ["l4x3", "l4rt"]}
+//! stm32-hal2 = { version = "^1.3.2", features = ["l4x3", "l4rt"]}
 //! ```
 //!
 //! If you need `embedded-hal` traits, include the `embedded-hal` feature.
@@ -406,7 +406,14 @@ pub mod dfsdm;
 #[cfg(not(any(feature = "f4", feature = "l5")))]
 pub mod dma;
 
+#[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
+// PAC error on bank 2 accessor for H747cmx.
 pub mod flash;
+
+// todo: PAC doesn't yet support these newer H7 MCUs that use FMAC.
+// #[cfg(any(feature = "h723", feature = "h725", feature = "h733", feature = "h735"))]
+// todo: Also G4.
+// pub mod fmac;
 
 pub mod gpio;
 
@@ -429,6 +436,9 @@ pub use i2c_f4 as i2c;
 pub mod ipcc;
 
 pub mod low_power;
+
+#[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
+pub mod power;
 
 // F3, F4, L5, G0, and WL don't have Quad SPI.
 #[cfg(not(any(

@@ -75,6 +75,72 @@ pub enum BaudRate {
     Div256 = 0b111,
 }
 
+/// These bits configure the data length for SPI transfers. Sets `SPI_CR2` register, `DS` field.
+#[cfg(not(feature = "h7"))]
+#[derive(Copy, Clone)]
+#[repr(u8)]
+pub enum DataSize {
+    D4 = 0b0011,
+    D5 = 0b0100,
+    D6 = 0b0101,
+    D7 = 0b0110,
+    D8 = 0b0111,
+    D9 = 0b1000,
+    D10 = 0b1001,
+    D11 = 0b1010,
+    D12 = 0b1011,
+    D13 = 0b1100,
+    D14 = 0b1101,
+    D15 = 0b1110,
+    D16 = 0b1111,
+}
+
+/// Number of bits in at single SPI data frame. Sets `CFGR1` register, `DSIZE` field.
+#[cfg(feature = "h7")]
+#[derive(Copy, Clone)]
+#[repr(u8)]
+pub enum DataSize {
+    D4 = 3,
+    D5 = 4,
+    D6 = 5,
+    D7 = 6,
+    D8 = 7,
+    D9 = 8,
+    D10 = 9,
+    D11 = 10,
+    D12 = 11,
+    D13 = 12,
+    D14 = 13,
+    D15 = 14,
+    D16 = 15,
+    D17 = 16,
+    D18 = 17,
+    D19 = 18,
+    D20 = 19,
+    D21 = 20,
+    D22 = 21,
+    D23 = 22,
+    D24 = 23,
+    D25 = 24,
+    D26 = 25,
+    D27 = 26,
+    D28 = 27,
+    D29 = 28,
+    D30 = 29,
+    D31 = 30,
+    D32 = 31,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// FIFO reception threshold Sets `SPI_CR2` register, `FRXTH` field.
+pub enum ReceptionThresh {
+    /// RXNE event is generated if the FIFO level is greater than or equal to 1/2 (16-bit)
+    D16 = 0,
+    /// RXNE event is generated if the FIFO level is greater than or equal to 1/4 (8-bit)
+    D8 = 1,
+}
+
 #[derive(Clone, Copy, PartialEq)]
 /// Select the communication mode between.
 pub enum SpiCommMode {
@@ -173,9 +239,14 @@ impl SpiMode {
 
 /// Initial configuration data for the SPI peripheral.
 pub struct SpiConfig {
+    /// SPI mode associated with Polarity and Phase. Defaults to Mode0: Idle low, capture on first transition.
     pub mode: SpiMode,
     pub comm_mode: SpiCommMode,
     pub slave_select: SlaveSelect,
+    /// Data size. Defaults to 8 bits.
+    pub data_size: DataSize,
+    /// FIFO reception threshhold. Defaults to 8 bits.
+    pub fifo_reception_thresh: ReceptionThresh,
     // pub cs_delay: f32,
     // pub swap_miso_mosi: bool,
     // pub suspend_when_inactive: bool,
@@ -187,6 +258,8 @@ impl Default for SpiConfig {
             mode: SpiMode::mode0(),
             comm_mode: SpiCommMode::FullDuplex,
             slave_select: SlaveSelect::Software,
+            data_size: DataSize::D8,
+            fifo_reception_thresh: ReceptionThresh::D8,
         }
     }
 }
@@ -214,11 +287,16 @@ where
                   // Disable SS output
                 regs.cfg2.write(|w| w.ssoe().disabled());
 
-                regs.cfg1.modify(|_, w| w.mbr().bits(baud_rate as u8));
-                // spi!(DSIZE, spi, $TY); // modify CFG1 for DSIZE
+                regs.cfg1.modify(|_, w| {
+                    w.mbr().bits(baud_rate as u8);
+                    w.dsize().bits(cfg.data_size as u8)
+
+                });
 
                 // ssi: select slave = master mode
                 regs.cr1.write(|w| w.ssi().slave_not_selected());
+
+                // todo: Data size on H7.
 
                 // todo: Come back to this.
                 // Calculate the CS->transaction cycle delay bits.
@@ -311,12 +389,12 @@ where
                 regs.cr2
                     .modify(|_, w| unsafe {
                         // a) Configure the DS[3:0] bits to select the data length for the transfer.
-                        w.ds().bits(0b111);
+                        w.ds().bits(cfg.data_size as u8);
                         // b) Configure SSOE (Notes: 1 & 2 & 3).
                         w.ssoe().bit(cfg.slave_select == SlaveSelect::HardwareOutEnable);
                         // e) Configure the FRXTH bit. The RXFIFO threshold must be aligned to the read
                         // access size for the SPIx_DR register.
-                        w.frxth().set_bit()
+                        w.frxth().bit(cfg.fifo_reception_thresh as u8 != 0)
                     });
 
                 // c) Set the FRF bit if the TI protocol is required (keep NSSP bit cleared in TI mode).

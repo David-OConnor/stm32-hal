@@ -90,7 +90,7 @@ fn main() -> ! {
     while !dma.transfer_is_complete(DmaChannel::C1) {}
     dma.stop(DmaChannel::C1);
 
-    defmt::info!("Reading: {:?}", &dma_buf[0]);
+    defmt::println!("Reading: {:?}", &dma_buf[0]);
 
     // Unmask the interrupt line. See the `DMA_CH1` interrupt handler below.
     unsafe { NVIC::unmask(pac::Interrupt::DMA1_CH1) }
@@ -128,4 +128,18 @@ fn DMA1_CH1() {
         // dma.clear_interrupt(DmaChannel::C1);
         // dma.stop(DmaChannel::C1);
     });
+}
+
+// same panicking *behavior* as `panic-probe` but doesn't print a panic message
+// this prevents the panic message being printed *twice* when `defmt::panic` is invoked
+#[defmt::panic_handler]
+fn panic() -> ! {
+    cortex_m::asm::udf()
+}
+
+/// Terminates the application and makes `probe-run` exit with exit-code = 0
+pub fn exit() -> ! {
+    loop {
+        cortex_m::asm::bkpt();
+    }
 }

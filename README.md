@@ -54,7 +54,7 @@ Operationally tested on the following devices:
 - Install flash and debug tools: `cargo install flip-link`, `cargo install probe-run`.
 - Clone the [quickstart repo](https://github.com/David-OConnor/stm32-hal-quickstart): `git clone https://github.com/David-OConnor/stm32-hal-quickstart`.
 - Change the following lines to match your MCU. Post an issue if you need help with this:
-  - `Cargo.toml`: `stm32-hal2 = { version = "^1.1.0", features = ["l4x3", "l4rt"]}`
+  - `Cargo.toml`: `stm32-hal2 = { version = "^1.3.2", features = ["l4x3", "l4rt"]}`
   - `memory.x`: `FLASH` and `RAM` lines
   - `.cargo/config.toml`: `runner` and `target` lines.
 - Connect your device. Run `cargo run --release` to compile and flash.
@@ -89,7 +89,7 @@ representing your MCU. If this is for code that runs on an MCU directly (ie not 
 ```toml
 cortex-m = "0.7.3"
 cortex-m-rt = "0.6.13"
-stm32-hal2 = { version = "^1.2.0", features = ["l4x3", "l4rt"]}
+stm32-hal2 = { version = "^1.3.2", features = ["l4x3", "l4rt"]}
 ```
 
 If you need `embedded-hal` traits, include the `embedded-hal` feature.
@@ -140,8 +140,9 @@ fn main() -> ! {
 
 ## Compatible with RTIC
 [Real-Time Interrupt-driven Concurrency](https://rtic.rs/0.5/book/en/) is
-a light-weight framework that manages safely sharing state between contexts. Eg between ISRs and the main loop. Our examples use global `Mutex`es, `RefCell`s, and `Cell`s, sometimes
-with macros to simplify syntax; you could easily substitue RTIC syntax.
+a light-weight framework that manages safely sharing state between contexts. Eg between ISRs and the main loop. 
+Most examples use global `Mutex`es, `RefCell`s, and `Cell`s, sometimes
+with macros to simplify syntax; you could easily substitute RTIC syntax.
 
 ## Why this module is different from `stm32yxx-hal` libraries
 There are some areas where design philosophy is different. For example: GPIO 
@@ -302,7 +303,7 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
 - USB unimplemented for H7
 - USART interrupts unimplemented on F4
-- H7 clock default is suitable for single-core 400MHz and 480MHz variants only.
+- H7 clock default is suitable for 400MHz and 480MHz variants only.
 - PWM input unimplemented
 - CRC unimplemented for L5, F4, G0, and G4
 - Low power timers (LPTIM) and low power usart (LPUSART) unimplemented

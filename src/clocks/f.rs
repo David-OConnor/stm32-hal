@@ -679,10 +679,13 @@ impl Clocks {
         #[cfg(feature = "f401")]
         let max_pll_out = 84_000_000;
 
-        #[cfg(feature = "f411")]
+        #[cfg(any(feature = "f410", feature = "f411"))]
         let max_pll_out = 100_000_000;
 
-        #[cfg(all(feature = "f4", not(any(feature = "f401", feature = "f411"))))]
+        #[cfg(all(
+            feature = "f4",
+            not(any(feature = "f401", feature = "f410", feature = "f411"))
+        ))]
         let max_pll_out = 168_000_000;
 
         #[cfg(feature = "f4")]
@@ -750,20 +753,20 @@ impl Default for Clocks {
             pllm: 8,
             #[cfg(feature = "f401")]
             plln: 84,
-            #[cfg(feature = "f411")]
+            #[cfg(any(feature = "f410", feature = "f411"))]
             plln: 100,
-            #[cfg(not(any(feature = "f401", feature = "f411")))]
+            #[cfg(not(any(feature = "f401", feature = "f410", feature = "f411")))]
             plln: 180,
             pllp: Pllp::Div2,
             pllq: Pllq::Div8, // Note that this produces an invalid USB speed.
             hclk_prescaler: HclkPrescaler::Div1,
-            #[cfg(any(feature = "f401", feature = "f411"))]
+            #[cfg(any(feature = "f401", feature = "f410", feature = "f411"))]
             apb1_prescaler: ApbPrescaler::Div2,
-            #[cfg(not(any(feature = "f401", feature = "f411")))]
+            #[cfg(not(any(feature = "f401", feature = "f410", feature = "f411")))]
             apb1_prescaler: ApbPrescaler::Div4,
-            #[cfg(any(feature = "f401", feature = "f411"))]
+            #[cfg(any(feature = "f401", feature = "f410", feature = "f411"))]
             apb2_prescaler: ApbPrescaler::Div1,
-            #[cfg(not(any(feature = "f401", feature = "f411")))]
+            #[cfg(not(any(feature = "f401", feature = "f410", feature = "f411")))]
             apb2_prescaler: ApbPrescaler::Div2,
             hse_bypass: false,
             security_system: false,
