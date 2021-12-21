@@ -168,9 +168,9 @@ impl Rtc {
                 }
             }
 
-            // Reset the backup domain.
-            rcc.bdcr.modify(|_, w| w.bdrst().set_bit());
-            rcc.bdcr.modify(|_, w| w.bdrst().clear_bit());
+            // // Reset the backup domain.  todo: Do we want this?
+            // rcc.bdcr.modify(|_, w| w.bdrst().set_bit());
+            // rcc.bdcr.modify(|_, w| w.bdrst().clear_bit());
 
             // Set up the LSI or LSE as required.
             match config.clock_source {
@@ -196,11 +196,13 @@ impl Rtc {
                 _ => (),
             }
 
-            // 3. Select the RTC clock source in the Backup domain control register (RCC_BDCR).
-            // 4. Enable the RTC clock by setting the RTCEN [15] bit in the Backup domain control
-            // register (RCC_BDCR)
+
+
             rcc.bdcr.modify(|_, w| {
+                // 3. Select the RTC clock source in the Backup domain control register (RCC_BDCR).
                 unsafe { w.rtcsel().bits(result.config.clock_source as u8) };
+                // 4. Enable the RTC clock by setting the RTCEN [15] bit in the Backup domain control
+                // register (RCC_BDCR)
                 w.rtcen().set_bit()
             });
         });
@@ -531,8 +533,8 @@ impl Rtc {
     /// It also optionally handles the additional step required to set a clock or calendar
     /// value.
     fn edit_regs<F>(&mut self, init_mode: bool, mut closure: F)
-    where
-        F: FnMut(&mut RTC),
+        where
+            F: FnMut(&mut RTC),
     {
         // Disable write protection
         // This is safe, as we're only writin the correct and expected values.
@@ -845,11 +847,11 @@ impl Rtc {
             self.get_month().into(),
             self.get_day().into(),
         )
-        .and_hms(
-            self.get_hours().into(),
-            self.get_minutes().into(),
-            self.get_seconds().into(),
-        )
+            .and_hms(
+                self.get_hours().into(),
+                self.get_minutes().into(),
+                self.get_seconds().into(),
+            )
     }
 }
 
