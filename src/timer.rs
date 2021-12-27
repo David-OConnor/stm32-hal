@@ -367,14 +367,6 @@ macro_rules! hal {
                 self.regs.cnt.read().bits()
             }
 
-            /// Set the timer period, in seconds. Overrides the period or frequency set
-            /// in the constructor. If you use `center` aligned PWM, make sure to
-            /// enter twice the freq you normally would.
-            pub fn set_period(&mut self, time: f32) -> Result<(), ValueError> {
-                assert!(time > 0.);
-                self.set_freq(1. / time)
-            }
-
             /// Set the timer frequency, in Hz. Overrides the period or frequency set
             /// in the constructor. If you use `center` aligned PWM, make sure to
             /// enter twice the freq you normally would.
@@ -390,6 +382,14 @@ macro_rules! hal {
                 self.regs.psc.write(|w| unsafe { w.bits(psc.into()) });
 
                 Ok(())
+            }
+
+            /// Set the timer period, in seconds. Overrides the period or frequency set
+            /// in the constructor. If you use `center` aligned PWM, make sure to
+            /// enter twice the freq you normally would.
+            pub fn set_period(&mut self, period: f32) -> Result<(), ValueError> {
+                assert!(period > 0.);
+                self.set_freq(1. / period)
             }
 
             /// Set the auto-reload register value. Used for adjusting frequency.
