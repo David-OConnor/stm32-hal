@@ -14,6 +14,9 @@
 //! Additionally, DFSDM has poor frequency response when sampled down to the final sample rate.
 //! To avoid this, you may wish to sample it down to FS * 4, then use a FIR lowpass filter and decimator
 //! (Such as the one in CMSIS-DSP) to arrive at the final sample rate.
+//!
+//! Alternatively, you can use the SAI peripheral for PDM mic input, with software decimation
+//! and lowpass. Or, use external hardware for the PDM-PCM conversion, and pass to SAI as TDM or I2S.
 
 #![no_main]
 #![no_std]
@@ -112,7 +115,6 @@ mod app {
                 enabled: true,
                 pllp_en: true,
 
-                // 3.072MHz is the correct bitclock rate for 2 32-bit 48Khz.
                 // 48Khz x 32 bits-per-word x 2 words = 3.072Mhz
                 divn: 250,
                 divp: 81,

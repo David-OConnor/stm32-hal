@@ -28,6 +28,9 @@ use pac::DMAMUX;
 #[cfg(any(feature = "wb", feature = "h7"))]
 use pac::DMAMUX1 as DMAMUX;
 
+#[cfg(feature = "h7")]
+use pac::DMAMUX2;
+
 // use embedded_dma::{ReadBuffer, WriteBuffer};
 
 use cfg_if::cfg_if;
@@ -96,7 +99,6 @@ pub enum DmaInput {
 /// MCUs that use this. H743 RM, Table 121: DMAMUX1: Assignment of multiplexer inputs to resources.
 /// Note that this is only for DMAMUX1
 pub enum DmaInput {
-    // todo: DMAMUX2
     Adc1 = 9,
     Adc2 = 10,
     DacCh1 = 67,
@@ -133,6 +135,23 @@ pub enum DmaInput {
     Dfsdm1F1 = 102,
     Dfsdm1F2 = 103,
     Dfsdm1F3 = 104,
+    Sai3A = 113,
+    Sai3B = 114,
+}
+
+#[derive(Copy, Clone)]
+#[repr(usize)]
+#[cfg(feature = "h7")]
+/// A list of DMA input sources for DMAMUX2. Used for BDMA. See H742 RM, Table 124.
+pub enum DmaInput2 {
+    Lpuart1Rx = 9,
+    Lpuart1Tx = 10,
+    Spi6Rx = 11,
+    Spi6Tx = 12,
+    I2c4Rx = 13,
+    I3crTx = 14,
+    Sai4A = 15,
+    Sai4B = 16,
 }
 
 impl DmaInput {
@@ -1506,4 +1525,10 @@ pub fn mux(channel: DmaChannel, input: DmaInput, mux: &mut DMAMUX) {
         #[cfg(feature = "h7")]
         mux.ccr[channel as usize].modify(|_, w| w.dmareq_id().bits(input as u8));
     }
+}
+
+#[cfg(feature = "h7")]
+/// Configure a specific DMA channel to work with a specific peripheral, on DMAMUX2.
+pub fn mux2(channel: DmaChannel, input: DmaInput2, mux: &mut DMAMUX2) {
+       mux.ccr[channel as usize].modify(|_, w| unsafe { w.dmareq_id().bits(input as u8) });
 }

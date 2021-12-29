@@ -95,6 +95,13 @@ macro_rules! rcc_en_reset {
             }
         }}
     };
+    (apb4, $periph:expr, $rcc:expr) => {
+        paste::paste! {
+            $rcc.apb4enr.modify(|_, w| w.[<$periph en>]().set_bit());
+            $rcc.apb4rstr.modify(|_, w| w.[<$periph rst>]().set_bit());
+            $rcc.apb4rstr.modify(|_, w| w.[<$periph rst>]().clear_bit());
+        }
+    };
     (ahb1, $periph:expr, $rcc:expr) => {
         paste::paste! { cfg_if::cfg_if! {
             if #[cfg(feature = "f3")] {
@@ -306,6 +313,20 @@ impl RccPeriph for pac::SAI1 {
 impl RccPeriph for pac::SAI2 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb2, sai2, rcc);
+    }
+}
+
+#[cfg(feature = "h7")]
+impl RccPeriph for pac::SAI3 {
+    fn en_reset(rcc: &RegisterBlock) {
+        rcc_en_reset!(apb2, sai3, rcc);
+    }
+}
+
+#[cfg(feature = "h7")]
+impl RccPeriph for pac::SAI4 {
+    fn en_reset(rcc: &RegisterBlock) {
+        rcc_en_reset!(apb4, sai4, rcc);
     }
 }
 
