@@ -1530,5 +1530,5 @@ pub fn mux(channel: DmaChannel, input: DmaInput, mux: &mut DMAMUX) {
 #[cfg(feature = "h7")]
 /// Configure a specific DMA channel to work with a specific peripheral, on DMAMUX2.
 pub fn mux2(channel: DmaChannel, input: DmaInput2, mux: &mut DMAMUX2) {
-       mux.ccr[channel as usize].modify(|_, w| unsafe { w.dmareq_id().bits(input as u8) });
+    mux.ccr[channel as usize].modify(|_, w| unsafe { w.dmareq_id().bits(input as u8) });
 }

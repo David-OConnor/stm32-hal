@@ -39,9 +39,25 @@ use crate::dma::DmaInput;
 #[derive(Clone, Copy)]
 #[repr(u8)]
 /// Select Master or Slave mode. Sets xCR1 register, MODE field.
+/// The audio subblock can be a transmitter or receiver, in master or slave mode. The master
+/// mode means the SCK_x bit clock and the frame synchronization signal are generated from
+/// the SAI, whereas in slave mode, they come from another external or internal master. There
+/// is a particular case for which the FS signal direction is not directly linked to the master or
+/// slave mode definition. In AC’97 protocol, it will be an SAI output even if the SAI (link
+/// controller) is set-up to consume the SCK clock (and so to be in Slave mode).
 pub enum SaiMode {
+    /// The SAI delivers the timing signals to the external connected device:
+    /// The bit clock and the frame synchronization are output on pin SCK_x and FS_x,
+    /// respectively. Both SCK_x, FS_x and MCLK_x are configured as outputs.
+    /// If needed, the SAI can also generate a master clock on MCLK_x pin.
     MasterTransmitter = 0b00,
     MasterReceiver = 0b01,
+    /// The SAI expects to receive timing signals from an external device.
+    /// If the SAI subblock is configured in asynchronous mode, then SCK_x and FS_x pins
+    /// are configured as inputs.
+    /// If the SAI subblock is configured to operate synchronously with another SAI interface or
+    /// with the second audio subblock, the corresponding SCK_x and FS_x pins are left free
+    /// to be used as general purpose I/Os.
     SlaveTransmitter = 0b10,
     SlaveReceiver = 0b11,
 }

@@ -44,6 +44,8 @@ enum _DualBank {
 #[derive(Clone, Copy)]
 pub enum Bank {
     B1,
+    // todo: PAC bank 2 error
+    #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
     B2,
 }
 
@@ -452,6 +454,8 @@ impl Flash {
         #[cfg(feature = "h7")]
         let regs = &match bank {
             Bank::B1 => self.regs.bank1(),
+            // todo: PAC bank 2 error
+            #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
             Bank::B2 => self.regs.bank2(),
         };
 
@@ -500,6 +504,7 @@ impl Flash {
             } else {
                 match bank {
                     Bank::B1 => regs.cr.modify(|_, w| w.mer1().clear_bit()),
+                    #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
                     Bank::B2 => regs.cr.modify(|_, w| w.mer2().clear_bit()),
                 }
 
@@ -547,6 +552,7 @@ impl Flash {
                 // (FLASH_CR). Both banks can be selected in the same operation.
                 match bank {
                     Bank::B1 => self.regs.nscr.modify(|_, w| w.nsmer1().clear_bit()),
+                    #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
                     Bank::B2 => self.regs.nscr.modify(|_, w| w.nsmer2().clear_bit()),
                 }
 
@@ -570,6 +576,7 @@ impl Flash {
 
                 match bank {
                     Bank::B1 => self.regs.seccr.modify(|_, w| w.secmer1().clear_bit()),
+                    #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
                     Bank::B2 => self.regs.seccr.modify(|_, w| w.secmer2().clear_bit()),
                 }
 
@@ -825,6 +832,7 @@ fn sector_to_address(sector: usize, bank: Bank) -> usize {
     let starting_pt = match bank {
         Bank::B1 => 0x0800_0000,
         // todo: This isn't the same bank2 starting point for all H7 variants!
+        #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
         Bank::B2 => 0x0810_0000,
     };
 
