@@ -320,6 +320,8 @@ pub struct Clocks {
     pub sai1_src: SaiSrc,
     /// SAI2 and SAI3 kernel clock source selection
     pub sai23_src: SaiSrc,
+    pub sai4a_src: SaiSrc,
+    pub sai4b_src: SaiSrc,
     /// DFSDM1 kernel clock source selection
     pub dfsdm1_src: DfsdmSrc,
 }
@@ -487,6 +489,12 @@ impl Clocks {
         rcc.d2ccip2r.modify(|_, w| unsafe {
             w.usart234578sel().bits(0b111);
             w.usbsel().bits(0b11) // HSI
+        });
+
+        #[cfg(not(feature = "h7b3"))]
+        rcc.d3ccipr.modify(|_, w| unsafe {
+            w.sai4asel().bits(self.sai4a_src as u8);
+            w.sai4bsel().bits(self.sai4b_src as u8)
         });
 
         rcc.cr.modify(|_, w| w.hsecsson().bit(self.security_system));
@@ -953,6 +961,8 @@ impl Default for Clocks {
             vos_range: VosRange::VOS1,
             sai1_src: SaiSrc::Pll1Q,
             sai23_src: SaiSrc::Pll1Q,
+            sai4a_src: SaiSrc::Pll1Q,
+            sai4b_src: SaiSrc::Pll1Q,
             dfsdm1_src: DfsdmSrc::Pclk2,
         }
     }
