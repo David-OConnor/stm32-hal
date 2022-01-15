@@ -362,11 +362,6 @@ pub struct SaiConfig {
     /// used (NOMCK = 1), it is recommended to program the frame length to an value ranging from 8 to
     /// 256.
     pub frame_length: u16, // u16 to allow the value of 256.
-    //  /// Specify the length in number of bit clock
-    // /// (SCK) + 1 (FSALL[6:0] + 1) of the active level of the FS signal in the audio frame
-    // /// These bits are meaningless and are not used in AC’97 or SPDIF audio block configuration.
-    // /// They must be configured when the audio block is disabled
-    // pub fs_level_len: u8,
     pub fs_offset: FsOffset,
     /// Active high, or active low polarity. Defaults to active high.
     pub fs_polarity: FsPolarity,
@@ -456,6 +451,35 @@ impl SaiConfig {
             // Note that this is already handled by by `fs_offset`.
             first_bit_offset: 0,
             fifo_thresh: FifoThresh::T1_4,
+            pdm_mode: false,
+
+            ..Default::default()
+        }
+    }
+
+    /// Default configuration for TDM.
+    pub fn tdm_preset(num_slots: u8, datasize: DataSize) -> Self {
+        let frame_length = match datasize {
+            DataSize::S8 => 8 * num_slots as u16,
+            DataSize::S10 => 10 * num_slots as u16,
+            DataSize::S16 => 16 * num_slots as u16,
+            DataSize::S20 => 20 * num_slots as u16,
+            DataSize::S24 => 24 * num_slots as u16,
+            DataSize::S32 => 32 * num_slots as u16,
+        };
+
+        Self {
+            first_bit: FirstBit::MsbFirst,
+            // fs_offset: FsOffset::FirstBit,
+            // fs_offset: FsOffset::BeforeFirstBit, // todo?
+            fs_signal: FsSignal::Frame,
+            protocol: Protocol::Free,
+            datasize,
+            frame_length,
+            num_slots,
+            first_bit_offset: 0,
+            // todo: Smartly set up fifo thresh based on number of slots?
+            fifo_thresh: FifoThresh::Full,
             pdm_mode: false,
 
             ..Default::default()
@@ -696,7 +720,15 @@ where
             panic!("Frame length must be bewteen 8 and 256")
         }
 
-        let fsall_bits = if config_a.pdm_mode {
+        let fsall_bits_a = if let FsSignal::Frame = config_a.fs_signal {
+            0
+        } else {
+            // Hard-set a 50% duty cycle. Don't think this is a safe assumption? Send in an issue
+            // or PR.
+            (config_a.frame_length / 2) as u8 - 1
+        };
+
+        let fsall_bits_b = if let FsSignal::Frame = config_a.fs_signal {
             0
         } else {
             // Hard-set a 50% duty cycle. Don't think this is a safe assumption? Send in an issue
@@ -710,7 +742,7 @@ where
             w.fsoff().bit(config_a.fs_offset as u8 != 0);
             w.fspol().bit(config_a.fs_polarity as u8 != 0);
             w.fsdef().bit(config_a.fs_signal as u8 != 0);
-            w.fsall().bits(fsall_bits);
+            w.fsall().bits(fsall_bits_a);
             w.frl().bits((config_a.frame_length - 1) as u8)
         });
 
@@ -718,9 +750,7 @@ where
             w.fsoff().bit(config_a.fs_offset as u8 != 0);
             w.fspol().bit(config_b.fs_polarity as u8 != 0);
             w.fsdef().bit(config_b.fs_signal as u8 != 0);
-            // Note that PDM only works on channel A, so no need for special logic
-            // to set FSALL on channel B.
-            w.fsall().bits((config_b.frame_length / 2) as u8 - 1);
+            w.fsall().bits(fsall_bits_b);
             w.frl().bits((config_b.frame_length - 1) as u8)
         });
 

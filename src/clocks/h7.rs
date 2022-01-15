@@ -750,7 +750,7 @@ impl Clocks {
         }
     }
 
-    /// Check if the PLL is enabled. This is useful if checking wheather to re-enable the PLL
+    /// Check if the PLL is enabled. This is useful if checking whether to re-enable the PLL
     /// after exiting Stop or Standby modes, eg so you don't re-enable if it was already re-enabled
     /// in a different context. eg:
     /// ```
@@ -778,21 +778,24 @@ impl Clocks {
         }
     }
 
+    /// Get the Domain 1 core prescaler frequency, in hz
     pub fn d1cpreclk(&self) -> u32 {
         self.sysclk() / self.d1_core_prescaler.value() as u32
     }
 
+    /// Get the HCLK frequency, in hz
     pub fn hclk(&self) -> u32 {
         self.sysclk() / self.d1_core_prescaler.value() as u32 / self.hclk_prescaler.value() as u32
     }
 
-    /// Return the systick speed. Note that for dual core variants, this is for CPU1.
+    /// Get the systick speed. Note that for dual core variants, this is for CPU1.
     /// CPU2 systick is equal to the HCLK (possibly divided by 8), so use the `hclk()` method.
     pub fn systick(&self) -> u32 {
         // todo: There's an optional /8 divider we're not taking into account here.
         self.d1cpreclk()
     }
 
+    /// Get the USB clock frequency, in hz
     pub fn usb(&self) -> u32 {
         // let (input_freq, _) = sysclock(self.input_src, self.divm1, self.divn1, self.divp1);
         // (input_freq * 1_000_000) as u32 / self.divm1 as u32 * self.pll_sai1_mul as u32 / 2
@@ -803,6 +806,7 @@ impl Clocks {
         self.hclk() / self.d2_prescaler1.value() as u32
     }
 
+    /// Get the frequency used by APB1 timers, in hz
     pub fn apb1_timer(&self) -> u32 {
         if let ApbPrescaler::Div1 = self.d2_prescaler1 {
             self.apb1()
@@ -815,6 +819,7 @@ impl Clocks {
         self.hclk() / self.d2_prescaler2.value() as u32
     }
 
+    /// Get the frequency used by APB2 timers, in hz
     pub fn apb2_timer(&self) -> u32 {
         if let ApbPrescaler::Div1 = self.d2_prescaler2 {
             self.apb2()
@@ -823,7 +828,7 @@ impl Clocks {
         }
     }
 
-    /// Get the SAI1 audio clock freq
+    /// Get the SAI1 audio clock frequency, in hz
     pub fn sai1_speed(&self) -> u32 {
         let pll_src = match self.input_src {
             InputSrc::Pll1 => self.pll_src,

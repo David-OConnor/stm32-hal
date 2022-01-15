@@ -1150,7 +1150,7 @@ impl Clocks {
         while rcc.cr.read().msirdy().bit_is_clear() {}
     }
 
-    /// Calculate the sysclock frequency, in hz.
+    /// Get the sysclock frequency, in hz.
     pub fn sysclk(&self) -> u32 {
         match self.input_src {
             InputSrc::Pll(pll_src) => {
@@ -1176,7 +1176,7 @@ impl Clocks {
         }
     }
 
-    /// Check if the PLL is enabled. This is useful if checking wheather to re-enable the PLL
+    /// Check if the PLL is enabled. This is useful if checking whether to re-enable the PLL
     /// after exiting Stop or Standby modes, eg so you don't re-enable if it was already re-enabled
     /// in a different context. eg:
     /// ```
@@ -1189,10 +1189,12 @@ impl Clocks {
         rcc.cr.read().pllon().bit_is_set()
     }
 
+    /// Get the HCLK frequency, in hz
     pub fn hclk(&self) -> u32 {
         self.sysclk() / self.hclk_prescaler.value() as u32
     }
 
+    /// Get the systick frequency, in  hz
     pub fn systick(&self) -> u32 {
         self.hclk()
     }
@@ -1218,10 +1220,12 @@ impl Clocks {
         }
     }
 
+    /// Get the APB1 frequency, in hz
     pub fn apb1(&self) -> u32 {
         self.hclk() / self.apb1_prescaler.value() as u32
     }
 
+    /// Get the frequency used by APB1 timers, in hz
     pub fn apb1_timer(&self) -> u32 {
         // L4 RM, 6.2.14: The timer clock frequencies are automatically defined by hardware. There are two cases:
         // 1. If the APB prescaler equals 1, the timer clock frequencies are set to the same
@@ -1263,7 +1267,7 @@ impl Clocks {
         }
     }
 
-    /// Get the SAI audio clock freq
+    /// Get the SAI audio clock frequency, in hz
     #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
     pub fn sai1_speed(&self) -> u32 {
         let pll_src = match self.input_src {

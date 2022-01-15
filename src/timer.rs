@@ -17,9 +17,6 @@ use embedded_hal::{
     timer::{CountDown, Periodic},
 };
 
-#[cfg(feature = "embedded-hal")]
-use void::Void;
-
 // todo: LPTIM (low-power timers) and HRTIM (high-resolution timers)
 
 use crate::{
@@ -490,6 +487,9 @@ macro_rules! hal {
         impl Periodic for Timer<pac::$TIMX> {}
 
         #[cfg(feature = "embedded-hal")]
+        struct WaitError {}
+
+        #[cfg(feature = "embedded-hal")]
         // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl CountDown for Timer<pac::$TIMX> {
             type Time = f32;
@@ -504,7 +504,7 @@ macro_rules! hal {
                 self.enable();
             }
 
-            fn wait(&mut self) -> nb::Result<(), Void> {
+            fn wait(&mut self) -> nb::Result<(), WaitError> {
                 if self.regs.sr.read().uif().bit_is_clear() {
                     Err(nb::Error::WouldBlock)
                 } else {
