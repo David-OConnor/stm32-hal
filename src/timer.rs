@@ -98,13 +98,24 @@ pub enum TimerInterrupt {
     CaptureCompare4Dma,
 }
 
-/// Output alignment
+/// Output alignment. Sets `TIMx_CR1` register, `CMS` field.
 #[derive(Clone, Copy)]
 pub enum Alignment {
-    Edge,
-    Center1,
-    Center2,
-    Center3,
+    /// Edge-aligned mode. The counter counts up or down depending on the direction bit
+    /// (DIR).
+    Edge = 0b00,
+    /// Center-aligned mode 1. The counter counts up and down alternatively. Output compare
+    /// interrupt flags of channels configured in output (CCxS=00 in TIMx_CCMRx register) are set
+    /// only when the counter is counting down.
+    Center1 = 0b01,
+    /// Center-aligned mode 2. The counter counts up and down alternatively. Output compare
+    /// interrupt flags of channels configured in output (CCxS=00 in TIMx_CCMRx register) are set
+    /// only when the counter is counting up.
+    Center2 = 0b10,
+    /// Center-aligned mode 3. The counter counts up and down alternatively. Output compare
+    /// interrupt flags of channels configured in output (CCxS=00 in TIMx_CCMRx register) are set
+    /// both when the counter is counting up or down.
+    Center3 = 0b11,
 }
 
 /// Timer channel
@@ -237,19 +248,75 @@ impl OutputCompare {
     }
 }
 
+/// Update Request source. This bit is set and cleared by software to select the UEV event sources.
+/// Sets `TIMx_CR1` register, `URS` field.
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum UpdateReqSrc {
+    /// Any of the following events generate an update interrupt or DMA request.
+    /// These events can be:
+    /// – Counter overflow/underflow
+    /// – Setting the UG bit
+    /// – Update generation through the slave mode controller
+    Any = 0,
+    /// Only counter overflow/underflow generates an update interrupt or DMA request.
+    OverUnderFlow = 1,
+}
+
+/// Capture/Compaer DMA selection.
+/// Sets `TIMx_CR2` register, `CCDS` field.
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum CaptureCompareDma {
+    /// CCx DMA request sent when CCx event occur
+    Ccx = 0,
+    /// CCx DMA request sent when update event occurs
+    Update = 1,
+}
+
+/// Initial configuration data for Timer peripherals.
+pub struct TimerConfig {
+    /// If `one_pulse_mode` is true, the counter stops counting at the next update event
+    /// (clearing the bit CEN). If false, Counter is not stopped at update event. Defaults to false.
+    /// Sets `TIMx_CR` register, `OPM` field.
+    pub one_pulse_mode: bool,
+    /// Update request source. Ie, counter overflow/underflow only, or any. defaults to any.
+    pub update_request_source: UpdateReqSrc,
+    /// Set `true` to buffer the preload. Useful when changing period and duty while the timer is running.
+    /// Default to false.
+    pub auto_reload_preload: bool,
+    /// Select center or edge alignment. Defaults to edge.
+    pub alignment: Alignment,
+    /// Sets when CCx DMA requests occur. Defaults to on CCx event.
+    pub capture_compare_dma: CaptureCompareDma,
+}
+
+impl Default for TimerConfig {
+    fn default() -> Self {
+        Self {
+            one_pulse_mode: false,
+            update_request_source: UpdateReqSrc::Any,
+            auto_reload_preload: false,
+            alignment: Alignment::Edge,
+            capture_compare_dma: CaptureCompareDma::Ccx,
+        }
+    }
+}
+
+
 /// Represents a timer peripheral.
 pub struct Timer<TIM> {
     pub regs: TIM,    // Register block for the specific timer.
+    pub cfg: TimerConfig,
     clock_speed: u32, // Associated timer clock speed in Hz.
 }
 
-macro_rules! hal {
-    ($TIMX:ident, $tim:ident, $apb:expr) => {
+macro_rules! make_timer {
+    ($TIMX:ident, $tim:ident, $apb:expr, $res:ident, $num_channels:expr) => {
         impl Timer<pac::$TIMX> {
             paste! {
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn [<new_ $tim>](regs: pac::$TIMX, freq: f32, clocks: &Clocks) -> Self {
-
+                pub fn new(regs: pac::$TIMX, freq: f32, cfg: TimerConfig, clocks: &Clocks) -> Self {
                     free(|_| {
                         let rcc = unsafe { &(*RCC::ptr()) };
 
@@ -261,7 +328,24 @@ macro_rules! hal {
                         1 => clocks.apb1_timer(),
                         _ => clocks.apb2_timer(),
                     };
-                    let mut result = Timer { clock_speed, regs };
+
+
+                    regs.cr1.modify(|_, w| {
+                        w.opm().bit(cfg.one_pulse_mode);
+                        w.urs().bit(cfg.update_request_source as u8 != 0);
+                        w.arpe().bit(cfg.auto_reload_preload)
+                    });
+
+                    if $num_channels >= 4 {
+                        // todo: Put this back once you fix the compile problem!
+                        // regs.cr1.modify(|_, w| w.cms().bits(cfg.alignment as u8));
+                    }
+
+                    regs.cr2.modify(|_, w| {
+                        w.ccds().bit(cfg.capture_compare_dma as u8 != 0)
+                    });
+
+                    let mut result = Timer { clock_speed, cfg, regs };
 
                     result.set_freq(freq).ok();
 
@@ -422,11 +506,377 @@ macro_rules! hal {
             }
 
             /// Read the current counter value.
-            pub fn countdown(&self) -> u32 {
+            pub fn read_count(&self) -> u32 {
                 // todo: This depends on resolution. We read the whole
                 // todo res and pass a u32 just in case.
                 // self.regs.cnt.read().cnt().bits()
                 self.regs.cnt.read().bits()
+            }
+            
+            
+            /// Enables basic PWM output
+            pub fn enable_pwm_output(
+                &mut self,
+                channel: TimChannel,
+                compare: OutputCompare,
+                dir: CountDir,
+                duty: f32,
+            ) {
+                // todo: duty as an f32 is good from an API perspective, but forces the
+                // todo use of software floats on non-FPU MCUs. How should we handle this?
+                self.set_preload(channel, true);
+                self.set_output_compare(channel, compare);
+                self.set_duty(channel, (self.get_max_duty() as f32 * duty) as $res);
+
+                if $num_channels >=4 {
+                // todo: Put back!
+                    // self.regs.cr1.modify(|_, w| w.dir().bit(dir as u8 != 0));
+                }
+                self.enable_capture_compare(channel);
+            }
+
+            /// Enables basic PWM input. TODO: Doesn't work yet.
+            /// L4 RM, section 26.3.8
+            pub fn _enable_pwm_input(
+                &mut self,
+                channel: TimChannel,
+                compare: OutputCompare,
+                dir: CountDir,
+                duty: f32,
+            ) {
+                // todo: These instruction sare specifically for TI1
+                // 1. Select the active input for TIMx_CCR1: write the CC1S bits to 01 in the TIMx_CCMR1
+                // register (TI1 selected).
+                // self.regs.ccmr1.modify(|_, w| w.cc1s().bit(0b01));
+
+                // 2. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
+                // clear): write the CC1P and CC1NP bits to ‘0’ (active on rising edge).
+                // self.regs.ccmr1.modify(|_, w| {
+                //     w.cc1p().bits(0b00);
+                //     w.cc1np().bits(0b00)
+                // });
+                // 3. Select the active input for TIMx_CCR2: write the CC2S bits to 10 in the TIMx_CCMR1
+                // register (TI1 selected).
+                // self.regs.ccmr2.modify(|_, w| w.cc2s().bit(0b10));
+
+                // 4. Select the active polarity for TI1FP2 (used for capture in TIMx_CCR2): write the CC2P
+                // and CC2NP bits to CC2P/CC2NP=’10’ (active on falling edge).
+                // self.regs.ccr2.modify(|_, w| {
+                //     w.cc2p().bits(0b10);
+                //     w.cc2np().bits(0b10)
+                // });
+
+                // 5. Select the valid trigger input: write the TS bits to 101 in the TIMx_SMCR register
+                // (TI1FP1 selected).
+                // self.regs.smcr.modify(|_, w| w.ts().bits(0b101));
+
+                // 6. Configure the slave mode controller in reset mode: write the SMS bits to 0100 in the
+                // TIMx_SMCR register.
+                // self.regs.smcr.modify(|_, w| w.sms().bits(0b0100));
+
+                // 7. Enable the captures: write the CC1E and CC2E bits to ‘1’ in the TIMx_CCER register.
+                // self.regs.ccer.modify(|_, w| {
+                //     w.cc1e().set_bit();
+                //     w.cc2e().set_bit()
+                // });
+            }
+
+            // todo: more advanced PWM modes. Asymmetric, combined, center-aligned etc.
+
+            /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
+            pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
+                match channel {
+                    TimChannel::C1 => {
+                        self.regs
+                            .ccmr1_output()
+                            .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
+                        // todo: Confirm other platforms handle everything using `oc1m`, and don't
+                        // todo need the `oc1m_3` equiv. L5 and 4?
+                        #[cfg(any(feature = "f302", feature = "f303"))]
+                        self.regs
+                            .ccmr1_output()
+                            .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
+                    }
+                    // todo: Put these back!
+                    TimChannel::C2 => {
+                        // self.regs
+                        //     .ccmr1_output()
+                        //     .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
+                        // #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
+                        // self.regs
+                        //     .ccmr1_output()
+                        //     .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
+                    }
+                    TimChannel::C3 => {
+                        // self.regs
+                        //     .ccmr1_output()
+                        //     .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
+                        // #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
+                        // self.regs
+                        //     .ccmr1_output()
+                        //     .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
+                    }
+                    #[cfg(not(feature = "wl"))]
+                    TimChannel::C4 => {
+                        // self.regs
+                        //     .ccmr2_output()
+                        //     .modify(|_, w| unsafe { w.oc4m().bits(mode as u8) });
+                        // #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
+                        // self.regs
+                        //     .ccmr2_output()
+                        //     .modify(|_, w| w.oc4m_3().bit(mode.left_bit()));
+                    }
+                }
+            }
+
+            /// Return the set duty period for a given channel. Divide by `get_max_duty()`
+            /// to find the portion of the duty cycle used.
+            pub fn get_duty(&self, channel: TimChannel) -> $res {
+                cfg_if! {
+                    if #[cfg(feature = "g0")] {
+                        match channel {
+                            // todo: This isn't right!!
+                            TimChannel::C1 => self.regs.ccr1.read().bits(),
+                            TimChannel::C2 => 0,
+                            // todo put these back!
+                            // self.regs.ccr2.read().bits(),
+                            TimChannel::C3 => 0,
+                            // self.regs.ccr3.read().bits(),
+                            #[cfg(not(feature = "wl"))]
+                            TimChannel::C4 => 0,
+                            // self.regs.ccr4.read().bits(),
+                        }
+                    } else if #[cfg(any(feature = "wb", feature = "wl"))] {
+                        match channel {
+                            TimChannel::C1 => self.regs.ccr1.read().ccr1().bits(),
+                            TimChannel::C2 => 0,
+                            // todo put these back!
+                            // self.regs.ccr2.read().ccr2().bits(),
+                            TimChannel::C3 => 0,
+                            // self.regs.ccr3.read().ccr3().bits(),
+                            #[cfg(not(feature = "wl"))]
+                            TimChannel::C4 => 0,
+                            // self.regs.ccr4.read().ccr4().bits(),
+                        }
+                    } else {
+                        match channel {
+                            TimChannel::C1 => self.regs.ccr1.read().ccr().bits().into(),
+                            TimChannel::C2 => 0,
+                            // todo put these back!
+                            // self.regs.ccr2.read().ccr().bits().into(),
+                            TimChannel::C3 => 0,
+                            // self.regs.ccr3.read().ccr().bits().into(),
+                            #[cfg(not(feature = "wl"))]
+                            TimChannel::C4 => 0,
+                            // self.regs.ccr4.read().ccr().bits().into(),
+                        }
+                    }
+                }
+            }
+
+            /// Set the duty cycle, as a portion of ARR (`get_max_duty()`). Note that this
+            /// needs to be re-run if you change ARR at any point.
+            pub fn set_duty(&mut self, channel: TimChannel, duty: $res) {
+                cfg_if! {
+                    if #[cfg(feature = "g0")] {
+                        match channel {
+                            // todo: This isn't right!!
+                            TimChannel::C1 => self.regs.ccr1.read().bits(),
+                            TimChannel::C2 => {}
+                            // todo: Put these back!!
+                            // self.regs.ccr2.read().bits(),
+                            TimChannel::C3 => {}
+                            // self.regs.ccr3.read().bits(),
+                            #[cfg(not(feature = "wl"))]
+                            TimChannel::C4 => {}
+                            // self.regs.ccr4.read().bits(),
+                        };
+                    } else if #[cfg(any(feature = "wb", feature = "wl"))] {
+                        unsafe {
+                            match channel {
+                                TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr1().bits(duty.try_into().unwrap())),
+                                TimChannel::C2 => {}
+                                // todo - put these back!
+                                // self.regs.ccr2.write(|w| w.ccr2().bits(duty.try_into().unwrap())),
+                                TimChannel::C3 => {}
+                                // self.regs.ccr3.write(|w| w.ccr3().bits(duty.try_into().unwrap())),
+                                #[cfg(not(feature = "wl"))]
+                                TimChannel::C4 => {}
+                                // self.regs.ccr4.write(|w| w.ccr4().bits(duty.try_into().unwrap())),
+                            }
+                        }
+                    } else {
+                        unsafe {
+                            match channel {
+                                TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                                TimChannel::C2 => {}
+                                // todo - put these back!
+                                // self.regs.ccr2.write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                                TimChannel::C3 => {}
+                                // self.regs.ccr3.write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                                #[cfg(not(feature = "wl"))]
+                                TimChannel::C4 => {}
+                                // self.regs.ccr4.write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                            }
+                        }
+                    }
+                }
+            }
+
+            /// Return the integer associated with the maximum duty period.
+            pub fn get_max_duty(&self) -> $res {
+                #[cfg(feature = "g0")]
+                return self.regs.arr.read().bits();
+                #[cfg(not(feature = "g0"))]
+                self.regs.arr.read().arr().bits().into()
+            }
+
+            /// Set timer alignment to Edge, or one of 3 center modes.
+            /// STM32F303 ref man, section 21.4.1:
+            /// Bits 6:5 CMS: Center-aligned mode selection
+            /// 00: Edge-aligned mode. The counter counts up or down depending on the direction bit
+            /// (DIR).
+            /// 01: Center-aligned mode 1. The counter counts up and down alternatively. Output compare
+            /// interrupt flags of channels configured in output (CCxS=00 in TIMx_CCMRx register) are set
+            /// only when the counter is counting down.
+            /// 10: Center-aligned mode 2. The counter counts up and down alternatively. Output compare
+            /// interrupt flags of channels configured in output (CCxS=00 in TIMx_CCMRx register) are set
+            /// only when the counter is counting up.
+            /// 11: Center-aligned mode 3. The counter counts up and down alternatively. Output compare
+            /// interrupt flags of channels configured in output (CCxS=00 in TIMx_CCMRx register) are set
+            /// both when the counter is counting up or down.
+            pub fn set_alignment(&mut self, alignment: Alignment) {
+                // todo: Put back!
+                // self.regs.cr1.modify(|_, w| unsafe { w.cms().bits(alignment as u8) });
+                self.cfg.alignment = alignment;
+            }
+
+            /// Set output polarity. See docs on the `Polarity` enum.
+            pub fn set_polarity(&mut self, channel: TimChannel, polarity: Polarity) {
+                match channel {
+                    TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1p().bit(polarity.bit())),
+                    TimChannel::C2 => {}
+                    // todo: Put these back!
+                    // self.regs.ccer.modify(|_, w| w.cc2p().bit(polarity.bit())),
+                    TimChannel::C3 => {}
+                    // self.regs.ccer.modify(|_, w| w.cc3p().bit(polarity.bit())),
+                    #[cfg(not(feature = "wl"))]
+                    TimChannel::C4 => {}
+                    // self.regs.ccer.modify(|_, w| w.cc4p().bit(polarity.bit())),
+                }
+            }
+
+            /// Set complementary output polarity. See docs on the `Polarity` enum.
+            pub fn set_complementary_polarity(&mut self, channel: TimChannel, polarity: Polarity) {
+                match channel {
+                    TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1np().bit(polarity.bit())),
+                    TimChannel::C2 => {}
+                    // self.regs.ccer.modify(|_, w| w.cc2np().bit(polarity.bit())),
+                    TimChannel::C3 => {}
+                    // self.regs.ccer.modify(|_, w| w.cc3np().bit(polarity.bit())),
+                    #[cfg(not(feature = "wl"))]
+                    TimChannel::C4 => {}
+                    // todo: Put these back!
+                    // self.regs.ccer.modify(|_, w| w.cc4np().bit(polarity.bit())),
+                }
+            }
+            /// Disables capture compare on a specific channel.
+            pub fn disable_capture_compare(&mut self, channel: TimChannel) {
+                match channel {
+                   // todo: Put these back!
+                    TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1e().clear_bit()),
+                    TimChannel::C2 => {}
+                    // self.regs.ccer.modify(|_, w| w.cc2e().clear_bit()),
+                    TimChannel::C3 => {}
+                    // self.regs.ccer.modify(|_, w| w.cc3e().clear_bit()),
+                    #[cfg(not(feature = "wl"))]
+                    TimChannel::C4 => {}
+                    // self.regs.ccer.modify(|_, w| w.cc4e().clear_bit()),
+                }
+            }
+
+            /// Enables capture compare on a specific channel.
+            pub fn enable_capture_compare(&mut self, channel: TimChannel) {
+                match channel {
+                    TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1e().set_bit()),
+                    TimChannel::C2 => {}
+                    // todo: Put these back!
+                    // self.regs.ccer.modify(|_, w| w.cc2e().set_bit()),
+                    TimChannel::C3 => {}
+                    // self.regs.ccer.modify(|_, w| w.cc3e().set_bit()),
+                    #[cfg(not(feature = "wl"))]
+                    TimChannel::C4 => {}
+                    // self.regs.ccer.modify(|_, w| w.cc4e().set_bit()),
+                }
+            }
+
+            /// Set Capture Compare Mode. See docs on the `CaptureCompare` enum.
+            pub fn set_capture_compare(&mut self, channel: TimChannel, mode: CaptureCompare) {
+                match channel {
+                    // Note: CC1S bits are writable only when the channel is OFF (CC1E = 0 in TIMx_CCER)
+                    TimChannel::C1 => self
+                        .regs
+                        .ccmr1_output()
+                        .modify(unsafe { |_, w| w.cc1s().bits(mode as u8) }),
+                    TimChannel::C2 => {}
+                    // todo: Put these back!!!
+                    // self
+                    //     .regs
+                    //     .ccmr1_output()
+                    //     .modify(unsafe { |_, w| w.cc2s().bits(mode as u8) }),
+                    TimChannel::C3 => {}
+                    // self
+                    //     .regs
+                    //     .ccmr2_output()
+                    //     .modify(unsafe { |_, w| w.cc3s().bits(mode as u8) }),
+                    #[cfg(not(feature = "wl"))]
+                    TimChannel::C4 => {}
+                    // self
+                    //     .regs
+                    //     .ccmr2_output()
+                    //     .modify(unsafe { |_, w| w.cc4s().bits(mode as u8) }),
+                }
+            }
+
+            /// Set preload mode.
+            /// OC1PE: Output Compare 1 preload enable
+            /// 0: Preload register on TIMx_CCR1 disabled. TIMx_CCR1 can be written at anytime, the
+            /// new value is taken in account immediately.
+            /// 1: Preload register on TIMx_CCR1 enabled. Read/Write operations access the preload
+            /// register. TIMx_CCR1 preload value is loaded in the active register at each update event.
+            /// Note: 1: These bits can not be modified as long as LOCK level 3 has been programmed
+            /// (LOCK bits in TIMx_BDTR register) and CC1S=’00’ (the channel is configured in
+            /// output).
+            /// 2: The PWM mode can be used without validating the preload register only in one
+            /// pulse mode (OPM bit set in TIMx_CR1 register). Else the behavior is not guaranteed.
+            ///
+            /// Setting preload is required to enable PWM.
+            pub fn set_preload(&mut self, channel: TimChannel, value: bool) {
+                match channel {
+                    TimChannel::C1 => self.regs.ccmr1_output().modify(|_, w| w.oc1pe().bit(value)),
+                    TimChannel::C2 => {
+                        if $num_channels >= 2 {
+                        // todo: Put these back once you sort out the compile problem!!
+                            // self.regs.ccmr1_output().modify(|_, w| w.oc2pe().bit(value));
+                        }
+                    },
+                    TimChannel::C3 => {
+                        if $num_channels >= 3 {
+                            // self.regs.ccmr2_output().modify(|_, w| w.oc3pe().bit(value));
+                        }
+                    },
+                    #[cfg(not(feature = "wl"))]
+                    TimChannel::C4 => {
+                        if $num_channels >= 4 {
+                            // self.regs.ccmr2_output().modify(|_, w| w.oc4pe().bit(value));
+                        }
+                    }
+                }
+
+                // "As the preload registers are transferred to the shadow registers only when an update event
+                // occurs, before starting the counter, you have to initialize all the registers by setting the UG
+                // bit in the TIMx_EGR register."
+                self.reinitialize();
             }
         }
 
@@ -513,7 +963,7 @@ macro_rules! hal {
                 }
             }
         }
-    };
+    }
 }
 
 /// Calculate values required to set the timer frequency: `PSC` and `ARR`. This can be
@@ -550,324 +1000,6 @@ fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16), ValueError>
     }
 
     Ok((psc, arr))
-}
-
-macro_rules! pwm_features {
-    ($TIMX:ident, $res:ident) => {
-        impl Timer<pac::$TIMX> {
-            /// Enables basic PWM output
-            pub fn enable_pwm_output(
-                &mut self,
-                channel: TimChannel,
-                compare: OutputCompare,
-                dir: CountDir,
-                duty: f32,
-            ) {
-                // todo: duty as an f32 is good from an API perspective, but forces the
-                // todo use of software floats on non-FPU MCUs. How should we handle this?
-                self.set_preload(channel, true);
-                self.set_output_compare(channel, compare);
-                self.set_duty(channel, (self.get_max_duty() as f32 * duty) as $res);
-                self.regs.cr1.modify(|_, w| w.dir().bit(dir as u8 != 0));
-                self.enable_capture_compare(channel);
-            }
-
-            /// Enables basic PWM input. TODO: Doesn't work yet.
-            /// L4 RM, section 26.3.8
-            pub fn _enable_pwm_input(
-                &mut self,
-                channel: TimChannel,
-                compare: OutputCompare,
-                dir: CountDir,
-                duty: f32,
-            ) {
-                // todo: These instruction sare specifically for TI1
-                // 1. Select the active input for TIMx_CCR1: write the CC1S bits to 01 in the TIMx_CCMR1
-                // register (TI1 selected).
-                // self.regs.ccmr1.modify(|_, w| w.cc1s().bit(0b01));
-
-                // 2. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
-                // clear): write the CC1P and CC1NP bits to ‘0’ (active on rising edge).
-                // self.regs.ccmr1.modify(|_, w| {
-                //     w.cc1p().bits(0b00);
-                //     w.cc1np().bits(0b00)
-                // });
-                // 3. Select the active input for TIMx_CCR2: write the CC2S bits to 10 in the TIMx_CCMR1
-                // register (TI1 selected).
-                // self.regs.ccmr2.modify(|_, w| w.cc2s().bit(0b10));
-
-                // 4. Select the active polarity for TI1FP2 (used for capture in TIMx_CCR2): write the CC2P
-                // and CC2NP bits to CC2P/CC2NP=’10’ (active on falling edge).
-                // self.regs.ccr2.modify(|_, w| {
-                //     w.cc2p().bits(0b10);
-                //     w.cc2np().bits(0b10)
-                // });
-
-                // 5. Select the valid trigger input: write the TS bits to 101 in the TIMx_SMCR register
-                // (TI1FP1 selected).
-                // self.regs.smcr.modify(|_, w| w.ts().bits(0b101));
-
-                // 6. Configure the slave mode controller in reset mode: write the SMS bits to 0100 in the
-                // TIMx_SMCR register.
-                // self.regs.smcr.modify(|_, w| w.sms().bits(0b0100));
-
-                // 7. Enable the captures: write the CC1E and CC2E bits to ‘1’ in the TIMx_CCER register.
-                // self.regs.ccer.modify(|_, w| {
-                //     w.cc1e().set_bit();
-                //     w.cc2e().set_bit()
-                // });
-            }
-
-            // todo: more advanced PWM modes. Asymmetric, combined, center-aligned etc.
-
-            /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
-            pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
-                match channel {
-                    TimChannel::C1 => {
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
-                        // todo: Confirm other platforms handle everything using `oc1m`, and don't
-                        // todo need the `oc1m_3` equiv. L5 and 4?
-                        #[cfg(any(feature = "f302", feature = "f303"))]
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
-                    }
-                    TimChannel::C2 => {
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
-                        #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
-                    }
-                    TimChannel::C3 => {
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
-                        #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
-                    }
-                    #[cfg(not(feature = "wl"))]
-                    TimChannel::C4 => {
-                        self.regs
-                            .ccmr2_output()
-                            .modify(|_, w| unsafe { w.oc4m().bits(mode as u8) });
-                        #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
-                        self.regs
-                            .ccmr2_output()
-                            .modify(|_, w| w.oc4m_3().bit(mode.left_bit()));
-                    }
-                }
-            }
-
-            /// Return the set duty period for a given channel. Divide by `get_max_duty()`
-            /// to find the portion of the duty cycle used.
-            pub fn get_duty(&self, channel: TimChannel) -> $res {
-                cfg_if! {
-                    if #[cfg(feature = "g0")] {
-                        match channel {
-                            // todo: This isn't right!!
-                            TimChannel::C1 => self.regs.ccr1.read().bits(),
-                            TimChannel::C2 => self.regs.ccr2.read().bits(),
-                            TimChannel::C3 => self.regs.ccr3.read().bits(),
-                            #[cfg(not(feature = "wl"))]
-                            TimChannel::C4 => self.regs.ccr4.read().bits(),
-                        }
-                    } else if #[cfg(any(feature = "wb", feature = "wl"))] {
-                        match channel {
-                            TimChannel::C1 => self.regs.ccr1.read().ccr1().bits(),
-                            TimChannel::C2 => self.regs.ccr2.read().ccr2().bits(),
-                            TimChannel::C3 => self.regs.ccr3.read().ccr3().bits(),
-                            #[cfg(not(feature = "wl"))]
-                            TimChannel::C4 => self.regs.ccr4.read().ccr4().bits(),
-                        }
-                    } else {
-                        match channel {
-                            TimChannel::C1 => self.regs.ccr1.read().ccr().bits(),
-                            TimChannel::C2 => self.regs.ccr2.read().ccr().bits(),
-                            TimChannel::C3 => self.regs.ccr3.read().ccr().bits(),
-                            #[cfg(not(feature = "wl"))]
-                            TimChannel::C4 => self.regs.ccr4.read().ccr().bits(),
-                        }
-                    }
-                }
-            }
-
-            /// Set the duty cycle, as a portion of ARR (`get_max_duty()`). Note that this
-            /// needs to be re-run if you change ARR at any point.
-            pub fn set_duty(&mut self, channel: TimChannel, duty: $res) {
-                cfg_if! {
-                    if #[cfg(feature = "g0")] {
-                        match channel {
-                            // todo: This isn't right!!
-                            TimChannel::C1 => self.regs.ccr1.read().bits(),
-                            TimChannel::C2 => self.regs.ccr2.read().bits(),
-                            TimChannel::C3 => self.regs.ccr3.read().bits(),
-                            #[cfg(not(feature = "wl"))]
-                            TimChannel::C4 => self.regs.ccr4.read().bits(),
-                        };
-                    } else if #[cfg(any(feature = "wb", feature = "wl"))] {
-                        unsafe {
-                            match channel {
-                                TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr1().bits(duty)),
-                                TimChannel::C2 => self.regs.ccr2.write(|w| w.ccr2().bits(duty)),
-                                TimChannel::C3 => self.regs.ccr3.write(|w| w.ccr3().bits(duty)),
-                                #[cfg(not(feature = "wl"))]
-                                TimChannel::C4 => self.regs.ccr4.write(|w| w.ccr4().bits(duty)),
-                            }
-                        }
-                    } else {
-                        unsafe {
-                            match channel {
-                                TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr().bits(duty)),
-                                TimChannel::C2 => self.regs.ccr2.write(|w| w.ccr().bits(duty)),
-                                TimChannel::C3 => self.regs.ccr3.write(|w| w.ccr().bits(duty)),
-                                #[cfg(not(feature = "wl"))]
-                                TimChannel::C4 => self.regs.ccr4.write(|w| w.ccr().bits(duty)),
-                            }
-                        }
-                    }
-                }
-            }
-
-            /// Return the integer associated with the maximum duty period.
-            pub fn get_max_duty(&self) -> $res {
-                #[cfg(feature = "g0")]
-                return self.regs.arr.read().bits();
-                #[cfg(not(feature = "g0"))]
-                self.regs.arr.read().arr().bits()
-            }
-
-            /// Set timer alignment to Edge, or one of 3 center modes.
-            /// STM32F303 ref man, section 21.4.1:
-            /// Bits 6:5 CMS: Center-aligned mode selection
-            /// 00: Edge-aligned mode. The counter counts up or down depending on the direction bit
-            /// (DIR).
-            /// 01: Center-aligned mode 1. The counter counts up and down alternatively. Output compare
-            /// interrupt flags of channels configured in output (CCxS=00 in TIMx_CCMRx register) are set
-            /// only when the counter is counting down.
-            /// 10: Center-aligned mode 2. The counter counts up and down alternatively. Output compare
-            /// interrupt flags of channels configured in output (CCxS=00 in TIMx_CCMRx register) are set
-            /// only when the counter is counting up.
-            /// 11: Center-aligned mode 3. The counter counts up and down alternatively. Output compare
-            /// interrupt flags of channels configured in output (CCxS=00 in TIMx_CCMRx register) are set
-            /// both when the counter is counting up or down.
-            pub fn set_alignment(&mut self, alignment: Alignment) {
-                let word = match alignment {
-                    Alignment::Edge => 0b00,
-                    Alignment::Center1 => 0b01,
-                    Alignment::Center2 => 0b10,
-                    Alignment::Center3 => 0b11,
-                };
-                self.regs.cr1.modify(|_, w| unsafe { w.cms().bits(word) });
-            }
-
-            /// Set output polarity. See docs on the `Polarity` enum.
-            pub fn set_polarity(&mut self, channel: TimChannel, polarity: Polarity) {
-                match channel {
-                    TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1p().bit(polarity.bit())),
-                    TimChannel::C2 => self.regs.ccer.modify(|_, w| w.cc2p().bit(polarity.bit())),
-                    TimChannel::C3 => self.regs.ccer.modify(|_, w| w.cc3p().bit(polarity.bit())),
-                    #[cfg(not(feature = "wl"))]
-                    TimChannel::C4 => self.regs.ccer.modify(|_, w| w.cc4p().bit(polarity.bit())),
-                }
-            }
-
-            /// Set complementary output polarity. See docs on the `Polarity` enum.
-            pub fn set_complementary_polarity(&mut self, channel: TimChannel, polarity: Polarity) {
-                match channel {
-                    TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1np().bit(polarity.bit())),
-                    TimChannel::C2 => self.regs.ccer.modify(|_, w| w.cc2np().bit(polarity.bit())),
-                    TimChannel::C3 => self.regs.ccer.modify(|_, w| w.cc3np().bit(polarity.bit())),
-                    #[cfg(not(feature = "wl"))]
-                    TimChannel::C4 => self.regs.ccer.modify(|_, w| w.cc4np().bit(polarity.bit())),
-                }
-            }
-            /// Disables capture compare on a specific channel.
-            pub fn disable_capture_compare(&mut self, channel: TimChannel) {
-                match channel {
-                    TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1e().clear_bit()),
-                    TimChannel::C2 => self.regs.ccer.modify(|_, w| w.cc2e().clear_bit()),
-                    TimChannel::C3 => self.regs.ccer.modify(|_, w| w.cc3e().clear_bit()),
-                    #[cfg(not(feature = "wl"))]
-                    TimChannel::C4 => self.regs.ccer.modify(|_, w| w.cc4e().clear_bit()),
-                }
-            }
-
-            /// Enables capture compare on a specific channel.
-            pub fn enable_capture_compare(&mut self, channel: TimChannel) {
-                match channel {
-                    TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1e().set_bit()),
-                    TimChannel::C2 => self.regs.ccer.modify(|_, w| w.cc2e().set_bit()),
-                    TimChannel::C3 => self.regs.ccer.modify(|_, w| w.cc3e().set_bit()),
-                    #[cfg(not(feature = "wl"))]
-                    TimChannel::C4 => self.regs.ccer.modify(|_, w| w.cc4e().set_bit()),
-                }
-            }
-
-            /// Set Capture Compare Mode. See docs on the `CaptureCompare` enum.
-            pub fn set_capture_compare(&mut self, channel: TimChannel, mode: CaptureCompare) {
-                match channel {
-                    // Note: CC1S bits are writable only when the channel is OFF (CC1E = 0 in TIMx_CCER)
-                    TimChannel::C1 => self
-                        .regs
-                        .ccmr1_output()
-                        .modify(unsafe { |_, w| w.cc1s().bits(mode as u8) }),
-                    TimChannel::C2 => self
-                        .regs
-                        .ccmr1_output()
-                        .modify(unsafe { |_, w| w.cc2s().bits(mode as u8) }),
-                    TimChannel::C3 => self
-                        .regs
-                        .ccmr2_output()
-                        .modify(unsafe { |_, w| w.cc3s().bits(mode as u8) }),
-                    #[cfg(not(feature = "wl"))]
-                    TimChannel::C4 => self
-                        .regs
-                        .ccmr2_output()
-                        .modify(unsafe { |_, w| w.cc4s().bits(mode as u8) }),
-                }
-            }
-
-            /// Set auto reload preloader; useful when changing period and duty mid-run.
-            pub fn set_auto_reload_preload(&mut self, mode: bool) {
-                self.regs.cr1.modify(|_, w| w.arpe().bit(mode));
-            }
-
-            /// Set preload mode.
-            /// OC1PE: Output Compare 1 preload enable
-            /// 0: Preload register on TIMx_CCR1 disabled. TIMx_CCR1 can be written at anytime, the
-            /// new value is taken in account immediately.
-            /// 1: Preload register on TIMx_CCR1 enabled. Read/Write operations access the preload
-            /// register. TIMx_CCR1 preload value is loaded in the active register at each update event.
-            /// Note: 1: These bits can not be modified as long as LOCK level 3 has been programmed
-            /// (LOCK bits in TIMx_BDTR register) and CC1S=’00’ (the channel is configured in
-            /// output).
-            /// 2: The PWM mode can be used without validating the preload register only in one
-            /// pulse mode (OPM bit set in TIMx_CR1 register). Else the behavior is not guaranteed.
-            ///
-            /// Setting preload is required to enable PWM.
-            pub fn set_preload(&mut self, channel: TimChannel, value: bool) {
-                match channel {
-                    TimChannel::C1 => self.regs.ccmr1_output().modify(|_, w| w.oc1pe().bit(value)),
-                    TimChannel::C2 => self.regs.ccmr1_output().modify(|_, w| w.oc2pe().bit(value)),
-                    TimChannel::C3 => self.regs.ccmr2_output().modify(|_, w| w.oc3pe().bit(value)),
-                    #[cfg(not(feature = "wl"))]
-                    TimChannel::C4 => self.regs.ccmr2_output().modify(|_, w| w.oc4pe().bit(value)),
-                }
-
-                // "As the preload registers are transferred to the shadow registers only when an update event
-                // occurs, before starting the counter, you have to initialize all the registers by setting the UG
-                // bit in the TIMx_EGR register."
-                self.reinitialize();
-            }
-        }
-    };
 }
 
 // todo: Concepts for non-macro approach
@@ -977,7 +1109,7 @@ cfg_if! {
             }
 
             /// Read the current counter value.
-            pub fn countdown(&self) -> u16 {
+            pub fn read_count(&self) -> u16 {
                 #[cfg(feature = "l5")]
                 return self.regs.cnt.read().bits() as u16;
                 #[cfg(not(feature = "l5"))]
@@ -993,8 +1125,6 @@ cfg_if! {
     }
 }
 
-// We only implement `pwm_features` for general purpose timers. Perhaps we should implement
-// for advanced-control timers too.
 
 // todo: Non-macro refactor base timer reg blocks:
 
@@ -1010,71 +1140,28 @@ cfg_if! {
 // Advanced: 1/8/20
 
 #[cfg(not(any(feature = "f373")))]
-hal!(TIM1, tim1, 2);
-
-#[cfg(not(any(
-feature = "f373",
-feature = "f4",
-feature = "l4",
-feature = "l5",
-feature = "g0",
-feature = "g4",
-feature = "wl",  // todo: PAC issue?
-)))]
-pwm_features!(TIM1, u16);
-
-#[cfg(any(feature = "g0", feature = "g4"))]
-pwm_features!(TIM1, u32);
+make_timer!(TIM1, tim1, 2, u16, 4);
 
 cfg_if! {
     if #[cfg(not(any(
         feature = "f410",
         feature = "g070",
     )))] {
-        hal!(TIM2, tim2, 1);
+        make_timer!(TIM2, tim2, 1, u32, 4);
     }
 }
 
-// // todo: G4 has tim2, and it's 32-bit, but there may be a PAC error here; pac expects arr to be 16 bit.
-// #[cfg(any(feature = "g4"))]
-// pwm_features!(TIM2, u16);
 
 #[cfg(not(any(
-feature = "l5",
-feature = "g070",
-// feature = "g4",
+feature = "f301",
+feature = "l4x1",
+// feature = "l412",
+feature = "l4x3",
 feature = "f410",
 feature = "wb",
-feature = "wl",  // todo: PAC issue?
+feature = "wl"
 )))]
-pwm_features!(TIM2, u32);
-
-#[cfg(not(any(
-    feature = "f301",
-    feature = "l4x1",
-    // feature = "l412",
-    feature = "l4x3",
-    feature = "f410",
-    feature = "wb",
-    feature = "wl"
-)))]
-hal!(TIM3, tim3, 1);
-
-#[cfg(not(any(
-    feature = "f301",
-    feature = "l4x1",
-    feature = "l4x3",
-    feature = "l5",
-    feature = "f410",
-    feature = "g0",
-    feature = "g4",
-    feature = "wb",
-    feature = "wl"
-)))]
-pwm_features!(TIM3, u16);
-
-#[cfg(any(feature = "g0", feature = "g4"))]
-pwm_features!(TIM3, u32);
+make_timer!(TIM3, tim3, 1, u32, 4);
 
 cfg_if! {
     if #[cfg(not(any(
@@ -1091,26 +1178,7 @@ cfg_if! {
         feature = "wb",
         feature = "wl"
     )))] {
-        hal!(TIM4, tim4, 1);
-    }
-}
-
-cfg_if! {
-    if #[cfg(not(any(
-        feature = "f301",
-        feature = "f3x4",
-        feature = "f410",
-        feature = "l4x1",
-        feature = "l4x2",
-        feature = "l412",
-        feature = "l4x3",
-        feature = "l5",
-        feature = "g0",
-        feature = "g4",
-        feature = "wb",
-        feature = "wl"
-    )))] {
-        pwm_features!(TIM4, u16);
+        make_timer!(TIM4, tim4, 1, u32, 4);
     }
 }
 
@@ -1123,46 +1191,34 @@ cfg_if! {
        feature = "h7",
        all(feature = "f4", not(feature = "f410")),
    ))] {
-        hal!(TIM5, tim5, 1);
-   }
-}
-
-cfg_if! {
-    if #[cfg(any(
-       feature = "f373",
-       feature = "l4x5",
-       feature = "l4x6",
-       feature = "h7",
-       all(feature = "f4", not(feature = "f410")),
-   ))] {
-        pwm_features!(TIM5, u32);
+        make_timer!(TIM5, tim5, 1, u32, 4);
    }
 }
 
 #[cfg(any(
-    feature = "f303",
-    feature = "l4x5",
-    feature = "l4x6",
-    feature = "l562",
-    feature = "g4"
+feature = "f303",
+feature = "l4x5",
+feature = "l4x6",
+feature = "l562",
+feature = "g4"
 ))]
-hal!(TIM8, tim8, 2);
+make_timer!(TIM8, tim8, 2, u16, 4);
 
 // Todo: the L5 PAC has an address error on TIM15 - remove it until solved.
 #[cfg(not(any(
-    feature = "l5",
-    feature = "f4",
-    feature = "g031",
-    feature = "g031",
-    feature = "g041",
-    feature = "g030",
-    feature = "wb",
-    feature = "wl"
+feature = "l5",
+feature = "f4",
+feature = "g031",
+feature = "g031",
+feature = "g041",
+feature = "g030",
+feature = "wb",
+feature = "wl"
 )))]
-hal!(TIM15, tim15, 2);
+make_timer!(TIM15, tim15, 2, u16, 2);
 
 #[cfg(not(feature = "f4"))]
-hal!(TIM16, tim16, 2);
+make_timer!(TIM16, tim16, 2, u16, 1);
 
 cfg_if! {
     if #[cfg(not(any(
@@ -1172,7 +1228,7 @@ cfg_if! {
         feature = "l4x3",
         feature = "f4",
     )))] {
-        hal!(TIM17, tim17, 2);
+        make_timer!(TIM17, tim17, 2, u16, 1);
     }
 }
 
@@ -1182,12 +1238,12 @@ cfg_if! {
 
 cfg_if! {
     if #[cfg(any(feature = "f373"))] {
-        hal!(TIM12, tim12, 1);
-        hal!(TIM13, tim13, 1);
-        hal!(TIM14, tim14, 1);
-        hal!(TIM19, tim19, 2);
+        make_timer!(TIM12, tim12, 1, u16, 4);
+        make_timer!(TIM13, tim13, 1, u16, 4);
+        make_timer!(TIM14, tim14, 1, u16, 4);
+        make_timer!(TIM19, tim19, 2, u16, 4);
     }
 }
 
 #[cfg(any(feature = "f303"))]
-hal!(TIM20, tim20, 2);
+make_timer!(TIM20, tim20, 2, u16, true);

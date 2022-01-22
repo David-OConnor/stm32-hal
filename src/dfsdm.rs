@@ -8,7 +8,7 @@ use num_traits::Float; // Float rounding.
 
 use crate::{
     clocks::Clocks,
-    pac::{self, RCC},
+    pac::RCC,
     rcc_en_reset,
 };
 

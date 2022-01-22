@@ -3,7 +3,7 @@
 [![Crate](https://img.shields.io/crates/v/stm32-hal2.svg)](https://crates.io/crates/stm32-hal2)
 [![Docs](https://docs.rs/stm32-hal2/badge.svg)](https://docs.rs/stm32-hal2)
 
-This library provides high-level access to STM32 peripherals. 
+This library provides high-level access to STM32 peripherals.
 
 ## Requirements
 1. Provide high-level access to most STM32 peripherals
@@ -19,15 +19,15 @@ This library provides high-level access to STM32 peripherals.
 
 ## Specifications
 - Base code on instructions described in reference manuals (RM); document inline with
-the relevant excerpts [4, 9]
+  the relevant excerpts [4, 9]
 - Use [STM32 Peripheral Access Crates](https://github.com/stm32-rs/stm32-rs) to allow high-level
-register access [2]
+  register access [2]
 - Wrap PAC register blocks in structs that represent the applicable peripheral, and access features
-of these peripherals using public methods [1]
+  of these peripherals using public methods [1]
 - Use `#[cfg]` blocks, and the `cfg_if!` macro to handle differences between MCUs; use separate modules
- where large differences exist [2, 3]
+  where large differences exist [2, 3]
 - Use both peripheral struct methods, and `embedded-hal` trait implementations for non-DMA interfaces; use additional
- struct methods for DMA interfaces [4, 5, 7]
+  struct methods for DMA interfaces [4, 5, 7]
 - Favor functionality, ergonomics, and explicit interfaces [6, 8]
 - Document configuration code with what registers and fields it sets, and desriptions from RMs [4, 9]
 - Provide examples and documentation that demonstrate peripheral use with interrupts and DMA [6]
@@ -54,16 +54,16 @@ Operationally tested on the following devices:
 - Install flash and debug tools: `cargo install flip-link`, `cargo install probe-run`.
 - Clone the [quickstart repo](https://github.com/David-OConnor/stm32-hal-quickstart): `git clone https://github.com/David-OConnor/stm32-hal-quickstart`.
 - Change the following lines to match your MCU. Post an issue if you need help with this:
-  - `Cargo.toml`: `stm32-hal2 = { version = "^1.3.2", features = ["l4x3", "l4rt"]}`
-  - `memory.x`: `FLASH` and `RAM` lines
-  - `.cargo/config.toml`: `runner` and `target` lines.
+    - `Cargo.toml`: `stm32-hal2 = { version = "^1.3.2", features = ["l4x3", "l4rt"]}`
+    - `memory.x`: `FLASH` and `RAM` lines
+    - `.cargo/config.toml`: `runner` and `target` lines.
 - Connect your device. Run `cargo run --release` to compile and flash.
 
 
 ### Details
 Review the [syntax overview example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/syntax_overview)
 for example uses of many of this library's features. Copy and paste its whole folder (It's set up
-using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml` 
+using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml`
 and `main.rs` as required.
 
 The [blinky example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/blinky), written by
@@ -85,7 +85,7 @@ how to use various STM32 peripherals; most of these examples focus on a single p
 
 When specifying this crate as a dependency in `Cargo.toml`, you need to specify a feature
 representing your MCU. If this is for code that runs on an MCU directly (ie not a library), also
- include a run-time feature, following the template `l4rt`. For example: 
+include a run-time feature, following the template `l4rt`. For example:
 ```toml
 cortex-m = "0.7.3"
 cortex-m-rt = "0.6.13"
@@ -120,7 +120,7 @@ fn main() -> ! {
     let mut pb15 = Pin::new(Port::A, 15, PinMode::Output);
     pb15.set_high();
 
-    let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg);
+    let mut timer = Timer::new(dp.TIM3, 0.2, Default::default(), &clock_cfg);
     timer.enable_interrupt(TimerInterrupt::Update);
 
     let mut scl = Pin::new(Port::B, 6, PinMode::Alt(4));
@@ -140,18 +140,18 @@ fn main() -> ! {
 
 ## Compatible with RTIC
 [Real-Time Interrupt-driven Concurrency](https://rtic.rs/0.5/book/en/) is
-a light-weight framework that manages safely sharing state between contexts. Eg between ISRs and the main loop. 
+a light-weight framework that manages safely sharing state between contexts. Eg between ISRs and the main loop.
 Most examples use global `Mutex`es, `RefCell`s, and `Cell`s, sometimes
 with macros to simplify syntax; you could easily substitute RTIC syntax.
 
 ## Why this module is different from `stm32yxx-hal` libraries
-There are some areas where design philosophy is different. For example: GPIO 
-type-checking, level-of-abstraction from registers/PAC, role of DMA, role of `embedded-hal` traits in the API, 
+There are some areas where design philosophy is different. For example: GPIO
+type-checking, level-of-abstraction from registers/PAC, role of DMA, role of `embedded-hal` traits in the API,
 feature parity among STM32 families, code documentation, code structure, and clock config.
 
 If you'd like to learn more about these HALs, check them out on the [stm32-rs Github](https://github.com/stm32-rs).
 You may prefer them if you prioritize strict type checks on GPIO pins, for example.
-   
+
 ## Docs caveat
 The Rust docs page is built for `STM32L4x3`, and some aspects are not accurate for other
 variants. We currently don't have a good solution to this problem, and may
@@ -166,23 +166,23 @@ Most peripheral modules use the following format:
 
 - Enums for various config settings, that implement `#[repr(u8)]` for their associated register values
 - A peripheral struct that has public fields for config. This struct also includes
-a private `regs` field that is the appropriate reg block. Where possible, this is defined generically
-in the implementation, eg:
-`U: Deref<Target = pac::usart1::RegisterBlock>`. Reference the [stm32-rs-nightlies Github](https://github.com/stm32-rs/stm32-rs-nightlies)
-to identify when we can take advantage of this.
+  a private `regs` field that is the appropriate reg block. Where possible, this is defined generically
+  in the implementation, eg:
+  `U: Deref<Target = pac::usart1::RegisterBlock>`. Reference the [stm32-rs-nightlies Github](https://github.com/stm32-rs/stm32-rs-nightlies)
+  to identify when we can take advantage of this.
 - If config fields are complicated, we use a separate `PeriphConfig` struct owned by the peripheral struct.
-This struct impls `Default`.
+  This struct impls `Default`.
 - A constructor named `new` that performs setup code
 - `enable_interrupt` and `clear_interrupt` functions, which accept an enum of interrupt type.
 - Add `embedded-hal` implementations as required, that call native methods. Note that
-we design APIs based on STM32 capabilities, and apply EH traits as applicable. We only
-expose these implementations if the `embedded-hal` feature is selected.
+  we design APIs based on STM32 capabilities, and apply EH traits as applicable. We only
+  expose these implementations if the `embedded-hal` feature is selected.
 - When available, base setup and usage steps on instructions provided in Reference Manuals.
-These steps are copy+pasted in comments before the code that performs each one.
+  These steps are copy+pasted in comments before the code that performs each one.
 - Don't use PAC convenience field settings; they're implemented inconsistently across PACs.
-(eg don't use something like `en.enabled()`; use `en.set_bit()`.)
+  (eg don't use something like `en.enabled()`; use `en.set_bit()`.)
 - If using a commonly-named configuration enum like `Mode`, prefix it with the peripheral type,
-eg use `RadarMode` instead. This prevents namespace conflicts when importing the enums directly.
+  eg use `RadarMode` instead. This prevents namespace conflicts when importing the enums directly.
 
 
 ### Example module structure:
@@ -291,7 +291,7 @@ This library doesn't include any radio functionality for the STM32WB. If you'd l
 with bluetooth, use this HAL in conjuction with with [@eupn](https://github.com/eupn)'s [stm32wb55](https://github.com/eupn/stm32wb55)
 bluetooth library.
 
-STM32WL radio support is WIP, and will be provided through interaction withnewAM's 
+STM32WL radio support is WIP, and will be provided through interaction withnewAM's
 [stm32wl-hal](https://github.com/newAM/stm32wl-hal) library.
 
 
