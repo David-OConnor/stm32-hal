@@ -35,7 +35,7 @@ fn main() -> ! {
 
     // Set up a PWM timer that will output to PA0, run at 2400Hz in edge-aligned mode,
     // count up, with a 50% duty cycle.
-    let mut pwm_timer = Timer::new(
+    let mut pwm_timer = Timer::new_tim2(
         dp.TIM2,
         2_400.,
         TimerConfig {
@@ -43,7 +43,7 @@ fn main() -> ! {
             // Setting auto reload preload allow changing frequency (period) while the timer is running.
             ..Default::default()
         },
-        &clock_cfg
+        &clock_cfg,
     );
     pwm_timer.enable_pwm_output(TimChannel::C1, OutputCompare::Pwm1, CountDir::Up, 0.5);
 
@@ -52,7 +52,7 @@ fn main() -> ! {
     // Change the duty cycle.
     pwm_timer.set_duty(TimChannel::C1, 100);
 
-    let mut countdown_timer = Timer::new(dp.TIM3, 0.5, Default::default(), &clock_cfg);
+    let mut countdown_timer = Timer::new_tim3(dp.TIM3, 0.5, Default::default(), &clock_cfg);
     countdown_timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
     countdown_timer.enable();
 

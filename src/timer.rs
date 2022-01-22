@@ -303,10 +303,9 @@ impl Default for TimerConfig {
     }
 }
 
-
 /// Represents a timer peripheral.
 pub struct Timer<TIM> {
-    pub regs: TIM,    // Register block for the specific timer.
+    pub regs: TIM, // Register block for the specific timer.
     pub cfg: TimerConfig,
     clock_speed: u32, // Associated timer clock speed in Hz.
 }
@@ -316,7 +315,7 @@ macro_rules! make_timer {
         impl Timer<pac::$TIMX> {
             paste! {
                 /// Configures a TIM peripheral as a periodic count down timer
-                pub fn new(regs: pac::$TIMX, freq: f32, cfg: TimerConfig, clocks: &Clocks) -> Self {
+                pub fn [<new_ $tim>](regs: pac::$TIMX, freq: f32, cfg: TimerConfig, clocks: &Clocks) -> Self {
                     free(|_| {
                         let rcc = unsafe { &(*RCC::ptr()) };
 
@@ -512,8 +511,8 @@ macro_rules! make_timer {
                 // self.regs.cnt.read().cnt().bits()
                 self.regs.cnt.read().bits()
             }
-            
-            
+
+
             /// Enables basic PWM output
             pub fn enable_pwm_output(
                 &mut self,
@@ -1125,7 +1124,6 @@ cfg_if! {
     }
 }
 
-
 // todo: Non-macro refactor base timer reg blocks:
 
 // GP 32-bit: Tim2
@@ -1150,7 +1148,6 @@ cfg_if! {
         make_timer!(TIM2, tim2, 1, u32, 4);
     }
 }
-
 
 #[cfg(not(any(
 feature = "f301",
@@ -1196,24 +1193,24 @@ cfg_if! {
 }
 
 #[cfg(any(
-feature = "f303",
-feature = "l4x5",
-feature = "l4x6",
-feature = "l562",
-feature = "g4"
+    feature = "f303",
+    feature = "l4x5",
+    feature = "l4x6",
+    feature = "l562",
+    feature = "g4"
 ))]
 make_timer!(TIM8, tim8, 2, u16, 4);
 
 // Todo: the L5 PAC has an address error on TIM15 - remove it until solved.
 #[cfg(not(any(
-feature = "l5",
-feature = "f4",
-feature = "g031",
-feature = "g031",
-feature = "g041",
-feature = "g030",
-feature = "wb",
-feature = "wl"
+    feature = "l5",
+    feature = "f4",
+    feature = "g031",
+    feature = "g031",
+    feature = "g041",
+    feature = "g030",
+    feature = "wb",
+    feature = "wl"
 )))]
 make_timer!(TIM15, tim15, 2, u16, 2);
 

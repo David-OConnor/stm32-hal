@@ -120,7 +120,7 @@ fn main() -> ! {
     let mut pb15 = Pin::new(Port::A, 15, PinMode::Output);
     pb15.set_high();
 
-    let mut timer = Timer::new(dp.TIM3, 0.2, Default::default(), &clock_cfg);
+    let mut timer = Timer::new_tim3(dp.TIM3, 0.2, Default::default(), &clock_cfg);
     timer.enable_interrupt(TimerInterrupt::Update);
 
     let mut scl = Pin::new(Port::B, 6, PinMode::Alt(4));

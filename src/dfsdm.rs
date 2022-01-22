@@ -6,11 +6,7 @@ use cortex_m::interrupt::free;
 
 use num_traits::Float; // Float rounding.
 
-use crate::{
-    clocks::Clocks,
-    pac::RCC,
-    rcc_en_reset,
-};
+use crate::{clocks::Clocks, pac::RCC, rcc_en_reset};
 
 #[cfg(not(feature = "l5"))]
 use crate::pac::dfsdm as dfsdm_p;
