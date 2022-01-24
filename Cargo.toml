@@ -76,7 +76,7 @@ cfg-if = "1.0.0"  # if/else blocks for feature-gating
 paste = "1.0.4"  # Token pasting, to make macros easier
 
 [package.metadata.docs.rs]
-features = ["h743v", "h7rt", "usb", "can", "embedded-hal"]
+features = ["h743v", "h7rt", "usb", "bx_can", "embedded-hal"]
 targets = ["thumbv7em-none-eabihf"]
 # For bright "supported by crate feature only" text on `embedded-hal`?
 rustdoc-args = ["--cfg", "docsrs"]
