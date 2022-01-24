@@ -120,7 +120,7 @@ fn main() -> ! {
 
     // `pwm_timer` is used to change polarity-switching rate of the excitation
     // current across the probe terminals, using an analog switch.
-    let mut pwm_timer = Timer::new_tim2(dp.TIM2, 2_400., &clock_cfg);
+    let mut pwm_timer = Timer::new_tim2(dp.TIM2, 2_400., Default::default(), &clock_cfg);
     pwm_timer.set_auto_reload_preload(true);
     pwm_timer.enable_pwm_output(TimChannel::C1, OutputCompare::Pwm1, CountDir::Up, 0.5);
     pwm_timer.enable();

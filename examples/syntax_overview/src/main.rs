@@ -181,7 +181,7 @@ fn main() -> ! {
     dac.write(DacChannel::C1, 2_048); // Set DAC output voltage to half VCC, eg 1.65V
 
     // Set up and start a timer; set it to fire interrupts at 5Hz.
-    let mut timer = Timer::new_tim1(dp.TIM1, 0.2, &clock_cfg);
+    let mut timer = Timer::new_tim1(dp.TIM1, 0.2, Default::default(), &clock_cfg);
     timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
     timer.enable();
 
