@@ -333,11 +333,13 @@ macro_rules! make_timer {
 
 
                     regs.cr1.modify(|_, w| {
+                        #[cfg(not(feature = "f373"))]
                         w.opm().bit(cfg.one_pulse_mode);
                         w.urs().bit(cfg.update_request_source as u8 != 0);
                         w.arpe().bit(cfg.auto_reload_preload)
                     });
 
+                    #[cfg(not(feature = "f373"))]
                     regs.cr2.modify(|_, w| {
                         w.ccds().bit(cfg.capture_compare_dma as u8 != 0)
                     });
@@ -446,14 +448,16 @@ macro_rules! make_timer {
             }
 
             /// Set the timer frequency, in Hz. Overrides the period or frequency set
-            /// in the constructor. If you use `center` aligned PWM, make sure to
-            /// enter twice the freq you normally would.
-            pub fn set_freq(&mut self, freq: f32) -> Result<(), ValueError> {
+            /// in the constructor.
+            pub fn set_freq(&mut self, mut freq: f32) -> Result<(), ValueError> {
                 assert!(freq > 0.);
-                // todo: Take into account settings like Center alignment, and
-                // todo the `tim1sw` bit in RCC CFGR3, which change how the
-                // todo freq behaves. Center alignment halves the frequency;
-                // todo: Double `freq` here to compensate.
+                // todo: Take into account the `timxsw` bit in RCC CFGR3, which may also
+                // todo require an adjustment to freq.
+                match self.cfg.alignment {
+                    Alignment::Edge => (),
+                    _ => freq *= 2.,
+                }
+
                 let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;
 
                 self.regs.arr.write(|w| unsafe { w.bits(arr.into()) });
@@ -463,8 +467,7 @@ macro_rules! make_timer {
             }
 
             /// Set the timer period, in seconds. Overrides the period or frequency set
-            /// in the constructor. If you use `center` aligned PWM, make sure to
-            /// enter twice the freq you normally would.
+            /// in the constructor.
             pub fn set_period(&mut self, period: f32) -> Result<(), ValueError> {
                 assert!(period > 0.);
                 self.set_freq(1. / period)
@@ -535,9 +538,9 @@ macro_rules! make_timer {
             /// Return the integer associated with the maximum duty period.
             pub fn get_max_duty(&self) -> $res {
                 #[cfg(feature = "g0")]
-                return self.regs.arr.read().bits();
+                return self.regs.arr.read().bits().try_into().unwrap();
                 #[cfg(not(feature = "g0"))]
-                self.regs.arr.read().arr().bits().into()
+                self.regs.arr.read().arr().bits().try_into().unwrap()
             }
         }
 
@@ -636,10 +639,10 @@ macro_rules! cc_4_channels {
             /// Function that allows us to set direction only on timers that have this option.
             fn set_dir(&mut self) {
                 self.regs.cr1.modify(|_, w| w.dir().bit(self.cfg.direction as u8 != 0));
-                self.regs.cr1.modify(|_, w| w.cms().bits(self.cfg.alignment as u8));
+                self.regs.cr1.modify(|_, w| unsafe { w.cms().bits(self.cfg.alignment as u8) });
             }
 
-                        /// Enables basic PWM input. TODO: Doesn't work yet.
+            /// Enables basic PWM input. TODO: Doesn't work yet.
             /// L4 RM, section 26.3.8
             pub fn _enable_pwm_input(
                 &mut self,
@@ -1010,11 +1013,11 @@ macro_rules! cc_2_channels {
                     if #[cfg(feature = "g0")] {
                         match channel {
                             // todo: This isn't right!!
-                            TimChannel::C1 => self.regs.ccr1.read().bits(),
-                            TimChannel::C2 => self.regs.ccr2.read().bits(),
+                            TimChannel::C1 => self.regs.ccr1.read().bits().try_into().unwrap(),
+                            TimChannel::C2 => self.regs.ccr2.read().bits().try_into().unwrap(),
                             _ => panic!()
                         }
-                    } else if #[cfg(any(feature = "wb", feature = "wl"))] {
+                    } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
                         match channel {
                             TimChannel::C1 => self.regs.ccr1.read().ccr1().bits(),
                             TimChannel::C2 => self.regs.ccr2.read().ccr2().bits(),
@@ -1022,8 +1025,8 @@ macro_rules! cc_2_channels {
                         }
                     } else {
                         match channel {
-                            TimChannel::C1 => self.regs.ccr1.read().ccr().bits().into(),
-                            TimChannel::C2 => self.regs.ccr2.read().ccr().bits().into(),
+                            TimChannel::C1 => self.regs.ccr1.read().ccr().bits().try_into().unwrap(),
+                            TimChannel::C2 => self.regs.ccr2.read().ccr().bits().try_into().unwrap(),
                             _ => panic!()
                         }
                     }
@@ -1041,7 +1044,7 @@ macro_rules! cc_2_channels {
                             TimChannel::C2 => self.regs.ccr2.read().bits(),
                             _ => panic!()
                         };
-                    } else if #[cfg(any(feature = "wb", feature = "wl"))] {
+                    } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
                         unsafe {
                             match channel {
                                 TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr1().bits(duty.try_into().unwrap())),
@@ -1221,7 +1224,8 @@ macro_rules! cc_1_channel {
                     if #[cfg(feature = "g0")] {
                         match channel {
                             // todo: This isn't right!!
-                            TimChannel::C1 => self.regs.ccr1.read().bits(),
+                            // todo: PAC is showing G0 having Tim15 as 32 bits. Is this right?
+                            TimChannel::C1 => self.regs.ccr1.read().bits().try_into().unwrap(),
                             _ => panic!()
                         }
                     } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
@@ -1231,7 +1235,7 @@ macro_rules! cc_1_channel {
                         }
                     } else {
                         match channel {
-                            TimChannel::C1 => self.regs.ccr1.read().ccr().bits().into(),
+                            TimChannel::C1 => self.regs.ccr1.read().ccr().bits().try_into().unwrap(),
                             _ => panic!()
                         }
                     }
@@ -1437,18 +1441,17 @@ cfg_if! {
             }
 
             /// Set the timer period, in seconds. Overrides the period or frequency set
-            /// in the constructor. If you use `center` aligned PWM, make sure to
-            /// enter twice the freq you normally would.
+            /// in the constructor.
             pub fn set_period(&mut self, time: f32) -> Result<(), ValueError> {
                 assert!(time > 0.);
                 self.set_freq(1. / time)
             }
 
             /// Set the timer frequency, in Hz. Overrides the period or frequency set
-            /// in the constructor. If you use `center` aligned PWM, make sure to
-            /// enter twice the freq you normally would.
+            /// in the constructor.
             pub fn set_freq(&mut self, freq: f32) -> Result<(), ValueError> {
                 assert!(freq > 0.);
+
                 let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;
 
                 self.regs.arr.write(|w| unsafe { w.bits(arr.into()) });
@@ -1520,6 +1523,7 @@ cfg_if! {
     if #[cfg(not(any(
         feature = "f410",
         feature = "g070",
+        feature = "l5", // todo PAC bug?
     )))] {
         make_timer!(TIM2, tim2, 1, u32);
         cc_4_channels!(TIM2, u32);
@@ -1531,6 +1535,7 @@ cfg_if! {
         feature = "f301",
         feature = "l4x1",
         // feature = "l412",
+        feature = "l5", // todo PAC bug?
         feature = "l4x3",
         feature = "f410",
         feature = "wb",
@@ -1550,7 +1555,7 @@ cfg_if! {
         feature = "l4x2",
         feature = "l412",
         feature = "l4x3",
-        feature = "l552",
+        feature = "l5", // todo PAC bug?
         feature = "g0",
         feature = "g4",
         feature = "wb",
@@ -1566,7 +1571,7 @@ cfg_if! {
        feature = "f373",
        feature = "l4x5",
        feature = "l4x6",
-       feature = "l562",
+       // feature = "l562", // todo: PAC bug?
        feature = "h7",
        all(feature = "f4", not(feature = "f410")),
    ))] {
@@ -1636,10 +1641,10 @@ cfg_if! {
         make_timer!(TIM14, tim14, 1, u16);
         make_timer!(TIM19, tim19, 2, u16);
 
-        cc_4_channels!(TIM12, u16);
-        cc_4_channels!(TIM13, u16);
-        cc_4_channels!(TIM14, u16);
-        cc_4_channels!(TIM19, u16);
+        cc_1_channel!(TIM12, u16);
+        cc_1_channel!(TIM13, u16);
+        cc_1_channel!(TIM14, u16);
+        cc_1_channel!(TIM19, u16);
     }
 }
 
