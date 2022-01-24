@@ -1203,6 +1203,7 @@ macro_rules! cc_1_channel {
             pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
                 match channel {
                     TimChannel::C1 => {
+                        #[cfg(not(feature = "g070"))] // todo: PAC bug?
                         self.regs
                             .ccmr1_output()
                             .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
