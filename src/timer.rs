@@ -289,6 +289,8 @@ pub struct TimerConfig {
     pub alignment: Alignment,
     /// Sets when CCx DMA requests occur. Defaults to on CCx event.
     pub capture_compare_dma: CaptureCompareDma,
+    /// Timer counting direction. Defaults to up.
+    pub direction: CountDir,
 }
 
 impl Default for TimerConfig {
@@ -299,6 +301,7 @@ impl Default for TimerConfig {
             auto_reload_preload: false,
             alignment: Alignment::Edge,
             capture_compare_dma: CaptureCompareDma::Ccx,
+            direction: CountDir::Up,
         }
     }
 }
@@ -334,11 +337,6 @@ macro_rules! make_timer {
                         w.urs().bit(cfg.update_request_source as u8 != 0);
                         w.arpe().bit(cfg.auto_reload_preload)
                     });
-
-                    if $num_channels >= 4 {
-                        // todo: Put this back once you fix the compile problem!
-                        // regs.cr1.modify(|_, w| w.cms().bits(cfg.alignment as u8));
-                    }
 
                     regs.cr2.modify(|_, w| {
                         w.ccds().bit(cfg.capture_compare_dma as u8 != 0)
@@ -637,7 +635,8 @@ macro_rules! cc_4_channels {
         impl Timer<pac::$TIMX> {
             /// Function that allows us to set direction only on timers that have this option.
             fn set_dir(&mut self) {
-                self.regs.cr1.modify(|_, w| w.dir().bit(self.cfg.dir as u8 != 0));
+                self.regs.cr1.modify(|_, w| w.dir().bit(self.cfg.direction as u8 != 0));
+                self.regs.cr1.modify(|_, w| w.cms().bits(self.cfg.alignment as u8));
             }
 
                         /// Enables basic PWM input. TODO: Doesn't work yet.
@@ -746,7 +745,7 @@ macro_rules! cc_4_channels {
                             #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4.read().bits(),
                         }
-                    } else if #[cfg(any(feature = "wb", feature = "wl"))] {
+                    } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
                         match channel {
                             TimChannel::C1 => self.regs.ccr1.read().ccr1().bits(),
                             TimChannel::C2 => self.regs.ccr2.read().ccr2().bits(),
@@ -926,7 +925,7 @@ macro_rules! cc_2_channels {
         impl Timer<pac::$TIMX> {
             /// Function that allows us to set direction only on timers that have this option.
             fn set_dir(&mut self) {
-                self.regs.cr1.modify(|_, w| w.dir().bit(self.cfg.dir as u8 != 0));
+                // self.regs.cr1.modify(|_, w| w.dir().bit(self.cfg.direction as u8 != 0));
             }
 
                         /// Enables basic PWM input. TODO: Doesn't work yet.
@@ -1225,7 +1224,7 @@ macro_rules! cc_1_channel {
                             TimChannel::C1 => self.regs.ccr1.read().bits(),
                             _ => panic!()
                         }
-                    } else if #[cfg(any(feature = "wb", feature = "wl"))] {
+                    } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
                         match channel {
                             TimChannel::C1 => self.regs.ccr1.read().ccr1().bits(),
                             _ => panic!()
@@ -1249,7 +1248,7 @@ macro_rules! cc_1_channel {
                             TimChannel::C1 => self.regs.ccr1.read().bits(),
                             _ => panic!()
                         };
-                    } else if #[cfg(any(feature = "wb", feature = "wl"))] {
+                    } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
                         unsafe {
                             match channel {
                                 TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr1().bits(duty.try_into().unwrap())),
@@ -1513,8 +1512,9 @@ cfg_if! {
 
 #[cfg(not(any(feature = "f373")))]
 make_timer!(TIM1, tim1, 2, u16);
+// todo: Some variantsl ike H7 have 4 channels on TIM1.
 #[cfg(not(any(feature = "f373")))]
-cc_4_channels!(TIM1, u16);
+cc_2_channels!(TIM1, u16);
 
 cfg_if! {
     if #[cfg(not(any(
@@ -1584,7 +1584,8 @@ cfg_if! {
         feature = "g4"
     ))] {
         make_timer!(TIM8, tim8, 2, u16);
-        cc_4_channels!(TIM8, u16);
+        // todo: Some issues with field names or something on l562 here.
+        cc_1_channel!(TIM8, u16);
     }
 }
 
@@ -1601,7 +1602,8 @@ cfg_if! {
         feature = "wl"
     )))] {
         make_timer!(TIM15, tim15, 2, u16);
-        cc_2_channels!(TIM15, u16);
+        // todo: TIM15 on some variant has 2 channels (Eg H7). On others, like L4x3, it appears to be 1.
+        cc_1_channel!(TIM15, u16);
     }
 }
 
