@@ -1525,6 +1525,7 @@ cfg_if! {
         feature = "f410",
         feature = "g070",
         feature = "l5", // todo PAC bug?
+        feature = "wb55", // todo PAC bug?
     )))] {
         make_timer!(TIM2, tim2, 1, u32);
         cc_4_channels!(TIM2, u32);
