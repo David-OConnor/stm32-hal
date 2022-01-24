@@ -575,7 +575,7 @@ macro_rules! make_timer {
                 self.set_freq(1. / (us as f32 * 1_000.)).ok();
                 self.reset_countdown();
                 self.enable();
-                while self.countdown() != 0 {}
+                while self.read_count() != 0 {}
                 self.disable();
             }
         }
@@ -600,33 +600,31 @@ macro_rules! make_timer {
         // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Periodic for Timer<pac::$TIMX> {}
 
-        #[cfg(feature = "embedded-hal")]
-        struct WaitError {}
-
-        #[cfg(feature = "embedded-hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
-        impl CountDown for Timer<pac::$TIMX> {
-            type Time = f32;
-
-            fn start<F: Into<f32>>(&mut self, freq: F) {
-                self.disable();
-
-                self.set_freq(freq.into()).ok();
-
-                self.reinitialize();
-
-                self.enable();
-            }
-
-            fn wait(&mut self) -> nb::Result<(), WaitError> {
-                if self.regs.sr.read().uif().bit_is_clear() {
-                    Err(nb::Error::WouldBlock)
-                } else {
-                    self.clear_interrupt(TimerInterrupt::Update);
-                    Ok(())
-                }
-            }
-        }
+        // todo: Seems to need Void?
+        // #[cfg(feature = "embedded-hal")]
+        // // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        // impl CountDown for Timer<pac::$TIMX> {
+        //     type Time = f32;
+        //
+        //     fn start<F: Into<f32>>(&mut self, freq: F) {
+        //         self.disable();
+        //
+        //         self.set_freq(freq.into()).ok();
+        //
+        //         self.reinitialize();
+        //
+        //         self.enable();
+        //     }
+        //
+        //     fn wait(&mut self) -> nb::Result<(), WaitError> {
+        //         if self.regs.sr.read().uif().bit_is_clear() {
+        //             Err(nb::Error::WouldBlock)
+        //         } else {
+        //             self.clear_interrupt(TimerInterrupt::Update);
+        //             Ok(())
+        //         }
+        //     }
+        // }
     }
 }
 
@@ -1500,6 +1498,9 @@ cfg_if! {
         }
     }
 }
+
+// #[cfg(feature = "embedded-hal")]
+// struct WaitError {}
 
 // todo: Non-macro refactor base timer reg blocks:
 
