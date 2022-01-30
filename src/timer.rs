@@ -1,4 +1,4 @@
-//! Provides support for timers. Includes initialization, countdown functionality, interrupts,
+//! Provides support for timers. Includes initialization, interrupts,
 //! and PWM features.
 //!
 //! Low-power timers (LPTIM) are not yet supported.
@@ -306,7 +306,7 @@ impl Default for TimerConfig {
     }
 }
 
-/// Represents a timer peripheral.
+/// Represents a General Purpose or Advanced Control timer.
 pub struct Timer<TIM> {
     pub regs: TIM, // Register block for the specific timer.
     pub cfg: TimerConfig,
@@ -317,7 +317,8 @@ macro_rules! make_timer {
     ($TIMX:ident, $tim:ident, $apb:expr, $res:ident) => {
         impl Timer<pac::$TIMX> {
             paste! {
-                /// Configures a TIM peripheral as a periodic count down timer
+                /// Initialize a DFSDM peripheral, including  enabling and resetting
+                /// its RCC peripheral clock.
                 pub fn [<new_ $tim>](regs: pac::$TIMX, freq: f32, cfg: TimerConfig, clocks: &Clocks) -> Self {
                     free(|_| {
                         let rcc = unsafe { &(*RCC::ptr()) };
@@ -440,11 +441,6 @@ macro_rules! make_timer {
             /// Check if the timer is enabled.
             pub fn is_enabled(&self) -> bool {
                 self.regs.cr1.read().cen().bit_is_set()
-            }
-
-            /// Check the current counter value.
-            pub fn counter_val(&self) -> u32 {
-                self.regs.cnt.read().bits()
             }
 
             /// Set the timer frequency, in Hz. Overrides the period or frequency set

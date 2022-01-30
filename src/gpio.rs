@@ -88,7 +88,7 @@ pub enum PinState {
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
-/// Values for `GPIOx_LCKR.
+/// Values for `GPIOx_LCKR`.
 pub enum CfgLock {
     NotLocked = 0,
     Locked = 1,
