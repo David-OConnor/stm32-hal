@@ -70,7 +70,6 @@ fn main() -> ! {
     // from most low-power modes.
     let mut rtc = Rtc::new(
         dp.RTC,
-        &mut dp.PWR,
         RtcConfig {
             clock_source: RtcClockSource::Lse,
             ..Default::default()

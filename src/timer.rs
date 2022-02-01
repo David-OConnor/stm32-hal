@@ -17,7 +17,7 @@ use embedded_hal::{
     timer::{CountDown, Periodic},
 };
 
-// todo: LPTIM (low-power timers) and HRTIM (high-resolution timers)
+// todo: LPTIM (low-power timers) and HRTIM (high-resolution timers). And Advanced control functionality
 
 use crate::{
     clocks::Clocks,
@@ -28,8 +28,6 @@ use crate::{
 
 use cfg_if::cfg_if;
 use paste::paste;
-
-// todo: Split into Basic Timer, Advanced Timer etc impl macros.
 
 // todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
 
@@ -167,68 +165,64 @@ impl Polarity {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// See F303 ref man, section 21.4.7.
+/// See F303 ref man, section 21.4.7. H745 RM, section 41.4.8. Sets TIMx_CCMR1 register, OC1M field.
 /// These bits define the behavior of the output reference signal OC1REF from which OC1 and
 /// OC1N are derived. OC1REF is active high whereas OC1 and OC1N active level depends
 /// on CC1P and CC1NP bits.
-/// 0000: Frozen - The comparison between the output compare register TIMx_CCR1 and the
-/// counter TIMx_CNT has no effect on the outputs.(this mode is used to generate a timing
-/// base).
-/// 0001: Set channel 1 to active level on match. OC1REF signal is forced high when the
-/// counter TIMx_CNT matches the capture/compare register 1 (TIMx_CCR1).
-/// 0010: Set channel 1 to inactive level on match. OC1REF signal is forced low when the
-/// counter TIMx_CNT matches the capture/compare register 1 (TIMx_CCR1).
-/// 0011: Toggle - OC1REF toggles when TIMx_CNT=TIMx_CCR1.
-/// 0100: Force inactive level - OC1REF is forced low.
-/// 0101: Force active level - OC1REF is forced high.
-/// 0110: PWM mode 1 - In upcounting, channel 1 is active as long as TIMx_CNT<TIMx_CCR1
-/// else inactive. In downcounting, channel 1 is inactive (OC1REF=‘0) as long as
-/// TIMx_CNT>TIMx_CCR1 else active (OC1REF=1).
-/// 0111: PWM mode 2 - In upcounting, channel 1 is inactive as long as
-/// TIMx_CNT<TIMx_CCR1 else active. In downcounting, channel 1 is active as long as
-/// TIMx_CNT>TIMx_CCR1 else inactive.
-/// 1000: Retriggerable OPM mode 1 - In up-counting mode, the channel is active until a trigger
-/// event is detected (on TRGI signal). Then, a comparison is performed as in PWM mode 1
-/// and the channels becomes inactive again at the next update. In down-counting mode, the
-/// channel is inactive until a trigger event is detected (on TRGI signal). Then, a comparison is
-/// performed as in PWM mode 1 and the channels becomes inactive again at the next update.
-/// 1001: Retriggerable OPM mode 2 - In up-counting mode, the channel is inactive until a
-/// trigger event is detected (on TRGI signal). Then, a comparison is performed as in PWM
-/// mode 2 and the channels becomes inactive again at the next update. In down-counting
-/// mode, the channel is active until a trigger event is detected (on TRGI signal). Then, a
-/// comparison is performed as in PWM mode 1 and the channels becomes active again at the
-/// next update.
-/// 1010: Reserved,
-/// 1011: Reserved,
-/// 1100: Combined PWM mode 1 - OC1REF has the same behavior as in PWM mode 1.
-/// OC1REFC is the logical OR between OC1REF and OC2REF.
-/// 1101: Combined PWM mode 2 - OC1REF has the same behavior as in PWM mode 2.
-/// OC1REFC is the logical AND between OC1REF and OC2REF.
-/// 1110: Asymmetric PWM mode 1 - OC1REF has the same behavior as in PWM mode 1.
-/// OC1REFC outputs OC1REF when the counter is counting up, OC2REF when it is counting
-/// down.
-/// 1111: Asymmetric PWM mode 2 - OC1REF has the same behavior as in PWM mode 2.
-/// OC1REFC outputs OC1REF when the counter is counting up, OC2REF when it is counting
-/// down
 pub enum OutputCompare {
-    // In our current implementation, the left bit here is ignored due to how
-    // the `ocxm` fields are split between left most, and right three bits.
-    // see `left_fit()` method below.
+    /// Frozen - The comparison between the output compare register TIMx_CCR1 and the
+    /// counter TIMx_CNT has no effect on the outputs.(this mode is used to generate a timing
+    /// base).
     Frozen = 0b0000,
+    /// Set channel 1 to active level on match. OC1REF signal is forced high when the
+    /// counter TIMx_CNT matches the capture/compare register 1 (TIMx_CCR1).
     Active = 0b0001,
+    /// Set channel 1 to inactive level on match. OC1REF signal is forced low when the
+    /// counter TIMx_CNT matches the capture/compare register 1 (TIMx_CCR1).
+    /// 0011: Toggle - OC1REF toggles when TIMx_CNT=TIMx_CCR1.
     Inactive = 0b0010,
+    /// Force inactive level - OC1REF is forced low.
     ForceInactive = 0b0100,
+    /// Force active level - OC1REF is forced high.
     ForceActive = 0b0101,
+    /// PWM mode 1 - In upcounting, channel 1 is active as long as TIMx_CNT<TIMx_CCR1
+    /// else inactive. In downcounting, channel 1 is inactive (OC1REF=‘0) as long as
+    /// TIMx_CNT>TIMx_CCR1 else active (OC1REF=1).
     Pwm1 = 0b0110,
+    /// PWM mode 2 - In upcounting, channel 1 is inactive as long as
+    /// TIMx_CNT<TIMx_CCR1 else active. In downcounting, channel 1 is active as long as
+    /// TIMx_CNT>TIMx_CCR1 else inactive.
     Pwm2 = 0b0111,
+    /// Retriggerable OPM mode 1 - In up-counting mode, the channel is active until a trigger
+    /// event is detected (on TRGI signal). Then, a comparison is performed as in PWM mode 1
+    /// and the channels becomes inactive again at the next update. In down-counting mode, the
+    /// channel is inactive until a trigger event is detected (on TRGI signal). Then, a comparison is
+    /// performed as in PWM mode 1 and the channels becomes inactive again at the next update.
     RetriggerableOpmMode1 = 0b1000,
+    /// Retriggerable OPM mode 2 - In up-counting mode, the channel is inactive until a
+    /// trigger event is detected (on TRGI signal). Then, a comparison is performed as in PWM
+    /// mode 2 and the channels becomes inactive again at the next update. In down-counting
+    /// mode, the channel is active until a trigger event is detected (on TRGI signal). Then, a
+    /// comparison is performed as in PWM mode 1 and the channels becomes active again at the
+    /// next update.
     RetriggerableOpmMode2 = 0b1001,
+    /// Combined PWM mode 1 - OC1REF has the same behavior as in PWM mode 1.
+    /// OC1REFC is the logical OR between OC1REF and OC2REF.
     CombinedPwm1 = 0b1100,
+    /// Combined PWM mode 2 - OC1REF has the same behavior as in PWM mode 2.
+    /// OC1REFC is the logical AND between OC1REF and OC2REF.
     CombinedPwm2 = 0b1101,
+    /// Asymmetric PWM mode 1 - OC1REF has the same behavior as in PWM mode 1.
+    /// OC1REFC outputs OC1REF when the counter is counting up, OC2REF when it is counting
+    /// down.
     AsymmetricPwm1 = 0b1110,
+    /// Asymmetric PWM mode 2 - OC1REF has the same behavior as in PWM mode 2.
+    /// /// OC1REFC outputs OC1REF when the counter is counting up, OC2REF when it is counting
+    /// down
     AsymmetricPwm2 = 0b1111,
 }
 
+#[cfg(feature = "f3")]
 impl OutputCompare {
     /// A workaround due to the `ccmrx_output.ocym` fields being split into
     /// the left most, and first 3.
@@ -348,6 +342,7 @@ macro_rules! make_timer {
                     let mut result = Timer { clock_speed, cfg, regs };
 
                     result.set_freq(freq).ok();
+                    result.set_dir();
 
                     // Trigger an update event to load the prescaler value to the clock
                     // NOTE(write): uses all bits in this register. This also clears the interrupt flag,
@@ -510,12 +505,11 @@ macro_rules! make_timer {
             }
 
 
-            /// Enables basic PWM output
+            /// Enables PWM output for a given channel and output compare, with an initial duty cycle, in Hz.
             pub fn enable_pwm_output(
                 &mut self,
                 channel: TimChannel,
                 compare: OutputCompare,
-                dir: CountDir,
                 duty: f32,
             ) {
                 // todo: duty as an f32 is good from an API perspective, but forces the
@@ -523,11 +517,6 @@ macro_rules! make_timer {
                 self.set_preload(channel, true);
                 self.set_output_compare(channel, compare);
                 self.set_duty(channel, (self.get_max_duty() as f32 * duty) as $res);
-
-                // We use an external call (to a cc macro) to set direction, to avoid errors on timers that
-                // don't support setting direction.
-                self.set_dir();
-
                 self.enable_capture_compare(channel);
             }
 

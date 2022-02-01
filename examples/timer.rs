@@ -45,7 +45,7 @@ fn main() -> ! {
         },
         &clock_cfg,
     );
-    pwm_timer.enable_pwm_output(TimChannel::C1, OutputCompare::Pwm1, CountDir::Up, 0.5);
+    pwm_timer.enable_pwm_output(TimChannel::C1, OutputCompare::Pwm1, 0.5);
 
     pwm_timer.enable();
 
