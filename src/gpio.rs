@@ -409,48 +409,7 @@ impl Pin {
     const fn regs(&self) -> *const pac::gpioa::RegisterBlock {
         // Note that we use this `const` fn and pointer casting since not all ports actually
         // deref to GPIOA in PAC.
-        match self.port {
-            Port::A => crate::pac::GPIOA::ptr(),
-            Port::B => crate::pac::GPIOB::ptr() as _,
-            #[cfg(not(feature = "wl"))]
-            Port::C => crate::pac::GPIOC::ptr() as _,
-            #[cfg(not(any(feature = "f410", feature = "wl")))]
-            Port::D => crate::pac::GPIOD::ptr() as _,
-            #[cfg(not(any(
-                feature = "f301",
-                feature = "f3x4",
-                feature = "f410",
-                feature = "g0",
-                feature = "wb",
-                feature = "wl"
-            )))]
-            Port::E => crate::pac::GPIOE::ptr() as _,
-            #[cfg(not(any(
-                feature = "f401",
-                feature = "f410",
-                feature = "f411",
-                feature = "l4x1",
-                feature = "l4x2",
-                feature = "l412",
-                feature = "l4x3",
-                feature = "wb",
-                feature = "wl"
-            )))]
-            Port::F => crate::pac::GPIOF::ptr() as _,
-            // G,
-            #[cfg(not(any(
-                feature = "f373",
-                feature = "f301",
-                feature = "f3x4",
-                feature = "f410",
-                feature = "l4",
-                feature = "g0",
-                feature = "g4",
-                feature = "wb",
-                feature = "wl"
-            )))]
-            Port::H => crate::pac::GPIOH::ptr() as _,
-        }
+        regs(self.port)
     }
 
     /// Create a new pin, with a specific mode. Enables the RCC peripheral clock to the port,
@@ -937,5 +896,97 @@ impl ToggleableOutputPin for Pin {
             Pin::set_high(self);
         }
         Ok(())
+    }
+}
+
+/// Check if a pin's input voltage is high. Reads from the `IDR` register.
+/// Does not require a `Pin` struct.
+pub fn is_high(port: Port, pin: u8) -> bool {
+    get_input_data!(
+        regs(port),
+        pin,
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    )
+}
+
+/// Check if a pin's input voltage is low. Reads from the `IDR` register.
+/// Does not require a `Pin` struct.
+pub fn is_low(port: Port, pin: u8) -> bool {
+    !is_high(port, pin)
+}
+
+/// Set a pin's output voltage to high. Sets the `BSRR` register. Atomic.
+/// Does not require a `Pin` struct.
+pub fn set_high(port: Port, pin: u8) {
+    set_state(port, pin, PinState::High);
+}
+
+/// Set a pin's output voltage to low. Sets the `BSRR` register. Atomic.
+/// Does not require a `Pin` struct.
+pub fn set_low(port: Port, pin: u8) {
+    set_state(port, pin, PinState::Low);
+}
+
+/// Set a pin state (ie set high or low output voltage level). See also `set_high()` and
+/// `set_low()`. Sets the `BSRR` register. Atomic.
+/// Does not require a `Pin` struct.
+fn set_state(port: Port, pin: u8, value: PinState) {
+    let offset = match value {
+        PinState::Low => 16,
+        PinState::High => 0,
+    };
+
+    set_state!(
+        regs(port),
+        pin,
+        offset,
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    );
+}
+
+const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
+    // Note that we use this `const` fn and pointer casting since not all ports actually
+    // deref to GPIOA in PAC.
+    match port {
+        Port::A => crate::pac::GPIOA::ptr(),
+        Port::B => crate::pac::GPIOB::ptr() as _,
+        #[cfg(not(feature = "wl"))]
+        Port::C => crate::pac::GPIOC::ptr() as _,
+        #[cfg(not(any(feature = "f410", feature = "wl")))]
+        Port::D => crate::pac::GPIOD::ptr() as _,
+        #[cfg(not(any(
+            feature = "f301",
+            feature = "f3x4",
+            feature = "f410",
+            feature = "g0",
+            feature = "wb",
+            feature = "wl"
+        )))]
+        Port::E => crate::pac::GPIOE::ptr() as _,
+        #[cfg(not(any(
+            feature = "f401",
+            feature = "f410",
+            feature = "f411",
+            feature = "l4x1",
+            feature = "l4x2",
+            feature = "l412",
+            feature = "l4x3",
+            feature = "wb",
+            feature = "wl"
+        )))]
+        Port::F => crate::pac::GPIOF::ptr() as _,
+        // G,
+        #[cfg(not(any(
+            feature = "f373",
+            feature = "f301",
+            feature = "f3x4",
+            feature = "f410",
+            feature = "l4",
+            feature = "g0",
+            feature = "g4",
+            feature = "wb",
+            feature = "wl"
+        )))]
+        Port::H => crate::pac::GPIOH::ptr() as _,
     }
 }
