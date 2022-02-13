@@ -1,7 +1,7 @@
 //! This library provides high-level access to STM32 peripherals.
 //!
 //! **Current family support**: F3, F4, L4, L5, G0, G4, H7, and WB. U5 is planned once its SVD files and PAC
-//! become available. WL support is a WIP, with many features not implemented.
+//! become available.
 //!
 //! Please see the [Readme](https://github.com/David-OConnor/stm32-hal/blob/main/README.md) for a detailed overview,
 //! and the [examples folder on Github](https://github.com/David-OConnor/stm32-hal/tree/main/examples)
@@ -21,6 +21,11 @@
 //! The [conductivity module example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/conductivity_module)
 //! is a complete example of simple production firmware. It uses the DAC, I2C, Timer, and UART peripherals,
 //! with a simple interupt-based control flow.
+//!
+//! The [PDM mic, DAC output passthrough example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/pdm_mic_dac_output.rs)
+//! demonstrates how to read audio from a digital microphone, output it to headphones or speakers using the DAC, and use DMA
+//! to do this efficiently. It conducts minimal processing, but can be modified to process using DSP between input and output.
+//! This example uses RTIC.
 //!
 //! Additional examples in the [examples folder](https://github.com/David-OConnor/stm32-hal/tree/main/examples) demonstrate
 //! how to use various STM32 peripherals; most of these examples focus on a single peripheral.
