@@ -113,7 +113,7 @@ impl Default for RtcConfig {
 
 impl Rtc {
     /// Initialize the RTC, including configuration register writes.
-    pub fn new(regs: RTC, pwr: &mut PWR, config: RtcConfig) -> Self {
+    pub fn new(regs: RTC, config: RtcConfig) -> Self {
         let mut result = Self { regs, config };
 
         // Enable the peripheral clock for communication
@@ -126,6 +126,7 @@ impl Rtc {
         // See L4 RM, `Backup domain access` section.
         free(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
+            let mut pwr = unsafe { &(*PWR::ptr()) };
 
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "f4"))] {
@@ -373,7 +374,7 @@ impl Rtc {
     /// adding the line `make_rtc_interrupt_handler!(RTC_WKUP);` somewhere in the body
     /// of your program.
     /// `sleep_time` is in ms.
-    pub fn set_wakeup(&mut self, exti: &mut EXTI, sleep_time: f32) {
+    pub fn set_wakeup(&mut self, sleep_time: f32) {
         // Configure and enable the EXTI line corresponding to the Wakeup timer even in
         // interrupt mode and select the rising edge sensitivity.
         // Sleep time is in seconds.  See L4 RM, Table 47 to see that exti line 20 is the RTC wakeup
@@ -382,6 +383,8 @@ impl Rtc {
         // L4 RM, 5.3.11: To wakeup from Stop mode with an RTC wakeup event, it is necessary to:
         // • Configure the EXTI Line 20 to be sensitive to rising edge
         // • Configure the RTC to generate the RTC alarm
+
+        let mut exti = unsafe { &(*EXTI::ptr()) };
 
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "l4"))] {

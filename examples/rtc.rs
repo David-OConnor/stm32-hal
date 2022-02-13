@@ -37,7 +37,6 @@ fn main() -> ! {
     // Set up the realtime clock.
     let mut rtc = Rtc::new(
         dp.RTC,
-        &mut dp.PWR,
         RtcConfig {
             clock_source: RtcClockSource::Lse,
             bypass_lse_output: true, // eg if using a SMD oscillator.
@@ -48,7 +47,7 @@ fn main() -> ! {
     rtc.set_12h_fmt(); // Optionally, use 12-hour format.
 
     // Set the RTC to trigger an interrupt every 30 seconds.
-    rtc.set_wakeup(&mut dp.EXTI, 30.);
+    rtc.set_wakeup(30.);
 
     // Store the RTC in a global variable that we can access in interrupts, using
     // critical sections.

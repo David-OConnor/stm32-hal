@@ -36,7 +36,7 @@
 //! ```toml
 //! cortex-m = "0.7.3"
 //! cortex-m-rt = "0.6.13"
-//! stm32-hal2 = { version = "^1.3.2", features = ["l4x3", "l4rt"]}
+//! stm32-hal2 = { version = "^1.4.0", features = ["l4x3", "l4rt"]}
 //! ```
 //!
 //! If you need `embedded-hal` traits, include the `embedded-hal` feature.
@@ -67,7 +67,7 @@
 //!     let mut pb15 = Pin::new(Port::A, 15, PinMode::Output);
 //!     pb15.set_high();
 //!
-//!     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, &clock_cfg);
+//!     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, Default::default(), &clock_cfg);
 //!     timer.enable_interrupt(TimerInterrupt::Update);
 //!
 //!     let mut scl = Pin::new(Port::B, 6, PinMode::Alt(4));
