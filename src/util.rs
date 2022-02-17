@@ -317,14 +317,7 @@ impl RccPeriph for pac::SPI3 {
     }
 }
 
-#[cfg(not(any(
-    feature = "f3",
-    feature = "f4",
-    feature = "l5",
-    feature = "g0",
-    feature = "wb",
-    feature = "wl"
-)))]
+#[cfg(feature = "h7")]
 impl RccPeriph for pac::SPI4 {
     fn en_reset(rcc: &RegisterBlock) {
         cfg_if::cfg_if! {
@@ -651,14 +644,7 @@ impl DmaPeriph for pac::SPI3 {
     }
 }
 
-#[cfg(not(any(
-    feature = "f3",
-    feature = "f4",
-    feature = "l5",
-    feature = "g0",
-    feature = "wb",
-    feature = "wl"
-)))]
+#[cfg(feature = "h7")]
 impl DmaPeriph for pac::SPI4 {
     #[cfg(any(feature = "f3", feature = "l4"))]
     fn read_chan() -> DmaChannel {
