@@ -133,6 +133,11 @@ pub enum Port {
         feature = "wl"
     )))]
     F,
+    // todo: Figure out which others use port G.
+    // todo: and impl it.
+    // #[cfg(any(
+    //     feature = "l5"
+    // ))]
     // G,
     #[cfg(not(any(
         feature = "f373",
@@ -975,7 +980,6 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
             feature = "wl"
         )))]
         Port::F => crate::pac::GPIOF::ptr() as _,
-        // G,
         #[cfg(not(any(
             feature = "f373",
             feature = "f301",
