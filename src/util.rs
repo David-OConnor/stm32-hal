@@ -318,8 +318,9 @@ impl RccPeriph for pac::SPI3 {
 }
 
 #[cfg(not(any(
-    feature = "f3x4",
-    feature = "f410",
+    feature = "f3",
+    feature = "f4",
+    feature = "l5",
     feature = "g0",
     feature = "wb",
     feature = "wl"
@@ -651,8 +652,9 @@ impl DmaPeriph for pac::SPI3 {
 }
 
 #[cfg(not(any(
-    feature = "f3x4",
-    feature = "f410",
+    feature = "f3",
+    feature = "f4",
+    feature = "l5",
     feature = "g0",
     feature = "wb",
     feature = "wl"
