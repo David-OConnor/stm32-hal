@@ -133,12 +133,18 @@ pub enum Port {
         feature = "wl"
     )))]
     F,
-    // todo: Figure out which others use port G.
-    // todo: and impl it.
-    // #[cfg(any(
-    //     feature = "l5"
-    // ))]
-    // G,
+    #[cfg(not(any(
+        feature = "f373",
+        feature = "f301",
+        feature = "f3x4",
+        feature = "f410",
+        feature = "l4",
+        feature = "g0",
+        feature = "g4",
+        feature = "wb",
+        feature = "wl"
+    )))]
+    G,
     #[cfg(not(any(
         feature = "f373",
         feature = "f301",
@@ -184,7 +190,7 @@ impl Port {
                 feature = "wl"
             )))]
             Self::F => 5,
-            // Self::G => 6,
+            Self::G => 6,
             #[cfg(not(any(
                 feature = "f373",
                 feature = "f301",
@@ -632,6 +638,50 @@ impl Pin {
                     feature = "wb",
                     feature = "wl"
                 )))]
+                Port::G => {
+                    cfg_if! {
+                        if #[cfg(feature = "f3")] {
+                            if rcc.ahbenr.read().iophen().bit_is_clear() {
+                                rcc_en_reset!(ahb1, iopg, rcc);
+                            }
+                        } else if #[cfg(feature = "h7")] {
+                            if rcc.ahb4enr.read().gpiohen().bit_is_clear() {
+                                rcc.ahb4enr.modify(|_, w| w.gpiohen().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiohrst().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiohrst().clear_bit());
+                            }
+                        } else if #[cfg(feature = "f4")] {
+                            if rcc.ahb1enr.read().gpiohen().bit_is_clear() {
+                                rcc_en_reset!(ahb1, gpioh, rcc);
+                            }
+                        } else if #[cfg(feature = "g0")] {
+                            if rcc.iopenr.read().iophen().bit_is_clear() {
+                                rcc.iopenr.modify(|_, w| w.iophen().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iophrst().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iophrst().clear_bit());
+                            }
+                        } else { // L4, L5, G4
+                            if rcc.ahb2enr.read().gpiohen().bit_is_clear() {
+                                rcc_en_reset!(ahb2, gpioa, rcc);
+                            }
+                        }
+                    }
+                    #[cfg(feature = "l5")] // also for RM0351 L4 variants, which we don't currently support
+                    // L5 RM: "[The IOSV bit] is used to validate the VDDIO2 supply for electrical and logical isolation purpose.
+                    // Setting this bit is mandatory to use PG[15:2]."
+                    { unsafe { (*crate::pac::PWR::ptr()).cr2.modify(|_,w| w.iosv().set_bit()); } }
+                }
+                #[cfg(not(any(
+                    feature = "f373",
+                    feature = "f301",
+                    feature = "f3x4",
+                    feature = "f410",
+                    feature = "l4",
+                    feature = "g0",
+                    feature = "g4",
+                    feature = "wb",
+                    feature = "wl"
+                )))]
                 Port::H => {
                     cfg_if! {
                         if #[cfg(feature = "f3")] {
@@ -980,6 +1030,18 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
             feature = "wl"
         )))]
         Port::F => crate::pac::GPIOF::ptr() as _,
+        #[cfg(not(any(
+            feature = "f373",
+            feature = "f301",
+            feature = "f3x4",
+            feature = "f410",
+            feature = "l4",
+            feature = "g0",
+            feature = "g4",
+            feature = "wb",
+            feature = "wl"
+        )))]
+        Port::G => crate::pac::GPIOG::ptr() as _,
         #[cfg(not(any(
             feature = "f373",
             feature = "f301",
