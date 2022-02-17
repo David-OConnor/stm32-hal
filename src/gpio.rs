@@ -190,6 +190,17 @@ impl Port {
                 feature = "wl"
             )))]
             Self::F => 5,
+            #[cfg(not(any(
+                feature = "f373",
+                feature = "f301",
+                feature = "f3x4",
+                feature = "f410",
+                feature = "l4",
+                feature = "g0",
+                feature = "g4",
+                feature = "wb",
+                feature = "wl"
+            )))]
             Self::G => 6,
             #[cfg(not(any(
                 feature = "f373",
