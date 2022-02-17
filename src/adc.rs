@@ -848,8 +848,7 @@ macro_rules! hal {
 
             // todo: fn read_voltage, using vrefint and L4xx-hal style calibration?
 
-            // todo: H7 having issues with adc3 etc. Fix at least for adc1 and 2.
-            #[cfg(not(any(feature = "g0", feature = "f4", feature = "h7", feature = "l5")))]
+            #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
             /// Take a one shot reading, using DMA. See L44 RM, 16.4.27: "DMA one shot mode".
             /// Note that the `channel` argument is only used on F3 and L4.
             pub unsafe fn read_dma<D>(
@@ -865,9 +864,18 @@ macro_rules! hal {
                 // The software is allowed to write (dmaen and dmacfg) only when ADSTART=0 and JADSTART=0 (which
                 // ensures that no conversion is ongoing)
                 self.stop_conversions();
+
+                #[cfg(not(feature = "h7"))]
                 self.regs.cfgr.modify(|_, w| {
                     w.dmacfg().bit(channel_cfg.circular == dma::Circular::Enabled);
                     w.dmaen().set_bit()
+                });
+
+                #[cfg(feature = "h7")]
+                self.regs.cfgr.modify(|_, w| {
+                    // Note: To use non-DMA after this has been set, need to configure manually.
+                    // ie set back to 0b00.
+                    w.dmngt().bits(if channel_cfg.circular == dma::Circular::Enabled { 0b11 } else { 0b01 })
                 });
 
                 // L44 RM, Table 41. "DMA1 requests for each channel
