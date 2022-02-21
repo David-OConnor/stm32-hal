@@ -80,7 +80,7 @@ pub fn sleep_on_exit() {
     wfi();
 }
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(any(feature = "f3", feature = "f4"))] {
         /// Enter `Stop` mode: the middle of the 3 low-power states avail on the
         /// STM32f3.

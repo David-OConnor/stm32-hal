@@ -10,8 +10,12 @@
 use crate::{
     clocks::Clocks,
     pac::{self, RCC},
-    util::{BaudPeriph, DmaPeriph, RccPeriph},
+    util::{BaudPeriph, RccPeriph},
 };
+
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::util::DmaPeriph;
+
 use core::ops::Deref;
 
 use cortex_m::interrupt::free;
@@ -138,7 +142,8 @@ pub struct Usart<R> {
 
 impl<R> Usart<R>
 where
-    R: Deref<Target = pac::usart1::RegisterBlock> + DmaPeriph + RccPeriph + BaudPeriph,
+    // R: Deref<Target = pac::usart1::RegisterBlock> + DmaPeriph + RccPeriph + BaudPeriph,
+    R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
 {
     /// Initialize a U[s]ART peripheral, including configuration register writes, and enabling and
     /// resetting its RCC peripheral clock. `baud` is the baud rate, in bytes-per-second.

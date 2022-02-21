@@ -5,19 +5,15 @@ use core::ops::Deref;
 
 use cortex_m::interrupt::free;
 
-use crate::{
-    clocks::Clocks,
-    pac::RCC,
-    rcc_en_reset,
-    util::{DmaPeriph, RccPeriph},
-};
+use crate::{clocks::Clocks, pac::RCC, util::RccPeriph};
 
 #[cfg(not(feature = "h7"))]
 use crate::pac::sai1 as sai;
 #[cfg(feature = "h7")]
 use crate::pac::sai4 as sai;
 
-use cfg_if::cfg_if;
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::util::DmaPeriph;
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
@@ -269,7 +265,6 @@ pub enum SlotSize {
     S16 = 0b01,
     /// 32 bits
     S32 = 0b10,
-
 }
 
 #[derive(Clone, Copy)]

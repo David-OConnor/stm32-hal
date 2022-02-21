@@ -12,12 +12,9 @@ use core::convert::Infallible;
 use cortex_m::interrupt::free;
 
 use crate::{
-    pac::{self, EXTI, RCC},
-    rcc_en_reset,
+    pac::{self, RCC},
+    rcc_en_reset, // todo?
 };
-
-#[cfg(not(any(feature = "l5", feature = "g0")))]
-use crate::pac::SYSCFG;
 
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
@@ -65,8 +62,8 @@ pub enum OutputSpeed {
     Low = 0b00,
     Medium = 0b01,
     #[cfg(not(feature = "f3"))]
-    Fast = 0b10,
-    High = 0b11,
+    Fast = 0b10, // Called "High speed" on some families.
+    High = 0b11, // Called "Very high speed" on some families.
 }
 
 #[derive(Copy, Clone)]
@@ -683,10 +680,17 @@ impl Pin {
                             }
                         }
                     }
-                    #[cfg(feature = "l5")] // also for RM0351 L4 variants, which we don't currently support
+                    #[cfg(feature = "l5")]
+                    // also for RM0351 L4 variants, which we don't currently support
                     // L5 RM: "[The IOSV bit] is used to validate the VDDIO2 supply for electrical and logical isolation purpose.
                     // Setting this bit is mandatory to use PG[15:2]."
-                    { unsafe { (*crate::pac::PWR::ptr()).cr2.modify(|_,w| w.iosv().set_bit()); } }
+                    {
+                        unsafe {
+                            (*crate::pac::PWR::ptr())
+                                .cr2
+                                .modify(|_, w| w.iosv().set_bit());
+                        }
+                    }
                 }
                 #[cfg(not(any(
                     feature = "f373",

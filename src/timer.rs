@@ -26,6 +26,26 @@ use crate::{
     util::RccPeriph,
 };
 
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::util::DmaPeriph;
+
+#[cfg(feature = "g0")]
+use crate::pac::dma as dma_p;
+#[cfg(any(
+    feature = "f3",
+    feature = "l4",
+    feature = "g4",
+    feature = "h7",
+    feature = "wb"
+))]
+use crate::pac::dma1 as dma_p;
+
+#[cfg(not(any(feature = "f4", feature = "l5")))]
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::dma::DmaInput;
+
 use cfg_if::cfg_if;
 use paste::paste;
 
@@ -269,6 +289,7 @@ pub enum CaptureCompareDma {
 }
 
 /// Initial configuration data for Timer peripherals.
+#[derive(Clone)]
 pub struct TimerConfig {
     /// If `one_pulse_mode` is true, the counter stops counting at the next update event
     /// (clearing the bit CEN). If false, Counter is not stopped at update event. Defaults to false.
@@ -527,6 +548,111 @@ macro_rules! make_timer {
                 #[cfg(not(feature = "g0"))]
                 self.regs.arr.read().arr().bits().try_into().unwrap()
             }
+
+             /// See G4 RM, section 29.4.24: Dma burst mode. "The TIMx timers have the capability to
+             /// generate multiple DMA requests upon a single event.
+             /// The main purpose is to be able to re-program part of the timer multiple times without
+             /// software overhead, but it can also be used to read several registers in a row, at regular
+             /// intervals."
+            #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5", feature = "f3", feature = "l4")))]
+            pub unsafe fn write_dma_burst<D>(
+                &mut self,
+                buf: &[i32],
+                tim_channel: TimChannel,
+                base_address: u8,
+                dma_channel: DmaChannel,
+                channel_cfg: ChannelCfg,
+                dma: &mut Dma<D>,
+            ) where
+                D: Deref<Target = dma_p::RegisterBlock>,
+            {
+                // Note: F3 and L4 are unsupported here, since I'm not sure how to select teh
+                // correct Timer channel.
+
+                // todo: Should we disable the timer here?
+
+                let (ptr, len) = (buf.as_ptr(), buf.len());
+
+                // todo: DMA2 support.
+
+                // todo: For F3 and L4, manually set channel using PAC for now. Currently
+                // todo we don't have a way here to pick the timer. Could do it with a new macro arg.
+
+                // L44 RM, Table 41. "DMA1 requests for each channel"
+                // #[cfg(any(feature = "f3", feature = "l4"))]
+                // let dma_channel = match tim_channel {
+                //     // SaiChannel::A => DmaInput::Sai1A.dma1_channel(),
+                // };
+                //
+                // #[cfg(feature = "l4")]
+                // match tim_channel {
+                //     SaiChannel::B => dma.channel_select(DmaInput::Sai1B),
+                // };
+
+                // RM:
+                // This example is for the case where every CCRx register has to be updated once. If every
+                // CCRx register is to be updated twice for example, the number of data to transfer should be
+                // 6. Let's take the example of a buffer in the RAM containing data1, data2, data3, data4, data5
+                // and data6. The data is transferred to the CCRx registers as follows: on the first update DMA
+                // request, data1 is transferred to CCR2, data2 is transferred to CCR3, data3 is transferred to
+                // CCR4 and on the second update DMA request, data4 is transferred to CCR2, data5 is
+                // transferred to CCR3 and data6 is transferred to CCR4.
+
+                // 1. Configure the corresponding DMA channel as follows:
+                // –DMA channel peripheral address is the DMAR register address
+                let periph_addr = &self.regs.dmar as *const _ as u32;
+                // –DMA channel memory address is the address of the buffer in the RAM containing
+                // the data to be transferred by DMA into CCRx registers.
+
+                // –Number of data to transfer = 3 (See note below).
+                // todo: Is this x 3 correct per note above??
+                #[cfg(feature = "h7")]
+                let len = len as u32 * 3;
+                #[cfg(not(feature = "h7"))]
+                let len = len as u16 * 3;
+
+                // –Circular mode disabled.
+                // (We assume the DmaCfg passed by the user doesn't use circular mode.)
+
+                dma.cfg_channel(
+                    dma_channel,
+                    periph_addr,
+                    ptr as u32,
+                    len,
+                    dma::Direction::ReadFromMem,
+                    dma::DataSize::S32, // todo?
+                    dma::DataSize::S32,  // todo?
+                    channel_cfg,
+                );
+
+                // 2.
+                // Configure the DCR register by configuring the DBA and DBL bit fields as follows:
+                // DBL = 3 transfers, DBA = 0xE.
+
+                // The DBL[4:0] bits in the TIMx_DCR register set the DMA burst length. The timer recognizes
+                // a burst transfer when a read or a write access is done to the TIMx_DMAR address), i.e. the
+                // number of transfers (either in half-words or in bytes).
+                // The DBA[4:0] bits in the TIMx_DCR registers define the DMA base address for DMA
+                // transfers (when read/write access are done through the TIMx_DMAR address). DBA is
+                // defined as an offset starting from the address of the TIMx_CR1 register:
+                // Example:
+                // 00000: TIMx_CR1
+                // 00001: TIMx_CR2
+                // 00010: TIMx_SMCR
+                self.regs.dcr.modify(|_, w| {
+                    w.dba().bits(base_address);
+                    w.dbl().bits(len as u8 - 1)
+                });
+
+                // 3. Enable the TIMx update DMA request (set the UDE bit in the DIER register).
+                self.enable_interrupt(TimerInterrupt::UpdateDma);
+
+                // 4. Enable TIMx
+                self.enable();
+                // 5. Enable the DMA channel
+                // (Handled by application code)
+
+            }
         }
 
         #[cfg(feature = "embedded-hal")]
@@ -629,10 +755,10 @@ macro_rules! cc_4_channels {
             /// L4 RM, section 26.3.8
             pub fn _enable_pwm_input(
                 &mut self,
-                channel: TimChannel,
-                compare: OutputCompare,
-                dir: CountDir,
-                duty: f32,
+                _channel: TimChannel,
+                _compare: OutputCompare,
+                _dir: CountDir,
+                _duty: f32,
             ) {
                 // todo: These instruction sare specifically for TI1
                 // 1. Select the active input for TIMx_CCR1: write the CC1S bits to 01 in the TIMx_CCMR1
@@ -914,14 +1040,14 @@ macro_rules! cc_2_channels {
                 // self.regs.cr1.modify(|_, w| w.dir().bit(self.cfg.direction as u8 != 0));
             }
 
-                        /// Enables basic PWM input. TODO: Doesn't work yet.
+            /// Enables basic PWM input. TODO: Doesn't work yet.
             /// L4 RM, section 26.3.8
             pub fn _enable_pwm_input(
                 &mut self,
-                channel: TimChannel,
-                compare: OutputCompare,
-                dir: CountDir,
-                duty: f32,
+                _channel: TimChannel,
+                _compare: OutputCompare,
+                _dir: CountDir,
+                _duty: f32,
             ) {
                 // todo: These instruction sare specifically for TI1
                 // 1. Select the active input for TIMx_CCR1: write the CC1S bits to 01 in the TIMx_CCMR1
@@ -1138,10 +1264,10 @@ macro_rules! cc_1_channel {
             /// L4 RM, section 26.3.8
             pub fn _enable_pwm_input(
                 &mut self,
-                channel: TimChannel,
-                compare: OutputCompare,
-                dir: CountDir,
-                duty: f32,
+                _channel: TimChannel,
+                _compare: OutputCompare,
+                _dir: CountDir,
+                _duty: f32,
             ) {
                 // todo: These instruction sare specifically for TI1
                 // 1. Select the active input for TIMx_CCR1: write the CC1S bits to 01 in the TIMx_CCMR1
@@ -1395,7 +1521,7 @@ cfg_if! {
                 freq: f32,
                 clock_cfg: &Clocks,
             ) -> Self {
-                free(|cs| {
+                free(|_| {
                     let rcc = unsafe { &(*RCC::ptr()) };
                     R::en_reset(rcc)
                 });

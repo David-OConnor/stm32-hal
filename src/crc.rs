@@ -88,7 +88,7 @@ impl Crc {
         // there will be at most 3 bytes remaining, so 1 half-word and 1 byte
         let mut half_word = words.remainder().chunks_exact(2);
         if let Some(half_word) = half_word.next() {
-            let half_word = u16::from_be_bytes(half_word.try_into().unwrap());
+            let _half_word = u16::from_be_bytes(half_word.try_into().unwrap());
             // todo: Put back once PAC settles. Currently causing error on H7
             // self.reg.dr16_mut().write(|w| w.dr16().bits(half_word));
         }

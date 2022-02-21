@@ -13,8 +13,11 @@ use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::{
     clocks::Clocks,
     pac::{self, RCC},
-    util::{DmaPeriph, RccPeriph},
+    util::RccPeriph,
 };
+
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::util::DmaPeriph;
 
 #[cfg(any(feature = "g0"))]
 use crate::pac::dma as dma_p;
@@ -134,6 +137,7 @@ pub enum NoiseFilter {
 }
 
 /// Initial configuration data for the I2C peripheral.
+#[derive(Clone)]
 pub struct I2cConfig {
     /// Select master or slave mode. Defaults to Master.
     pub mode: I2cMode,
@@ -175,7 +179,8 @@ pub struct I2c<R> {
 
 impl<R> I2c<R>
 where
-    R: Deref<Target = pac::i2c1::RegisterBlock> + DmaPeriph + RccPeriph,
+    // R: Deref<Target = pac::i2c1::RegisterBlock> + DmaPeriph + RccPeriph,
+    R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
 {
     /// Initialize a I2C peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock. `freq` is in Hz.

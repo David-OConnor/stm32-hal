@@ -201,7 +201,7 @@ where
     /// Initialize a DFSDM peripheral, including  enabling and resetting
     /// its RCC peripheral clock.
     pub fn new(regs: R, config: DfsdmConfig, clock_cfg: &Clocks) -> Self {
-        free(|cs| {
+        free(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
             #[cfg(not(feature = "l4"))]
             rcc_en_reset!(apb2, dfsdm1, rcc);

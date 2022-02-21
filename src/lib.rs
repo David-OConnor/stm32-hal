@@ -597,7 +597,7 @@ pub fn debug_workaround() {
         }
     });
 
-    free(|cs| {
+    free(|_| {
         let rcc = unsafe { &(*pac::RCC::ptr()) };
 
         // todo Some MCUs may need the dbgmcu lines, but not DMA enabled.

@@ -11,14 +11,14 @@ use crate::{
 
 cfg_if! {
     if #[cfg(any(all(feature = "f3", not(feature = "f302")), all(feature = "l4", not(feature = "l4x6")), feature = "g4", feature = "h7b3"))] {
-        use crate::pac::dac1 as dac_p;
+        use pac::dac1 as dac_p;
     } else {
-        use crate::pac::dac as dac_p;
+        use pac::dac as dac_p;
     }
 }
 
 #[cfg(feature = "g0")]
-use crate::pac::dma as dma_p;
+use pac::dma as dma_p;
 #[cfg(any(
     feature = "f3",
     feature = "l4",
@@ -27,7 +27,7 @@ use crate::pac::dma as dma_p;
     feature = "wb",
     feature = "wl"
 ))]
-use crate::pac::dma1 as dma_p;
+use pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "f4", feature = "l5")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};

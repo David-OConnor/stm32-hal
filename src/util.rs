@@ -7,13 +7,15 @@ use crate::{
     pac::{self, rcc::RegisterBlock},
 };
 
-#[cfg(feature = "g0")]
-use crate::pac::DMA as DMA1;
-#[cfg(not(feature = "g0"))]
+// #[cfg(feature = "g0")]
+// use crate::pac::DMA as DMA1;
+// #[cfg(not(feature = "g0"))]
+#[cfg(any(feature = "f3", feature = "l4"))]
 use crate::pac::DMA1;
 
 // todo: L5 has a PAC bug on CCR registers past 1.
-#[cfg(not(any(feature = "f4", feature = "l5")))]
+// #[cfg(not(any(feature = "f4", feature = "l5")))]
+#[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::{self, Dma, DmaChannel, DmaInput};
 
 #[cfg(not(any(
@@ -491,6 +493,7 @@ cfg_if::cfg_if! {
 // I2cDevice::Four => {
 
 // todo: DMA2 support.
+#[cfg(any(feature = "f3", feature = "l4"))]
 pub trait DmaPeriph {
     #[cfg(any(feature = "f3", feature = "l4"))]
     fn read_chan() -> DmaChannel;
@@ -502,6 +505,7 @@ pub trait DmaPeriph {
     fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>);
 }
 
+#[cfg(any(feature = "f3", feature = "l4"))]
 impl DmaPeriph for pac::I2C1 {
     #[cfg(any(feature = "f3", feature = "l4"))]
     fn read_chan() -> DmaChannel {
@@ -524,7 +528,7 @@ impl DmaPeriph for pac::I2C1 {
     }
 }
 
-#[cfg(not(any(feature = "wb", feature = "f3x4")))]
+#[cfg(any(feature = "f3", feature = "l4"))]
 impl DmaPeriph for pac::I2C2 {
     #[cfg(any(feature = "f3", feature = "l4"))]
     fn read_chan() -> DmaChannel {
@@ -547,30 +551,7 @@ impl DmaPeriph for pac::I2C2 {
     }
 }
 
-#[cfg(any(feature = "h7", feature = "wb"))]
-impl DmaPeriph for pac::I2C3 {
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn read_chan() -> DmaChannel {
-        DmaInput::I2c3Rx.dma1_channel()
-    }
-
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn write_chan() -> DmaChannel {
-        DmaInput::I2c3Tx.dma1_channel()
-    }
-
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::I2c3Rx);
-    }
-
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::I2c3Tx);
-    }
-}
-// todo: i2c4
-
+#[cfg(any(feature = "f3", feature = "l4"))]
 impl DmaPeriph for pac::SPI1 {
     #[cfg(any(feature = "f3", feature = "l4"))]
     fn read_chan() -> DmaChannel {
@@ -593,6 +574,7 @@ impl DmaPeriph for pac::SPI1 {
     }
 }
 
+#[cfg(any(feature = "f3", feature = "l4"))]
 impl DmaPeriph for pac::SPI2 {
     #[cfg(any(feature = "f3", feature = "l4"))]
     fn read_chan() -> DmaChannel {
@@ -615,13 +597,7 @@ impl DmaPeriph for pac::SPI2 {
     }
 }
 
-#[cfg(not(any(
-    feature = "f3x4",
-    feature = "f410",
-    feature = "g0",
-    feature = "wb",
-    feature = "wl"
-)))]
+#[cfg(all(not(feature = "f3x4"), any(feature = "f3", feature = "l4")))]
 impl DmaPeriph for pac::SPI3 {
     #[cfg(any(feature = "f3", feature = "l4"))]
     fn read_chan() -> DmaChannel {
@@ -644,29 +620,7 @@ impl DmaPeriph for pac::SPI3 {
     }
 }
 
-#[cfg(feature = "h7")]
-impl DmaPeriph for pac::SPI4 {
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn read_chan() -> DmaChannel {
-        DmaInput::Spi4Rx.dma1_channel()
-    }
-
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn write_chan() -> DmaChannel {
-        DmaInput::Spi4Tx.dma1_channel()
-    }
-
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Spi4Rx);
-    }
-
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Spi4Tx);
-    }
-}
-
+#[cfg(any(feature = "f3", feature = "l4"))]
 impl DmaPeriph for pac::USART1 {
     #[cfg(any(feature = "f3", feature = "l4"))]
     fn read_chan() -> DmaChannel {
@@ -689,7 +643,7 @@ impl DmaPeriph for pac::USART1 {
     }
 }
 
-#[cfg(not(any(feature = "wb", feature = "wl")))]
+#[cfg(any(feature = "f3", feature = "l4"))]
 impl DmaPeriph for pac::USART2 {
     #[cfg(any(feature = "f3", feature = "l4"))]
     fn read_chan() -> DmaChannel {
@@ -712,17 +666,7 @@ impl DmaPeriph for pac::USART2 {
     }
 }
 
-#[cfg(not(any(
-    feature = "f401",
-    feature = "f410",
-    feature = "f411",
-    feature = "f412",
-    feature = "f413",
-    feature = "l4x1",
-    feature = "g0",
-    feature = "wb",
-    feature = "wl",
-)))]
+#[cfg(all(not(feature = "l4x1"), any(feature = "l4")))]
 impl DmaPeriph for pac::USART3 {
     #[cfg(any(feature = "f3", feature = "l4"))]
     fn read_chan() -> DmaChannel {
@@ -749,7 +693,7 @@ impl DmaPeriph for pac::USART3 {
 
 // todo: Use thsi approach for USART and SAI. When you un-macro them, ADC and Timer as well.
 
-#[cfg(not(any(feature = "wb", feature = "wl")))]
+#[cfg(any(feature = "f3", feature = "l4"))]
 impl DmaPeriph for ADC1 {
     #[cfg(any(feature = "f3", feature = "l4"))]
     fn read_chan() -> DmaChannel {

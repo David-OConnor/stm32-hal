@@ -10,8 +10,6 @@ use core::ptr;
 
 use cortex_m::interrupt::free;
 
-use cfg_if::cfg_if;
-
 // todo: Status-polling mode.
 
 // todo: Is this avail in PAC? Feature-gate if diff on diff platforms?
@@ -134,7 +132,7 @@ impl Qspi {
             "Dumy cycles must be between 0 and 31."
         );
 
-        free(|cs| {
+        free(|_| {
             let mut rcc = unsafe { &(*RCC::ptr()) };
             // cfg_if! {
             //     if #[cfg(any(feature = "l4", feature = "l5", feature = "")] {

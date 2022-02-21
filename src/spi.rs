@@ -11,8 +11,11 @@ use embedded_hal::spi::FullDuplex;
 
 use crate::{
     pac::{self, RCC},
-    util::{DmaPeriph, RccPeriph},
+    util::RccPeriph,
 };
+
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::util::DmaPeriph;
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
@@ -269,7 +272,8 @@ pub struct Spi<R> {
 
 impl<R> Spi<R>
 where
-    R: Deref<Target = pac::spi1::RegisterBlock> + DmaPeriph + RccPeriph,
+    // R: Deref<Target = pac::spi1::RegisterBlock> + DmaPeriph + RccPeriph,
+    R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
 {
     /// Initialize an SPI peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock.
@@ -512,7 +516,6 @@ where
             if #[cfg(feature = "h7")] {
                 let crce = sr.crce().bit_is_set();
                 let rdy = sr.txp().bit_is_set();
-                let rdy = sr.txp().bit_is_set();
             } else {
                 let crce = sr.crcerr().bit_is_set();
                 let rdy = sr.txe().bit_is_set();
@@ -565,7 +568,7 @@ where
         Ok(())
     }
 
-    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
+    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note that the `channel` argument has no effect on F3 and L4.
     pub unsafe fn write_dma<D>(&mut self, buf: &[u8], channel: DmaChannel, dma: &mut Dma<D>)
@@ -601,11 +604,16 @@ where
         #[cfg(not(feature = "h7"))]
         let periph_addr = &self.regs.dr as *const _ as u32;
 
+        #[cfg(feature = "h7")]
+        let len = len as u32;
+        #[cfg(not(feature = "h7"))]
+        let len = len as u16;
+
         dma.cfg_channel(
             channel,
             periph_addr,
             ptr as u32,
-            len as u16,
+            len,
             dma::Direction::ReadFromMem,
             dma::DataSize::S8,
             dma::DataSize::S8,
@@ -615,14 +623,17 @@ where
         // atomic::compiler_fence(Ordering::Release);  // todo ?
 
         // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
+        #[cfg(not(feature = "h7"))]
         self.regs.cr2.modify(|_, w| w.txdmaen().set_bit());
+        #[cfg(feature = "h7")]
+        self.regs.cfg1.modify(|_, w| w.txdmaen().set_bit());
 
         // 4. Enable the SPI by setting the SPE bit.
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
         // (todo: Should be already set. Should we disable it at the top of this fn just in case?)
     }
 
-    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
+    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note taht the `channel` argument has no effect on F3 and L4.
     pub unsafe fn read_dma<D>(&mut self, buf: &mut [u8], channel: DmaChannel, dma: &mut Dma<D>)
@@ -634,7 +645,10 @@ where
 
         // atomic::compiler_fence(Ordering::Release);  // todo ?
 
+        #[cfg(not(feature = "h7"))]
         self.regs.cr2.modify(|_, w| w.rxdmaen().set_bit());
+        #[cfg(feature = "h7")]
+        self.regs.cfg1.modify(|_, w| w.rxdmaen().set_bit());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = R::read_chan();
@@ -646,11 +660,16 @@ where
         #[cfg(not(feature = "h7"))]
         let periph_addr = &self.regs.dr as *const _ as u32;
 
+        #[cfg(feature = "h7")]
+        let len = len as u32;
+        #[cfg(not(feature = "h7"))]
+        let len = len as u16;
+
         dma.cfg_channel(
             channel,
             periph_addr,
             ptr as u32,
-            len as u16,
+            len,
             dma::Direction::ReadFromPeriph,
             dma::DataSize::S8,
             dma::DataSize::S8,
