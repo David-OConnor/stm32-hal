@@ -557,9 +557,10 @@ macro_rules! make_timer {
             #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5", feature = "f3", feature = "l4")))]
             pub unsafe fn write_dma_burst<D>(
                 &mut self,
-                buf: &[i32],
-                tim_channel: TimChannel,
+                buf: &[u32],
+                // tim_channel: TimChannel,
                 base_address: u8,
+                burst_len: u8,
                 dma_channel: DmaChannel,
                 channel_cfg: ChannelCfg,
                 dma: &mut Dma<D>,
@@ -641,7 +642,7 @@ macro_rules! make_timer {
                 // 00010: TIMx_SMCR
                 self.regs.dcr.modify(|_, w| {
                     w.dba().bits(base_address);
-                    w.dbl().bits(len as u8 - 1)
+                    w.dbl().bits(burst_len as u8 - 1)
                 });
 
                 // 3. Enable the TIMx update DMA request (set the UDE bit in the DIER register).

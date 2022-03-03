@@ -6,9 +6,12 @@
 
 use crate::{
     clocks::SpeedError,
-    pac::{self, FLASH, RCC},
+    pac::{FLASH, RCC},
     rcc_en_reset,
 };
+
+#[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]
+use crate::pac::CRS;
 
 use cfg_if::cfg_if;
 
@@ -28,7 +31,7 @@ pub enum Clk48Src {
     Msi = 0b11,
 }
 
-#[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
+#[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]
 #[derive(Clone, Copy)]
 #[repr(u8)]
 /// Select the SYNC signal source. Sets the CRS_CFGR register, SYNCSRC field.
@@ -1409,7 +1412,7 @@ impl Default for Clocks {
     }
 }
 
-#[cfg(any(feature = "l4", feature = "l5", feature = "wb"))]
+#[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "wb"))]
 /// Enable the Clock Recovery System. L443 User manual:
 /// "The STM32L443xx devices embed a special block which allows automatic trimming of the
 /// internal 48 MHz oscillator to guarantee its optimal accuracy over the whole device
@@ -1419,7 +1422,7 @@ impl Default for Clocks {
 /// startup it is also possible to combine automatic trimming with manual trimming action."
 /// Note: This is for HSI48 only. Note that the HSI will turn off after entering Stop or Standby.
 pub fn enable_crs(sync_src: CrsSyncSrc) {
-    let crs = unsafe { &(*pac::CRS::ptr()) };
+    let crs = unsafe { &(*CRS::ptr()) };
     let rcc = unsafe { &(*RCC::ptr()) };
 
     // todo: CRSEN missing on l4x5 pac: https://github.com/stm32-rs/stm32-rs/issues/572

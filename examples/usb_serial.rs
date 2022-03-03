@@ -10,7 +10,7 @@ use cortex_m::{self, interrupt::free, peripheral::NVIC};
 use cortex_m_rt::entry;
 
 use stm32_hal2::{
-    clocks::{Clocks, CrsSyncSr},
+    clocks::{self, Clocks, CrsSyncSrc},
     gpio::{Pin, PinMode, Port},
     pac,
     usb::{Peripheral, UsbBus, UsbBusType},
@@ -35,7 +35,7 @@ fn main() -> ! {
     clock_cfg.setup().unwrap();
 
     // Enable the Clock Recovery System, which improves HSI48 accuracy.
-    clocks::enable_crs(CrsSyncSrc::Usb, &mut dp.CRS, &mut dp.RCC);
+    clocks::enable_crs(CrsSyncSrc::Usb);
 
     // Enable `pwren`. Note that this is also set up by the `rtc` initialization, so this
     // step isn't required if you have the RTC set up.
