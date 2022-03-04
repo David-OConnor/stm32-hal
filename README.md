@@ -43,7 +43,7 @@ Operationally tested on the following devices:
 - STM32L476, L433, L443, L412, L432
 - STM32L552
 - STM32WB5MMG
-- STM32H743(V)
+- STM32H743(V), H745 (both cores)
 
 
 ## Getting started
@@ -153,9 +153,9 @@ If you'd like to learn more about these HALs, check them out on the [stm32-rs Gi
 You may prefer them if you prioritize strict type checks on GPIO pins, for example.
 
 ## Docs caveat
-The Rust docs page is built for `STM32L4x3`, and some aspects are not accurate for other
+The Rust docs page is built for `STM32H732`, and some aspects are not accurate for other
 variants. We currently don't have a good solution to this problem, and may
-self-host docs in the future.
+self-host docs in the future, with a separate page for each STM32 family.
 
 
 ## Contributing
