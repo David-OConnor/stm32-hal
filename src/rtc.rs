@@ -82,19 +82,22 @@ pub struct Rtc {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+/// Configuration data for the RTC.
 pub struct RtcConfig {
-    /// RTC clock source
+    /// RTC clock source. Defaults to LSI (Low speed internal oscillator)
     pub clock_source: RtcClockSource,
     /// Asynchronous prescaler factor
     /// This is the asynchronous division factor:
     /// ck_apre frequency = RTCCLK frequency/(PREDIV_A+1)
-    /// ck_apre drives the subsecond register
+    /// ck_apre drives the subsecond register. Defaults to 127.
     pub async_prescaler: u8,
     /// Synchronous prescaler factor
     /// This is the synchronous division factor:
     /// ck_spre frequency = ck_apre frequency/(PREDIV_S+1)
-    /// ck_spre must be 1Hz
+    /// ck_spre must be 1Hz. Defaults to 255.
     pub sync_prescaler: u16,
+    /// Bypass LSE output - eg if you're using a self-powered external oscillator. This
+    /// saves power, and lets you use the LSE output pin as a GPIO.
     pub bypass_lse_output: bool,
 }
 

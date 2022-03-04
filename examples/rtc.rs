@@ -17,7 +17,8 @@ use cortex_m_rt::entry;
 
 use stm32_hal::{
     clocks::Clocks,
-    low_power, pac,
+    low_power::{self, StopMode},
+    pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
 };
 
@@ -70,10 +71,10 @@ fn main() -> ! {
         let hours = rtc.get_hours();
 
         // Enter a low power mode.
-        low_power::stop(low_power::StopMode::One);
+        low_power::stop(StopMode::One);
 
-        // Turn back on the PLL, which is disabled by `stop` mode.
-        clocks.reselect_input();
+        // Turn back on the PLL, which is disabled by setting `stop` mode.
+        clock_cfg.reselect_input();
     }
 }
 
