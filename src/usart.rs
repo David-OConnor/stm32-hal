@@ -94,6 +94,16 @@ pub enum OverSampling {
     O8 = 1,
 }
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum IrdaMode {
+    /// "IrDA mode disabled
+    None,
+    /// "IrDA SIR rx/tx enabled in 'normal' mode"
+    Normal,
+    /// "IrDA SIR 'low-power' mode"
+    LowPower,
+}
+
 #[cfg(not(feature = "f4"))]
 #[derive(Clone, Copy)]
 /// The type of USART interrupt to configure. Reference the USART_ISR register.
@@ -116,10 +126,16 @@ pub enum UsartInterrupt {
 
 /// Configuration for Usart. Can be used with default::Default.
 pub struct UsartConfig {
+    /// Word length. Defaults to 8-bits.
     pub word_len: WordLen,
+    /// Stop bits: Defaults to 1.
     pub stop_bits: StopBits,
+    /// Oversampling rate. Defaults to 16x.
     pub oversampling: OverSampling,
+    /// Enable or disable parity control. Defaults to disabled.
     pub parity: Parity,
+    /// IrDA mode: Enables this protocol, which is used to communicate with IR devices.
+    pub irda_mode: IrdaMode,
 }
 
 impl Default for UsartConfig {
@@ -129,6 +145,7 @@ impl Default for UsartConfig {
             stop_bits: StopBits::S1,
             oversampling: OverSampling::O16,
             parity: Parity::Disabled,
+            irda_mode: IrdaMode::None,
         }
     }
 }
@@ -211,6 +228,29 @@ where
             w.te().set_bit();
             w.re().set_bit()
         });
+
+        match result.config.irda_mode {
+            // See G4 RM, section 37.5.18: USART IrDA SIR ENDEC block
+            // " IrDA mode is selected by setting the IREN bit in the USART_CR3 register. In IrDA mode,
+            // the following bits must be kept cleared:
+            // • LINEN, STOP and CLKEN bits in the USART_CR2 register,
+            IrdaMode::None => (),
+            _ => {
+                result.regs.cr2.modify(|_, w| unsafe {
+                    w.linen().clear_bit();
+                    w.stop().bits(0);
+                    w.clken().clear_bit()
+                });
+
+                // • SCEN and HDSEL bits in the USART_CR3 register."
+                result.regs.cr3.modify(|_, w| {
+                    w.scen().clear_bit();
+                    w.hdsel().clear_bit();
+                    w.irlp().bit(result.config.irda_mode == IrdaMode::LowPower);
+                    w.iren().set_bit()
+                });
+            }
+        }
 
         result
     }

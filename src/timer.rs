@@ -166,7 +166,8 @@ pub enum CaptureCompare {
     InputTrc = 0b11,
 }
 
-/// Capture/Compare output polarity. Defaults to `ActiveHigh` in hardware.
+/// Capture/Compare output polarity. Defaults to `ActiveHigh` in hardware. Sets TIMx_CCER register,
+/// CCxP and CCXNP fields.
 #[derive(Clone, Copy)]
 pub enum Polarity {
     ActiveHigh,
