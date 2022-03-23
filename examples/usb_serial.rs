@@ -74,7 +74,7 @@ fn main() -> ! {
         match usb_serial.read(&mut buf) {
             // todo: match all start bits and end bits. Running into an error using the naive approach.
             Ok(count) => {
-                serial.write(&[1, 2, 3]).ok();
+                usb_serial.write(&[1, 2, 3]).ok();
             }
             Err(_) => {
                 //...

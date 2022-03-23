@@ -571,7 +571,7 @@ where
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note that the `channel` argument has no effect on F3 and L4.
-    pub unsafe fn write_dma<D>(&mut self, buf: &[u8], channel: DmaChannel, dma: &mut Dma<D>)
+    pub unsafe fn write_dma<D>(&mut self, buf: &[u8], channel: DmaChannel, channel_cfg: ChannelCfg, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
@@ -617,7 +617,7 @@ where
             dma::Direction::ReadFromMem,
             dma::DataSize::S8,
             dma::DataSize::S8,
-            Default::default(),
+            channel_cfg: ChannelCfg,
         );
 
         // atomic::compiler_fence(Ordering::Release);  // todo ?
@@ -635,8 +635,8 @@ where
 
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
-    /// Note taht the `channel` argument has no effect on F3 and L4.
-    pub unsafe fn read_dma<D>(&mut self, buf: &mut [u8], channel: DmaChannel, dma: &mut Dma<D>)
+    /// Note thay the `channel` argument has no effect on F3 and L4.
+    pub unsafe fn read_dma<D>(&mut self, buf: &mut [u8], channel: DmaChannel, channel_cfg: ChannelCfg, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
@@ -673,7 +673,7 @@ where
             dma::Direction::ReadFromPeriph,
             dma::DataSize::S8,
             dma::DataSize::S8,
-            Default::default(),
+            channel_cfg,
         );
 
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
