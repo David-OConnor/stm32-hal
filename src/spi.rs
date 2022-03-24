@@ -617,7 +617,7 @@ where
             dma::Direction::ReadFromMem,
             dma::DataSize::S8,
             dma::DataSize::S8,
-            channel_cfg: ChannelCfg,
+            channel_cfg,
         );
 
         // atomic::compiler_fence(Ordering::Release);  // todo ?
