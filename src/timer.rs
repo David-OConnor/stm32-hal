@@ -647,6 +647,7 @@ macro_rules! make_timer {
                 });
 
                 // 3. Enable the TIMx update DMA request (set the UDE bit in the DIER register).
+                // todo: do we want to do this each time we command a write?
                 self.enable_interrupt(TimerInterrupt::UpdateDma);
 
                 // 4. Enable TIMx

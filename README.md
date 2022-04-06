@@ -144,12 +144,16 @@ a light-weight framework that manages safely sharing state between contexts. Eg 
 Most examples use global `Mutex`es, `RefCell`s, and `Cell`s, sometimes
 with macros to simplify syntax; you could easily substitute RTIC syntax.
 
-## Why this module is different from `stm32yxx-hal` libraries
-There are some areas where design philosophy is different. For example: GPIO
-type-checking, level-of-abstraction from registers/PAC, role of DMA, role of `embedded-hal` traits in the API,
-feature parity among STM32 families, code documentation, code structure, and clock config.
+## Why this is different from `stm32yxx-hal` libraries
+- Works with multiple STM32 families, with identical syntax when able
+- Doesn't use typestates for GPIO and busses
+- Doesn't rely on `embedded-hal` traits; treats them as an optional add-on
+- Different approach to DMA
+- Cleaner, more consistent API
+- Explicit clock config
+- Detailed, consistent code documentation, with reference manual excerpts and references  
 
-If you'd like to learn more about these HALs, check them out on the [stm32-rs Github](https://github.com/stm32-rs).
+If you'd like to learn more about the other HALs, check them out on the [stm32-rs Github](https://github.com/stm32-rs).
 You may prefer them if you prioritize strict type checks on GPIO pins, for example.
 
 ## Docs caveat
