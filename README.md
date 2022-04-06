@@ -146,12 +146,13 @@ with macros to simplify syntax; you could easily substitute RTIC syntax.
 
 ## Why this is different from `stm32yxx-hal` libraries
 - Works with multiple STM32 families, with identical syntax when able
+- Designed to be used on practical, real-world projects
 - Doesn't use typestates for GPIO and busses
 - Doesn't rely on `embedded-hal` traits; treats them as an optional add-on
 - Different approach to DMA
 - Cleaner, more consistent API
 - Explicit clock config
-- Detailed, consistent code documentation, with reference manual excerpts and references  
+- Detailed, consistent code documentation, with reference manual excerpts and references
 
 If you'd like to learn more about the other HALs, check them out on the [stm32-rs Github](https://github.com/stm32-rs).
 You may prefer them if you prioritize strict type checks on GPIO pins, for example.
