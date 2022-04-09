@@ -937,15 +937,15 @@ macro_rules! hal {
                 // • The DMA is stopped.
 
                 #[cfg(feature = "h7")]
-                let len = len as u32;
+                let num_data = len as u32;
                 #[cfg(not(feature = "h7"))]
-                let len = len as u16;
+                let num_data = len as u16;
 
                 dma.cfg_channel(
                     dma_channel,
                     &self.regs.dr as *const _ as u32,
                     ptr as u32,
-                    len,
+                    num_data,
                     dma::Direction::ReadFromPeriph,
                     dma::DataSize::S16,
                     dma::DataSize::S16,

@@ -559,7 +559,6 @@ macro_rules! make_timer {
             pub unsafe fn write_dma_burst<D>(
                 &mut self,
                 buf: &[u32],
-                // tim_channel: TimChannel,
                 base_address: u8,
                 burst_len: u8,
                 dma_channel: DmaChannel,
@@ -606,26 +605,14 @@ macro_rules! make_timer {
                 // –DMA channel memory address is the address of the buffer in the RAM containing
                 // the data to be transferred by DMA into CCRx registers.
 
-                // –Number of data to transfer = 3 (See note below).
-                // todo: Is this x 3 correct per note above??
+                // Number of data to transfer is our buffer len number of registers we're editing, x
+                // number of half-words written to each reg.
                 #[cfg(feature = "h7")]
-                let len = len as u32 * 3;
+                let num_data = len as u32;
                 #[cfg(not(feature = "h7"))]
-                let len = len as u16 * 3;
+                let num_data = len as u16;
 
-                // –Circular mode disabled.
-                // (We assume the DmaCfg passed by the user doesn't use circular mode.)
-
-                dma.cfg_channel(
-                    dma_channel,
-                    periph_addr,
-                    ptr as u32,
-                    len,
-                    dma::Direction::ReadFromMem,
-                    dma::DataSize::S32, // todo?
-                    dma::DataSize::S32,  // todo?
-                    channel_cfg,
-                );
+                // todo TS: In video, FIFO is enabled with Full Threshold setting.
 
                 // 2.
                 // Configure the DCR register by configuring the DBA and DBL bit fields as follows:
@@ -643,7 +630,11 @@ macro_rules! make_timer {
                 // 00010: TIMx_SMCR
                 self.regs.dcr.modify(|_, w| {
                     w.dba().bits(base_address);
+                    // w.dbl().bits(burst_len as u8) // todo - which? RM example and reg descrip are diff
+                    // todo: is dbl number of registers, or number of words? (ie len)
+                    // todo -1 ?
                     w.dbl().bits(burst_len as u8 - 1)
+                    // w.dbl().bits(burst_len as u8)
                 });
 
                 // 3. Enable the TIMx update DMA request (set the UDE bit in the DIER register).
@@ -652,8 +643,24 @@ macro_rules! make_timer {
 
                 // 4. Enable TIMx
                 self.enable();
+
                 // 5. Enable the DMA channel
-                // (Handled by application code)
+                dma.cfg_channel(
+                    dma_channel,
+                    periph_addr,
+                    ptr as u32,
+                    num_data,
+                    dma::Direction::ReadFromMem,
+                    // Note that 16-bit data size may be more appropriate on 16-bit timers,
+                    // but we keep 32 set here for simplicity.
+                    // dma::DataSize::S32,
+                    // dma::DataSize::S32,
+
+                    // S16 due to half words, at least on 16-bit timers.
+                    dma::DataSize::S16,
+                    dma::DataSize::S16,
+                    channel_cfg,
+                );
 
             }
         }

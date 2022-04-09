@@ -30,7 +30,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "f4", feature = "l5")))]
-use crate::dma::{self, Dma, DmaChannel, ChannelCfg};
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
@@ -571,8 +571,13 @@ where
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note that the `channel` argument has no effect on F3 and L4.
-    pub unsafe fn write_dma<D>(&mut self, buf: &[u8], channel: DmaChannel, channel_cfg: ChannelCfg, dma: &mut Dma<D>)
-    where
+    pub unsafe fn write_dma<D>(
+        &mut self,
+        buf: &[u8],
+        channel: DmaChannel,
+        channel_cfg: ChannelCfg,
+        dma: &mut Dma<D>,
+    ) where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         // Static write and read buffers?
@@ -605,15 +610,15 @@ where
         let periph_addr = &self.regs.dr as *const _ as u32;
 
         #[cfg(feature = "h7")]
-        let len = len as u32;
+        let num_data = len as u32;
         #[cfg(not(feature = "h7"))]
-        let len = len as u16;
+        let num_data = len as u16;
 
         dma.cfg_channel(
             channel,
             periph_addr,
             ptr as u32,
-            len,
+            num_data,
             dma::Direction::ReadFromMem,
             dma::DataSize::S8,
             dma::DataSize::S8,
@@ -636,8 +641,13 @@ where
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note thay the `channel` argument has no effect on F3 and L4.
-    pub unsafe fn read_dma<D>(&mut self, buf: &mut [u8], channel: DmaChannel, channel_cfg: ChannelCfg, dma: &mut Dma<D>)
-    where
+    pub unsafe fn read_dma<D>(
+        &mut self,
+        buf: &mut [u8],
+        channel: DmaChannel,
+        channel_cfg: ChannelCfg,
+        dma: &mut Dma<D>,
+    ) where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         // todo: Accept u16 words too.
@@ -661,15 +671,15 @@ where
         let periph_addr = &self.regs.dr as *const _ as u32;
 
         #[cfg(feature = "h7")]
-        let len = len as u32;
+        let num_data = len as u32;
         #[cfg(not(feature = "h7"))]
-        let len = len as u16;
+        let num_data = len as u16;
 
         dma.cfg_channel(
             channel,
             periph_addr,
             ptr as u32,
-            len,
+            num_data,
             dma::Direction::ReadFromPeriph,
             dma::DataSize::S8,
             dma::DataSize::S8,

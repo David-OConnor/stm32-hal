@@ -19,6 +19,28 @@ use crate::{
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
 
+use core::ops::Deref;
+
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::util::DmaPeriph;
+
+#[cfg(feature = "g0")]
+use crate::pac::dma as dma_p;
+#[cfg(any(
+    feature = "f3",
+    feature = "l4",
+    feature = "g4",
+    feature = "h7",
+    feature = "wb"
+))]
+use crate::pac::dma1 as dma_p;
+
+#[cfg(not(any(feature = "f4", feature = "l5")))]
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::dma::DmaInput;
+
 use cfg_if::cfg_if;
 use paste::paste;
 
@@ -1078,4 +1100,44 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
         )))]
         Port::H => crate::pac::GPIOH::ptr() as _,
     }
+}
+
+#[cfg(not(any(
+    feature = "g0",
+    feature = "f4",
+    feature = "l5",
+    feature = "f3",
+    feature = "l4"
+)))]
+pub unsafe fn write_dma<D>(
+    buf: &[u32],
+    port: Port,
+    dma_channel: DmaChannel,
+    channel_cfg: ChannelCfg,
+    dma: &mut Dma<D>,
+) where
+    D: Deref<Target = dma_p::RegisterBlock>,
+{
+    let (ptr, len) = (buf.as_ptr(), buf.len());
+
+    // todo: DMA2 support.
+
+    // let periph_addr = &(*pac::GPIOA::ptr()).bsrr as *const _ as u32;
+    let periph_addr = regs(port) as *const _ as u32;
+
+    #[cfg(feature = "h7")]
+    let num_data = len as u32;
+    #[cfg(not(feature = "h7"))]
+    let num_data = len as u16;
+
+    dma.cfg_channel(
+        dma_channel,
+        periph_addr,
+        ptr as u32,
+        num_data,
+        dma::Direction::ReadFromMem,
+        dma::DataSize::S32,
+        dma::DataSize::S32,
+        channel_cfg,
+    );
 }

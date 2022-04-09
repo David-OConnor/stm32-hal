@@ -1108,9 +1108,9 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         };
 
         #[cfg(feature = "h7")]
-        let len = len as u32;
+        let num_data = len as u32;
         #[cfg(not(feature = "h7"))]
-        let len = len as u16;
+        let num_data = len as u16;
 
         let cfg_datasize = match sai_channel {
             SaiChannel::A => self.config_a.datasize,
@@ -1128,7 +1128,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
             dma_channel,
             periph_addr,
             ptr as u32,
-            len,
+            num_data,
             dma::Direction::ReadFromPeriph,
             datasize,
             datasize,

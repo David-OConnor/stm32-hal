@@ -599,15 +599,15 @@ where
         // Note: If DMA is used for transmission, the TXIE bit does not need to be enabled
 
         #[cfg(feature = "h7")]
-        let len = len as u32;
+        let num_data = len as u32;
         #[cfg(not(feature = "h7"))]
-        let len = len as u16;
+        let num_data = len as u16;
 
         dma.cfg_channel(
             channel,
             &self.regs.txdr as *const _ as u32,
             ptr as u32,
-            len,
+            num_data,
             dma::Direction::ReadFromMem,
             dma::DataSize::S8,
             dma::DataSize::S8,

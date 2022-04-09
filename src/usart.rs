@@ -454,9 +454,9 @@ where
         R::read_sel(dma);
 
         #[cfg(feature = "h7")]
-        let len = len as u32;
+        let num_data = len as u32;
         #[cfg(not(feature = "h7"))]
-        let len = len as u16;
+        let num_data = len as u16;
 
         dma.cfg_channel(
             channel,
@@ -469,7 +469,7 @@ where
             // RXNE event.
             ptr as u32,
             // 3. Configure the total number of bytes to be transferred to the DMA control register.
-            len,
+            num_data,
             dma::Direction::ReadFromPeriph,
             dma::DataSize::S8,
             dma::DataSize::S8,
