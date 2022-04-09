@@ -558,7 +558,7 @@ macro_rules! make_timer {
             #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5", feature = "f3", feature = "l4")))]
             pub unsafe fn write_dma_burst<D>(
                 &mut self,
-                buf: &[u32],
+                buf: &[u16],
                 base_address: u8,
                 burst_len: u8,
                 dma_channel: DmaChannel,

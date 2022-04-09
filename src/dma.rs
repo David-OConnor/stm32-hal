@@ -1594,3 +1594,24 @@ pub fn mux(channel: DmaChannel, input: DmaInput, mux: &mut DMAMUX) {
 pub fn mux2(channel: DmaChannel, input: DmaInput2, mux: &mut DMAMUX2) {
     mux.ccr[channel as usize].modify(|_, w| unsafe { w.dmareq_id().bits(input as u8) });
 }
+
+// todo: Enable this for other MCUs as requried
+/// Enable the DMA mux RCC clock. Applicable to some variants, but no others. (H7 and G0 don't use it,
+/// for example)
+#[cfg(any(feature = "g4", feature = "wb"))]
+pub fn enable_mux1() {
+    free(|_| {
+        let rcc = unsafe { &(*RCC::ptr()) };
+
+        cfg_if! {
+            if #[cfg(feature = "g4")] {
+                // Note inconsistency between `dmamux` and `dmamux`; can't use macro here.
+                rcc.ahb1enr.modify(|_, w| w.dmamuxen().set_bit());
+                rcc.ahb1rstr.modify(|_, w| w.dmamux1rst().set_bit());
+                rcc.ahb1rstr.modify(|_, w| w.dmamux1rst().clear_bit());
+            } else {
+                rcc_en_reset!(ahb1, dmamux, rcc);
+            }
+        }
+    });
+}
