@@ -243,26 +243,6 @@ pub enum OutputCompare {
     AsymmetricPwm2 = 0b1111,
 }
 
-#[cfg(feature = "f3")]
-impl OutputCompare {
-    /// A workaround due to the `ccmrx_output.ocym` fields being split into
-    /// the left most, and first 3.
-    /// Get the left bit, as a boolean. For the right three, we just
-    /// parse the variant as a u8, and the left bit is ignored when setting
-    /// in the 3-bit field.
-    pub fn left_bit(&self) -> bool {
-        matches!(
-            self,
-            Self::RetriggerableOpmMode1
-                | Self::RetriggerableOpmMode2
-                | Self::CombinedPwm1
-                | Self::CombinedPwm2
-                | Self::AsymmetricPwm1
-                | Self::AsymmetricPwm2
-        )
-    }
-}
-
 /// Update Request source. This bit is set and cleared by software to select the UEV event sources.
 /// Sets `TIMx_CR1` register, `URS` field.
 #[derive(Clone, Copy)]
@@ -812,44 +792,45 @@ macro_rules! cc_4_channels {
             /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
             pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
                 match channel {
+                    // todo: I think there's still fuckery with other channels and split bits.
                     TimChannel::C1 => {
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
-                        // todo: Confirm other platforms handle everything using `oc1m`, and don't
+                            .modify(|_, w| unsafe { w.oc1m().bits((mode as u8) & 0b111) });
+                        // todo: Confirm other platforms handle everything using `ocxm`, and don't
                         // todo need the `oc1m_3` equiv. L5 and 4?
                         #[cfg(any(feature = "f302", feature = "f303"))]
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
+                            .modify(|_, w| w.oc1m_3().bit((mode as u8) >> 3)!= 0);
                     }
                     TimChannel::C2 => {
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc2m().bits(mode as u8) });
-                        #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
+                            .modify(|_, w| unsafe { w.oc2m().bits((mode as u8) & 0b111) });
+                        // #[cfg(any(feature = "f302", feature = "f303"))]
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| w.oc2m_3().bit(mode.left_bit()));
+                            .modify(|_, w| w.oc2m_3().bit((mode as u8) >> 3 != 0));
                     }
                     TimChannel::C3 => {
                         self.regs
                             .ccmr2_output()
-                            .modify(|_, w| unsafe { w.oc3m().bits(mode as u8) });
-                        #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
+                            .modify(|_, w| unsafe { w.oc3m().bits((mode as u8) & 0b111) });
+                        // #[cfg(any(feature = "f302", feature = "f303"))]
                         self.regs
                             .ccmr2_output()
-                            .modify(|_, w| w.oc3m_3().bit(mode.left_bit()));
+                            .modify(|_, w| w.oc3m_3().bit((mode as u8) >> 3 != 0));
                     }
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
                         self.regs
                             .ccmr2_output()
-                            .modify(|_, w| unsafe { w.oc4m().bits(mode as u8) });
-                        #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
+                            .modify(|_, w| unsafe { w.oc4m().bits((mode as u8) & 0b111) });
+                        // #[cfg(any(feature = "f302", feature = "f303"))]
                         self.regs
                             .ccmr2_output()
-                            .modify(|_, w| w.oc4m_3().bit(mode.left_bit()));
+                            .modify(|_, w| w.oc4m_3().bit((mode as u8) >> 3 != 0));
                     }
                 }
             }
@@ -1104,22 +1085,22 @@ macro_rules! cc_2_channels {
                     TimChannel::C1 => {
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
+                            .modify(|_, w| unsafe { w.oc1m().bits((mode as u8) & 0b111) });
                         // todo: Confirm other platforms handle everything using `oc1m`, and don't
                         // todo need the `oc1m_3` equiv. L5 and 4?
-                        #[cfg(any(feature = "f302", feature = "f303"))]
+                        // #[cfg(any(feature = "f302", feature = "f303"))]
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
+                            .modify(|_, w| w.oc1m_3().bit((mode as u8) >> 3 != 0));
                     }
                     TimChannel::C2 => {
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc2m().bits(mode as u8) });
-                        #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
+                            .modify(|_, w| unsafe { w.oc2m().bits((mode as u8) & 0b111) });
+                        // #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| w.oc2m_3().bit(mode.left_bit()));
+                            .modify(|_, w| w.oc2m_3().bit((mode as u8) >> 3 != 0));
                     }
                     _ => panic!()
                 }
@@ -1325,13 +1306,13 @@ macro_rules! cc_1_channel {
                         #[cfg(not(feature = "g070"))] // todo: PAC bug?
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
+                            .modify(|_, w| unsafe { w.oc1m().bits((mode as u8) & 0b111) });
                         // todo: Confirm other platforms handle everything using `oc1m`, and don't
                         // todo need the `oc1m_3` equiv. L5 and 4?
-                        #[cfg(any(feature = "f302", feature = "f303"))]
+                        // #[cfg(any(feature = "f302", feature = "f303"))]
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
+                            .modify(|_, w| w.oc1m_3().bit((mode as u8) >> 3 != 0));
                     }
                     _ => panic!()
                 }
