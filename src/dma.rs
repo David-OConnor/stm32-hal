@@ -1553,19 +1553,22 @@ pub fn mux(channel: DmaChannel, input: DmaInput, mux: &mut DMAMUX) {
     unsafe {
         #[cfg(not(any(feature = "g070", feature = "g071", feature = "g081", feature = "h7")))]
         match channel {
-            DmaChannel::C1 => mux.c1cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-            DmaChannel::C2 => mux.c2cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-            DmaChannel::C3 => mux.c3cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-            DmaChannel::C4 => mux.c4cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-            DmaChannel::C5 => mux.c5cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            // Note the offset by 1, due to mismatch in DMA channels starting at 1, and DMAMUX
+            // channels starting at 0. Ops tested this is correct on G4.
+            DmaChannel::C1 => mux.c0cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C2 => mux.c1cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C3 => mux.c2cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C4 => mux.c3cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C5 => mux.c4cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
             #[cfg(not(feature = "g0"))]
-            DmaChannel::C6 => mux.c6cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C6 => mux.c5cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
             #[cfg(not(feature = "g0"))]
-            DmaChannel::C7 => mux.c7cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C7 => mux.c6cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
             #[cfg(any(feature = "l5", feature = "g4"))]
-            DmaChannel::C8 => mux.c8cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+            DmaChannel::C8 => mux.c7cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
         }
         #[cfg(any(feature = "g070", feature = "g071", feature = "g081"))]
+            // todo: Do we also need to offset by one on G4?
         match channel {
             DmaChannel::C1 => mux
                 .dmamux_c1cr

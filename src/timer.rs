@@ -794,43 +794,29 @@ macro_rules! cc_4_channels {
                 match channel {
                     // todo: I think there's still fuckery with other channels and split bits.
                     TimChannel::C1 => {
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc1m().bits((mode as u8) & 0b111) });
-                        // todo: Confirm other platforms handle everything using `ocxm`, and don't
-                        // todo need the `oc1m_3` equiv. L5 and 4?
-                        #[cfg(any(feature = "f302", feature = "f303"))]
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| w.oc1m_3().bit((mode as u8) >> 3)!= 0);
+                        self.regs.ccmr1_output().modify(|_, w| unsafe {
+                            w.oc1m().bits((mode as u8) & 0b111);
+                            w.oc1m_3().bit((mode as u8) >> 3!= 0)
+                        });
                     }
                     TimChannel::C2 => {
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc2m().bits((mode as u8) & 0b111) });
-                        // #[cfg(any(feature = "f302", feature = "f303"))]
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| w.oc2m_3().bit((mode as u8) >> 3 != 0));
+                        self.regs.ccmr1_output().modify(|_, w| unsafe {
+                            w.oc2m().bits((mode as u8) & 0b111);
+                            w.oc2m_3().bit((mode as u8) >> 3!= 0)
+                        });
                     }
                     TimChannel::C3 => {
-                        self.regs
-                            .ccmr2_output()
-                            .modify(|_, w| unsafe { w.oc3m().bits((mode as u8) & 0b111) });
-                        // #[cfg(any(feature = "f302", feature = "f303"))]
-                        self.regs
-                            .ccmr2_output()
-                            .modify(|_, w| w.oc3m_3().bit((mode as u8) >> 3 != 0));
+                        self.regs.ccmr2_output().modify(|_, w| unsafe {
+                            w.oc3m().bits((mode as u8) & 0b111);
+                            w.oc3m_3().bit((mode as u8) >> 3!= 0)
+                        });
                     }
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
-                        self.regs
-                            .ccmr2_output()
-                            .modify(|_, w| unsafe { w.oc4m().bits((mode as u8) & 0b111) });
-                        // #[cfg(any(feature = "f302", feature = "f303"))]
-                        self.regs
-                            .ccmr2_output()
-                            .modify(|_, w| w.oc4m_3().bit((mode as u8) >> 3 != 0));
+                        self.regs.ccmr2_output().modify(|_, w| unsafe {
+                            w.oc4m().bits((mode as u8) & 0b111);
+                            w.oc4m_3().bit((mode as u8) >> 3!= 0)
+                        });
                     }
                 }
             }
@@ -1083,24 +1069,16 @@ macro_rules! cc_2_channels {
             pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
                 match channel {
                     TimChannel::C1 => {
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc1m().bits((mode as u8) & 0b111) });
-                        // todo: Confirm other platforms handle everything using `oc1m`, and don't
-                        // todo need the `oc1m_3` equiv. L5 and 4?
-                        // #[cfg(any(feature = "f302", feature = "f303"))]
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| w.oc1m_3().bit((mode as u8) >> 3 != 0));
+                       self.regs.ccmr1_output().modify(|_, w| unsafe {
+                            w.oc1m().bits((mode as u8) & 0b111);
+                            w.oc1m_3().bit((mode as u8) >> 3!= 0)
+                        });
                     }
                     TimChannel::C2 => {
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc2m().bits((mode as u8) & 0b111) });
-                        // #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| w.oc2m_3().bit((mode as u8) >> 3 != 0));
+                      self.regs.ccmr1_output().modify(|_, w| unsafe {
+                            w.oc2m().bits((mode as u8) & 0b111);
+                            w.oc2m_3().bit((mode as u8) >> 3!= 0)
+                        });
                     }
                     _ => panic!()
                 }
@@ -1304,15 +1282,10 @@ macro_rules! cc_1_channel {
                 match channel {
                     TimChannel::C1 => {
                         #[cfg(not(feature = "g070"))] // todo: PAC bug?
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc1m().bits((mode as u8) & 0b111) });
-                        // todo: Confirm other platforms handle everything using `oc1m`, and don't
-                        // todo need the `oc1m_3` equiv. L5 and 4?
-                        // #[cfg(any(feature = "f302", feature = "f303"))]
-                        self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| w.oc1m_3().bit((mode as u8) >> 3 != 0));
+                        self.regs.ccmr1_output().modify(|_, w| unsafe {
+                            w.oc1m().bits((mode as u8) & 0b111);
+                            w.oc1m_3().bit((mode as u8) >> 3 != 0)
+                        });
                     }
                     _ => panic!()
                 }
@@ -1635,6 +1608,8 @@ cfg_if! {
     }
 }
 
+// todo: Note. G4, for example, has TIM2 and 5 as 32-bit, and TIM3 and 4 as 16-bit per RM,
+// todo: But PAC shows different.
 cfg_if! {
     if #[cfg(not(any(
         feature = "f301",
