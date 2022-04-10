@@ -1109,6 +1109,8 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
     feature = "f3",
     feature = "l4"
 )))]
+/// Write a series of words to the BSRR (atomic output) register. Note that these are direct writes
+/// to the full, 2-sided register - not a series of low/high values.
 pub unsafe fn write_dma<D>(
     buf: &[u32],
     port: Port,

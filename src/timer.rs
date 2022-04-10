@@ -826,20 +826,20 @@ macro_rules! cc_4_channels {
                     TimChannel::C2 => {
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
+                            .modify(|_, w| unsafe { w.oc2m().bits(mode as u8) });
                         #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
+                            .modify(|_, w| w.oc2m_3().bit(mode.left_bit()));
                     }
                     TimChannel::C3 => {
                         self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
+                            .ccmr2_output()
+                            .modify(|_, w| unsafe { w.oc3m().bits(mode as u8) });
                         #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
                         self.regs
-                            .ccmr1_output()
-                            .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
+                            .ccmr2_output()
+                            .modify(|_, w| w.oc3m_3().bit(mode.left_bit()));
                     }
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
@@ -1115,11 +1115,11 @@ macro_rules! cc_2_channels {
                     TimChannel::C2 => {
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| unsafe { w.oc1m().bits(mode as u8) });
+                            .modify(|_, w| unsafe { w.oc2m().bits(mode as u8) });
                         #[cfg(any(feature = "f302", feature = "f303"))] // todo see note above
                         self.regs
                             .ccmr1_output()
-                            .modify(|_, w| w.oc1m_3().bit(mode.left_bit()));
+                            .modify(|_, w| w.oc2m_3().bit(mode.left_bit()));
                     }
                     _ => panic!()
                 }
