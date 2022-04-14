@@ -618,8 +618,8 @@ macro_rules! make_timer {
                 });
 
                 // 3. Enable the TIMx update DMA request (set the UDE bit in the DIER register).
-                // todo: do we want to do this each time we command a write?
-                self.enable_interrupt(TimerInterrupt::UpdateDma);
+                // note: Leaving this to application code for now.
+                // self.enable_interrupt(TimerInterrupt::UpdateDma);
 
                 // 4. Enable TIMx
                 self.enable();
@@ -736,7 +736,7 @@ macro_rules! cc_4_channels {
     ($TIMX:ident, $res:ident) => {
         impl Timer<pac::$TIMX> {
             /// Function that allows us to set direction only on timers that have this option.
-            fn set_dir(&mut self) {
+            pub fn set_dir(&mut self) {
                 self.regs.cr1.modify(|_, w| w.dir().bit(self.cfg.direction as u8 != 0));
                 self.regs.cr1.modify(|_, w| unsafe { w.cms().bits(self.cfg.alignment as u8) });
             }
@@ -792,30 +792,36 @@ macro_rules! cc_4_channels {
             /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
             pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
                 match channel {
-                    // todo: I think there's still fuckery with other channels and split bits.
                     TimChannel::C1 => {
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            w.oc1m().bits((mode as u8) & 0b111);
-                            w.oc1m_3().bit((mode as u8) >> 3!= 0)
+                            #[cfg(not(feature = "f4"))]
+                            w.oc1m_3().bit((mode as u8) >> 3 != 0);
+                            w.oc1m().bits((mode as u8) & 0b111)
                         });
                     }
                     TimChannel::C2 => {
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            w.oc2m().bits((mode as u8) & 0b111);
-                            w.oc2m_3().bit((mode as u8) >> 3!= 0)
+                            #[cfg(not(feature = "f4"))]
+                            w.oc2m_3().bit((mode as u8) >> 3 != 0);
+                            w.oc2m().bits((mode as u8) & 0b111)
+
                         });
                     }
                     TimChannel::C3 => {
                         self.regs.ccmr2_output().modify(|_, w| unsafe {
-                            w.oc3m().bits((mode as u8) & 0b111);
-                            w.oc3m_3().bit((mode as u8) >> 3!= 0)
+                            #[cfg(not(feature = "f4"))]
+                            w.oc3m_3().bit((mode as u8) >> 3 != 0);
+                            w.oc3m().bits((mode as u8) & 0b111)
+
                         });
                     }
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
                         self.regs.ccmr2_output().modify(|_, w| unsafe {
-                            w.oc4m().bits((mode as u8) & 0b111);
-                            w.oc4m_3().bit((mode as u8) >> 3!= 0)
+                            #[cfg(not(feature = "f4"))]
+                            w.oc4m_3().bit((mode as u8) >> 3 != 0);
+                            w.oc4m().bits((mode as u8) & 0b111)
+
                         });
                     }
                 }
@@ -1070,14 +1076,18 @@ macro_rules! cc_2_channels {
                 match channel {
                     TimChannel::C1 => {
                        self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            w.oc1m().bits((mode as u8) & 0b111);
-                            w.oc1m_3().bit((mode as u8) >> 3!= 0)
+                           #[cfg(not(feature = "f4"))]
+                           w.oc1m_3().bit((mode as u8) >> 3 != 0);
+                           w.oc1m().bits((mode as u8) & 0b111)
+
                         });
                     }
                     TimChannel::C2 => {
                       self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            w.oc2m().bits((mode as u8) & 0b111);
-                            w.oc2m_3().bit((mode as u8) >> 3!= 0)
+                          #[cfg(not(feature = "f4"))]
+                          w.oc2m_3().bit((mode as u8) >> 3 != 0);
+                          w.oc2m().bits((mode as u8) & 0b111)
+
                         });
                     }
                     _ => panic!()
@@ -1283,8 +1293,11 @@ macro_rules! cc_1_channel {
                     TimChannel::C1 => {
                         #[cfg(not(feature = "g070"))] // todo: PAC bug?
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            w.oc1m().bits((mode as u8) & 0b111);
-                            w.oc1m_3().bit((mode as u8) >> 3 != 0)
+                            #[cfg(not(feature = "f4"))]
+                            w.oc1m_3().bit((mode as u8) >> 3 != 0);
+                            w.oc1m().bits((mode as u8) & 0b111)
+
+
                         });
                     }
                     _ => panic!()

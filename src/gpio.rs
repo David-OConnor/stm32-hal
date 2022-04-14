@@ -1124,8 +1124,7 @@ pub unsafe fn write_dma<D>(
 
     // todo: DMA2 support.
 
-    // let periph_addr = &(*pac::GPIOA::ptr()).bsrr as *const _ as u32;
-    let periph_addr = regs(port) as *const _ as u32;
+    let periph_addr = &(*(regs(port))).bsrr as *const _ as u32;
 
     #[cfg(feature = "h7")]
     let num_data = len as u32;
