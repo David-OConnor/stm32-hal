@@ -17,7 +17,7 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::Clocks,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
-    gpio::{Pin, PinMode, Port},
+    gpio::{self, Pin, PinMode, Port},
     low_power,
     pac::{self, interrupt},
     prelude::*,
@@ -42,7 +42,7 @@ fn main() -> ! {
     let _miso = Pin::new(Port::A, 6, PinMode::Alt(5));
     let _mosi = Pin::new(Port::A, 7, PinMode::Alt(5));
 
-    let cs = Pin::new(Port::A, 1, PinMode::Output);
+    let mut cs = Pin::new(Port::A, 1, PinMode::Output);
 
     let spi_cfg = SpiConfig {
         mode: SpiMode::mode1(),
@@ -74,13 +74,13 @@ fn main() -> ! {
     cs.set_low();
 
     unsafe {
-        spi.write_dma(&read_buf, DmaChannel::C3, Default::default(), &mut dma);
+        spi.write_dma(&write_buf, DmaChannel::C3, Default::default(), &mut dma);
         spi.read_dma(&mut read_buf, DmaChannel::C2, Default::default(), &mut dma);
     }
 
     while !dma.transfer_is_complete(DmaChannel::C2) {}
-    spi.stop_dma(DmaChannel::C2, &mut dma);
-    spi.stop_dma(DmaChannel::C3, &mut dma);
+    // spi.stop_dma(DmaChannel::C2, &mut dma);
+    // spi.stop_dma(DmaChannel::C3, &mut dma);
 
     cs.set_high();
 
@@ -121,10 +121,8 @@ fn DMA1_CH3() {
         dma.clear_interrupt(DmaChannel::C3, DmaInterrupt::TransferComplete);
         spi.stop_dma(DmaChannel::C3, dma);
 
-        unsafe {
-            // Set CS high as required.
-            // (*pac::GPIOB::ptr()).bsrr.write(|w| w.bits(1 << 15));
-        }
+        // Set CS high.
+        gpio::set_high(Port::A, 1);
     })
 }
 
@@ -132,17 +130,15 @@ fn DMA1_CH3() {
 /// This interrupt fires when a DMA read is complete
 fn DMA1_CH2() {
     free(|cs| {
-        defmt::println!("SPI DMA STOPPED");
+        defmt::println!("SPI DMA read complete");
         access_global!(DMA, dma, cs);
         access_global!(SPI, spi, cs);
 
         dma.clear_interrupt(DmaChannel::C2, DmaInterrupt::TransferComplete);
         spi.stop_dma(DmaChannel::C2, dma);
 
-        unsafe {
-            // Set CS high as required.
-            // (*pac::GPIOB::ptr()).bsrr.write(|w| w.bits(1 << 15));
-        }
+        // Set CS high.
+        gpio::set_high(Port::A, 1);
     })
 }
 

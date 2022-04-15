@@ -551,6 +551,7 @@ where
     pub fn write(&mut self, words: &[u8]) -> Result<(), Error> {
         for word in words {
             nb::block!(self.write_one(word.clone()))?;
+            // nb::block!(self.write_one(word))?; // todo: Test this without clone once you have SPI working.
             nb::block!(self.read())?;
         }
 
@@ -561,6 +562,7 @@ where
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
     pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<(), Error> {
         for word in words.iter_mut() {
+            // nb::block!(self.write_one(word))?; // todo: See note above.
             nb::block!(self.write_one(word.clone()))?;
             *word = nb::block!(self.read())?;
         }
@@ -582,6 +584,8 @@ where
     {
         // Static write and read buffers?
         let (ptr, len) = (buf.as_ptr(), buf.len());
+
+        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
 
         // todo: Accept u16 words too.
         // todo: Pri and Circular as args?
@@ -625,8 +629,6 @@ where
             channel_cfg,
         );
 
-        // atomic::compiler_fence(Ordering::Release);  // todo ?
-
         // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
         #[cfg(not(feature = "h7"))]
         self.regs.cr2.modify(|_, w| w.txdmaen().set_bit());
@@ -635,7 +637,6 @@ where
 
         // 4. Enable the SPI by setting the SPE bit.
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
-        // (todo: Should be already set. Should we disable it at the top of this fn just in case?)
     }
 
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
@@ -653,7 +654,7 @@ where
         // todo: Accept u16 words too.
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
-        // atomic::compiler_fence(Ordering::Release);  // todo ?
+        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
 
         #[cfg(not(feature = "h7"))]
         self.regs.cr2.modify(|_, w| w.rxdmaen().set_bit());
@@ -687,11 +688,97 @@ where
         );
 
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
-
-        // todo: Set rxne or something to start?
     }
 
-    // todo: pub fn transfer_dma()?
+    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
+    /// Transfer data from DMA; this is the basic reading API. It performs a write with register data,
+    /// and reads to a separate buf
+    pub unsafe fn transfer_dma<D>(
+        &mut self,
+        buf_write: &[u8],
+        buf_read: &mut [u8],
+        channel_write: DmaChannel,
+        channel_read: DmaChannel,
+        channel_cfg_write: ChannelCfg,
+        channel_cfg_read: ChannelCfg,
+        dma: &mut Dma<D>,
+    ) where
+        D: Deref<Target = dma_p::RegisterBlock>,
+    {
+        // todo: Accept u16 words too.
+        let (ptr_write, len_write) = (buf_write.as_ptr(), buf_write.len());
+        let (ptr_read, len_read) = (buf_read.as_mut_ptr(), buf_read.len());
+
+        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+
+        // todo: DRY here, with `write_dma`, and `read_dma`.
+
+        #[cfg(any(feature = "f3", feature = "l4"))]
+        let channel_write = R::write_chan();
+        #[cfg(feature = "l4")]
+        R::write_sel(dma);
+        
+        #[cfg(any(feature = "f3", feature = "l4"))]
+        let channel_read = R::read_chan();
+        #[cfg(feature = "l4")]
+        R::read_sel(dma);
+
+        #[cfg(feature = "h7")]
+        let periph_addr_write = &self.regs.txdr as *const _ as u32;
+        #[cfg(not(feature = "h7"))]
+        let periph_addr_write = &self.regs.dr as *const _ as u32;
+
+        #[cfg(feature = "h7")]
+        let periph_addr_read = &self.regs.rxdr as *const _ as u32;
+        #[cfg(not(feature = "h7"))]
+        let periph_addr_read = &self.regs.dr as *const _ as u32;
+
+        #[cfg(feature = "h7")]
+        let num_data_write = len_write as u32;
+        #[cfg(not(feature = "h7"))]
+        let num_data_write = len_write as u16;
+
+        #[cfg(feature = "h7")]
+        let num_data_read = len_read as u32;
+        #[cfg(not(feature = "h7"))]
+        let num_data_read = len_read as u16;
+
+        // Be careful - order of enabling Rx and Tx may matter, along with other things like when we
+        // enable the channels, and the SPI periph.
+        #[cfg(not(feature = "h7"))]
+        self.regs.cr2.modify(|_, w| w.rxdmaen().set_bit());
+        #[cfg(feature = "h7")]
+        self.regs.cfg1.modify(|_, w| w.rxdmaen().set_bit());
+
+        dma.cfg_channel(
+            channel_write,
+            periph_addr_write,
+            ptr_write as u32,
+            num_data_write,
+            dma::Direction::ReadFromMem,
+            dma::DataSize::S8,
+            dma::DataSize::S8,
+            channel_cfg_write,
+        );
+
+        dma.cfg_channel(
+            channel_read,
+            periph_addr_read,
+            ptr_read as u32,
+            num_data_read,
+            dma::Direction::ReadFromPeriph,
+            dma::DataSize::S8,
+            dma::DataSize::S8,
+            channel_cfg_read,
+        );
+
+        #[cfg(not(feature = "h7"))]
+        self.regs.cr2.modify(|_, w| w.txdmaen().set_bit());
+        #[cfg(feature = "h7")]
+        self.regs.cfg1.modify(|_, w| w.txdmaen().set_bit());
+
+        self.regs.cr1.modify(|_, w| w.spe().set_bit());
+    }
 
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Stop a DMA transfer. Stops the channel, and disables the `txdmaen` and `rxdmaen` bits.
@@ -705,7 +792,7 @@ where
         // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
         dma.stop(channel);
         // 2. Disable the SPI by following the SPI disable procedure:
-        // self.disable(); // todo: This probably isn't required.
+        // self.disable();
         // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
         // SPI_CR2 register, if DMA Tx and/or DMA Rx are used.
         self.regs.cr2.modify(|_, w| {

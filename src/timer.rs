@@ -1296,8 +1296,6 @@ macro_rules! cc_1_channel {
                             #[cfg(not(feature = "f4"))]
                             w.oc1m_3().bit((mode as u8) >> 3 != 0);
                             w.oc1m().bits((mode as u8) & 0b111)
-
-
                         });
                     }
                     _ => panic!()
