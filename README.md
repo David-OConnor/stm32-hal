@@ -81,6 +81,11 @@ demonstrates how to read audio from a digital microphone, output it to headphone
 to do this efficiently. It conducts minimal processing, but can be modified to process using DSP between input and output.
 This example uses RTIC.
 
+The [SPI IMU filtered example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/spi_imu_filtered.rs)
+demonstrates how to configure an external IMU (3-axis accelerometer and gyroscope) over SPI, read from multiple
+registers using a single SPI transfer using DMA as soon as data is ready, and apply digital filtering using the
+CMSIS-DSP library.
+
 Additional examples in the [examples folder](https://github.com/David-OConnor/stm32-hal/tree/main/examples) demonstrate
 how to use various STM32 peripherals; most of these examples focus on a single peripheral.
 
