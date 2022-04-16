@@ -24,7 +24,9 @@ use stm32_hal2::{
     spi::{self, BaudRate, Spi, SpiConfig, SpiMode},
 };
 
-static mut SPI_READ_BUF: [u8; 3] = [0; 3];
+// Byte 0 is for the address we pass in the `write` transfer; relevant data is in the rest of
+// the values.
+static mut SPI_READ_BUF: [u8; 4] = [0; 4];
 
 make_globals!((SPI, Spi<SPI1>), (DMA, Dma<DMA1>),);
 
@@ -51,6 +53,7 @@ fn main() -> ! {
         // `SpiConfig::default` is mode 0, full duplex, with software CS.
         ..Default::default()
     };
+
     // Alternatively, we can configure Mode py polarity and phase:
     // mode: SpiMode {
     //     polarity: SpiPolarity::IdleLow,
@@ -77,12 +80,14 @@ fn main() -> ! {
 
         // Read (transfer) from SPI, using DMA.
         spi.transfer_dma(
-            &[0x69, 0x70, 0x71], // Write buffer, with the registers we'd like to access.
-            &mut SPI_READ_BUF,   // Read buf, where the data will go
-            DmaChannel::C1,      // Write channel
-            DmaChannel::C2,      // Read channel
-            Default::Deafult,    // Write channel config
-            Default::default(),  // Read channel config
+            // Write buffer, starting with the registers we'd like to access, and 0-padded to
+            // read 3 bytes.
+            &[0x69, 0, 0, 0],
+            &mut SPI_READ_BUF,  // Read buf, where the data will go
+            DmaChannel::C1,     // Write channel
+            DmaChannel::C2,     // Read channel
+            Default::Deafult,   // Write channel config
+            Default::default(), // Read channel config
             &mut dma,
         );
     }
@@ -128,6 +133,7 @@ fn DMA1_CH2() {
         spi.stop_dma(DmaChannel::C2, dma);
 
         unsafe {
+            // Ignore byte 0, which is the reg we passed during the write.
             println!("Data read: {:?}", SPI_READ_BUF);
         }
 

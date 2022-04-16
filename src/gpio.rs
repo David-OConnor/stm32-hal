@@ -19,6 +19,13 @@ use crate::{
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
 
+#[cfg(not(any(
+    feature = "g0",
+    feature = "f4",
+    feature = "l5",
+    feature = "f3",
+    feature = "l4"
+)))]
 use core::ops::Deref;
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -31,7 +38,8 @@ use crate::pac::dma as dma_p;
     feature = "l4",
     feature = "g4",
     feature = "h7",
-    feature = "wb"
+    feature = "wb",
+    feature = "wl",
 ))]
 use crate::pac::dma1 as dma_p;
 

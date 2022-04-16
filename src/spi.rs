@@ -818,7 +818,7 @@ where
 // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> FullDuplex<u8> for Spi<R>
 where
-    R: Deref<Target = pac::spi1::RegisterBlock> + DmaPeriph + RccPeriph,
+    R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
 {
     type Error = Error;
 
@@ -834,13 +834,13 @@ where
 #[cfg(feature = "embedded-hal")]
 // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> embedded_hal::blocking::spi::transfer::Default<u8> for Spi<R> where
-    R: Deref<Target = pac::spi1::RegisterBlock> + DmaPeriph + RccPeriph
+    R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph
 {
 }
 
 #[cfg(feature = "embedded-hal")]
 // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> embedded_hal::blocking::spi::write::Default<u8> for Spi<R> where
-    R: Deref<Target = pac::spi1::RegisterBlock> + DmaPeriph + RccPeriph
+    R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph
 {
 }

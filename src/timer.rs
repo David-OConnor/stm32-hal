@@ -14,7 +14,7 @@ use cortex_m::interrupt::free;
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::{
     blocking::delay::{DelayMs, DelayUs},
-    timer::{CountDown, Periodic},
+    timer::Periodic,
 };
 
 // todo: LPTIM (low-power timers) and HRTIM (high-resolution timers). And Advanced control functionality
@@ -36,7 +36,8 @@ use crate::pac::dma as dma_p;
     feature = "l4",
     feature = "g4",
     feature = "h7",
-    feature = "wb"
+    feature = "wb",
+    feature = "wl"
 ))]
 use crate::pac::dma1 as dma_p;
 
@@ -700,32 +701,6 @@ macro_rules! make_timer {
         #[cfg(feature = "embedded-hal")]
         // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl Periodic for Timer<pac::$TIMX> {}
-
-        // todo: Seems to need Void?
-        // #[cfg(feature = "embedded-hal")]
-        // // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
-        // impl CountDown for Timer<pac::$TIMX> {
-        //     type Time = f32;
-        //
-        //     fn start<F: Into<f32>>(&mut self, freq: F) {
-        //         self.disable();
-        //
-        //         self.set_freq(freq.into()).ok();
-        //
-        //         self.reinitialize();
-        //
-        //         self.enable();
-        //     }
-        //
-        //     fn wait(&mut self) -> nb::Result<(), WaitError> {
-        //         if self.regs.sr.read().uif().bit_is_clear() {
-        //             Err(nb::Error::WouldBlock)
-        //         } else {
-        //             self.clear_interrupt(TimerInterrupt::Update);
-        //             Ok(())
-        //         }
-        //     }
-        // }
     }
 }
 
@@ -794,14 +769,14 @@ macro_rules! cc_4_channels {
                 match channel {
                     TimChannel::C1 => {
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f4", feature = "l5")))]
+                            #[cfg(not(any(feature = "f4", feature = "l5", feature = "wb")))]
                             w.oc1m_3().bit((mode as u8) >> 3 != 0);
                             w.oc1m().bits((mode as u8) & 0b111)
                         });
                     }
                     TimChannel::C2 => {
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f4", feature = "l5")))]
+                            #[cfg(not(any(feature = "f4", feature = "l5", feature = "wb")))]
                             w.oc2m_3().bit((mode as u8) >> 3 != 0);
                             w.oc2m().bits((mode as u8) & 0b111)
 
@@ -809,7 +784,7 @@ macro_rules! cc_4_channels {
                     }
                     TimChannel::C3 => {
                         self.regs.ccmr2_output().modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f4", feature = "l5")))]
+                            #[cfg(not(any(feature = "f4", feature = "l5", feature = "wb")))]
                             w.oc3m_3().bit((mode as u8) >> 3 != 0);
                             w.oc3m().bits((mode as u8) & 0b111)
 
@@ -818,7 +793,7 @@ macro_rules! cc_4_channels {
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
                         self.regs.ccmr2_output().modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f4", feature = "l5")))]
+                            #[cfg(not(any(feature = "f4", feature = "l5", feature = "wb")))]
                             w.oc4m_3().bit((mode as u8) >> 3 != 0);
                             w.oc4m().bits((mode as u8) & 0b111)
 
@@ -1076,7 +1051,7 @@ macro_rules! cc_2_channels {
                 match channel {
                     TimChannel::C1 => {
                        self.regs.ccmr1_output().modify(|_, w| unsafe {
-                           #[cfg(not(any(feature = "f4", feature = "l5")))]
+                        #[cfg(not(any(feature = "f4", feature = "l5", feature = "wb")))]
                            w.oc1m_3().bit((mode as u8) >> 3 != 0);
                            w.oc1m().bits((mode as u8) & 0b111)
 
@@ -1084,7 +1059,7 @@ macro_rules! cc_2_channels {
                     }
                     TimChannel::C2 => {
                       self.regs.ccmr1_output().modify(|_, w| unsafe {
-                          #[cfg(not(any(feature = "f4", feature = "l5")))]
+                        #[cfg(not(any(feature = "f4", feature = "l5", feature = "wb")))]
                           w.oc2m_3().bit((mode as u8) >> 3 != 0);
                           w.oc2m().bits((mode as u8) & 0b111)
 
@@ -1293,8 +1268,8 @@ macro_rules! cc_1_channel {
                     TimChannel::C1 => {
                         #[cfg(not(feature = "g070"))] // todo: PAC bug?
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            // todo: L5 is probably due to a PAC error. Has oc1m_2.
-                            #[cfg(not(any(feature = "f4", feature = "l5")))]
+                            // todo: L5/WB is probably due to a PAC error. Has oc1m_2.
+                            #[cfg(not(any(feature = "f4", feature = "l5", feature = "wb")))]
                             w.oc1m_3().bit((mode as u8) >> 3 != 0);
                             w.oc1m().bits((mode as u8) & 0b111)
                         });
