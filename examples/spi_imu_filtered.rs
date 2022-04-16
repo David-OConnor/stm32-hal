@@ -93,13 +93,13 @@ mod imu {
     }
 
     /// Output: m/s^2
-    pub fn interpret_accel(accel: i16) -> f32 {
-        (accel as f32 / i16::MAX as f32) * ACCEL_FULLSCALE
+    pub fn interpret_accel(val: i16) -> f32 {
+        (val as f32 / i16::MAX as f32) * ACCEL_FULLSCALE
     }
 
     /// Output: rad/s
-    pub fn interpret_gyro(accel: i16) -> f32 {
-        (accel as f32 / i16::MAX as f32) * ACCEL_FULLSCALE
+    pub fn interpret_gyro(val: i16) -> f32 {
+        (val as f32 / i16::MAX as f32) * GYRO_FULLSCALE
     }
 
     /// Represents sensor readings from a 6-axis accelerometer + gyro.
@@ -338,7 +338,7 @@ pub fn setup_pins() {
     mosi1.output_speed(OutputSpeed::High);
 
     // We assume here the interrupt config uses default settings active low, push pull, pulsed.
-    let mut imu_interrupt = Pin::new(Port::C, 4, PinMode::Input); // PA4 for IMU interrupt.
+    let mut imu_interrupt = Pin::new(Port::C, 4, PinMode::Input);
     imu_interrupt.output_type(OutputType::OpenDrain);
     imu_interrupt.pull(Pull::Up);
     imu_interrupt.enable_interrupt(Edge::Falling);
@@ -395,8 +395,8 @@ mod app {
 
         // Assign appropriate DMA channels to SPI transmit and receive. (Required on DMAMUX-supporting
         // MCUs only; channels are hard-coded on older ones).
-        dma::mux(DmaChannel::C1, DmaInput::Spi1Tx, mux);
-        dma::mux(DmaChannel::C2, DmaInput::Spi1Rx, mux);
+        dma::mux(DmaChannel::C1, DmaInput::Spi1Tx, &dp.DMAMUX);
+        dma::mux(DmaChannel::C2, DmaInput::Spi1Rx, &dp.DMAMUX);
 
         // We use Spi transfer complete to know when our readings are ready.
         dma.enable_interrupt(DmaChannel::C2, DmaInterrupt::TransferComplete);
@@ -431,7 +431,7 @@ mod app {
         });
     }
 
-    #[task(binds = DMA1_CH2, shared = [dma, spi1, cs_imu], priority = 2)]
+    #[task(binds = DMA1_CH2, shared = [dma, spi1, cs_imu, imu_filters], priority = 2)]
     /// This ISR Handles received data from the IMU, after DMA transfer is complete. This occurs whenever
     /// we receive IMU data; it triggers the inner PID loop.
     fn imu_tc_isr(mut cx: imu_tc_isr::Context) {
@@ -448,7 +448,7 @@ mod app {
         });
 
         let mut imu_data =
-            sensor_fusion::ImuReadings::from_buffer(unsafe { &sensor_fusion::IMU_READINGS });
+            imu::ImuReadings::from_buffer(unsafe { &IMU_READINGS });
 
         // Apply our lowpass filter.
         cx.shared.imu_filters.lock(|imu_filters| {
