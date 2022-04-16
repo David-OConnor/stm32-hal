@@ -10,7 +10,7 @@ use cortex_m::{self, asm, delay::Delay};
 use stm32_hal2::{
     clocks::{self, Clocks},
     dma::{self, ChannelCfg, Dma, DmaChannel, DmaInterrupt},
-    gpio::{self, Edge, OutputType, Pin, PinMode, Port, Pull},
+    gpio::{self, Edge, OutputType, OutputSpeed, Pin, PinMode, Port, Pull},
     pac::{self, DMA1, SPI1},
     spi::{BaudRate, Spi, SpiConfig, SpiMode},
 };
@@ -30,7 +30,6 @@ use panic_probe as _;
 pub static mut IMU_READINGS: [u8; 13] = [0; 13];
 
 /// Used to satisfy RTIC resource Send requirements.
-/// todo: Move to a `util.rs`?
 pub struct IirInstWrapper {
     pub inner: dsp_sys::arm_biquad_casd_df1_inst_f32,
 }
@@ -173,7 +172,7 @@ mod filter {
     static mut FILTER_STATE_GYRO_YAW: [f32; 4] = [0.; 4];
 
     // Demonstration of how to generate these coefficients using Python + Scipy.
-    // filter_ = signal.iirfilter(1, 40, btype="lowpass", ftype="bessel", output="sos", fs=8_000)
+    // filter_ = scipy.signal.iirfilter(1, 40, btype="lowpass", ftype="bessel", output="sos", fs=8_000)
     // coeffs = []
     // for row in filter_:
     //     coeffs.extend([row[0] / row[3], row[1] / row[3], row[2] / row[3], -row[4] / row[3], -row[5] / row[3]])
@@ -186,7 +185,7 @@ mod filter {
         -0.0,
     ];
 
-    // filter_ = signal.iirfilter(1, 400, btype="lowpass", ftype="bessel", output="sos", fs=8_000)
+    // filter_ = signal.iirfilter(1, 40, btype="lowpass", ftype="bessel", output="sos", fs=8_000)
     static COEFFS_LP_GYRO: [f32; 5] = [
         0.015466291403103363,
         0.015466291403103363,
@@ -334,7 +333,10 @@ pub fn setup_pins() {
     let mut miso1 = Pin::new(Port::A, 6, PinMode::Alt(5));
     let mut mosi1 = Pin::new(Port::A, 7, PinMode::Alt(5));
 
-    // Used to trigger a PID update based on new IMU data.
+    sck1.output_speed(OutputSpeed::High);
+    miso1.output_speed(OutputSpeed::High);
+    mosi1.output_speed(OutputSpeed::High);
+
     // We assume here the interrupt config uses default settings active low, push pull, pulsed.
     let mut imu_interrupt = Pin::new(Port::C, 4, PinMode::Input); // PA4 for IMU interrupt.
     imu_interrupt.output_type(OutputType::OpenDrain);
