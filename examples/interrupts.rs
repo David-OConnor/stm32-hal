@@ -99,10 +99,8 @@ fn main() -> ! {
 #[interrupt]
 /// GPIO interrupt
 fn EXTI0() {
-    unsafe {
-        // Clear the interrupt flag, to prevent continous firing.
-        (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr0().set_bit());
-    }
+    // Clear the interrupt flag, to prevent continous firing.
+    gpio::clear_exti_interrupt(0);
 
     free(|cs| {
         let bouncing = BOUNCING.borrow(cs);
@@ -128,8 +126,8 @@ fn EXTI0() {
 fn RTC_WKUP() {
     free(|cs| {
         unsafe {
-            // Reset pending bit for interrupt line
-            (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr20().set_bit());
+            // Reset pending bit for interrupt line; RTC uses EXTI line 20.
+            gpio::clear_exti_interrupt(20);
 
             // Clear the wakeup timer flag, after disabling write protections.
             (*pac::RTC::ptr()).wpr.write(|w| w.bits(0xCA));

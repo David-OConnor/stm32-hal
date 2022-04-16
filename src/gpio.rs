@@ -12,7 +12,7 @@ use core::convert::Infallible;
 use cortex_m::interrupt::free;
 
 use crate::{
-    pac::{self, RCC},
+    pac::{self, EXTI, RCC},
     rcc_en_reset, // todo?
 };
 
@@ -1040,6 +1040,128 @@ fn set_state(port: Port, pin: u8, value: PinState) {
         offset,
         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     );
+}
+
+/// Clear an EXTI interrupt, lines 0 - 15. Note that this function currently doesn't support
+/// higher extis, but will work for all GPIO interrupts.
+pub fn clear_exti_interrupt(line: u8) {
+    // todo: Macro to avoid DRY?
+    unsafe {
+        cfg_if! {
+            if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
+                (*EXTI::ptr()).c1pr1.modify(|_, w| {
+                    match line {
+                        0 => w.pr0().set_bit(),
+                        1 => w.pr1().set_bit(),
+                        2 => w.pr2().set_bit(),
+                        3 => w.pr3().set_bit(),
+                        4 => w.pr4().set_bit(),
+                        5 => w.pr5().set_bit(),
+                        6 => w.pr6().set_bit(),
+                        7 => w.pr7().set_bit(),
+                        8 => w.pr8().set_bit(),
+                        9 => w.pr9().set_bit(),
+                        10 => w.pr10().set_bit(),
+                        11 => w.pr11().set_bit(),
+                        12 => w.pr12().set_bit(),
+                        13 => w.pr13().set_bit(),
+                        14 => w.pr14().set_bit(),
+                        15 => w.pr15().set_bit(),
+                        _ => panic!(),
+                    }
+                });
+            } else if #[cfg(feature = "h7")] {
+                (*EXTI::ptr()).d3pmr1.modify(|_, w| {
+                    match line {
+                        0 => w.mr0().set_bit(),
+                        1 => w.mr1().set_bit(),
+                        2 => w.mr2().set_bit(),
+                        3 => w.mr3().set_bit(),
+                        4 => w.mr4().set_bit(),
+                        5 => w.mr5().set_bit(),
+                        6 => w.mr6().set_bit(),
+                        7 => w.mr7().set_bit(),
+                        8 => w.mr8().set_bit(),
+                        9 => w.mr9().set_bit(),
+                        10 => w.mr10().set_bit(),
+                        11 => w.mr11().set_bit(),
+                        12 => w.mr12().set_bit(),
+                        13 => w.mr13().set_bit(),
+                        14 => w.mr14().set_bit(),
+                        15 => w.mr15().set_bit(),
+                        _ => panic!(),
+                    }
+                });
+            } else if #[cfg(feature = "l5")] {
+                (*EXTI::ptr()).rpr1.modify(|_, w| {
+                    match line {
+                        0 => w.rpif0().set_bit(),
+                        1 => w.rpif1().set_bit(),
+                        2 => w.rpif2().set_bit(),
+                        3 => w.rpif3().set_bit(),
+                        4 => w.rpif4().set_bit(),
+                        5 => w.rpif5().set_bit(),
+                        6 => w.rpif6().set_bit(),
+                        7 => w.rpif7().set_bit(),
+                        8 => w.rpif8().set_bit(),
+                        9 => w.rpif9().set_bit(),
+                        10 => w.rpif10().set_bit(),
+                        11 => w.rpif11().set_bit(),
+                        12 => w.rpif12().set_bit(),
+                        13 => w.rpif13().set_bit(),
+                        14 => w.rpif14().set_bit(),
+                        15 => w.rpif15().set_bit(),
+                        _ => panic!(),
+                    }
+                });
+            } else if #[cfg(feature = "f4")] {
+                (*EXTI::ptr()).pr.modify(|_, w| {
+                    match line {
+                        0 => w.pr0().set_bit(),
+                        1 => w.pr1().set_bit(),
+                        2 => w.pr2().set_bit(),
+                        3 => w.pr3().set_bit(),
+                        4 => w.pr4().set_bit(),
+                        5 => w.pr5().set_bit(),
+                        6 => w.pr6().set_bit(),
+                        7 => w.pr7().set_bit(),
+                        8 => w.pr8().set_bit(),
+                        9 => w.pr9().set_bit(),
+                        10 => w.pr10().set_bit(),
+                        11 => w.pr11().set_bit(),
+                        12 => w.pr12().set_bit(),
+                        13 => w.pr13().set_bit(),
+                        14 => w.pr14().set_bit(),
+                        15 => w.pr15().set_bit(),
+                        _ => panic!(),
+                    }
+                });
+            }
+            else {
+                (*EXTI::ptr()).pr1.modify(|_, w| {
+                    match line {
+                        0 => w.pif0().set_bit(),
+                        1 => w.pif1().set_bit(),
+                        2 => w.pif2().set_bit(),
+                        3 => w.pif3().set_bit(),
+                        4 => w.pif4().set_bit(),
+                        5 => w.pif5().set_bit(),
+                        6 => w.pif6().set_bit(),
+                        7 => w.pif7().set_bit(),
+                        8 => w.pif8().set_bit(),
+                        9 => w.pif9().set_bit(),
+                        10 => w.pif10().set_bit(),
+                        11 => w.pif11().set_bit(),
+                        12 => w.pif12().set_bit(),
+                        13 => w.pif13().set_bit(),
+                        14 => w.pif14().set_bit(),
+                        15 => w.pif15().set_bit(),
+                        _ => panic!(),
+                    }
+                });
+            }
+        }
+    }
 }
 
 const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {

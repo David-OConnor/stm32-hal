@@ -24,6 +24,8 @@ use stm32_hal2::{
     spi::{self, BaudRate, Spi, SpiConfig, SpiMode},
 };
 
+static mut SPI_READ_BUF: [u8; 3] = [0; 3];
+
 make_globals!((SPI, Spi<SPI1>), (DMA, Dma<DMA1>),);
 
 #[entry]
@@ -65,28 +67,31 @@ fn main() -> ! {
     // Set up DMA, for nonblocking (generally faster) conversion transfers:
     let mut dma = Dma::new(&mut dp.DMA1, &dp.RCC);
 
-    // We read 3 bytes from the `0x9f` register.
-    let mut write_buf = [0x80, 100];
-    let mut read_buf = [0x9f, 0, 0, 0];
-
     // todo: Write example.
 
     cs.set_low();
 
     unsafe {
-        spi.write_dma(&write_buf, DmaChannel::C3, Default::default(), &mut dma);
-        spi.read_dma(&mut read_buf, DmaChannel::C2, Default::default(), &mut dma);
+        // Write to SPI, using DMA.
+        // spi.write_dma(&write_buf, DmaChannel::C1, Default::default(), &mut dma);
+
+        // Read (transfer) from SPI, using DMA.
+        spi.transfer_dma(
+            &[0x69, 0x70, 0x71], // Write buffer, with the registers we'd like to access.
+            &mut SPI_READ_BUF,   // Read buf, where the data will go
+            DmaChannel::C1,      // Write channel
+            DmaChannel::C2,      // Read channel
+            Default::Deafult,    // Write channel config
+            Default::default(),  // Read channel config
+            &mut dma,
+        );
     }
 
-    while !dma.transfer_is_complete(DmaChannel::C2) {}
-    // spi.stop_dma(DmaChannel::C2, &mut dma);
-    // spi.stop_dma(DmaChannel::C3, &mut dma);
-
-    cs.set_high();
-
-    defmt::println!("Data: {}", read_buf);
-
     // Alternatively, use the blocking, non-DMA SPI API` (Also supports `embedded-hal` traits):
+
+    // We read 3 bytes from the `0x9f` register.
+    let mut write_buf = [0x80, 100];
+    let mut read_buf = [0x9f, 0, 0, 0];
     spi.write(&write_buf).ok();
     spi.transfer(&mut read_buf).ok();
     defmt::println!("Data: {}", read_buf);
@@ -97,10 +102,10 @@ fn main() -> ! {
         SPI.borrow(cs).replace(Some(spi));
     });
 
-    // Unmask the interrupt line. See the `DMA_CH2` and `DMA_CH3` interrupt handlers below.
+    // Unmask the interrupt line for DMA read complete. See the `DMA_CH3` interrupt handlers below,
+    // where we set CS high, terminal the DMA read, and display the data read.
     unsafe {
         NVIC::unmask(pac::Interrupt::DMA1_CH2);
-        NVIC::unmask(pac::Interrupt::DMA1_CH3);
     }
 
     // Alternatively, we can take readings without DMA. This provides a simpler, memory-safe API,
@@ -109,21 +114,6 @@ fn main() -> ! {
     loop {
         low_power::sleep_now();
     }
-}
-
-#[interrupt]
-/// This interrupt fires when a DMA transmission is complete
-fn DMA1_CH3() {
-    free(|cs| {
-        access_global!(DMA, dma, cs);
-        access_global!(SPI, spi, cs);
-
-        dma.clear_interrupt(DmaChannel::C3, DmaInterrupt::TransferComplete);
-        spi.stop_dma(DmaChannel::C3, dma);
-
-        // Set CS high.
-        gpio::set_high(Port::A, 1);
-    })
 }
 
 #[interrupt]
@@ -136,6 +126,10 @@ fn DMA1_CH2() {
 
         dma.clear_interrupt(DmaChannel::C2, DmaInterrupt::TransferComplete);
         spi.stop_dma(DmaChannel::C2, dma);
+
+        unsafe {
+            println!("Data read: {:?}", SPI_READ_BUF);
+        }
 
         // Set CS high.
         gpio::set_high(Port::A, 1);

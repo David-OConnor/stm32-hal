@@ -4,7 +4,6 @@
 #![no_std]
 #![no_main]
 
-
 use bxcan::{
     filter::Mask32,
     {Frame, StandardId},
@@ -17,7 +16,7 @@ use stm32_hal2::{
     self,
     can::Can,
     clocks::{self, ApbPrescaler, Clocks, InputSrc, PllSrc, Pllp},
-    gpio::{Pin, PinMode, Port, OutputType},
+    gpio::{OutputType, Pin, PinMode, Port},
     pac,
 };
 
@@ -83,7 +82,7 @@ fn main() -> ! {
     test[7] = 7;
     let test_frame = Frame::new_data(StandardId::new(id).unwrap(), test);
 
-    loop { 
+    loop {
         test[0] = count;
         let test_frame = Frame::new_data(StandardId::new(id).unwrap(), test);
         block!(can.transmit(&test_frame)).unwrap();
@@ -91,7 +90,7 @@ fn main() -> ! {
             count += 1;
         } else {
             count = 0;
-        }   
+        }
     }
 }
 
@@ -108,4 +107,3 @@ pub fn exit() -> ! {
         cortex_m::asm::bkpt();
     }
 }
-

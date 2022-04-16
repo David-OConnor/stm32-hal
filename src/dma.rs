@@ -1568,7 +1568,7 @@ pub fn mux(channel: DmaChannel, input: DmaInput, mux: &mut DMAMUX) {
             DmaChannel::C8 => mux.c7cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
         }
         #[cfg(any(feature = "g070", feature = "g071", feature = "g081"))]
-            // todo: Do we also need to offset by one on G4?
+        // todo: Do we also need to offset by one on G4?
         match channel {
             DmaChannel::C1 => mux
                 .dmamux_c1cr

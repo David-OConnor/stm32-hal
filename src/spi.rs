@@ -691,8 +691,8 @@ where
     }
 
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
-    /// Transfer data from DMA; this is the basic reading API. It performs a write with register data,
-    /// and reads to a separate buf
+    /// Transfer data from DMA; this is the basic reading API, using both write and read transfers:
+    /// It performs a write with register data, and reads to a buffer.
     pub unsafe fn transfer_dma<D>(
         &mut self,
         buf_write: &[u8],
@@ -717,7 +717,7 @@ where
         let channel_write = R::write_chan();
         #[cfg(feature = "l4")]
         R::write_sel(dma);
-        
+
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel_read = R::read_chan();
         #[cfg(feature = "l4")]

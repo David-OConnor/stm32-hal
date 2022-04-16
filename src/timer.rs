@@ -794,14 +794,14 @@ macro_rules! cc_4_channels {
                 match channel {
                     TimChannel::C1 => {
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            #[cfg(not(feature = "f4"))]
+                            #[cfg(not(any(feature = "f4", feature = "l5")))]
                             w.oc1m_3().bit((mode as u8) >> 3 != 0);
                             w.oc1m().bits((mode as u8) & 0b111)
                         });
                     }
                     TimChannel::C2 => {
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            #[cfg(not(feature = "f4"))]
+                            #[cfg(not(any(feature = "f4", feature = "l5")))]
                             w.oc2m_3().bit((mode as u8) >> 3 != 0);
                             w.oc2m().bits((mode as u8) & 0b111)
 
@@ -809,7 +809,7 @@ macro_rules! cc_4_channels {
                     }
                     TimChannel::C3 => {
                         self.regs.ccmr2_output().modify(|_, w| unsafe {
-                            #[cfg(not(feature = "f4"))]
+                            #[cfg(not(any(feature = "f4", feature = "l5")))]
                             w.oc3m_3().bit((mode as u8) >> 3 != 0);
                             w.oc3m().bits((mode as u8) & 0b111)
 
@@ -818,7 +818,7 @@ macro_rules! cc_4_channels {
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
                         self.regs.ccmr2_output().modify(|_, w| unsafe {
-                            #[cfg(not(feature = "f4"))]
+                            #[cfg(not(any(feature = "f4", feature = "l5")))]
                             w.oc4m_3().bit((mode as u8) >> 3 != 0);
                             w.oc4m().bits((mode as u8) & 0b111)
 
@@ -1076,7 +1076,7 @@ macro_rules! cc_2_channels {
                 match channel {
                     TimChannel::C1 => {
                        self.regs.ccmr1_output().modify(|_, w| unsafe {
-                           #[cfg(not(feature = "f4"))]
+                           #[cfg(not(any(feature = "f4", feature = "l5")))]
                            w.oc1m_3().bit((mode as u8) >> 3 != 0);
                            w.oc1m().bits((mode as u8) & 0b111)
 
@@ -1084,7 +1084,7 @@ macro_rules! cc_2_channels {
                     }
                     TimChannel::C2 => {
                       self.regs.ccmr1_output().modify(|_, w| unsafe {
-                          #[cfg(not(feature = "f4"))]
+                          #[cfg(not(any(feature = "f4", feature = "l5")))]
                           w.oc2m_3().bit((mode as u8) >> 3 != 0);
                           w.oc2m().bits((mode as u8) & 0b111)
 
@@ -1293,7 +1293,8 @@ macro_rules! cc_1_channel {
                     TimChannel::C1 => {
                         #[cfg(not(feature = "g070"))] // todo: PAC bug?
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            #[cfg(not(feature = "f4"))]
+                            // todo: L5 is probably due to a PAC error. Has oc1m_2.
+                            #[cfg(not(any(feature = "f4", feature = "l5")))]
                             w.oc1m_3().bit((mode as u8) >> 3 != 0);
                             w.oc1m().bits((mode as u8) & 0b111)
                         });
