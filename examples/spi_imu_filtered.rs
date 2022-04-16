@@ -26,10 +26,18 @@ use panic_probe as _;
 // IMU readings buffer. 3 accelerometer, and 3 gyro measurements; 2 bytes each. 0-padded on the left,
 // since that's where we pass the register
 // in the write buffer.
+// This buffer is static, to ensure it lives through the life of the program.
 pub static mut IMU_READINGS: [u8; 13] = [0; 13];
 
-///! Module for TDK ICM-426xx IMUs Stripped down in this example to include only what we need.
+/// Used to satisfy RTIC resource Send requirements.
+/// todo: Move to a `util.rs`?
+pub struct IirInstWrapper {
+    pub inner: dsp_sys::arm_biquad_casd_df1_inst_f32,
+}
+unsafe impl Send for IirInstWrapper {}
+
 mod imu {
+    ///! Module for TDK ICM-426xx IMUs. Stripped down in this example to include only what we need.
     use stm32_hal2::{gpio::Pin, pac::SPI1, spi::Spi};
 
     use cortex_m::delay::Delay;
@@ -81,7 +89,7 @@ mod imu {
 
         // (Leave default interrupt settings of active low, push pull, pulsed.)
 
-        // Enable UI data ready interrupt routed to INT1
+        // Enable UI data ready interrupt routed to the INT1 pin.
         write_one(Reg::IntSource0, 0b0000_1000, spi, cs);
     }
 
@@ -136,7 +144,7 @@ mod imu {
         unsafe {
             spi.transfer_dma(
                 &write_buf,
-                &mut IMU_READINGS,
+                &mut crate::IMU_READINGS,
                 DmaChannel::C1,
                 DmaChannel::C2,
                 Default::default(),
@@ -147,25 +155,15 @@ mod imu {
     }
 }
 
-/// Used to satisfy RTIC resource Send requirements.
-/// todo: Move to a `util.rs`?
-pub struct IirInstWrapper {
-    pub inner: dsp_sys::arm_biquad_casd_df1_inst_f32,
-}
-unsafe impl Send for IirInstWrapper {}
-
 mod filter {
     //! This module contains filtering code for the IMU, using an IIR bessel lowpass, and IIR
 
     use cmsis_dsp_api as dsp_api;
     use cmsis_dsp_sys as dsp_sys;
 
-    /// Used to satisfy RTIC resource Send requirements.
-    pub struct IirInstWrapper {
-        pub inner: dsp_sys::arm_biquad_casd_df1_inst_f32,
-    }
-    unsafe impl Send for IirInstWrapper {}
+    use crate::IirInstWrapper;
 
+    // Filter states and coefficients are static, to ensure they live through the live of the program.
     static mut FILTER_STATE_ACCEL_X: [f32; 4] = [0.; 4];
     static mut FILTER_STATE_ACCEL_Y: [f32; 4] = [0.; 4];
     static mut FILTER_STATE_ACCEL_Z: [f32; 4] = [0.; 4];
