@@ -33,7 +33,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "f4", feature = "l5")))]
-use crate::dma::{self, Dma, DmaChannel};
+use crate::dma::{self, Dma, DmaChannel, ChannelCfg};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
@@ -375,7 +375,7 @@ where
     #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub unsafe fn write_dma<D>(&mut self, buf: &[u8], channel: DmaChannel, dma: &mut Dma<D>)
+    pub unsafe fn write_dma<D>(&mut self, buf: &[u8], channel: DmaChannel, channel_cfg: ChannelCfg, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
@@ -388,8 +388,6 @@ where
         let channel = R::write_chan();
         #[cfg(feature = "l4")]
         R::write_sel(dma);
-
-        // todo: Pri and Circular as args?
 
         dma.cfg_channel(
             channel,
@@ -408,7 +406,7 @@ where
             // (Handled by `ChannelCfg::default())`
             dma::DataSize::S8,
             dma::DataSize::S8,
-            Default::default(),
+            channel_cfg,
         );
 
         // 5. Configure DMA interrupt generation after half/ full transfer as required by the
@@ -442,7 +440,7 @@ where
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub unsafe fn read_dma<D>(&mut self, buf: &mut [u8], channel: DmaChannel, dma: &mut Dma<D>)
+    pub unsafe fn read_dma<D>(&mut self, buf: &mut [u8], channel: DmaChannel, channel_cfg: ChannelCfg, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
@@ -473,7 +471,7 @@ where
             dma::Direction::ReadFromPeriph,
             dma::DataSize::S8,
             dma::DataSize::S8,
-            Default::default(),
+            channel_cfg,
         );
 
         self.regs.cr3.modify(|_, w| w.dmar().set_bit());

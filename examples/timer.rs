@@ -75,6 +75,8 @@ fn main() -> ! {
     // master timer can then be used as a prescaler for a slave timer.
     dac_timer.set_mastermode(MasterModeSelection::Update);
 
+    // todo: Burst DMA example, realistic examples of various uses of timers etc.
+
     // Unmask the interrupt line.
     unsafe {
         NVIC::unmask(pac::Interrupt::TIM3);

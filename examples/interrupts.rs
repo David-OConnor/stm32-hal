@@ -160,7 +160,7 @@ fn TIM3() {
 
         // Alternatively, if you have the timer set up in a global mutex:
         // access_global!(TIMER, timer, cs);
-        // timer.clear_interrupt();
+        // timer.clear_interrupt(TimerInterrupt::Update);
     });
 
     // Do something.

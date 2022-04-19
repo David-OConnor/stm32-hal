@@ -60,8 +60,6 @@ mod imu {
     // We use this to determine which reg to start DMA reads
     pub const READINGS_START_ADDR: u8 = 0x80 | 0x1F; // (AccelDataX1)
 
-    // https://github.com/pms67/Attitude-Estimation
-
     /// Utility function to write a single byte.
     fn write_one(reg: Reg, word: u8, spi: &mut Spi<SPI1>, cs: &mut Pin) {
         cs.set_low();
@@ -422,7 +420,7 @@ mod app {
     }
 
     /// Runs when new IMU data is ready. Trigger a DMA read.
-    #[task(binds = EXTI4, shared = [cs_imu, dma, spi1], priority = 2)]
+    #[task(binds = EXTI4, shared = [cs_imu, dma, spi1], priority = 1)]
     fn imu_data_isr(cx: imu_data_isr::Context) {
         gpio::clear_exti_interrupt(4);
 
@@ -435,12 +433,12 @@ mod app {
     /// This ISR Handles received data from the IMU, after DMA transfer is complete. This occurs whenever
     /// we receive IMU data; it triggers the inner PID loop.
     fn imu_tc_isr(mut cx: imu_tc_isr::Context) {
-        cx.shared.dma.lock(|dma| {
+        (cx.shared.dma, cx.shared.spi).lock(|dma, spi| {
             dma.clear_interrupt(DmaInterrupt::TransferComplete);
 
             // Note that these steps are mandatory, per STM32 RM.
             dma.stop(DmaChannel::C1); // spi.stop_dma only can stop a single channel atm.
-            spi1.stop_dma(DmaChannel::C2, dma);
+            spi.stop_dma(DmaChannel::C2, dma);
         });
 
         cx.shared.cs_imu.lock(|cs| {
