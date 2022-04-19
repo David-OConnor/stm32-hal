@@ -6,7 +6,7 @@
 
 use crate::{
     clocks::SpeedError,
-    pac::{FLASH, RCC},
+    pac::{self, FLASH, RCC},
     rcc_en_reset,
 };
 
@@ -548,6 +548,10 @@ pub struct Clocks {
     #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
     /// SAI1 kernel clock source selection
     pub sai1_src: SaiSrc,
+    #[cfg(feature = "g4")]
+    /// Range 1 boost mode: Used to increase regulator voltage to 1.28v, for when system
+    /// clock frequency is up to 170Mhz. Defaults to true.
+    pub boost_mode: bool,
 }
 
 // todo: On L4/5, add a way to enable the MSI for use as CLK48.
@@ -585,8 +589,26 @@ impl Clocks {
             }
         }
 
-        // TODO: these are only implemented for Vcore Rnage 1 (Normal mode as applicable)
-        // todo: Other modes, like MODE 2 (For lower max system clocks) on L4.
+        cfg_if! {
+            if #[cfg(feature = "g4")] {
+                if self.boost_mode {
+                    // The sequence to switch from Range1 normal mode to Range1 boost mode is:    
+                    // 1. The system clock must be divided by 2 using the AHB prescaler before switching to a
+                    // higher system frequency.
+                    rcc.cfgr.modify(|_, w| unsafe { w.hpre().bits(HclkPrescaler::Div2 as u8) }); 
+                    // 2. Clear the R1MODE bit is in the PWR_CR5 register.
+                    let pwr = unsafe { &(*pac::PWR::ptr()) };
+                    pwr.cr5.modify(|_, w| w.r1mode().clear_bit());
+                }
+                
+                // (Remaining steps accomplished below)
+                // 3. Adjust the number of wait states according to the new frequency target in range1 boost
+                // mode
+                // 4. Configure and switch to new system frequency.
+                // 5. Wait for at least 1us and then reconfigure the AHB prescaler to get the needed HCLK
+                // clock frequency.
+            }
+        }
 
         cfg_if! {
             if #[cfg(feature = "l4")] {  // RM section 3.3.3
@@ -655,16 +677,32 @@ impl Clocks {
                 });
             } else {  // G4. RM section 3.3.3
                 flash.acr.modify(|_, w| unsafe {
-                    if hclk <= 34_000_000 {
-                        w.latency().bits(WaitState::W0 as u8)
-                    } else if hclk <= 68_000_000 {
-                        w.latency().bits(WaitState::W1 as u8)
-                    } else if hclk <= 102_000_000 {
-                        w.latency().bits(WaitState::W2 as u8)
-                    } else if hclk <= 136_000_000 {
-                        w.latency().bits(WaitState::W3 as u8)
+                    if self.boost_mode {
+                        // Vcore Range 1 boost mode
+                        if hclk <= 34_000_000 {
+                            w.latency().bits(WaitState::W0 as u8)
+                        } else if hclk <= 68_000_000 {
+                            w.latency().bits(WaitState::W1 as u8)
+                        } else if hclk <= 102_000_000 {
+                            w.latency().bits(WaitState::W2 as u8)
+                        } else if hclk <= 136_000_000 {
+                            w.latency().bits(WaitState::W3 as u8)
+                        } else {
+                            w.latency().bits(WaitState::W4 as u8)
+                        }
                     } else {
-                        w.latency().bits(WaitState::W4 as u8)
+                        // Vcore Range 1 normal mode.
+                        if hclk <= 30_000_000 {
+                            w.latency().bits(WaitState::W0 as u8)
+                        } else if hclk <= 60_000_000 {
+                            w.latency().bits(WaitState::W1 as u8)
+                        } else if hclk <= 90_000_000 {
+                            w.latency().bits(WaitState::W2 as u8)
+                        } else if hclk <= 120_000_000 {
+                            w.latency().bits(WaitState::W3 as u8)
+                        } else {
+                            w.latency().bits(WaitState::W4 as u8)
+                        }
                     }
                 });
             }
@@ -1408,6 +1446,8 @@ impl Default for Clocks {
             rf_wakeup_src: RfWakeupSrc::Lse,
             #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
             sai1_src: SaiSrc::Pllp,
+            #[cfg(feature = "g4")]
+            boost_mode: true,
         }
     }
 }

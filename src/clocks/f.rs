@@ -1,6 +1,6 @@
 use crate::{
     clocks::SpeedError,
-    pac::{FLASH, RCC},
+    pac::{self, FLASH, RCC},
     rcc_en_reset,
 };
 
