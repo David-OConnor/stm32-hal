@@ -372,7 +372,7 @@ where
         }
     }
 
-    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
+    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is only used on F3 and L4.
     pub unsafe fn write_dma<D>(&mut self, buf: &[u8], channel: DmaChannel, channel_cfg: ChannelCfg, dma: &mut Dma<D>)
@@ -461,7 +461,7 @@ where
             // 1. Write the USART_RDR register address in the DMA control register to configure it as
             // the source of the transfer. The data is moved from this address to the memory after
             // each RXNE event.
-            &self.regs.tdr as *const _ as u32,
+            &self.regs.rdr as *const _ as u32,
             // 2. Write the memory address in the DMA control register to configure it as the destination
             // of the transfer. The data is loaded from USART_RDR to this memory area after each
             // RXNE event.
