@@ -33,18 +33,18 @@ fn main() -> ! {
     let mut dp = pac::Peripherals::take().unwrap();
 
     let mut clock_cfg = Clocks {
+        // Enable the HSI48 oscillator, so we don't need an external oscillator, and
+        // aren't restricted in our PLL config.
         hsi48_on: true,
         clk48_src: Clk48Src::Hsi48,
         ..Default::default()
     };
 
-    // Enable the HSI48 oscillator, so we don't need an external oscillator, and
-    // aren't restricted in our PLL config.
-    clock_cfg.hsi48_on = true;
-    clock_cfg.clk48_src = clock_cfg.setup().unwrap();
+
+    clock_cfg.setup().unwrap();
 
     // Enable the Clock Recovery System, which improves HSI48 accuracy.
-    clocks::enable_crs(CrsSyncSrc::Usb);
+    clock_cfg::enable_crs(CrsSyncSrc::Usb);
 
     // Enable `pwren`. Note that this is also set up by the `rtc` initialization, so this
     // step isn't required if you have the RTC set up.

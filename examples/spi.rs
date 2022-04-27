@@ -89,7 +89,7 @@ fn main() -> ! {
             &mut SPI_READ_BUF,  // Read buf, where the data will go
             DmaChannel::C1,     // Write channel
             DmaChannel::C2,     // Read channel
-            Default::Deafult,   // Write channel config
+            Default::deafult,   // Write channel config
             Default::default(), // Read channel config
             &mut dma,
         );
