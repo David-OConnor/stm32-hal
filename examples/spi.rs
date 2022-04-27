@@ -16,7 +16,7 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     clocks::Clocks,
-    dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
+    dma::{self, Dma, DmaChannel, DmaInput, DmaInterrupt, DmaWriteBuf},
     gpio::{self, Pin, PinMode, Port},
     low_power,
     pac::{self, interrupt},
@@ -69,6 +69,9 @@ fn main() -> ! {
 
     // Set up DMA, for nonblocking (generally faster) conversion transfers:
     let mut dma = Dma::new(&mut dp.DMA1, &dp.RCC);
+
+    dma::mux(DmaChannel::C1, DmaInput::Spi1Tx, mux);
+    dma::mux(DmaChannel::C2, DmaInput::Spi1Rx, mux);
 
     // todo: Write example.
 

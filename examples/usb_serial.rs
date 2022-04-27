@@ -10,13 +10,20 @@ use cortex_m::{self, interrupt::free, peripheral::NVIC};
 use cortex_m_rt::entry;
 
 use stm32_hal2::{
-    clocks::{self, Clocks, CrsSyncSrc},
+    clocks::{self, Clk48Src, Clocks, CrsSyncSrc},
     gpio::{Pin, PinMode, Port},
     pac,
     usb::{Peripheral, UsbBus, UsbBusType},
 };
 
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
+
+static mut USB_BUS: Option<UsbBusAllocator<UsbBusType>> = None;
+
+make_globals!(
+    (USB_SERIAL, SerialPort<UsbBusType>),
+    (USB_DEVICE, UsbDevice<UsbBusType>),
+);
 
 #[entry]
 fn main() -> ! {
@@ -25,14 +32,16 @@ fn main() -> ! {
     // Set up microcontroller peripherals
     let mut dp = pac::Peripherals::take().unwrap();
 
-    let mut clock_cfg = Clocks::default();
+    let mut clock_cfg = Clocks {
+        hsi48_on: true,
+        clk48_src: Clk48Src::Hsi48,
+        ..Default::default()
+    };
 
     // Enable the HSI48 oscillator, so we don't need an external oscillator, and
     // aren't restricted in our PLL config.
     clock_cfg.hsi48_on = true;
-    clock_cfg.clk48_src = Clk48Src::Hsi48;
-
-    clock_cfg.setup().unwrap();
+    clock_cfg.clk48_src = clock_cfg.setup().unwrap();
 
     // Enable the Clock Recovery System, which improves HSI48 accuracy.
     clocks::enable_crs(CrsSyncSrc::Usb);
@@ -60,7 +69,18 @@ fn main() -> ! {
         .device_class(USB_CLASS_CDC)
         .build();
 
-    // todo: Interrupt.
+    free(|cs| {
+        USB_DEVICE.borrow(cs).replace(Some(usb_dev));
+        USB_SERIAL.borrow(cs).replace(Some(usb_serial));
+    });
+
+    unsafe {
+        // USB failing to respond can lead to it being disconnected by software; use
+        // a high priority.
+        // Note that the interrupt name varies based on STM32 family and device.
+        cp.NVIC.set_priority(pac::Interrupt::USB_FS, 1);
+    }
+
     loop {
         // It's probably better to do this with an interrupt than polling. Polling here
         // keep the syntax simple. To use in an interrupt, set up the USB-related structs as
@@ -81,6 +101,33 @@ fn main() -> ! {
             }
         }
     }
+}
+
+#[interrupt]
+/// Interrupt handler for USB (serial)
+fn USB_FS() {
+    free(|cs| {
+        access_global!(USB_SERIAL, usb_serial, cs);
+        access_global!(USB_DEVICE, usb_device, cs);
+
+        if !usb_device.poll(&mut [usb_serial]) {
+            return;
+        }
+
+        let mut buf = [0u8; 8];
+
+        match usb_serial.read(&mut buf) {
+            Ok(_count) => match buf[0..2] {
+                [100, 150] => {
+                    usb_serial
+                        .write(&[]) // Data to write goes in this buffer.
+                        .ok();
+                }
+                _ => {}
+            },
+            Err(_) => {}
+        }
+    });
 }
 
 // same panicking *behavior* as `panic-probe` but doesn't print a panic message

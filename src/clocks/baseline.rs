@@ -592,15 +592,15 @@ impl Clocks {
         cfg_if! {
             if #[cfg(feature = "g4")] {
                 if self.boost_mode {
-                    // The sequence to switch from Range1 normal mode to Range1 boost mode is:    
+                    // The sequence to switch from Range1 normal mode to Range1 boost mode is:
                     // 1. The system clock must be divided by 2 using the AHB prescaler before switching to a
                     // higher system frequency.
-                    rcc.cfgr.modify(|_, w| unsafe { w.hpre().bits(HclkPrescaler::Div2 as u8) }); 
+                    rcc.cfgr.modify(|_, w| unsafe { w.hpre().bits(HclkPrescaler::Div2 as u8) });
                     // 2. Clear the R1MODE bit is in the PWR_CR5 register.
                     let pwr = unsafe { &(*pac::PWR::ptr()) };
                     pwr.cr5.modify(|_, w| w.r1mode().clear_bit());
                 }
-                
+
                 // (Remaining steps accomplished below)
                 // 3. Adjust the number of wait states according to the new frequency target in range1 boost
                 // mode

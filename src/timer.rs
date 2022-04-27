@@ -1624,7 +1624,6 @@ cfg_if! {
         feature = "l4x3",
         feature = "l5", // todo PAC bug?
         feature = "g0",
-        feature = "g4",
         feature = "wb",
         feature = "wl"
     )))] {
@@ -1653,7 +1652,6 @@ cfg_if! {
         feature = "l4x5",
         feature = "l4x6",
         feature = "l562",
-        feature = "g4"
     ))] {
         make_timer!(TIM8, tim8, 2, u16);
         // todo: Some issues with field names or something on l562 here.

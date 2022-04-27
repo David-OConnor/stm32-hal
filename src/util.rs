@@ -1,5 +1,6 @@
 //! This is an internal module that contains utility functionality used by other modules.
 
+#[cfg(feature = "l4")]
 use core::ops::Deref;
 
 use crate::{
@@ -42,15 +43,15 @@ cfg_if::cfg_if! {
     }
 }
 
-#[cfg(feature = "g0")]
-use crate::pac::dma as dma_p;
+// #[cfg(feature = "g0")]
+// use crate::pac::dma as dma_p;
 #[cfg(any(
     feature = "f3",
     feature = "l4",
-    feature = "g4",
-    feature = "h7",
-    feature = "wb",
-    feature = "wl"
+    // feature = "g4",
+    // feature = "h7",
+    // feature = "wb",
+    // feature = "wl"
 ))]
 use crate::pac::dma1 as dma_p;
 

@@ -10,7 +10,7 @@ use cortex_m::{self, asm, delay::Delay};
 use stm32_hal2::{
     clocks::{self, Clocks},
     dma::{self, ChannelCfg, Dma, DmaChannel, DmaInterrupt},
-    gpio::{self, Edge, OutputType, OutputSpeed, Pin, PinMode, Port, Pull},
+    gpio::{self, Edge, OutputSpeed, OutputType, Pin, PinMode, Port, Pull},
     pac::{self, DMA1, SPI1},
     spi::{BaudRate, Spi, SpiConfig, SpiMode},
 };
@@ -445,8 +445,7 @@ mod app {
             cs.set_high();
         });
 
-        let mut imu_data =
-            imu::ImuReadings::from_buffer(unsafe { &IMU_READINGS });
+        let mut imu_data = imu::ImuReadings::from_buffer(unsafe { &IMU_READINGS });
 
         // Apply our lowpass filter.
         cx.shared.imu_filters.lock(|imu_filters| {

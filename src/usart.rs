@@ -33,7 +33,7 @@ use crate::pac::dma as dma_p;
 use crate::pac::dma1 as dma_p;
 
 #[cfg(not(any(feature = "f4", feature = "l5")))]
-use crate::dma::{self, Dma, DmaChannel, ChannelCfg};
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
@@ -375,8 +375,13 @@ where
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub unsafe fn write_dma<D>(&mut self, buf: &[u8], channel: DmaChannel, channel_cfg: ChannelCfg, dma: &mut Dma<D>)
-    where
+    pub unsafe fn write_dma<D>(
+        &mut self,
+        buf: &[u8],
+        channel: DmaChannel,
+        channel_cfg: ChannelCfg,
+        dma: &mut Dma<D>,
+    ) where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         let (ptr, len) = (buf.as_ptr(), buf.len());
@@ -389,6 +394,11 @@ where
         #[cfg(feature = "l4")]
         R::write_sel(dma);
 
+        #[cfg(feature = "h7")]
+        let num_data = len as u32;
+        #[cfg(not(feature = "h7"))]
+        let num_data = len as u16;
+
         dma.cfg_channel(
             channel,
             // 1. Write the USART_TDR register address in the DMA control register to configure it as
@@ -400,7 +410,7 @@ where
             // after each TXE event.
             ptr as u32,
             // 3. Configure the total number of bytes to be transferred to the DMA control register.
-            len as u16,
+            num_data,
             dma::Direction::ReadFromMem,
             // 4. Configure the channel priority in the DMA control register
             // (Handled by `ChannelCfg::default())`
@@ -440,8 +450,13 @@ where
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Receive data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is only used on F3 and L4.
-    pub unsafe fn read_dma<D>(&mut self, buf: &mut [u8], channel: DmaChannel, channel_cfg: ChannelCfg, dma: &mut Dma<D>)
-    where
+    pub unsafe fn read_dma<D>(
+        &mut self,
+        buf: &mut [u8],
+        channel: DmaChannel,
+        channel_cfg: ChannelCfg,
+        dma: &mut Dma<D>,
+    ) where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());

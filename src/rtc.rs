@@ -129,7 +129,7 @@ impl Rtc {
         // See L4 RM, `Backup domain access` section.
         free(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
-            let mut pwr = unsafe { &(*PWR::ptr()) };
+            let pwr = unsafe { &(*PWR::ptr()) };
 
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "f4"))] {
@@ -387,7 +387,7 @@ impl Rtc {
         // • Configure the EXTI Line 20 to be sensitive to rising edge
         // • Configure the RTC to generate the RTC alarm
 
-        let mut exti = unsafe { &(*EXTI::ptr()) };
+        let exti = unsafe { &(*EXTI::ptr()) };
 
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "l4"))] {

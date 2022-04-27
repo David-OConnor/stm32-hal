@@ -923,7 +923,7 @@ where
             }
             #[cfg(any(feature = "l5", feature = "g4"))]
             DmaChannel::C8 => {
-                let mut ccr = &self.regs.ccr8;
+                let ccr = &self.regs.ccr8;
                 set_ccr!(
                     ccr,
                     cfg.priority,
