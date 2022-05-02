@@ -399,6 +399,12 @@ where
         #[cfg(not(feature = "h7"))]
         let num_data = len as u16;
 
+        // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
+        // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
+        // Section 11: Direct memory access controller (DMA) on page 295) to the USART_TDR
+        // register whenever the TXE bit is set."
+        self.regs.cr3.modify(|_, w| w.dmat().set_bit());
+
         dma.cfg_channel(
             channel,
             // 1. Write the USART_TDR register address in the DMA control register to configure it as
@@ -438,17 +444,10 @@ where
         // disabling the USART or entering Stop mode. Software must wait until TC=1. The TC flag
         // remains cleared during all data transfers and it is set by hardware at the end of transmission
         // of the last frame.
-
-        // (this RM quote isn't part of the steps and section the others above are)
-        // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
-        // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
-        // Section 11: Direct memory access controller (DMA) on page 295) to the USART_TDR
-        // register whenever the TXE bit is set."
-        self.regs.cr3.modify(|_, w| w.dmat().set_bit());
     }
 
     #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
-    /// Receive data using DMA. (L44 RM, section 38.5.15)
+    /// Receive data using DMA. (L44 RM, section 38.5.15; G4 RM section 37.5.19.
     /// Note that the `channel` argument is only used on F3 and L4.
     pub unsafe fn read_dma<D>(
         &mut self,
@@ -471,6 +470,9 @@ where
         #[cfg(not(feature = "h7"))]
         let num_data = len as u16;
 
+        // DMA mode can be enabled for reception by setting the DMAR bit in USART_CR3 register.
+        self.regs.cr3.modify(|_, w| w.dmar().set_bit());
+
         dma.cfg_channel(
             channel,
             // 1. Write the USART_RDR register address in the DMA control register to configure it as
@@ -489,13 +491,13 @@ where
             channel_cfg,
         );
 
-        self.regs.cr3.modify(|_, w| w.dmar().set_bit());
+        // 4. Configure the channel priority in the DMA control register
+        // (Handled in cfg)
 
         // 5. Configure interrupt generation after half/ full transfer as required by the application.
-        // todo (Let the user call `dma.setup_interrupt()`? But that requires they know
-        // todo which channel of DMA usart tx is on.
+        // (Handled by user code))
 
-        // 6. Activate the channel in the DMA control register.
+        // 6. Activate the channel in the DMA control register. (Handled by `cfg_channel` above).
         // When the number of data transfers programmed in the DMA Controller is reached, the DMA
         // controller generates an interrupt on the DMA channel interrupt vector.
         // (Handled in above fn call)
@@ -515,12 +517,12 @@ where
     #[cfg(not(feature = "f4"))]
     /// Enable a specific type of interrupt.
     pub fn enable_interrupt(&mut self, interrupt: UsartInterrupt) {
-        // Disable the UART to allow writing the `add` and `addm7` bits
-        self.regs.cr1.modify(|_, w| w.ue().clear_bit());
-        while self.regs.cr1.read().ue().bit_is_set() {}
-
         match interrupt {
             UsartInterrupt::CharDetect(char) => {
+                // Disable the UART to allow writing the `add` and `addm7` bits
+                self.regs.cr1.modify(|_, w| w.ue().clear_bit());
+                while self.regs.cr1.read().ue().bit_is_set() {}
+
                 // Enable character-detecting UART interrupt
                 self.regs.cr1.modify(|_, w| w.cmie().set_bit());
 
@@ -531,12 +533,16 @@ where
                     cfg_if! {
                         if #[cfg(any(feature = "f3", feature = "l4", feature = "h7", feature = "wl"))] {
                             w.add().bits(char)
-                        } else { // todo: Is this right, or backwards?
-                            w.add0_3().bits(char & 0b1111);
-                            w.add4_7().bits(char & (0b1111 << 4))
+                        // } else if #[cfg(feature = "g4")] {
+                        //     w.add0_3().bits(char) // PAC error. Should be just like above. (?)
+                        } else { // note: G4 should be like above, but use below due to PAC error. (Should be equiv)
+                            w.add0_3().bits(char);
+                            w.add4_7().bits(char >> 4)
                         }
                     }
                 });
+
+                self.regs.cr1.modify(|_, w| w.ue().set_bit());
             }
             UsartInterrupt::Cts => {
                 self.regs.cr3.modify(|_, w| w.ctsie().set_bit());
@@ -567,6 +573,7 @@ where
             }
             #[cfg(not(any(feature = "f3", feature = "l4")))]
             UsartInterrupt::Tcbgt => {
+                self.regs.cr3.modify(|_, w| w.tcbgtie().set_bit());
                 self.regs.cr3.modify(|_, w| w.tcbgtie().set_bit());
             }
             UsartInterrupt::TransmissionComplete => {

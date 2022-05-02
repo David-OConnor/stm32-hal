@@ -27,6 +27,7 @@ pub struct Peripheral {
 }
 
 unsafe impl Sync for Peripheral {}
+// unsafe impl Send for Peripheral {} // todo: Required/do we want this?
 
 unsafe impl UsbPeripheral for Peripheral {
     const REGISTERS: *const () = USB::ptr() as *const ();

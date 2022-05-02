@@ -896,7 +896,7 @@ macro_rules! hal {
                 }
 
                 self.set_sequence(adc_channel, 1);
-                // todo: Support sequences.
+                // todo: Support sequences!
 
                 self.regs.cr.modify(|_, w| w.adstart().set_bit());  // Start
 

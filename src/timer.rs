@@ -545,6 +545,7 @@ macro_rules! make_timer {
                 dma_channel: DmaChannel,
                 channel_cfg: ChannelCfg,
                 dma: &mut Dma<D>,
+                ds_32_bits: bool,
             ) where
                 D: Deref<Target = dma_p::RegisterBlock>,
             {
@@ -593,8 +594,6 @@ macro_rules! make_timer {
                 #[cfg(not(feature = "h7"))]
                 let num_data = len as u16;
 
-                // todo TS: In video, FIFO is enabled with Full Threshold setting.
-
                 // 2.
                 // Configure the DCR register by configuring the DBA and DBL bit fields as follows:
                 // DBL = 3 transfers, DBA = 0xE.
@@ -611,11 +610,7 @@ macro_rules! make_timer {
                 // 00010: TIMx_SMCR
                 self.regs.dcr.modify(|_, w| {
                     w.dba().bits(base_address);
-                    // w.dbl().bits(burst_len as u8) // todo - which? RM example and reg descrip are diff
-                    // todo: is dbl number of registers, or number of words? (ie len)
-                    // todo -1 ?
                     w.dbl().bits(burst_len as u8 - 1)
-                    // w.dbl().bits(burst_len as u8)
                 });
 
                 // 3. Enable the TIMx update DMA request (set the UDE bit in the DIER register).
@@ -632,17 +627,10 @@ macro_rules! make_timer {
                     ptr as u32,
                     num_data,
                     dma::Direction::ReadFromMem,
-                    // Note that 16-bit data size may be more appropriate on 16-bit timers,
-                    // but we keep 32 set here for simplicity.
-                    // dma::DataSize::S32,
-                    // dma::DataSize::S32,
-
-                    // S16 due to half words, at least on 16-bit timers.
-                    dma::DataSize::S16,
+                    if ds_32_bits { dma::DataSize::S32} else { dma::DataSize::S16 },
                     dma::DataSize::S16,
                     channel_cfg,
                 );
-
             }
         }
 

@@ -40,7 +40,6 @@ fn main() -> ! {
         ..Default::default()
     };
 
-
     clock_cfg.setup().unwrap();
 
     // Enable the Clock Recovery System, which improves HSI48 accuracy.
