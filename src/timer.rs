@@ -756,14 +756,14 @@ macro_rules! cc_4_channels {
                 match channel {
                     TimChannel::C1 => {
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f4", feature = "l5", feature = "wb")))]
+                            #[cfg(not(any(feature = "f373", feature = "f4", feature = "l5", feature = "wb")))]
                             w.oc1m_3().bit((mode as u8) >> 3 != 0);
                             w.oc1m().bits((mode as u8) & 0b111)
                         });
                     }
                     TimChannel::C2 => {
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f4", feature = "l5", feature = "wb")))]
+                            #[cfg(not(any(feature = "f373", feature = "f4", feature = "l5", feature = "wb")))]
                             w.oc2m_3().bit((mode as u8) >> 3 != 0);
                             w.oc2m().bits((mode as u8) & 0b111)
 
@@ -771,7 +771,7 @@ macro_rules! cc_4_channels {
                     }
                     TimChannel::C3 => {
                         self.regs.ccmr2_output().modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f4", feature = "l5", feature = "wb")))]
+                            #[cfg(not(any(feature = "f373", feature = "f4", feature = "l5", feature = "wb")))]
                             w.oc3m_3().bit((mode as u8) >> 3 != 0);
                             w.oc3m().bits((mode as u8) & 0b111)
 
@@ -780,7 +780,7 @@ macro_rules! cc_4_channels {
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
                         self.regs.ccmr2_output().modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f4", feature = "l5", feature = "wb")))]
+                            #[cfg(not(any(feature = "f373", feature = "f4", feature = "l5", feature = "wb")))]
                             w.oc4m_3().bit((mode as u8) >> 3 != 0);
                             w.oc4m().bits((mode as u8) & 0b111)
 
