@@ -1097,7 +1097,7 @@ pub fn clear_exti_interrupt(line: u8) {
                         _ => panic!(),
                     }
                 });
-            } else if #[cfg(feature = "l5")] {
+            } else if #[cfg(any(feature = "l5", feature = "g0"))] {
                 (*EXTI::ptr()).rpr1.modify(|_, w| {
                     match line {
                         0 => w.rpif0().set_bit(),

@@ -1256,7 +1256,8 @@ macro_rules! cc_1_channel {
                         #[cfg(not(feature = "g070"))] // todo: PAC bug?
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
                             // todo: L5/WB is probably due to a PAC error. Has oc1m_2.
-                            #[cfg(not(any(feature = "f4", feature = "l4", feature = "l5", feature = "wb")))]
+                            #[cfg(not(any(feature = "f373", feature = "f4", feature = "l4",
+                                feature = "l5", feature = "wb", feature = "g0")))]
                             w.oc1m_3().bit((mode as u8) >> 3 != 0);
                             w.oc1m().bits((mode as u8) & 0b111)
                         });
