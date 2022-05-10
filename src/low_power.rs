@@ -3,7 +3,7 @@
 
 use crate::{
     clocks::Clocks,
-    pac::{PWR, RCC},
+    pac::{self, PWR},
 };
 
 #[cfg(any(feature = "l4", feature = "l5"))]
@@ -30,8 +30,8 @@ pub enum StopMode {
 /// implementations that rely on system clock or APB speed.
 #[cfg(any(feature = "l4", feature = "l5"))]
 pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) {
-    let rcc = unsafe { &(*RCC::ptr()) };
-    let pwr = unsafe { &(*PWR::ptr()) };
+    let rcc = unsafe { &(*pac::RCC::ptr()) };
+    let pwr = unsafe { &(*pac::PWR::ptr()) };
 
     // Decrease the system clock frequency below 2 MHz
     if speed as u8 > MsiRange::R2M as u8 {

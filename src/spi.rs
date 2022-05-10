@@ -14,9 +14,6 @@ use crate::{
     util::RccPeriph,
 };
 
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::util::DmaPeriph;
-
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
@@ -272,7 +269,6 @@ pub struct Spi<R> {
 
 impl<R> Spi<R>
 where
-    // R: Deref<Target = pac::spi1::RegisterBlock> + DmaPeriph + RccPeriph,
     R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
 {
     /// Initialize an SPI peripheral, including configuration register writes, and enabling and resetting

@@ -28,9 +28,6 @@ use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
 )))]
 use core::ops::Deref;
 
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::util::DmaPeriph;
-
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
@@ -1144,8 +1141,29 @@ pub fn clear_exti_interrupt(line: u8) {
                         _ => panic!(),
                     }
                 });
-            }
-            else {
+            } else if #[cfg(any(feature = "f3", feature = "l4"))] {
+                (*EXTI::ptr()).pr1.modify(|_, w| {
+                    match line {
+                        0 => w.pr0().set_bit(),
+                        1 => w.pr1().set_bit(),
+                        2 => w.pr2().set_bit(),
+                        3 => w.pr3().set_bit(),
+                        4 => w.pr4().set_bit(),
+                        5 => w.pr5().set_bit(),
+                        6 => w.pr6().set_bit(),
+                        7 => w.pr7().set_bit(),
+                        8 => w.pr8().set_bit(),
+                        9 => w.pr9().set_bit(),
+                        10 => w.pr10().set_bit(),
+                        11 => w.pr11().set_bit(),
+                        12 => w.pr12().set_bit(),
+                        13 => w.pr13().set_bit(),
+                        14 => w.pr14().set_bit(),
+                        15 => w.pr15().set_bit(),
+                        _ => panic!(),
+                    }
+                });
+            } else {
                 (*EXTI::ptr()).pr1.modify(|_, w| {
                     match line {
                         0 => w.pif0().set_bit(),

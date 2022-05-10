@@ -472,9 +472,18 @@ macro_rules! enable_interrupt {
 /// This struct is used to pass common (non-peripheral and non-use-specific) data when configuring
 /// a channel.
 pub struct ChannelCfg {
+    /// Channel priority compared to other channels; can be low, medium, high, or very high. Defaults
+    /// to medium.
     pub priority: Priority,
+    /// Enable or disable circular DMA. If enabled, the transfer continues after reaching the end of
+    /// the buffer, looping to the beginning. A TC interrupt first each time the end is reached, if
+    /// set. Defaults to disabled.
     pub circular: Circular,
+    /// Whether we increment the peripheral address on data word transfer; generally (and by default)
+    /// disabled.
     pub periph_incr: IncrMode,
+    /// Whether we increment the buffer address on data word transfer; generally (and by default)
+    /// enabled.
     pub mem_incr: IncrMode,
 }
 

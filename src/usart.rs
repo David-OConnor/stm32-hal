@@ -13,9 +13,6 @@ use crate::{
     util::{BaudPeriph, RccPeriph},
 };
 
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::util::DmaPeriph;
-
 use core::ops::Deref;
 
 use cortex_m::interrupt::free;
@@ -159,7 +156,6 @@ pub struct Usart<R> {
 
 impl<R> Usart<R>
 where
-    // R: Deref<Target = pac::usart1::RegisterBlock> + DmaPeriph + RccPeriph + BaudPeriph,
     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
 {
     /// Initialize a U[s]ART peripheral, including configuration register writes, and enabling and
@@ -176,9 +172,6 @@ where
         // some bits can't be set with USART enabled.
         result.regs.cr1.modify(|_, w| w.ue().clear_bit());
         while result.regs.cr1.read().ue().bit_is_set() {}
-
-        #[cfg(not(any(feature = "f3", feature = "f4")))]
-        let word_len_bits = result.config.word_len.bits();
 
         // Set up transmission. See L44 RM, section 38.5.2: "Character Transmission Procedures".
         // 1. Program the M bits in USART_CR1 to define the word length.

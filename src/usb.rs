@@ -7,10 +7,10 @@
 //! For G0 series, USB is only available on G0B0, G0B1, G0C1, which the PAC doesn't yet differentiate,
 //! and this library doesn't yet support.
 
-use crate::{
-    pac::{PWR, RCC},
-    rcc_en_reset,
-};
+use crate::{pac, rcc_en_reset};
+
+#[cfg(any(feature = "l4", feature = "l5", feature = "g0"))]
+use crate::pac::PWR;
 
 use crate::pac::USB;
 
@@ -77,7 +77,7 @@ unsafe impl UsbPeripheral for Peripheral {
     const EP_MEMORY_ACCESS_2X16: bool = false;
 
     fn enable() {
-        let rcc = unsafe { &*RCC::ptr() };
+        let rcc = unsafe { &*pac::RCC::ptr() };
 
         cortex_m::interrupt::free(|_| {
             cfg_if! {
@@ -115,6 +115,6 @@ pub type UsbBusType = UsbBus<Peripheral>;
 /// already set up.
 pub fn enable_usb_pwr() {
     // Enable VddUSB
-    let pwr = unsafe { &*PWR::ptr() };
+    let pwr = unsafe { &*pac::PWR::ptr() };
     pwr.cr2.modify(|_, w| w.usv().set_bit());
 }

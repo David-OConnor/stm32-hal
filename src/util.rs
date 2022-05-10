@@ -224,8 +224,19 @@ impl VrefPeriph for pac::ADC5 {
     }
 }
 
+/// Used to provide peripheral-specific implementation for RCC enable/reset, and for F3 and L4,
+/// DMA channel assignment.
 pub trait RccPeriph {
     fn en_reset(rcc: &RegisterBlock);
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel;
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel;
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>);
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>);
 }
 
 #[cfg(not(any(
@@ -243,6 +254,18 @@ impl RccPeriph for pac::TIM6 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb1, tim6, rcc);
     }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {unimplemented!()}
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {unimplemented!()}
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
 }
 
 #[cfg(not(any(
@@ -262,11 +285,43 @@ impl RccPeriph for pac::TIM7 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb1, tim7, rcc);
     }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {unimplemented!()}
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {unimplemented!()}
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
 }
 
 impl RccPeriph for pac::I2C1 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb1, i2c1, rcc);
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {
+        DmaInput::I2c1Rx.dma1_channel()
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {
+        DmaInput::I2c1Tx.dma1_channel()
+    }
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::I2c1Rx);
+    }
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::I2c1Tx);
     }
 }
 
@@ -274,6 +329,26 @@ impl RccPeriph for pac::I2C1 {
 impl RccPeriph for pac::I2C2 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb1, i2c2, rcc);
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {
+        DmaInput::I2c2Rx.dma1_channel()
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {
+        DmaInput::I2c2Tx.dma1_channel()
+    }
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::I2c2Rx);
+    }
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::I2c2Tx);
     }
 }
 
@@ -289,12 +364,52 @@ impl RccPeriph for pac::SPI1 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb2, spi1, rcc);
     }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {
+        DmaInput::Spi1Rx.dma1_channel()
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {
+        DmaInput::Spi1Tx.dma1_channel()
+    }
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::Spi1Rx);
+    }
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::Spi1Tx);
+    }
 }
 
 #[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
 impl RccPeriph for pac::SPI2 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb1, spi2, rcc);
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {
+        DmaInput::Spi2Rx.dma1_channel()
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {
+        DmaInput::Spi2Tx.dma1_channel()
+    }
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::Spi2Rx);
+    }
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::Spi2Tx);
     }
 }
 
@@ -317,6 +432,26 @@ impl RccPeriph for pac::SPI3 {
                 rcc_en_reset!(apb1, spi3, rcc);
             }
         }
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {
+        DmaInput::Spi3Rx.dma1_channel()
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {
+        DmaInput::Spi3Tx.dma1_channel()
+    }
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::Spi3Rx);
+    }
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::Spi3Tx);
     }
 }
 
@@ -348,6 +483,18 @@ impl RccPeriph for pac::SAI1 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb2, sai1, rcc);
     }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {unimplemented!()}
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {unimplemented!()}
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
 }
 
 #[cfg(feature = "h7")]
@@ -355,6 +502,18 @@ impl RccPeriph for pac::SAI2 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb2, sai2, rcc);
     }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {unimplemented!()}
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {unimplemented!()}
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
 }
 
 #[cfg(feature = "h7")]
@@ -362,6 +521,18 @@ impl RccPeriph for pac::SAI3 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb2, sai3, rcc);
     }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {unimplemented!()}
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {unimplemented!()}
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
 }
 
 #[cfg(feature = "h7")]
@@ -369,11 +540,43 @@ impl RccPeriph for pac::SAI4 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb4, sai4, rcc);
     }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {unimplemented!()}
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {unimplemented!()}
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
 }
 
 impl RccPeriph for pac::USART1 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb2, usart1, rcc);
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {
+        DmaInput::Usart1Rx.dma1_channel()
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {
+        DmaInput::Usart1Tx.dma1_channel()
+    }
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::Usart1Rx);
+    }
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::Usart1Tx);
     }
 }
 
@@ -390,6 +593,26 @@ impl RccPeriph for pac::USART2 {
                 rcc.apb1rstr.modify(|_, w| w.usart2rst().clear_bit());
             }
         }
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {
+        DmaInput::Usart2Rx.dma1_channel()
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {
+        DmaInput::Usart2Tx.dma1_channel()
+    }
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::Usart2Rx);
+    }
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::Usart2Tx);
     }
 }
 
@@ -416,6 +639,26 @@ impl RccPeriph for pac::USART3 {
             }
         }
     }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {
+        DmaInput::Usart3Rx.dma1_channel()
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {
+        DmaInput::Usart3Tx.dma1_channel()
+    }
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::Usart3Rx);
+    }
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+        dma.channel_select(DmaInput::Usart3Tx);
+    }
 }
 
 // todo: USART 4 and 5.
@@ -439,6 +682,9 @@ cfg_if::cfg_if! {
             fn en_reset(rcc: &RegisterBlock) {
                 rcc_en_reset!(apb1, dac1, rcc);
             }
+            fn read_chan() -> DmaChannel {unimplemented!()}
+
+            fn write_chan() -> DmaChannel {unimplemented!()}
         }
 
         #[cfg(any(feature = "f303", feature = "f373", feature = "f3x4"))]
@@ -446,6 +692,9 @@ cfg_if::cfg_if! {
             fn en_reset(rcc: &RegisterBlock) {
                 rcc_en_reset!(apb1, dac2, rcc);
             }
+            fn read_chan() -> DmaChannel {unimplemented!()}
+
+            fn write_chan() -> DmaChannel {unimplemented!()}
         }
     } else if #[cfg(feature = "g4")] {
         impl RccPeriph for pac::DAC1 {
@@ -486,6 +735,18 @@ cfg_if::cfg_if! {
                 #[cfg(not(feature = "wl"))]
                 rcc_en_reset!(apb1, dac1, rcc);
             }
+
+            #[cfg(feature = "l4")]
+            fn read_chan() -> DmaChannel {unimplemented!()}
+
+            #[cfg(feature = "l4")]
+            fn write_chan() -> DmaChannel {unimplemented!()}
+
+            #[cfg(feature = "l4")]
+            fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
+
+            #[cfg(feature = "l4")]
+            fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {unimplemented!()}
         }
     }
 }
@@ -493,257 +754,62 @@ cfg_if::cfg_if! {
 // todo: APB1LR2 on L5, and AHB4 on H7. Fix it. (I2C4)
 // I2cDevice::Four => {
 
-// todo: DMA2 support.
-#[cfg(any(feature = "f3", feature = "l4"))]
-pub trait DmaPeriph {
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn read_chan() -> DmaChannel;
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn write_chan() -> DmaChannel;
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>);
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>);
-}
-
-#[cfg(any(feature = "f3", feature = "l4"))]
-impl DmaPeriph for pac::I2C1 {
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn read_chan() -> DmaChannel {
-        DmaInput::I2c1Rx.dma1_channel()
-    }
-
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn write_chan() -> DmaChannel {
-        DmaInput::I2c1Tx.dma1_channel()
-    }
-
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::I2c1Rx);
-    }
-
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::I2c1Tx);
-    }
-}
-
-#[cfg(any(feature = "f3", feature = "l4"))]
-impl DmaPeriph for pac::I2C2 {
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn read_chan() -> DmaChannel {
-        DmaInput::I2c2Rx.dma1_channel()
-    }
-
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn write_chan() -> DmaChannel {
-        DmaInput::I2c2Tx.dma1_channel()
-    }
-
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::I2c2Rx);
-    }
-
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::I2c2Tx);
-    }
-}
-
-#[cfg(any(feature = "f3", feature = "l4"))]
-impl DmaPeriph for pac::SPI1 {
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn read_chan() -> DmaChannel {
-        DmaInput::Spi1Rx.dma1_channel()
-    }
-
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn write_chan() -> DmaChannel {
-        DmaInput::Spi1Tx.dma1_channel()
-    }
-
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Spi1Rx);
-    }
-
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Spi1Tx);
-    }
-}
-
-#[cfg(any(feature = "f3", feature = "l4"))]
-impl DmaPeriph for pac::SPI2 {
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn read_chan() -> DmaChannel {
-        DmaInput::Spi2Rx.dma1_channel()
-    }
-
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn write_chan() -> DmaChannel {
-        DmaInput::Spi2Tx.dma1_channel()
-    }
-
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Spi2Rx);
-    }
-
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Spi2Tx);
-    }
-}
-
-#[cfg(all(not(feature = "f3x4"), any(feature = "f3", feature = "l4")))]
-impl DmaPeriph for pac::SPI3 {
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn read_chan() -> DmaChannel {
-        DmaInput::Spi3Rx.dma1_channel()
-    }
-
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn write_chan() -> DmaChannel {
-        DmaInput::Spi3Tx.dma1_channel()
-    }
-
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Spi3Rx);
-    }
-
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Spi3Tx);
-    }
-}
-
-#[cfg(any(feature = "f3", feature = "l4"))]
-impl DmaPeriph for pac::USART1 {
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn read_chan() -> DmaChannel {
-        DmaInput::Usart1Rx.dma1_channel()
-    }
-
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn write_chan() -> DmaChannel {
-        DmaInput::Usart1Tx.dma1_channel()
-    }
-
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Usart1Rx);
-    }
-
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Usart1Tx);
-    }
-}
-
-#[cfg(any(feature = "f3", feature = "l4"))]
-impl DmaPeriph for pac::USART2 {
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn read_chan() -> DmaChannel {
-        DmaInput::Usart2Rx.dma1_channel()
-    }
-
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn write_chan() -> DmaChannel {
-        DmaInput::Usart2Tx.dma1_channel()
-    }
-
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Usart2Rx);
-    }
-
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Usart2Tx);
-    }
-}
-
-#[cfg(all(not(feature = "l4x1"), any(feature = "l4")))]
-impl DmaPeriph for pac::USART3 {
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn read_chan() -> DmaChannel {
-        DmaInput::Usart3Rx.dma1_channel()
-    }
-
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn write_chan() -> DmaChannel {
-        DmaInput::Usart3Tx.dma1_channel()
-    }
-
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Usart3Rx);
-    }
-
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Usart3Tx);
-    }
-}
-
 // We currently only set up DAC1 DMA, and it's split by channels, not device.
 
 // todo: Use thsi approach for USART and SAI. When you un-macro them, ADC and Timer as well.
 
-#[cfg(any(feature = "f3", feature = "l4"))]
-impl DmaPeriph for ADC1 {
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn read_chan() -> DmaChannel {
-        DmaInput::Adc1.dma1_channel()
-    }
+// todo: ADC DMA on F3 and L4. Note that they're not currently set up as `RccPeripheral`,.
 
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn write_chan() -> DmaChannel {
-        unimplemented!()
-    }
-
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Adc1);
-    }
-
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        unimplemented!()
-    }
-}
-
-#[cfg(any(
-    feature = "l4x1",
-    feature = "l4x2",
-    feature = "l412",
-    feature = "l4x5",
-    feature = "l4x6",
-))]
-impl DmaPeriph for pac::ADC2 {
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn read_chan() -> DmaChannel {
-        DmaInput::Adc2.dma1_channel()
-    }
-
-    #[cfg(any(feature = "f3", feature = "l4"))]
-    fn write_chan() -> DmaChannel {
-        unimplemented!()
-    }
-
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        dma.channel_select(DmaInput::Adc2);
-    }
-
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
-        unimplemented!()
-    }
-}
+// #[cfg(any(feature = "f3", feature = "l4"))]
+// impl DmaPeriph for ADC1 {
+//     #[cfg(any(feature = "f3", feature = "l4"))]
+//     fn read_chan() -> DmaChannel {
+//         DmaInput::Adc1.dma1_channel()
+//     }
+//
+//     #[cfg(any(feature = "f3", feature = "l4"))]
+//     fn write_chan() -> DmaChannel {
+//         unimplemented!()
+//     }
+//
+//     #[cfg(feature = "l4")]
+//     fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+//         dma.channel_select(DmaInput::Adc1);
+//     }
+//
+//     #[cfg(feature = "l4")]
+//     fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+//         unimplemented!()
+//     }
+// }
+//
+// #[cfg(any(
+//     feature = "l4x1",
+//     feature = "l4x2",
+//     feature = "l412",
+//     feature = "l4x5",
+//     feature = "l4x6",
+// ))]
+// impl DmaPeriph for pac::ADC2 {
+//     #[cfg(any(feature = "f3", feature = "l4"))]
+//     fn read_chan() -> DmaChannel {
+//         DmaInput::Adc2.dma1_channel()
+//     }
+//
+//     #[cfg(any(feature = "f3", feature = "l4"))]
+//     fn write_chan() -> DmaChannel {
+//         unimplemented!()
+//     }
+//
+//     #[cfg(feature = "l4")]
+//     fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+//         dma.channel_select(DmaInput::Adc2);
+//     }
+//
+//     #[cfg(feature = "l4")]
+//     fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+//         unimplemented!()
+//     }
+// }
 
 // L4 and F3 only have DMA on ADC 1 and 2.

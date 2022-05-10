@@ -26,9 +26,6 @@ use crate::{
     util::RccPeriph,
 };
 
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::util::DmaPeriph;
-
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
@@ -627,6 +624,8 @@ macro_rules! make_timer {
                     ptr as u32,
                     num_data,
                     dma::Direction::ReadFromMem,
+                    // Note: This may only be relevant if modifying a reg that changes for 32-bit
+                    // timers, like AAR and CCRx
                     if ds_32_bits { dma::DataSize::S32} else { dma::DataSize::S16 },
                     dma::DataSize::S16,
                     channel_cfg,
@@ -1257,7 +1256,7 @@ macro_rules! cc_1_channel {
                         #[cfg(not(feature = "g070"))] // todo: PAC bug?
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
                             // todo: L5/WB is probably due to a PAC error. Has oc1m_2.
-                            #[cfg(not(any(feature = "f4", feature = "l5", feature = "wb")))]
+                            #[cfg(not(any(feature = "f4", feature = "l4", feature = "l5", feature = "wb")))]
                             w.oc1m_3().bit((mode as u8) >> 3 != 0);
                             w.oc1m().bits((mode as u8) & 0b111)
                         });

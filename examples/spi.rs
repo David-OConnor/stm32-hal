@@ -27,6 +27,7 @@ use stm32_hal2::{
 // Byte 0 is for the address we pass in the `write` transfer; relevant data is in the rest of
 // the values.
 static mut SPI_READ_BUF: [u8; 4] = [0; 4];
+static mut SPI_WRITE_BUF: [u8; 4] = [0x69, 0, 0, 0];
 
 make_globals!((SPI, Spi<SPI1>), (DMA, Dma<DMA1>),);
 
@@ -85,7 +86,7 @@ fn main() -> ! {
         spi.transfer_dma(
             // Write buffer, starting with the registers we'd like to access, and 0-padded to
             // read 3 bytes.
-            &[0x69, 0, 0, 0],
+            &SPI_WRITE_BUF,
             &mut SPI_READ_BUF,  // Read buf, where the data will go
             DmaChannel::C1,     // Write channel
             DmaChannel::C2,     // Read channel

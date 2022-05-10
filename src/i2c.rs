@@ -16,9 +16,6 @@ use crate::{
     util::RccPeriph,
 };
 
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::util::DmaPeriph;
-
 #[cfg(any(feature = "g0"))]
 use crate::pac::dma as dma_p;
 #[cfg(any(
@@ -179,7 +176,6 @@ pub struct I2c<R> {
 
 impl<R> I2c<R>
 where
-    // R: Deref<Target = pac::i2c1::RegisterBlock> + DmaPeriph + RccPeriph,
     R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
 {
     /// Initialize a I2C peripheral, including configuration register writes, and enabling and resetting

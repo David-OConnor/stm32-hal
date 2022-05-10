@@ -12,9 +12,6 @@ use crate::pac::sai1 as sai;
 #[cfg(feature = "h7")]
 use crate::pac::sai4 as sai;
 
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::util::DmaPeriph;
-
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
