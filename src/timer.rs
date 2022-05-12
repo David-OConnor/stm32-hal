@@ -520,7 +520,7 @@ macro_rules! make_timer {
                 self.enable_capture_compare(channel);
 
                 if $adv_ctrl {
-                    self.regs.bdtr.write(|w| w.moe().set_bit());
+                    // self.regs.bdtr.write(|w| w.moe().set_bit());
                 }
             }
 
