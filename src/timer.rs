@@ -308,7 +308,7 @@ pub struct Timer<TIM> {
 }
 
 macro_rules! make_timer {
-    ($TIMX:ident, $tim:ident, $apb:expr, $res:ident) => {
+    ($TIMX:ident, $tim:ident, $apb:expr, $res:ident, $adv_ctrl:ident) => {
         impl Timer<pac::$TIMX> {
             paste! {
                 /// Initialize a DFSDM peripheral, including  enabling and resetting
@@ -518,6 +518,10 @@ macro_rules! make_timer {
                 self.set_output_compare(channel, compare);
                 self.set_duty(channel, (self.get_max_duty() as f32 * duty) as $res);
                 self.enable_capture_compare(channel);
+
+                if $adv_ctrl {
+                    self.regs.bdtr.write(|w| w.moe().set_bit());
+                }
             }
 
             /// Return the integer associated with the maximum duty period.
@@ -1566,8 +1570,8 @@ cfg_if! {
 // Advanced: 1/8/20
 
 #[cfg(not(any(feature = "f373")))]
-make_timer!(TIM1, tim1, 2, u16);
-// todo: Some variantsl ike H7 have 4 channels on TIM1.
+make_timer!(TIM1, tim1, 2, u16, true);
+// todo: Some variants ike H7 have 4 channels on TIM1.
 #[cfg(not(any(feature = "f373")))]
 cc_2_channels!(TIM1, u16);
 
@@ -1578,7 +1582,7 @@ cfg_if! {
         feature = "l5", // todo PAC bug?
         feature = "wb55", // todo PAC bug?
     )))] {
-        make_timer!(TIM2, tim2, 1, u32);
+        make_timer!(TIM2, tim2, 1, u32, false);
         cc_4_channels!(TIM2, u32);
     }
 }
@@ -1596,7 +1600,7 @@ cfg_if! {
         feature = "wb",
         feature = "wl"
     )))] {
-        make_timer!(TIM3, tim3, 1, u32);
+        make_timer!(TIM3, tim3, 1, u32, false);
         cc_4_channels!(TIM3, u32);
     }
 }
@@ -1615,7 +1619,7 @@ cfg_if! {
         feature = "wb",
         feature = "wl"
     )))] {
-        make_timer!(TIM4, tim4, 1, u32);
+        make_timer!(TIM4, tim4, 1, u32, false);
         cc_4_channels!(TIM4, u32);
     }
 }
@@ -1629,7 +1633,7 @@ cfg_if! {
        feature = "h7",
        all(feature = "f4", not(feature = "f410")),
    ))] {
-        make_timer!(TIM5, tim5, 1, u32);
+        make_timer!(TIM5, tim5, 1, u32, false);
         cc_4_channels!(TIM5, u32);
    }
 }
@@ -1641,7 +1645,7 @@ cfg_if! {
         feature = "l4x6",
         feature = "l562",
     ))] {
-        make_timer!(TIM8, tim8, 2, u16);
+        make_timer!(TIM8, tim8, 2, u16, true);
         // todo: Some issues with field names or something on l562 here.
         cc_1_channel!(TIM8, u16);
     }
@@ -1659,14 +1663,14 @@ cfg_if! {
         feature = "wb",
         feature = "wl"
     )))] {
-        make_timer!(TIM15, tim15, 2, u16);
+        make_timer!(TIM15, tim15, 2, u16, false);
         // todo: TIM15 on some variant has 2 channels (Eg H7). On others, like L4x3, it appears to be 1.
         cc_1_channel!(TIM15, u16);
     }
 }
 
 #[cfg(not(feature = "f4"))]
-make_timer!(TIM16, tim16, 2, u16);
+make_timer!(TIM16, tim16, 2, u16, false);
 #[cfg(not(feature = "f4"))]
 cc_1_channel!(TIM16, u16);
 
@@ -1678,7 +1682,7 @@ cfg_if! {
         feature = "l4x3",
         feature = "f4",
     )))] {
-        make_timer!(TIM17, tim17, 2, u16);
+        make_timer!(TIM17, tim17, 2, u16, false);
         cc_1_channel!(TIM17, u16);
     }
 }
@@ -1689,19 +1693,19 @@ cfg_if! {
 
 cfg_if! {
     if #[cfg(any(feature = "f373"))] {
-        make_timer!(TIM12, tim12, 1, u16);
-        make_timer!(TIM13, tim13, 1, u16);
-        make_timer!(TIM14, tim14, 1, u16);
-        make_timer!(TIM19, tim19, 2, u16);
+        make_timer!(TIM12, tim12, 1, u16, false);
+        make_timer!(TIM13, tim13, 1, u16, false);
+        make_timer!(TIM14, tim14, 1, u16, false);
+        make_timer!(TIM19, tim19, 2, u16, false);
 
-        cc_1_channel!(TIM12, u16);
-        cc_1_channel!(TIM13, u16);
-        cc_1_channel!(TIM14, u16);
-        cc_1_channel!(TIM19, u16);
+        cc_1_channel!(TIM12, u16, false);
+        cc_1_channel!(TIM13, u16, false);
+        cc_1_channel!(TIM14, u16, false);
+        cc_1_channel!(TIM19, u16, false);
     }
 }
 
 #[cfg(any(feature = "f303"))]
-make_timer!(TIM20, tim20, 2, u16);
+make_timer!(TIM20, tim20, 2, u16, true);
 #[cfg(any(feature = "f303"))]
 cc_4_channels!(TIM20, u16);

@@ -19,9 +19,6 @@ pub struct USB1 {
     pub usb_global: pac::OTG1_HS_GLOBAL,
     pub usb_device: pac::OTG1_HS_DEVICE,
     pub usb_pwrclk: pac::OTG1_HS_PWRCLK,
-    // pub pin_dm: PB14<Alternate<AF12>>,
-    // pub pin_dp: PB15<Alternate<AF12>>,
-    // pub prec: rcc::rec::Usb1Otg,  todo
     pub hclk: u32,
 }
 
@@ -29,9 +26,6 @@ pub struct USB2 {
     pub usb_global: pac::OTG2_HS_GLOBAL,
     pub usb_device: pac::OTG2_HS_DEVICE,
     pub usb_pwrclk: pac::OTG2_HS_PWRCLK,
-    // pub pin_dm: PA11<Alternate<AF10>>,
-    // pub pin_dp: PA12<Alternate<AF10>>,
-    // pub prec: rcc::rec::Usb2Otg,  todo
     pub hclk: u32,
 }
 
@@ -79,14 +73,13 @@ usb_peripheral! {
 }
 pub type Usb1BusType = UsbBus<USB1>;
 
-// #[cfg(not(feature = "rm0455"))]
 usb_peripheral! {
     USB2, OTG2_HS_GLOBAL, usb2otgen, usb2otgrst
 }
-// #[cfg(not(feature = "rm0455"))]
+
 pub type Usb2BusType = UsbBus<USB2>;
 
-pub struct USB1_ULPI {
+pub struct Usb1Ulpi {
     pub usb_global: pac::OTG1_HS_GLOBAL,
     pub usb_device: pac::OTG1_HS_DEVICE,
     pub usb_pwrclk: pac::OTG1_HS_PWRCLK,
@@ -106,9 +99,9 @@ pub struct USB1_ULPI {
     pub ulpi_d7: Pin,
 }
 
-unsafe impl Sync for USB1_ULPI {}
+unsafe impl Sync for Usb1Ulpi {}
 
-unsafe impl UsbPeripheral for USB1_ULPI {
+unsafe impl UsbPeripheral for Usb1Ulpi {
     const REGISTERS: *const () = pac::OTG1_HS_GLOBAL::ptr() as *const ();
 
     const HIGH_SPEED: bool = true;
@@ -139,4 +132,4 @@ unsafe impl UsbPeripheral for USB1_ULPI {
         synopsys_usb_otg::PhyType::ExternalHighSpeed
     }
 }
-pub type Usb1UlpiBusType = UsbBus<USB1_ULPI>;
+pub type Usb1UlpiBusType = UsbBus<Usb1Ulpi>;

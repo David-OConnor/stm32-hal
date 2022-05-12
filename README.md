@@ -43,7 +43,7 @@ Operationally tested on the following devices:
 - STM32L476, L433, L443, L412, L432
 - STM32L552
 - STM32WB5MMG
-- STM32G431
+- STM32G431, G491
 - STM32H743(V), H745 (both cores)
 
 
