@@ -200,6 +200,8 @@ pub enum OutputCompare {
     /// counter TIMx_CNT matches the capture/compare register 1 (TIMx_CCR1).
     /// 0011: Toggle - OC1REF toggles when TIMx_CNT=TIMx_CCR1.
     Inactive = 0b0010,
+    /// tim_oc1ref toggles when TIMx_CNT=TIMx_CCR1.
+    Toggle = 0b0011,
     /// Force inactive level - OC1REF is forced low.
     ForceInactive = 0b0100,
     /// Force active level - OC1REF is forced high.
@@ -1709,3 +1711,5 @@ cfg_if! {
 make_timer!(TIM20, tim20, 2, u16, true);
 #[cfg(any(feature = "f303"))]
 cc_4_channels!(TIM20, u16);
+
+// todo: Remove the final "true/false" for adv ctrl. You need a sep macro like you do for ccx_channel!.

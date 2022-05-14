@@ -318,12 +318,17 @@ macro_rules! hal {
                         common_regs.ccr.modify(|_, w| unsafe { w.ckmode().bits(result.cfg.clock_mode as u8) });
                     });
 
+                    //todo: Cal/VDDA code needs work.
+
                     result.set_align(Align::default());
 
                     result.advregen_enable(clock_cfg);
 
                     result.calibrate(InputType::SingleEnded, clock_cfg);
                     result.calibrate(InputType::Differential, clock_cfg);
+
+                    // result.calibrate(InputType::SingleEnded, clock_cfg);
+                    // result.calibrate(InputType::Differential, clock_cfg);
 
                     // Reference Manual: "ADEN bit cannot be set during ADCAL=1
                     // and 4 ADC clock cycle after the ADCAL
@@ -697,7 +702,6 @@ macro_rules! hal {
             /// Set up the internal voltage reference, to improve conversion from reading
             /// to voltage accuracy. See L44 RM, section 16.4.34: "Monitoring the internal voltage reference"
             fn setup_vdda(&mut self, clock_cfg: &Clocks) {
-                // todo: Using ints intead of floats here and in read_voltage, for use on Cortex M0s?
                 // todo: May need to use mv.
                 let common_regs = unsafe { &*pac::$ADC_COMMON::ptr() };
 
@@ -706,7 +710,7 @@ macro_rules! hal {
                 // to stabilize the internal voltage reference, we wait a little more.
                 let mut delay = (15_000_000) / clock_cfg.sysclk();
                 // https://github.com/rust-embedded/cortex-m/pull/328
-                if delay < 2 {  // Work around a bug in cortex-m.
+                if delay < 2 {  // Work around a bug in cortex-m crate.
                     delay = 2;
                 }
                 asm::delay(delay);
@@ -723,27 +727,32 @@ macro_rules! hal {
                 // (ADC1_INP0).
 
                 // Regardless of which ADC we're on, we take this reading using ADC1.
-                #[cfg(not(any(feature = "l5", feature = "g4")))]
                 let vref_reading = if self.device != AdcDevice::One {
                     // todo: What if ADC1 is alreayd enabled and configured differently?
                     // todo: Either way, if you're also using ADC1, this will screw things up⋅.
 
-                    // If we're currently using ADC1 (and this is a different ADC), skip this step for now;
-                    // VDDA will be wrong,
-                    // and all readings using voltage conversion will be wrong.
-                    if unsafe { (*pac::ADC1::ptr()).cr.read().aden().bit_is_set() } {
-                        // todo: Take an ADC1 reading if this is the case.
-                        return
-                    }
-
                     let dp = unsafe { pac::Peripherals::steal() };
 
+                    #[cfg(feature = "l5")]
+                    let dp_adc = dp.ADC;
+                    #[cfg(not(feature = "l5"))]
+                    let dp_adc = dp.ADC1;
+
                     let mut adc1 = Adc::new_adc1(
-                        dp.ADC1,
+                        dp_adc,
                         AdcDevice::One,
                         Default::default(),
                         clock_cfg,
                     );
+
+                    // If we're currently using ADC1 (and this is a different ADC), skip this step for now;
+                    // VDDA will be wrong,
+                    // and all readings using voltage conversion will be wrong.
+                    // todo: Take an ADC1 reading if this is the case.
+                    if adc1.is_enabled() {
+                        return
+                    }
+
                     adc1.set_sample_time(0, SampleTime::T601);
                     let reading = adc1.read(0);
 
@@ -756,12 +765,6 @@ macro_rules! hal {
                     self.set_sample_time(0, SampleTime::T601);
                     self.read(0)
                 };
-
-                #[cfg(feature = "l5")]
-                let vref_reading = 0.; // todo handle this! Just take a reading off the only ADC.
-
-                #[cfg(feature = "g4")]
-                let vref_reading = 0.; // todo handle this! Weird macro issue (chicken+egg?)
 
                 // self.set_sample_time(0, old_sample_time);
                 common_regs.ccr.modify(|_, w| w.vrefen().clear_bit());
