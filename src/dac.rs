@@ -2,7 +2,10 @@
 
 use core::ops::Deref;
 
-use cortex_m::{delay::Delay, interrupt::free};
+use cortex_m::interrupt::free;
+
+#[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "g4")))]
+use cortex_m::delay::Delay;
 
 use crate::{
     pac::{self, RCC},

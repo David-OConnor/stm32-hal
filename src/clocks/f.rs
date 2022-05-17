@@ -744,8 +744,8 @@ impl Default for Clocks {
     }
 
     #[cfg(feature = "f4")]
-    /// This preset configures common with a HSI, and 180Mhz sysclck for most variants. 100Mhz for F411,
-    ///and 84Mhz for F401. APB1 and 2 are
+    /// This preset configures clocks with a HSI, and a 180Mhz sysclck for most variants. 100Mhz for F411,
+    /// and 84Mhz for F401. APB1 and 2 are
     /// clocked at 45Mhz. APB1 and 2 timers are clocked at 90Mhz. Not valid for USB.
     fn default() -> Self {
         Self {

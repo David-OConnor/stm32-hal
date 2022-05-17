@@ -9,7 +9,7 @@
 use crate::{
     clocks::Clocks,
     gpio::Pin,
-    pac::{self, PWR, RCC}
+    pac::{self, PWR, RCC},
 };
 
 pub use synopsys_usb_otg::UsbBus;

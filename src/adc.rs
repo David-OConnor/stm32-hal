@@ -1,6 +1,6 @@
 //! Support for the ADC (Analog to Digital Converter) peripheral.
 
-use cortex_m::{asm, interrupt::free};
+use cortex_m::{asm, delay::Delay, interrupt::free};
 
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::adc::{Channel, OneShot};
@@ -104,7 +104,7 @@ pub enum AdcInterrupt {
 
 // todo: Adc sampling time below depends on the STM32 family. Eg the numbers below
 // todo are wrong for L4, but the idea is the same.
-/// ADC sampling time
+/// ADC sampling time. Sets ADC_SMPRx register, SMPy field.
 ///
 /// Each channel can be sampled with a different sample time.
 /// There is always an overhead of 13 ADC clock cycles.
@@ -113,21 +113,21 @@ pub enum AdcInterrupt {
 /// [derive(Clone, Copy)]
 #[repr(u8)]
 pub enum SampleTime {
-    /// 1.5 ADC clock cycles
+    /// 1.5 ADC clock cycles (2.5 on G4)
     T1 = 0b000,
-    /// 2.5 ADC clock cycles
+    /// 2.5 ADC clock cycles (6.5 on G4)
     T2 = 0b001,
-    /// 4.5 ADC clock cycles
+    /// 4.5 ADC clock cycles (12.5 on G4)
     T4 = 0b010,
-    /// 7.5 ADC clock cycles
+    /// 7.5 ADC clock cycles (24.5 on G4)
     T7 = 0b011,
-    /// 19.5 ADC clock cycles
+    /// 19.5 ADC clock cycles (47.5 on G4)
     T19 = 0b100,
-    /// 61.5 ADC clock cycles
+    /// 61.5 ADC clock cycles (92.5 on G4)
     T61 = 0b101,
-    /// 181.5 ADC clock cycles
+    /// 181.5 ADC clock cycles (247.5 on G4)
     T181 = 0b110,
-    /// 601.5 ADC clock cycles
+    /// 601.5 ADC clock cycles (640.5 on G4)
     T601 = 0b111,
 }
 
@@ -339,7 +339,7 @@ macro_rules! hal {
                         ClockMode::SyncDiv2 => 2,
                         ClockMode::SyncDiv4 => 4,
                     };
-                    asm::delay(adc_per_cpu_cycles * 4);
+                    asm::delay(adc_per_cpu_cycles * 4 * 2); // additional x2 is a pad;
                     result.enable();
 
                     match result.cfg.operation_mode {
@@ -467,7 +467,7 @@ macro_rules! hal {
             }
 
             /// Enable the ADC voltage regulator, and exit deep sleep mode (some MCUs)
-            pub fn advregen_enable(&mut self, clocks: &Clocks){
+            pub fn advregen_enable(&mut self, clock_cfg: &Clocks){
                 cfg_if! {
                     if #[cfg(feature = "f3")] {
                         // `F303 RM, 15.3.6:
@@ -487,7 +487,7 @@ macro_rules! hal {
                     }
                 }
 
-                self.wait_advregen_startup(clocks)
+                self.wait_advregen_startup(clock_cfg)
             }
 
             /// Disable power, eg to save power in low power modes. Inferred from RM,
@@ -519,23 +519,20 @@ macro_rules! hal {
             /// Wait for the advregen to startup.
             ///
             /// This is based on the MAX_ADVREGEN_STARTUP_US of the device.
-            fn wait_advregen_startup(&self, clocks: &Clocks) {
-                let mut delay = (MAX_ADVREGEN_STARTUP_US * 1_000_000) / clocks.sysclk();
-                // https://github.com/rust-embedded/cortex-m/pull/328
-                if delay < 2 {  // Work around a bug in cortex-m.
-                    delay = 2;
-                }
-                asm::delay(delay);
+            fn wait_advregen_startup(&self, clock_cfg: &Clocks) {
+                let cp = unsafe { cortex_m::Peripherals::steal() };
+                let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
+                delay.delay_us(MAX_ADVREGEN_STARTUP_US)
             }
 
             /// Calibrate. See L4 RM, 16.5.8, or F404 RM, section 15.3.8.
             /// Stores calibration values, which can be re-inserted later,
             /// eg after entering ADC deep sleep mode, or MCU STANDBY or VBAT.
-            pub fn calibrate(&mut self, input_type: InputType, clocks: &Clocks) {
+            pub fn calibrate(&mut self, input_type: InputType, clock_cfg: &Clocks) {
                 // 1. Ensure DEEPPWD=0, ADVREGEN=1 and that ADC voltage regulator startup time has
                 // elapsed.
                 if !self.is_advregen_enabled() {
-                    self.advregen_enable(clocks);
+                    self.advregen_enable(clock_cfg);
                 }
 
                 let was_enabled = self.is_enabled();
@@ -708,12 +705,9 @@ macro_rules! hal {
                 common_regs.ccr.modify(|_, w| w.vrefen().set_bit());
                 // "Table 24. Embedded internal voltage reference" states that it takes a maximum of 12 us
                 // to stabilize the internal voltage reference, we wait a little more.
-                let mut delay = (15_000_000) / clock_cfg.sysclk();
-                // https://github.com/rust-embedded/cortex-m/pull/328
-                if delay < 2 {  // Work around a bug in cortex-m crate.
-                    delay = 2;
-                }
-                asm::delay(delay);
+                let cp = unsafe { cortex_m::Peripherals::steal() };
+                let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
+                delay.delay_us(20);
 
                 // (From L4xx-hal) "Table 24. Embedded internal voltage reference" states that the sample time needs to be
                 // at a minimum 4 us. With 640.5 ADC cycles we have a minimum of 8 us at 80 MHz, leaving
@@ -753,7 +747,12 @@ macro_rules! hal {
                         return
                     }
 
+                    // Sample time can only be set with teh ADC disabled.
+                    adc1.disable();
+                    while self.regs.cr.read().adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set() {}
                     adc1.set_sample_time(0, SampleTime::T601);
+                    adc1.enable();
+                    while self.regs.cr.read().aden().bit_is_clear() {}
                     let reading = adc1.read(0);
 
                     // Disable ADC1 and its clock.
@@ -762,8 +761,21 @@ macro_rules! hal {
 
                     reading
                 } else {
+                    self.disable();
+                    while self.regs.cr.read().adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set() {}
                     self.set_sample_time(0, SampleTime::T601);
-                    self.read(0)
+
+                    self.enable();
+                    while self.regs.cr.read().aden().bit_is_clear() {}
+                    let reading = self.read(0);
+
+                    // todo: Set the requested sample time; not just the default!
+                    self.disable();
+                    while self.regs.cr.read().adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set() {}
+                    self.set_sample_time(0, SampleTime::T1);
+                    self.enable();
+
+                    reading
                 };
 
                 // self.set_sample_time(0, old_sample_time);
@@ -779,7 +791,8 @@ macro_rules! hal {
                 // • VREFINT_CAL is the VREFINT calibration value
                 // • VREFINT_DATA is the actual VREFINT output value converted by ADC
 
-                // todo: This address may be different on different MCUs, even within the same family!!
+                // todo: This address may be different on different MCUs, even within the same family.
+                // Although, it seems relatively consistent. Check User Manuals.
                 let vrefint_cal: u16 = unsafe { ptr::read_volatile(&*(0x1FFF_75AA as *const _)) };
 
                 self.vdda_calibrated = 3. * vrefint_cal as f32 / vref_reading as f32
@@ -830,7 +843,6 @@ macro_rules! hal {
                 // After the regular sequence is complete, after each conversion is complete,
                 // the EOC (end of regular conversion) flag is set.
                 // After the regular sequence is complete: The EOS (end of regular sequence) flag is set.
-                // (We're ignoring eoc, since this module doesn't currently support sequences)
                 while self.regs.isr.read().eos().bit_is_clear() {}  // wait until complete.
             }
 

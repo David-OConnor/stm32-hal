@@ -745,7 +745,7 @@ cfg_if::cfg_if! {
             fn write_chan() -> DmaChannel {unimplemented!()}
         }
     } else if #[cfg(feature = "g4")] {
-        impl RccPeriph for pac::DAC1 {
+        impl RccPeriph for DAC1 {
             fn en_reset(rcc: &RegisterBlock) {
                 rcc_en_reset!(ahb2, dac1, rcc);
             }
