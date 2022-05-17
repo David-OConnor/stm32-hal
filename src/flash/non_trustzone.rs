@@ -88,6 +88,7 @@ fn clear_error_flags(regs: &FLASH) {
             if sr.fasterr().bit_is_set() {
                 regs.sr.write(|w| w.fasterr().set_bit());
             }
+            #[cfg(not(feature = "wl"))]
             if sr.miserr().bit_is_set() {
                 regs.sr.write(|w| w.miserr().set_bit());
             }
@@ -161,6 +162,10 @@ impl Flash {
     }
 
     /// Unlock the flash memory, allowing writes. See L4 Reference manual, section 3.3.5.
+    /// (G4 RM sectino 5.3.5)
+    /// "After reset, write is not allowed in the Flash control register (FLASH_CR) to protect the
+    /// Flash memory against possible unwanted operations due, for example, to electric
+    /// disturbances."
     pub fn unlock(&mut self) -> Result<(), Error> {
         #[cfg(not(feature = "h7"))]
         let regs = &self.regs;
@@ -171,6 +176,9 @@ impl Flash {
             return Ok(());
         }
 
+        // The following sequence is used to unlock this register:
+        // 1. Write KEY1 = 0x45670123 in the Flash key register (FLASH_KEYR)
+        // 2. Write KEY2 = 0xCDEF89AB in the FLASH_KEYR register.
         regs.keyr.write(|w| unsafe { w.bits(FLASH_KEY1) });
         regs.keyr.write(|w| unsafe { w.bits(FLASH_KEY2) });
 
@@ -219,12 +227,8 @@ impl Flash {
         // PGSERR is set.
         clear_error_flags(regs);
 
-        // 3. Set the PER bit and select the page you wish to erase (PNB) with the associated bank
-        // (BKER) in the Flash control register (FLASH_CR).
-
-        // Note that `STM32L4` includes the `.bker()` bit to select banks for all variants, but
-        // some variants only have 1 memory bank; eg ones with a smaller amount of memory.
-
+        // 3. Set the PER bit and select the page you wish to erase (PNB). For dual bank variants:
+        //  - with the associated bank(BKER) in the Flash control register (FLASH_CR).
         cfg_if! {
             if #[cfg(feature = "f3")] {
                 // F3 RM: "Erase procedure"
@@ -242,43 +246,41 @@ impl Flash {
                     w.ser().set_bit();
                     w.snb().bits(page as u8) // todo: Probably not right?
                 });
-
-            } else if #[cfg(any(feature = "g0", feature = "g4", feature = "wb", feature = "wl"))] {
+            } else {
+                // todo: bker writes and perhaps (page - 256) for bank 2.
                  regs.cr.modify(|_, w| unsafe {
                     w.pnb().bits(page as u8);
                     w.per().set_bit()
                 });
-            } else {
-                match page {
-                    0..=255 => {
-                        regs.cr.modify(|_, w| unsafe {
-                            w.bker().clear_bit();
-                            w.pnb().bits(page as u8);
-                            w.per().set_bit()
-                        });
-                    }
-                    256..=511 => {
-                        regs.cr.modify(|_, w| unsafe {
-                            w.bker().set_bit();
-                            w.pnb().bits((page - 256) as u8);
-                            w.per().set_bit()
-                        });
-                    }
-                    _ => {
-                        return Err(Error::PageOutOfRange);
-                    }
-                }
             }
+            // else {
+            //     match page {
+            //         0..=255 => {
+            //             regs.cr.modify(|_, w| unsafe {
+            //                 w.bker().clear_bit();
+            //                 w.pnb().bits(page as u8);
+            //                 w.per().set_bit()
+            //             });
+            //         }
+            //         256..=511 => {
+            //             regs.cr.modify(|_, w| unsafe {
+            //                 w.bker().set_bit();
+            //                 w.pnb().bits((page - 256) as u8);
+            //                 w.per().set_bit()
+            //             });
+            //         }
+            //         _ => {
+            //             return Err(Error::PageOutOfRange);
+            //         }
+            //     }
+            // }
         }
 
         // 4. Set the STRT bit in the FLASH_CR register.
         cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4", feature = "wb", feature = "wl"))] {
+            if #[cfg(not(any(feature = "l4", feature = "h7")))] {
                 regs.cr.modify(|_, w| w.strt().set_bit());
             } else {
-                #[cfg(any(feature = "g0", feature = "g4"))]
-                regs.cr.modify(|_, w| w.strt().set_bit());
-                #[cfg(not(any(feature = "g0", feature = "g4")))]
                 regs.cr.modify(|_, w| w.start().set_bit());
             }
         }
@@ -286,19 +288,18 @@ impl Flash {
         // 5. Wait for the BSY bit to be cleared in the FLASH_SR register.
         while regs.sr.read().bsy().bit_is_set() {}
 
-        // todo on F3: "Read the erased option bytes and verify" as final step
-
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "f4"))] {
                 // Check the EOP flag in the FLASH_SR register (it is set when the erase operation has
-                // succeeded), and then clear it by software. (todo)
-
-                // Clear the EOP flag
+                // succeeded), and then clear it by software.
+                while regs.sr.read().eop().bit_is_clear() {}
                 regs.sr.modify(|_, w| w.eop().set_bit());
-            } else {
-                regs.cr.modify(|_, w| w.per().clear_bit());
             }
         }
+        #[cfg(not(feature = "f4"))]
+        regs.cr.modify(|_, w| w.per().clear_bit());
+        #[cfg(feature = "f4")]
+        regs.cr.modify(|_, w| w.ser().clear_bit());
 
         self.lock();
 
@@ -348,7 +349,7 @@ impl Flash {
         Ok(())
     }
 
-    /// Erase one or both banks.
+    /// Erase one or both banks. Called "Mass erase" on single-bank variants like G4.
     pub fn erase_bank(&mut self, bank: Bank) -> Result<(), Error> {
         // todo: DRY
         // (H7): 2. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration
@@ -384,43 +385,43 @@ impl Flash {
 
         // 3. Set the MER1 bit or/and MER2 (depending on the bank) in the Flash control register
         // (FLASH_CR). Both banks can be selected in the same operation.
-
+        // 4. Set the STRT bit in the FLASH_CR register.
         cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4", feature = "wb", feature = "wl", feature = "h7"))] {
-                #[cfg(not(feature = "h7"))]
-                regs.cr.modify(|_, w| w.mer().clear_bit());
-                #[cfg(feature = "h7")]
+            if #[cfg(any(feature = "f3", feature = "f4"))] {
+                regs.cr.modify(|_, w| w.mer().set_bit());
+                regs.cr.modify(|_, w| w.strt().set_bit());
+            } else if #[cfg(feature = "h7")] {
                 // 3. Set the BER1/2 bit in the FLASH_CR1/2 register corresponding to the targeted bank.
-                regs.cr.modify(|_, w| w.ber().clear_bit());
-
-                // 4. Set the STRT bit in the FLASH_CR register.
-                #[cfg(not(feature = "h7"))]
-                regs.cr.modify(|_, w| w.strt().set_bit());
-                #[cfg(feature = "h7")]
-                // Set the START1/2 bit in the FLASH_CR1/2 register to start the bank erase operation.
-                // Then wait until the QW1/2 bit is cleared in the corresponding FLASH_SR1/2 register.
+                regs.cr.modify(|_, w| w.ber().set_bit());
+                // 4. Set the START bit in the FLASH_CR1/2 register to start the bank erase operation. Then
+                // wait until the QW1/2 bit is cleared in the corresponding FLASH_SR1/2 register.
                 regs.cr.modify(|_, w| w.start().set_bit());
-            } else if #[cfg(any(feature = "g0"))] {
-                regs.cr.modify(|_, w| w.mer().clear_bit());
-            } else if #[cfg(any(feature = "g4"))] {
-                regs.cr.modify(|_, w| w.mer1().clear_bit());
-            } else {
-                match bank {
-                    Bank::B1 => regs.cr.modify(|_, w| w.mer1().clear_bit()),
-                    #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
-                    Bank::B2 => regs.cr.modify(|_, w| w.mer2().clear_bit()),
-                }
-
-                // 4. Set the STRT bit in the FLASH_CR register.
-                #[cfg(any(feature = "g4", feature = "wl"))]
+                while regs.sr.read().qw().bit_is_set() {}
+            } else if #[cfg(feature = "g0")] {
+                regs.cr.modify(|_, w| w.mer().set_bit());
                 regs.cr.modify(|_, w| w.strt().set_bit());
-                #[cfg(not(feature = "g4"))]
+            } else if #[cfg(feature = "g4")] {
+                regs.cr.modify(|_, w| w.mer1().set_bit());
+                regs.cr.modify(|_, w| w.strt().set_bit());
+            } else { // L4
+                regs.cr.modify(|_, w| w.mer1().set_bit());
                 regs.cr.modify(|_, w| w.start().set_bit());
             }
         }
 
         // 5. Wait for the BSY bit to be cleared in the FLASH_SR register.
         while regs.sr.read().bsy().bit_is_set() {}
+
+        // (Some RMs describe this procedure, to clear mer, with ambiguity of if it's required)
+        cfg_if! {
+            if #[cfg(feature = "h7")] {
+                regs.cr.modify(|_, w| w.ber().clear_bit());
+            } else if #[cfg(any(feature = "l4", feature = "g4"))] {
+                regs.cr.modify(|_, w| w.mer1().clear_bit());
+            } else {
+                regs.cr.modify(|_, w| w.mer().clear_bit());
+            }
+        }
 
         self.lock();
 

@@ -284,11 +284,11 @@ impl Flash {
                 // NSPGSERR is set.
                 clear_error_flags(&self.regs, security);
 
-                // 3. Set the MER1 bit or/and MER2 (depending on the bank) in the Flash control register
-                // (FLASH_CR). Both banks can be selected in the same operation.
+                // 3. Set the NSMER1 bit or NSMER2 (depending on the bank) in the FLASH_NSCR
+                // register. Both banks can be selected in the same operation, in that case it corresponds
+                // to a mass erase.
                 match bank {
-                    Bank::B1 => self.regs.nscr.modify(|_, w| w.nsmer1().clear_bit()),
-                    #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
+                    Bank::B1 => self.regs.nscr.modify(|_, w| w.nsmer1().set_bit()),
                     Bank::B2 => self.regs.nscr.modify(|_, w| w.nsmer2().clear_bit()),
                 }
 
@@ -297,6 +297,13 @@ impl Flash {
 
                 // 5. Wait for the NSBSY bit to be cleared in the FLASH_NSSR register.
                 while self.regs.nssr.read().nsbsy().bit_is_set() {}
+
+                // 6. The NSMER1 or NSMER2 bits can be cleared if no more non-secure bank erase is
+                // requested.
+                match bank {
+                    Bank::B1 => self.regs.nscr.modify(|_, w| w.nsmer1().clear_bit()),
+                    Bank::B2 => self.regs.nscr.modify(|_, w| w.nsmer2().clear_bit()),
+                }
             }
             Security::Secure => {
                 let sr = self.regs.secsr.read();
@@ -308,14 +315,18 @@ impl Flash {
                 clear_error_flags(&self.regs, security);
 
                 match bank {
-                    Bank::B1 => self.regs.seccr.modify(|_, w| w.secmer1().clear_bit()),
-                    #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
+                    Bank::B1 => self.regs.seccr.modify(|_, w| w.secmer1().set_bit()),
                     Bank::B2 => self.regs.seccr.modify(|_, w| w.secmer2().clear_bit()),
                 }
 
                 self.regs.seccr.modify(|_, w| w.secstrt().set_bit());
 
                 while self.regs.secsr.read().secbsy().bit_is_set() {}
+
+                match bank {
+                    Bank::B1 => self.regs.seccr.modify(|_, w| w.secmer1().clear_bit()),
+                    Bank::B2 => self.regs.seccr.modify(|_, w| w.secmer2().clear_bit()),
+                }
             }
         }
 
@@ -439,14 +450,8 @@ impl Flash {
         // requested operations on this specific bank have been served.
 
         // todo: This is untested.
-        #[cfg(not(feature = "h7"))]
         let addr = page_to_address(page) as *const u8; // todo is this right?
                                                        // let addr = page_to_address(page).as_ptr(); // todo is this right?
-        #[cfg(feature = "h7")]
-        // todo: Don't hard-code bank1.
-        let addr = sector_to_address(page, Bank::B1) as *const u8; // todo is this right?
-                                                                   // let addr = sector_to_address(page, Bank::B1).as_ptr(); // todo is this right?
-
         for val in buff {
             *val = unsafe { core::ptr::read(addr.offset(offset)) }
         }

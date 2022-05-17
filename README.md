@@ -325,3 +325,5 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - WB and WL are missing features relating to second core operations and RF
 - L4+ MCUs not supported
 - WL is missing GPIO port C, and GPIO interrupt support
+- If using PWM (or output compare in general) on an Advanced control timer (eg TIM1 or 8),
+you must manually set the `TIMx_BDTR` register, `MOE` bit.
