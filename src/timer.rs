@@ -1646,7 +1646,10 @@ cfg_if! {
     ))] {
         make_timer!(TIM8, tim8, 2, u16);
         // todo: Some issues with field names or something on l562 here.
-        cc_1_channel!(TIM8, u16);
+        #[cfg(not(any(feature = "l5", feature = "l4")))] // PAC bugs.
+        cc_4_channels!(TIM8, u16);
+        #[cfg(feature = "l4")]
+        cc_2_channels!(TIM8, u16);
     }
 }
 
