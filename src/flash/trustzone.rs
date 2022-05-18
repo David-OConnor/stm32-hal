@@ -19,17 +19,18 @@ pub enum Security {
 }
 
 // todo
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 /// Set dual bank mode (DBANK option bit)
-enum _DualBank {
+pub enum DualBank {
     Dual,
     Single,
 }
 
 #[derive(Clone, Copy)]
+#[repr(u8)]
 pub enum Bank {
-    B1,
-    B2,
+    B1 = 0,
+    B2 = 1,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -104,13 +105,14 @@ fn clear_error_flags(regs: &FLASH, security: Security) {
 
 pub struct Flash {
     pub regs: FLASH,
+    pub dual_bank: DualBank,
 }
 
 impl Flash {
     /// Create a struct used to perform operations on Flash.
-    pub fn new(regs: FLASH) -> Self {
+    pub fn new(regs: FLASH, dual_bank: DualBank) -> Self {
         // todo: Implement and configure dual bank mode.
-        Self { regs }
+        Self { regs, dual_bank }
     }
 
     /// Unlock the flash memory, allowing writes. See L4 Reference manual, section 6.3.5.
@@ -166,7 +168,7 @@ impl Flash {
     /// "Programming in a previously programmed address is not allowed except if the data to write
     /// is full zero, and any attempt will set PROGERR flag in the Flash status register
     /// (FLASH_SR)."
-    pub fn erase_page(&mut self, page: usize, security: Security) -> Result<(), Error> {
+    pub fn erase_page(&mut self, page: usize, bank: Bank, security: Security) -> Result<(), Error> {
         self.unlock(security)?;
 
         match security {
@@ -188,32 +190,17 @@ impl Flash {
                 // FLASH_NSCR. In single-bank mode (DBANK option bit is reset), set the NSPER bit
                 // and select the page to erase (NSPNB). The NSBKER bit in the FLASH_NSCR must be
                 // kept cleared.
-                // todo: Follow that procedure; this may not be right.
-
-                match page {
-                    0..=255 => {
-                        self.regs.nscr.modify(|_, w| unsafe {
-                            w.nsbker()
-                                .clear_bit()
-                                .nspnb()
-                                .bits(page as u8)
-                                .nsper()
-                                .set_bit()
-                        });
-                    }
-                    256..=511 => {
-                        self.regs.nscr.modify(|_, w| unsafe {
-                            w.nsbker()
-                                .set_bit()
-                                .nspnb()
-                                .bits((page - 256) as u8)
-                                .nsper()
-                                .set_bit()
-                        });
-                    }
-                    _ => {
-                        return Err(Error::PageOutOfRange);
-                    }
+                if self.dual_bank == DualBank::Dual {
+                     self.regs.nscr.modify(|_, w| unsafe {
+                        w.nsbker().bit(bank as u8 != 0);
+                        w.nspnb().bits(page as u8);
+                        w.nsper().set_bit()
+                    });
+                } else {
+                     self.regs.nscr.modify(|_, w| unsafe {
+                        w.nspnb().bits(page as u8);
+                        w.nsper().set_bit()
+                    });
                 }
 
                 // 4. Set the NSSTRT bit in the FLASH_NSCR register.
@@ -232,24 +219,17 @@ impl Flash {
 
                 clear_error_flags(&self.regs, security);
 
-                match page {
-                    0..=255 => {
-                        self.regs.seccr.modify(|_, w| unsafe {
-                            w.secbker().clear_bit();
-                            w.secpnb().bits(page as u8);
-                            w.secper().set_bit()
-                        });
-                    }
-                    256..=511 => {
-                        self.regs.seccr.modify(|_, w| unsafe {
-                            w.secbker().set_bit();
-                            w.secpnb().bits((page - 256) as u8);
-                            w.secper().set_bit()
-                        });
-                    }
-                    _ => {
-                        return Err(Error::PageOutOfRange);
-                    }
+                if self.dual_bank == DualBank::Dual {
+                     self.regs.seccr.modify(|_, w| unsafe {
+                        w.secbker().bit(bank as u8 != 0);
+                        w.secpnb().bits(page as u8);
+                        w.secper().set_bit()
+                    });
+                } else {
+                     self.regs.seccr.modify(|_, w| unsafe {
+                        w.secpnb().bits(page as u8);
+                        w.secper().set_bit()
+                    });
                 }
 
                 self.regs.seccr.modify(|_, w| w.secstrt().set_bit());
@@ -431,6 +411,13 @@ impl Flash {
         self.lock(security);
 
         Ok(())
+    }
+
+    /// Erase a page, then write to it.
+    pub fn erase_write_page(&mut self, page: usize, bank: Bank, data: &[u64], security: Security) {
+        self.erase_page(page, bank, security);
+
+        self.write_page(page, data, security);
     }
 
     /// Read a single 64-bit memory cell, indexed by its page, and an offset from the page.

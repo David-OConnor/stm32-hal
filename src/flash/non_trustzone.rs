@@ -13,19 +13,21 @@ use cfg_if::cfg_if;
 const FLASH_KEY1: u32 = 0x4567_0123;
 const FLASH_KEY2: u32 = 0xCDEF_89AB;
 
-#[derive(Clone, Copy)]
-/// Set dual bank mode (DBANK option bit)
-enum _DualBank {
+#[derive(Clone, Copy, PartialEq)]
+/// Set dual bank mode (DBANK option bit). Eg G4
+pub enum DualBank {
     Dual,
     Single,
 }
 
 #[derive(Clone, Copy)]
+#[repr(u8)]
+/// For dual-bank variants. u8 value is used for page erase: sets `CR` reg, `BKER` bit.
 pub enum Bank {
-    B1,
+    B1 = 0,
     // todo: PAC bank 2 error
     #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
-    B2,
+    B2 = 1,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -152,13 +154,21 @@ fn clear_error_flags(regs: &BANK) {
 
 pub struct Flash {
     pub regs: FLASH,
+    #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
+    pub dual_bank: DualBank,
 }
 
 impl Flash {
     /// Create a struct used to perform operations on Flash.
     pub fn new(regs: FLASH) -> Self {
-        // todo: Implement and configure dual bank mode.
-        Self { regs }
+        cfg_if! {
+            if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
+                // Some G4 variants let you select dual or single-bank mode.
+                Self { regs, dual_bank: DualBank::Single }
+            } else {
+                Self { regs}
+            }
+        }
     }
 
     /// Unlock the flash memory, allowing writes. See L4 Reference manual, section 3.3.5.
@@ -168,9 +178,9 @@ impl Flash {
     /// disturbances."
     pub fn unlock(&mut self) -> Result<(), Error> {
         #[cfg(not(feature = "h7"))]
-        let regs = &self.regs;
+            let regs = &self.regs;
         #[cfg(feature = "h7")]
-        let regs = self.regs.bank1();
+            let regs = self.regs.bank1();
 
         if regs.cr.read().lock().bit_is_clear() {
             return Ok(());
@@ -196,9 +206,9 @@ impl Flash {
         // todo: bank
 
         #[cfg(not(feature = "h7"))]
-        let regs = &self.regs;
+            let regs = &self.regs;
         #[cfg(feature = "h7")]
-        let regs = &self.regs.bank1();
+            let regs = &self.regs.bank1();
 
         while regs.sr.read().bsy().bit_is_set() {}
         regs.cr.modify(|_, w| w.lock().set_bit());
@@ -210,15 +220,14 @@ impl Flash {
     /// "Programming in a previously programmed address is not allowed except if the data to write
     /// is full zero, and any attempt will set PROGERR flag in the Flash status register
     /// (FLASH_SR)."
-    pub fn erase_page(&mut self, page: usize) -> Result<(), Error> {
+    pub fn erase_page(&mut self, page: usize, bank: Bank) -> Result<(), Error> {
         self.unlock()?;
 
         let regs = &self.regs;
 
         // 1. Check that no Flash memory operation is ongoing by checking the BSY bit in the Flash
         // status register (FLASH_SR).
-        let sr = regs.sr.read();
-        if sr.bsy().bit_is_set() {
+        if regs.sr.read().bsy().bit_is_set() {
             self.lock();
             return Err(Error::Busy);
         }
@@ -246,8 +255,28 @@ impl Flash {
                     w.ser().set_bit();
                     w.snb().bits(page as u8) // todo: Probably not right?
                 });
+            } else if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
+                // todo: bker writes and perhaps (page - 256) for bank 2. ?
+                // todo: Is that right? Or does page count reset?
+                // 3. (G4 dual-bank devices: In dual bank mode (DBANK option bit is set), set the PER bit and
+                // select the page to
+                // erase (PNB) with the associated bank (BKER) in the Flash control register
+                // (FLASH_CR). In single bank mode (DBANK option bit is reset), set the PER bit and
+                // select the page to erase (PNB). The BKER bit in the Flash control register
+                // (FLASH_CR) must be kept cleared)
+                if self.dual_bank == DualBank::Dual {
+                     regs.cr.modify(|_, w| unsafe {
+                        // w.bker().bits(bank as u8); // todo: PAC error
+                        w.pnb().bits(page as u8);
+                        w.per().set_bit()
+                    });
+                } else {
+                     regs.cr.modify(|_, w| unsafe {
+                        w.pnb().bits(page as u8);
+                        w.per().set_bit()
+                    });
+                }
             } else {
-                // todo: bker writes and perhaps (page - 256) for bank 2.
                  regs.cr.modify(|_, w| unsafe {
                     w.pnb().bits(page as u8);
                     w.per().set_bit()
@@ -297,9 +326,9 @@ impl Flash {
             }
         }
         #[cfg(not(feature = "f4"))]
-        regs.cr.modify(|_, w| w.per().clear_bit());
+            regs.cr.modify(|_, w| w.per().clear_bit());
         #[cfg(feature = "f4")]
-        regs.cr.modify(|_, w| w.ser().clear_bit());
+            regs.cr.modify(|_, w| w.ser().clear_bit());
 
         self.lock();
 
@@ -357,9 +386,9 @@ impl Flash {
         self.unlock()?;
 
         #[cfg(not(feature = "h7"))]
-        let regs = &self.regs;
+            let regs = &self.regs;
         #[cfg(feature = "h7")]
-        let regs = &match bank {
+            let regs = &match bank {
             Bank::B1 => self.regs.bank1(),
             // todo: PAC bank 2 error
             #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
@@ -385,27 +414,37 @@ impl Flash {
 
         // 3. Set the MER1 bit or/and MER2 (depending on the bank) in the Flash control register
         // (FLASH_CR). Both banks can be selected in the same operation.
-        // 4. Set the STRT bit in the FLASH_CR register.
         cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4"))] {
+            if #[cfg(any(feature = "f3", feature = "f4", feature = "g0"))] {
                 regs.cr.modify(|_, w| w.mer().set_bit());
-                regs.cr.modify(|_, w| w.strt().set_bit());
             } else if #[cfg(feature = "h7")] {
                 // 3. Set the BER1/2 bit in the FLASH_CR1/2 register corresponding to the targeted bank.
                 regs.cr.modify(|_, w| w.ber().set_bit());
+            } else { // L4, G4
+                match bank {
+                    Bank::B1 => {
+                        regs.cr.modify(|_, w| w.mer1().set_bit());
+                    }
+                    Bank::B2 => {
+                        // todo: Other families that have dual bank too!
+                        // #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
+                        // regs.cr.modify(|_, w| w.mer2().set_bit()); // todo PAC error
+                    }
+                }
+            }
+        }
+
+        // 4. Set the STRT bit in the FLASH_CR register.
+        cfg_if! {
+             if #[cfg(feature = "h7")] {
                 // 4. Set the START bit in the FLASH_CR1/2 register to start the bank erase operation. Then
                 // wait until the QW1/2 bit is cleared in the corresponding FLASH_SR1/2 register.
                 regs.cr.modify(|_, w| w.start().set_bit());
                 while regs.sr.read().qw().bit_is_set() {}
-            } else if #[cfg(feature = "g0")] {
-                regs.cr.modify(|_, w| w.mer().set_bit());
+            } else if #[cfg(feature = "l4")] {
+                regs.cr.modify( | _, w | w.start().set_bit());
+            } else {
                 regs.cr.modify(|_, w| w.strt().set_bit());
-            } else if #[cfg(feature = "g4")] {
-                regs.cr.modify(|_, w| w.mer1().set_bit());
-                regs.cr.modify(|_, w| w.strt().set_bit());
-            } else { // L4
-                regs.cr.modify(|_, w| w.mer1().set_bit());
-                regs.cr.modify(|_, w| w.start().set_bit());
             }
         }
 
@@ -428,10 +467,9 @@ impl Flash {
         Ok(())
     }
 
-    // todo: For H7 etc, accept a bank argument.
-
+    // todo: For multibank variants, accept a bank argument.
     /// Write the contents of a page. Must be erased first. See L4 RM, section 3.3.7.
-    pub fn write_page(&mut self, page: usize, data: &[u64]) -> Result<(), Error> {
+    pub fn write_page(&mut self, page: usize, bank: Bank, data: &[u64]) -> Result<(), Error> {
         // todo: Consider a u8-based approach.
         // todo: DRY from `erase_page`.
 
@@ -441,9 +479,9 @@ impl Flash {
         // Flash status register (FLASH_SR).
 
         #[cfg(not(feature = "h7"))]
-        let regs = &self.regs;
+            let regs = &self.regs;
         #[cfg(feature = "h7")]
-        let regs = &self.regs.bank1();
+            let regs = &self.regs.bank1();
 
         let sr = regs.sr.read();
         if sr.bsy().bit_is_set() {
@@ -461,10 +499,15 @@ impl Flash {
         // 4. Perform the data write operation at the desired memory address, inside main memory
         // block or OTP area. Only double word can be programmed.
 
-        #[cfg(not(feature = "h7"))]
-        let mut address = page_to_address(page) as *mut u32;
-        #[cfg(feature = "h7")]
-        let mut address = sector_to_address(page, Bank::B1) as *mut u32;
+        cfg_if! {
+            if #[cfg(feature = "h7")] {
+                let mut address = sector_to_address(page, bank) as *mut u32;
+            } else if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
+                let mut address = page_to_address(page, self.dual_bank, bank) as *mut u32;
+            } else {
+                let mut address = page_to_address(page) as *mut u32;
+            }
+        }
 
         for dword in data {
             unsafe {
@@ -495,7 +538,31 @@ impl Flash {
         Ok(())
     }
 
-    #[cfg(not(feature = "h7"))]
+    /// Erase a page, then write to it.
+    pub fn erase_write_page(&mut self, page: usize, bank: Bank, data: &[u64]) {
+        cfg_if! {
+            if #[cfg(feature = "h7")] {
+                self.erase_sector(page, bank);
+                self.write_page(page, bank, data);
+            // }
+            // else if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
+            //     self.erase_page(page, bank);
+            //     self.write_page(page, bank, data);
+            } else {
+                self.erase_page(page, bank);
+                self.write_page(page, bank, data);
+            }
+        }
+    }
+
+    #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
+    /// Read a single 64-bit memory cell, indexed by its page, and an offset from the page.
+    pub fn read(&self, page: usize, dual_bank: DualBank, bank: Bank, offset: isize) -> u64 {
+        let addr = page_to_address(page, dual_bank, bank) as *const u64;
+        unsafe { core::ptr::read(addr.offset(offset)) }
+    }
+
+    #[cfg(not(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484", feature = "h7")))]
     /// Read a single 64-bit memory cell, indexed by its page, and an offset from the page.
     pub fn read(&self, page: usize, offset: isize) -> u64 {
         let addr = page_to_address(page) as *const u64;
@@ -504,7 +571,7 @@ impl Flash {
 
     // #[cfg(not(feature = "h7"))]
     /// Read flash memory at a given page and offset into a buffer.
-    pub fn read_to_buffer(&self, page: usize, offset: isize, buff: &mut [u8]) {
+    pub fn read_to_buffer(&self, page: usize, offset: isize, buff: &mut [u8], bank: Bank) {
         // H742 RM, section 4.3.8:
         // Single read sequence
         // The recommended simple read sequence is the following:
@@ -513,14 +580,17 @@ impl Flash {
         // command queue buffer as soon as the non-volatile memory is ready and the previously
         // requested operations on this specific bank have been served.
 
+        cfg_if! {
+            if  #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
+                let addr = page_to_address(page, self.dual_bank, bank) as *const u8; // todo is this right?
+            } else if #[cfg(feature = "h7")] {
+                let addr = sector_to_address(page, bank) as *const u8; // todo is this right?
+            } else {
+                let addr = page_to_address(page) as *const u8; // todo is this right?
+            }
+        }
+
         // todo: This is untested.
-        #[cfg(not(feature = "h7"))]
-        let addr = page_to_address(page) as *const u8; // todo is this right?
-                                                       // let addr = page_to_address(page).as_ptr(); // todo is this right?
-        #[cfg(feature = "h7")]
-        // todo: Don't hard-code bank1.
-        let addr = sector_to_address(page, Bank::B1) as *const u8; // todo is this right?
-                                                                   // let addr = sector_to_address(page, Bank::B1).as_ptr(); // todo is this right?
 
         for val in buff {
             *val = unsafe { core::ptr::read(addr.offset(offset)) }
@@ -547,11 +617,29 @@ impl Flash {
     // }
 }
 
-#[cfg(not(feature = "h7"))]
 /// Calculate the address of the start of a given page. Each page is 2,048 Kb for non-H7.
 /// For H7, sectors are 128Kb, with 8 sectors per bank.
+#[cfg(not(any(
+feature = "g473",
+feature = "g474",
+feature = "g483",
+feature = "g484",
+feature = "h7"
+)))]
 fn page_to_address(page: usize) -> usize {
     0x0800_0000 + page * 2048
+}
+
+#[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
+fn page_to_address(page: usize, dual_bank: DualBank, bank: Bank) -> usize {
+    if dual_bank == DualBank::Single {
+        0x0800_0000 + page * 4096
+    } else {
+        match bank {
+            Bank::B1 => 0x0800_0000 + page * 2048,
+            Bank::B2 => 0x0804_0000 + page * 2048,
+        }
+    }
 }
 
 #[cfg(feature = "h7")]

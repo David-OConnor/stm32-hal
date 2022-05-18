@@ -897,8 +897,10 @@ macro_rules! cc_4_channels {
                     TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1np().bit(polarity.bit())),
                     TimChannel::C2 => self.regs.ccer.modify(|_, w| w.cc2np().bit(polarity.bit())),
                     TimChannel::C3 => self.regs.ccer.modify(|_, w| w.cc3np().bit(polarity.bit())),
-                    #[cfg(not(feature = "wl"))]
+                    // #[cfg(not(feature = "wl"))]
+                    #[cfg(not(any(feature = "wl", feature = "l4")))] // PAC ommission
                     TimChannel::C4 => self.regs.ccer.modify(|_, w| w.cc4np().bit(polarity.bit())),
+                    _ => panic!(),
                 }
             }
             /// Disables capture compare on a specific channel.
@@ -1569,9 +1571,10 @@ cfg_if! {
 
 #[cfg(not(any(feature = "f373")))]
 make_timer!(TIM1, tim1, 2, u16);
-// todo: Some variants ike H7 and L476 have 4 channels on TIM1 and TIM.
-// todo: PAC error, I think.
-#[cfg(not(any(feature = "f373")))]
+// PAC error, I think.
+#[cfg(not(any(feature = "f373", feature = "l5", feature = "g4", feature = "h7")))]
+cc_4_channels!(TIM1, u16);
+#[cfg(any(feature = "l5", feature = "g4", feature = "h7"))] // PAC bug.
 cc_2_channels!(TIM1, u16);
 
 cfg_if! {
@@ -1646,10 +1649,10 @@ cfg_if! {
     ))] {
         make_timer!(TIM8, tim8, 2, u16);
         // todo: Some issues with field names or something on l562 here.
-        #[cfg(not(any(feature = "l5", feature = "l4")))] // PAC bugs.
+        #[cfg(not(feature = "l5"))] // PAC bug.
         cc_4_channels!(TIM8, u16);
-        #[cfg(feature = "l4")]
-        cc_2_channels!(TIM8, u16);
+        #[cfg(feature = "l5")] // PAC bug.
+        cc_1_channel!(TIM8, u16);
     }
 }
 
