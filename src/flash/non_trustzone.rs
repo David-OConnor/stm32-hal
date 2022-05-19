@@ -126,7 +126,12 @@ fn clear_error_flags(regs: &BANK) {
     if sr.dbeccerr().bit_is_set() {
         regs.ccr.write(|w| w.clr_dbeccerr().set_bit());
     }
+    #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
     if sr.sneccerr1().bit_is_set() {
+        regs.ccr.write(|w| w.clr_sneccerr().set_bit());
+    }
+    #[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
+    if sr.sneccerr().bit_is_set() {
         regs.ccr.write(|w| w.clr_sneccerr().set_bit());
     }
     if sr.rdserr().bit_is_set() {
@@ -391,7 +396,7 @@ impl Flash {
         // 3. Set the MER1 bit or/and MER2 (depending on the bank) in the Flash control register
         // (FLASH_CR). Both banks can be selected in the same operation.
         cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4", feature = "g0"))] {
+            if #[cfg(any(feature = "f3", feature = "f4", feature = "g0", feature = "wb", feature = "wl"))] {
                 regs.cr.modify(|_, w| w.mer().set_bit());
             } else if #[cfg(feature = "h7")] {
                 // 3. Set the BER1/2 bit in the FLASH_CR1/2 register corresponding to the targeted bank.
