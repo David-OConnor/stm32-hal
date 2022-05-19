@@ -2,8 +2,6 @@
 
 use crate::pac::FLASH;
 
-// use crate::pac::flash::BANK;
-
 use core;
 
 use cfg_if::cfg_if;
@@ -168,7 +166,7 @@ impl Flash {
     /// "Programming in a previously programmed address is not allowed except if the data to write
     /// is full zero, and any attempt will set PROGERR flag in the Flash status register
     /// (FLASH_SR)."
-    pub fn erase_page(&mut self, page: usize, bank: Bank, security: Security) -> Result<(), Error> {
+    pub fn erase_page(&mut self, bank: Bank, page: usize, security: Security) -> Result<(), Error> {
         self.unlock(security)?;
 
         match security {
@@ -318,6 +316,7 @@ impl Flash {
     /// Write the contents of a page. Must be erased first. See L5 RM, section 6.3.7.
     pub fn write_page(
         &mut self,
+        bank: Bank,
         page: usize,
         data: &[u8],
         security: Security,
@@ -347,7 +346,7 @@ impl Flash {
                 // todo: You have 3x DRY here re teh writing. Put that in  a fn?
                 // 4. Perform the data write operation at the desired memory address, inside main memory
                 // block or OTP area. Only double word can be programmed.
-                let mut address = page_to_address(page) as *mut u32;
+                let mut address = page_to_address(self.dual_bank, bank, page) as *mut u32;
 
                 // Map our 8-bit data input API to the 64-bit write API.
                 // "The Flash memory is programmed 72 bits at a time (64 bits + 8 bits ECC)."
@@ -390,7 +389,7 @@ impl Flash {
 
                 self.regs.seccr.modify(|_, w| w.secpg().set_bit());
 
-                let mut address = page_to_address(page) as *mut u32;
+                let mut address = page_to_address(self.dual_bank, bank, page) as *mut u32;
 
                 // todo: No need to repeat this section.
                 for chunk in data.chunks_exact(8) {
@@ -423,28 +422,22 @@ impl Flash {
     }
 
     /// Erase a page, then write to it.
-    pub fn erase_write_page(&mut self, page: usize, bank: Bank, data: &[u8], security: Security) {
-        self.erase_page(page, bank, security);
+    pub fn erase_write_page(
+        &mut self,
+        bank: Bank,
+        page: usize,
+        data: &[u8],
+        security: Security,
+    ) -> Result<(), Error> {
+        self.erase_page(bank, page, security)?;
+        self.write_page(bank, page, data, security)?;
 
-        self.write_page(page, data, security);
-    }
-
-    /// Read a single 128-bit memory cell, indexed by its page, and an offset from the page.
-    /// Use this when configured in single-bank mode.
-    pub fn read_single_bank(&self, page: usize, bank: Bank, offset: isize) -> u128 {
-        let addr = page_to_address(page, dual_bank, bank) as *const u128;
-        unsafe { core::ptr::read(addr.offset(offset)) }
-    }
-
-    /// Read a single 64-bit memory cell, indexed by its page, and an offset from the page.
-    pub fn read(&self, page: usize, offset: usize) -> u64 {
-        let addr = page_to_address(page) as *const u64;
-        unsafe { core::ptr::read(addr.offset(offset as isize)) }
+        Ok(())
     }
 
     /// Read flash memory at a given page and offset into a buffer.
-    pub fn read_to_buffer(&self, page: usize, offset: usize, buf: &mut [u8]) {
-        let mut addr = page_to_address(page) as *mut u32;
+    pub fn read(&self, bank: Bank, page: usize, offset: usize, buf: &mut [u8]) {
+        let mut addr = page_to_address(self.dual_bank, bank, page) as *mut u32;
 
         // Offset it by the start position
         addr = unsafe { addr.add(offset) };
@@ -459,13 +452,13 @@ impl Flash {
 
 /// Calculate the address of the start of a given page. Each page is 2,048 Kb for non-H7.
 /// For H7, sectors are 128Kb, with 8 sectors per bank.
-fn page_to_address(page: usize, dual_bank: DualBank, bank: Bank) -> usize {
+fn page_to_address(dual_bank: DualBank, bank: Bank, page: usize) -> usize {
     if dual_bank == DualBank::Single {
-        0x0800_0000 + page * 4096
+        super::BANK1_START_ADDR + page * super::PAGE_SIZE_SINGLE_BANK
     } else {
         match bank {
-            Bank::B1 => 0x0800_0000 + page * 2048,
-            Bank::B2 => 0x0804_0000 + page * 2048,
+            Bank::B1 => super::BANK1_START_ADDR + page * super::PAGE_SIZE_DUAL_BANK,
+            Bank::B2 => super::BANK2_START_ADDR + page * super::PAGE_SIZE_DUAL_BANK,
         }
     }
 }

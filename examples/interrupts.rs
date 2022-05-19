@@ -185,10 +185,3 @@ fn TIM15() {
 fn panic() -> ! {
     cortex_m::asm::udf()
 }
-
-/// Terminates the application and makes `probe-run` exit with exit-code = 0
-pub fn exit() -> ! {
-    loop {
-        cortex_m::asm::bkpt();
-    }
-}

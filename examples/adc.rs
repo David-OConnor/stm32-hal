@@ -22,8 +22,6 @@ use stm32_hal2::{
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
     low_power, pac,
-    traits::ClockCfg,
-    util::{DmaPeriph, RccPeriph},
 };
 
 #[entry]
@@ -135,11 +133,4 @@ fn DMA1_CH1() {
 #[defmt::panic_handler]
 fn panic() -> ! {
     cortex_m::asm::udf()
-}
-
-/// Terminates the application and makes `probe-run` exit with exit-code = 0
-pub fn exit() -> ! {
-    loop {
-        cortex_m::asm::bkpt();
-    }
 }

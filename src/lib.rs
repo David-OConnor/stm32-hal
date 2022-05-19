@@ -412,7 +412,6 @@ pub mod dfsdm;
 #[cfg(not(any(feature = "f4", feature = "l5")))]
 pub mod dma;
 
-// #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
 // PAC error on bank 2 accessor for H747cmx.
 pub mod flash;
 

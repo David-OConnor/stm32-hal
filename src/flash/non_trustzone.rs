@@ -220,7 +220,7 @@ impl Flash {
     /// "Programming in a previously programmed address is not allowed except if the data to write
     /// is full zero, and any attempt will set PROGERR flag in the Flash status register
     /// (FLASH_SR)."
-    pub fn erase_page(&mut self, page: usize, bank: Bank) -> Result<(), Error> {
+    pub fn erase_page(&mut self, bank: Bank, page: usize) -> Result<(), Error> {
         self.unlock()?;
         let regs = &self.regs;
 
@@ -316,7 +316,7 @@ impl Flash {
     /// Flash sector erase sequence. Note that this is similar to the procedure for other
     /// families, but has a different name "sector" vice "page", and the RM instructions
     /// are phrased differently.
-    pub fn erase_sector(&mut self, sector: usize, bank: Bank) -> Result<(), Error> {
+    pub fn erase_sector(&mut self, bank: Bank, sector: usize) -> Result<(), Error> {
         self.unlock()?;
 
         let regs = &match bank {
@@ -446,7 +446,7 @@ impl Flash {
     // todo: For multibank variants, accept a bank argument.
     /// Write the contents of a page. Must be erased first. See L4 RM, section 3.3.7.
     #[cfg(not(feature = "h7"))]
-    pub fn write_page(&mut self, page: usize, bank: Bank, data: &[u8]) -> Result<(), Error> {
+    pub fn write_page(&mut self, bank: Bank, page: usize, data: &[u8]) -> Result<(), Error> {
         // todo: Consider a u8-based approach.
         // todo: DRY from `erase_page`.
 
@@ -475,7 +475,7 @@ impl Flash {
 
         cfg_if! {
              if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
-                let mut address = page_to_address(page, self.dual_bank, bank) as *mut u32;
+                let mut address = page_to_address(self.dual_bank, bank, page) as *mut u32;
             } else {
                 let mut address = page_to_address(page) as *mut u32;
             }
@@ -517,7 +517,7 @@ impl Flash {
 
     /// Write the contents of a page. Must be erased first. See H742 RM, section 4.3.9
     #[cfg(feature = "h7")]
-    pub fn write_page(&mut self, page: usize, bank: Bank, data: &[u32]) -> Result<(), Error> {
+    pub fn write_sector(&mut self, bank: Bank, page: usize, data: &[u8]) -> Result<(), Error> {
         // todo: Consider a u8-based approach.
         // todo: DRY from `erase_page`.
 
@@ -537,17 +537,25 @@ impl Flash {
         // 4. Perform the data write operation at the desired memory address, inside main memory
         // block or OTP area. Only double word can be programmed.
 
-        let mut address = sector_to_address(page, bank) as *mut u32;
+        let mut address = sector_to_address(bank, page) as *mut u32;
 
         // todo: Support other data write sizes if supported?
 
         // 4. Write one Flash-word corresponding to 32-byte data starting at a 32-byte aligned
-        // address.
-        // todo: Support different data write sizes; it's supported by H7.
-        for word in data {
+        // address.'
+        // todo: Consider larger write ops, up to 256 bits. Could at least reduce the number of
+        // todo write ops used. For now, starting with 32 bits at a time.
+        for chunk in data.chunks_exact(8) {
+            let word1 = u32::from_le_bytes(chunk[0..4].try_into().unwrap());
+            // let word2 = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
+
             unsafe {
-                core::ptr::write_volatile(address, *word);
+                // Write a first word in an address aligned with double wor
+                core::ptr::write_volatile(address, word1);
                 address = address.add(1);
+                // Write the second word
+                // core::ptr::write_volatile(address, word2);
+                // address = address.add(1);
             }
 
             // 5. Check that QW1 (respectively QW2) has been raised and wait until it is reset to 0.
@@ -560,43 +568,29 @@ impl Flash {
 
     /// Erase a page, then write to it.
     #[cfg(not(feature = "h7"))]
-    pub fn erase_write_page(&mut self, page: usize, bank: Bank, data: &[u8]) {
-        self.erase_page(page, bank);
-        self.write_page(page, bank, data);
+    pub fn erase_write_page(&mut self, bank: Bank, page: usize, data: &[u8]) -> Result<(), Error> {
+        self.erase_page(bank, page)?;
+        self.write_page(bank, page, data)?;
+
+        Ok(())
     }
 
     /// Erase a page, then write to it.
     #[cfg(feature = "h7")]
-    pub fn erase_write_page(&mut self, page: usize, bank: Bank, data: &[u32]) {
-        // cfg_if! {
-        //     // if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
-        //     //     self.erase_page(page, bank);
-        //     //     self.write_page(page, bank, data);
-        //     } else {
-        self.erase_sector(page, bank);
-        self.write_page(page, bank, data);
-        // }
-        // }
+    pub fn erase_write_sector(
+        &mut self,
+        bank: Bank,
+        page: usize,
+        data: &[u8],
+    ) -> Result<(), Error> {
+        self.erase_sector(bank, page);
+        self.write_sector(bank, page, data);
+
+        Ok(())
     }
 
-    #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
-    /// Read a single 128-bit memory cell, indexed by its page, and an offset from the page.
-    /// Use this when configured in single-bank mode.
-    pub fn read_single_bank(&self, page: usize, bank: Bank, offset: isize) -> u128 {
-        let addr = page_to_address(page, dual_bank, bank) as *const u128;
-        unsafe { core::ptr::read(addr.offset(offset)) }
-    }
-
-    /// Read a single 64-bit memory cell, indexed by its page, and an offset from the page.
-    /// For optionally-dual-bank MCUs, use this when configured in dual-bank mode.
-    pub fn read(&self, page: usize, offset: usize) -> u64 {
-        let addr = page_to_address(page) as *const u64;
-        unsafe { core::ptr::read(addr.offset(offset as isize)) }
-    }
-
-    #[cfg(feature = "h7")]
     /// Read flash memory at a given page and offset into an 8-bit-dword buffer.
-    pub fn read_to_buffer(&self, page: usize, offset: usize, buf: &mut [u8], bank: Bank) {
+    pub fn read(&self, bank: Bank, page: usize, offset: usize, buf: &mut [u8]) {
         // H742 RM, section 4.3.8:
         // Single read sequence
         // The recommended simple read sequence is the following:
@@ -604,9 +598,21 @@ impl Flash {
         // 2. The embedded Flash memory effectively executes the read operation from the read
         // command queue buffer as soon as the non-volatile memory is ready and the previously
         // requested operations on this specific bank have been served.
-        let mut addr = sector_to_address(page, bank) as *mut u32;
+        cfg_if! {
+            if #[cfg(any(
+                feature = "g473",
+                feature = "g474",
+                feature = "g483",
+                feature = "g484",
+            ))] {
+                let mut addr = page_to_address(self.dual_bank, bank, page) as *mut u32;
+            } else if #[cfg(feature = "h7")]{
+                let mut addr = sector_to_address(bank, page) as *mut u32;
+            } else {
+                let mut addr = page_to_address(page) as *mut u32;
+            }
+        }
 
-        // todo: QC this. May be a better way on H7.
         unsafe {
             // Offset it by the start position
             addr = unsafe { addr.add(offset) };
@@ -616,24 +622,6 @@ impl Flash {
                 chunk[0..4].copy_from_slice(&word.to_le_bytes());
                 unsafe { addr = addr.add(1) };
             }
-        }
-    }
-
-    #[cfg(not(feature = "h7"))]
-    /// Read flash memory at a given page and offset into an 8-bit-dword buffer.
-    pub fn read_to_buffer(&self, page: usize, offset: usize, buf: &mut [u8], bank: Bank) {
-        let mut addr = page_to_address(page) as *mut u32;
-
-        // todo RMs describe reading 64 bytes at a time etc. Do we need
-        // tod do that?
-
-        // Offset it by the start position
-        addr = unsafe { addr.add(offset) };
-        // Iterate on chunks of 32bits
-        for chunk in buf.chunks_exact_mut(4) {
-            let word = unsafe { core::ptr::read_volatile(addr) };
-            chunk[0..4].copy_from_slice(&word.to_le_bytes());
-            unsafe { addr = addr.add(1) };
         }
     }
 }
@@ -648,17 +636,17 @@ impl Flash {
     feature = "h7"
 )))]
 fn page_to_address(page: usize) -> usize {
-    0x0800_0000 + page * 2048
+    super::BANK1_START_ADDR + page * super::PAGE_SIZE
 }
 
 #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
-fn page_to_address(page: usize, dual_bank: DualBank, bank: Bank) -> usize {
+fn page_to_address(dual_bank: DualBank, bank: Bank, page: usize) -> usize {
     if dual_bank == DualBank::Single {
-        0x0800_0000 + page * 4096
+        super::BANK1_START_ADDR + page * super::PAGE_SIZE_SINGLE_BANK
     } else {
         match bank {
-            Bank::B1 => 0x0800_0000 + page * 2048,
-            Bank::B2 => 0x0804_0000 + page * 2048,
+            Bank::B1 => super::BANK1_START_ADDR + page * super::PAGE_SIZE_DUAL_BANK,
+            Bank::B2 => super::BANK2_START_ADDR + page * super::PAGE_SIZE_DUAL_BANK,
         }
     }
 }
@@ -666,13 +654,14 @@ fn page_to_address(page: usize, dual_bank: DualBank, bank: Bank) -> usize {
 #[cfg(feature = "h7")]
 /// Calculate the address of the start of a given page. Each page is 2,048 Kb for non-H7.
 /// For H7, sectors are 128Kb, with 8 sectors per bank.
-fn sector_to_address(sector: usize, bank: Bank) -> usize {
+fn sector_to_address(bank: Bank, sector: usize) -> usize {
+    // Note; Named sector on H7.
     let starting_pt = match bank {
-        Bank::B1 => 0x0800_0000,
+        Bank::B1 => super::BANK1_START_ADDR,
         // todo: This isn't the same bank2 starting point for all H7 variants!
         #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
-        Bank::B2 => 0x0810_0000,
+        Bank::B2 => super::BANK2_START_ADDR,
     };
 
-    starting_pt + sector * 0x2_0000
+    starting_pt + sector * super::SECTOR_SIZE
 }
