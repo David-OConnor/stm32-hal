@@ -435,7 +435,7 @@ impl Flash {
 
     /// Read flash memory at a given page and offset into a buffer.
     pub fn read_to_buffer(&self, page: usize, offset: usize, buf: &mut [u8]) {
-        let mut addr = page_to_address(page) as *const u8; // todo is this right?
+        let mut addr = page_to_address(page) as *mut u32;
 
         // Offset it by the start position
         addr = unsafe { addr.add(offset / 4) };

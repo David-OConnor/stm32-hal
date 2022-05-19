@@ -629,7 +629,7 @@ impl Flash {
         // 2. The embedded Flash memory effectively executes the read operation from the read
         // command queue buffer as soon as the non-volatile memory is ready and the previously
         // requested operations on this specific bank have been served.
-        let mut addr = sector_to_address(page, bank) as *const u8;
+        let mut addr = sector_to_address(page, bank) as *mut u32;
 
         // todo: QC this. May be a better way on H7.
         unsafe {
@@ -656,13 +656,7 @@ impl Flash {
         // command queue buffer as soon as the non-volatile memory is ready and the previously
         // requested operations on this specific bank have been served.
 
-        cfg_if! {
-            if  #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
-                let mut addr = page_to_address(page, self.dual_bank, bank) as *const u8; // todo is this right?
-            } else {
-                let mut addr = page_to_address(page) as *const u8; // todo is this right?
-            }
-        }
+        let mut addr = page_to_address(page) as *mut u32;
 
         // Offset it by the start position
         addr = unsafe { addr.add(offset / 4) };
