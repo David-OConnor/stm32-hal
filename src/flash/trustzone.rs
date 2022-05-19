@@ -349,6 +349,8 @@ impl Flash {
                 // block or OTP area. Only double word can be programmed.
                 let mut address = page_to_address(page) as *mut u32;
 
+                // Map our 8-bit data input API to the 64-bit write API.
+                // "The Flash memory is programmed 72 bits at a time (64 bits + 8 bits ECC)."
                 for chunk in data.chunks_exact(8) {
                     let word1 = u32::from_le_bytes(chunk[0..4].try_into().unwrap());
                     let word2 = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
@@ -427,6 +429,13 @@ impl Flash {
         self.write_page(page, data, security);
     }
 
+    /// Read a single 128-bit memory cell, indexed by its page, and an offset from the page.
+    /// Use this when configured in single-bank mode.
+    pub fn read_single_bank(&self, page: usize, bank: Bank, offset: isize) -> u128 {
+        let addr = page_to_address(page, dual_bank, bank) as *const u128;
+        unsafe { core::ptr::read(addr.offset(offset)) }
+    }
+
     /// Read a single 64-bit memory cell, indexed by its page, and an offset from the page.
     pub fn read(&self, page: usize, offset: usize) -> u64 {
         let addr = page_to_address(page) as *const u64;
@@ -438,7 +447,7 @@ impl Flash {
         let mut addr = page_to_address(page) as *mut u32;
 
         // Offset it by the start position
-        addr = unsafe { addr.add(offset / 4) };
+        addr = unsafe { addr.add(offset) };
         // Iterate on chunks of 32bits
         for chunk in buf.chunks_exact_mut(4) {
             let word = unsafe { core::ptr::read_volatile(addr) };
@@ -450,6 +459,13 @@ impl Flash {
 
 /// Calculate the address of the start of a given page. Each page is 2,048 Kb for non-H7.
 /// For H7, sectors are 128Kb, with 8 sectors per bank.
-fn page_to_address(page: usize) -> usize {
-    0x0800_0000 + page * 2048
+fn page_to_address(page: usize, dual_bank: DualBank, bank: Bank) -> usize {
+    if dual_bank == DualBank::Single {
+        0x0800_0000 + page * 4096
+    } else {
+        match bank {
+            Bank::B1 => 0x0800_0000 + page * 2048,
+            Bank::B2 => 0x0804_0000 + page * 2048,
+        }
+    }
 }

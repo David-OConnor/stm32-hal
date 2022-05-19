@@ -1572,9 +1572,22 @@ cfg_if! {
 #[cfg(not(any(feature = "f373")))]
 make_timer!(TIM1, tim1, 2, u16);
 // PAC error, I think.
-#[cfg(not(any(feature = "f373", feature = "l5", feature = "g4", feature = "h7")))]
+#[cfg(not(any(
+    feature = "f373",
+    feature = "f4",
+    feature = "l5",
+    feature = "g0",
+    feature = "g4",
+    feature = "h7"
+)))]
 cc_4_channels!(TIM1, u16);
-#[cfg(any(feature = "l5", feature = "g4", feature = "h7"))] // PAC bug.
+#[cfg(any(
+    feature = "f4",
+    feature = "l5",
+    feature = "g0",
+    feature = "g4",
+    feature = "h7"
+))] // PAC bug.
 cc_2_channels!(TIM1, u16);
 
 cfg_if! {
