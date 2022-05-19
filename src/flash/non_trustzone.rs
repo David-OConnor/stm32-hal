@@ -222,7 +222,6 @@ impl Flash {
     /// (FLASH_SR)."
     pub fn erase_page(&mut self, page: usize, bank: Bank) -> Result<(), Error> {
         self.unlock()?;
-
         let regs = &self.regs;
 
         // 1. Check that no Flash memory operation is ongoing by checking the BSY bit in the Flash
@@ -469,20 +468,18 @@ impl Flash {
 
     // todo: For multibank variants, accept a bank argument.
     /// Write the contents of a page. Must be erased first. See L4 RM, section 3.3.7.
-    pub fn write_page(&mut self, page: usize, bank: Bank, data: &[u64]) -> Result<(), Error> {
+    #[cfg(not(feature = "h7"))]
+    pub fn write_page(&mut self, page: usize, bank: Bank, data: &[u8]) -> Result<(), Error> {
         // todo: Consider a u8-based approach.
         // todo: DRY from `erase_page`.
 
         self.unlock()?;
+
+        let regs = &self.regs;
+
         // The Flash memory programming sequence in standard mode is as follows:
         // 1. Check that no Flash main memory operation is ongoing by checking the BSY bit in the
         // Flash status register (FLASH_SR).
-
-        #[cfg(not(feature = "h7"))]
-            let regs = &self.regs;
-        #[cfg(feature = "h7")]
-            let regs = &self.regs.bank1();
-
         let sr = regs.sr.read();
         if sr.bsy().bit_is_set() {
             self.lock();
@@ -500,25 +497,30 @@ impl Flash {
         // block or OTP area. Only double word can be programmed.
 
         cfg_if! {
-            if #[cfg(feature = "h7")] {
-                let mut address = sector_to_address(page, bank) as *mut u32;
-            } else if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
+             if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
                 let mut address = page_to_address(page, self.dual_bank, bank) as *mut u32;
             } else {
                 let mut address = page_to_address(page) as *mut u32;
             }
         }
 
-        for dword in data {
+        // todo: Support other data write sizes. For example, H7 may be different, and dual-bank
+        // todo G4 variants use 128-bit words if in single-bank mode.
+
+        // Map our 8-bit data input API to a 64-bit write API. Write size may depend on variant.
+        // For example, on G4: "The Flash memory is programmed 72 bits at a time (64 bits + 8 bits ECC)."
+        for chunk in data.chunks_exact(8) {
+            let word1 = u32::from_le_bytes(chunk[0..4].try_into().unwrap());
+            let word2 = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
+
             unsafe {
-                // – Write a first word in an address aligned with double word
-                core::ptr::write_volatile(address, *dword as u32);
-                // – Write the second word
-                core::ptr::write_volatile(address.add(1), (*dword >> 32) as u32);
-
-                address = address.add(2);
+                // Write a first word in an address aligned with double wor
+                core::ptr::write_volatile(address, word1);
+                address = address.add(1);
+                // Write the second word
+                core::ptr::write_volatile(address, word2);
+                address = address.add(1);
             }
-
             // 5. Wait until the BSY bit is cleared in the FLASH_SR register.
             while regs.sr.read().bsy().bit_is_set() {}
 
@@ -538,21 +540,69 @@ impl Flash {
         Ok(())
     }
 
-    /// Erase a page, then write to it.
-    pub fn erase_write_page(&mut self, page: usize, bank: Bank, data: &[u64]) {
-        cfg_if! {
-            if #[cfg(feature = "h7")] {
-                self.erase_sector(page, bank);
-                self.write_page(page, bank, data);
-            // }
-            // else if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
-            //     self.erase_page(page, bank);
-            //     self.write_page(page, bank, data);
-            } else {
-                self.erase_page(page, bank);
-                self.write_page(page, bank, data);
+    /// Write the contents of a page. Must be erased first. See H742 RM, section 4.3.9
+    #[cfg(feature = "h7")]
+    pub fn write_page(&mut self, page: usize, bank: Bank, data: &[u32]) -> Result<(), Error> {
+        // todo: Consider a u8-based approach.
+        // todo: DRY from `erase_page`.
+
+        // The recommended single write sequence in bank 1/2 is the following:
+
+        // 1. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration
+        // protection (only if register is not already unlocked).
+        self.unlock()?;
+
+        let regs = &self.regs.bank1(); // todo: Bank 2!
+
+        // 2. Enable write operations by setting the PG1/2 bit in the FLASH_CR1/2 register.
+        regs.cr.modify(|_, w| w.pg().set_bit());
+
+        // 3. Check the protection of the targeted memory area. (todo?)
+
+        // 4. Perform the data write operation at the desired memory address, inside main memory
+        // block or OTP area. Only double word can be programmed.
+
+        let mut address = sector_to_address(page, bank) as *mut u32;
+
+        // todo: Support other data write sizes. For example, H7 may be different, and dual-bank
+        // todo G4 variants use 128-bit words if in single-bank mode.
+
+        // 4. Write one Flash-word corresponding to 32-byte data starting at a 32-byte aligned
+        // address.
+        // todo: Support different data write sizes; it's supported by H7.
+        for word in data {
+            unsafe {
+                core::ptr::write_volatile(address, *word);
+                address = address.add(1);
             }
+
+            // 5. Check that QW1 (respectively QW2) has been raised and wait until it is reset to 0.
+            while regs.sr.read().qw().bit_is_set() {}
         }
+        self.lock();
+
+        Ok(())
+    }
+
+    /// Erase a page, then write to it.
+    #[cfg(not(feature = "h7"))]
+    pub fn erase_write_page(&mut self, page: usize, bank: Bank, data: &[u8]) {
+        self.erase_page(page, bank);
+        self.write_page(page, bank, data);
+    }
+
+    /// Erase a page, then write to it.
+    #[cfg(feature = "h7")]
+    pub fn erase_write_page(&mut self, page: usize, bank: Bank, data: &[u32]) {
+        // cfg_if! {
+        //     // if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
+        //     //     self.erase_page(page, bank);
+        //     //     self.write_page(page, bank, data);
+        //     } else {
+        self.erase_sector(page, bank);
+        self.write_page(page, bank, data);
+        // }
+        // }
     }
 
     #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
@@ -564,14 +614,40 @@ impl Flash {
 
     #[cfg(not(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484", feature = "h7")))]
     /// Read a single 64-bit memory cell, indexed by its page, and an offset from the page.
-    pub fn read(&self, page: usize, offset: isize) -> u64 {
+    pub fn read(&self, page: usize, offset: usize) -> u64 {
         let addr = page_to_address(page) as *const u64;
-        unsafe { core::ptr::read(addr.offset(offset)) }
+        unsafe { core::ptr::read(addr.offset(offset as isize)) }
     }
 
-    // #[cfg(not(feature = "h7"))]
+    #[cfg(feature = "h7")]
     /// Read flash memory at a given page and offset into a buffer.
-    pub fn read_to_buffer(&self, page: usize, offset: isize, buff: &mut [u8], bank: Bank) {
+    pub fn read_to_buffer(&self, page: usize, offset: usize, buf: &mut [u8], bank: Bank) {
+        // H742 RM, section 4.3.8:
+        // Single read sequence
+        // The recommended simple read sequence is the following:
+        // 1. Freely perform read accesses to any AXI-mapped area.
+        // 2. The embedded Flash memory effectively executes the read operation from the read
+        // command queue buffer as soon as the non-volatile memory is ready and the previously
+        // requested operations on this specific bank have been served.
+        let mut addr = sector_to_address(page, bank) as *const u8;
+
+        // todo: QC this. May be a better way on H7.
+        unsafe {
+            // Offset it by the start position
+            addr = unsafe { addr.add(offset / 4) };
+            // Iterate on chunks of 32bits
+            for chunk in buf.chunks_exact_mut(4) {
+                let word = unsafe { core::ptr::read_volatile(addr) };
+                chunk[0..4].copy_from_slice(&word.to_le_bytes());
+                unsafe { addr = addr.add(1) };
+            }
+        }
+
+    }
+
+    #[cfg(not(feature = "h7"))]
+    /// Read flash memory at a given page and offset into a buffer.
+    pub fn read_to_buffer(&self, page: usize, offset: usize, buf: &mut [u8], bank: Bank) {
         // H742 RM, section 4.3.8:
         // Single read sequence
         // The recommended simple read sequence is the following:
@@ -582,39 +658,40 @@ impl Flash {
 
         cfg_if! {
             if  #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
-                let addr = page_to_address(page, self.dual_bank, bank) as *const u8; // todo is this right?
-            } else if #[cfg(feature = "h7")] {
-                let addr = sector_to_address(page, bank) as *const u8; // todo is this right?
+                let mut addr = page_to_address(page, self.dual_bank, bank) as *const u8; // todo is this right?
             } else {
-                let addr = page_to_address(page) as *const u8; // todo is this right?
+                let mut addr = page_to_address(page) as *const u8; // todo is this right?
             }
         }
 
-        // todo: This is untested.
-
-        for val in buff {
-            *val = unsafe { core::ptr::read(addr.offset(offset)) }
+        // Offset it by the start position
+        addr = unsafe { addr.add(offset / 4) };
+        // Iterate on chunks of 32bits
+        for chunk in buf.chunks_exact_mut(4) {
+            let word = unsafe { core::ptr::read_volatile(addr) };
+            chunk[0..4].copy_from_slice(&word.to_le_bytes());
+            unsafe { addr = addr.add(1) };
         }
     }
 
-    // #[cfg(feature = "h7")]
-    // /// Read flash memory at a given page and offset into a buffer.
-    // ///    H742 RM, section 4.3.8:
-    // /// Single read sequence
-    // /// The recommended simple read sequence is the following:
-    // /// 1. Freely perform read accesses to any AXI-mapped area.
-    // /// 2. The embedded Flash memory effectively executes the read operation from the read
-    // /// command queue buffer as soon as the non-volatile memory is ready and the previously
-    // /// requested operations on this specific bank have been served.
-    // pub fn read_to_buffer(&self, sector: usize, offset: isize, buff: &mut [u8]) {
-    //     //  todo: H7 can read in 64 bit, 32 bit, 16 bit, or one byte granularities.
-    //     //     // todo: H7 uses 256 bit words for writing and erasing.
-    //     // for val in buff {
-    //     for i in buff.len() {
-    //         let val = buff[i]
-    //         *val = unsafe { core::ptr::read(addr.offset(i)) };
-    //     }
-    // }
+// #[cfg(feature = "h7")]
+// /// Read flash memory at a given page and offset into a buffer.
+// ///    H742 RM, section 4.3.8:
+// /// Single read sequence
+// /// The recommended simple read sequence is the following:
+// /// 1. Freely perform read accesses to any AXI-mapped area.
+// /// 2. The embedded Flash memory effectively executes the read operation from the read
+// /// command queue buffer as soon as the non-volatile memory is ready and the previously
+// /// requested operations on this specific bank have been served.
+// pub fn read_to_buffer(&self, sector: usize, offset: isize, buff: &mut [u8]) {
+//     //  todo: H7 can read in 64 bit, 32 bit, 16 bit, or one byte granularities.
+//     //     // todo: H7 uses 256 bit words for writing and erasing.
+//     // for val in buff {
+//     for i in buff.len() {
+//         let val = buff[i]
+//         *val = unsafe { core::ptr::read(addr.offset(i)) };
+//     }
+// }
 }
 
 /// Calculate the address of the start of a given page. Each page is 2,048 Kb for non-H7.

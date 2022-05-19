@@ -191,13 +191,13 @@ impl Flash {
                 // and select the page to erase (NSPNB). The NSBKER bit in the FLASH_NSCR must be
                 // kept cleared.
                 if self.dual_bank == DualBank::Dual {
-                     self.regs.nscr.modify(|_, w| unsafe {
+                    self.regs.nscr.modify(|_, w| unsafe {
                         w.nsbker().bit(bank as u8 != 0);
                         w.nspnb().bits(page as u8);
                         w.nsper().set_bit()
                     });
                 } else {
-                     self.regs.nscr.modify(|_, w| unsafe {
+                    self.regs.nscr.modify(|_, w| unsafe {
                         w.nspnb().bits(page as u8);
                         w.nsper().set_bit()
                     });
@@ -220,13 +220,13 @@ impl Flash {
                 clear_error_flags(&self.regs, security);
 
                 if self.dual_bank == DualBank::Dual {
-                     self.regs.seccr.modify(|_, w| unsafe {
+                    self.regs.seccr.modify(|_, w| unsafe {
                         w.secbker().bit(bank as u8 != 0);
                         w.secpnb().bits(page as u8);
                         w.secper().set_bit()
                     });
                 } else {
-                     self.regs.seccr.modify(|_, w| unsafe {
+                    self.regs.seccr.modify(|_, w| unsafe {
                         w.secpnb().bits(page as u8);
                         w.secper().set_bit()
                     });
@@ -319,7 +319,7 @@ impl Flash {
     pub fn write_page(
         &mut self,
         page: usize,
-        data: &[u64],
+        data: &[u8],
         security: Security,
     ) -> Result<(), Error> {
         // todo: Consider a u8-based approach.
@@ -349,14 +349,17 @@ impl Flash {
                 // block or OTP area. Only double word can be programmed.
                 let mut address = page_to_address(page) as *mut u32;
 
-                for dword in data {
-                    unsafe {
-                        // – Write a first word in an address aligned with double word
-                        core::ptr::write_volatile(address, *dword as u32);
-                        // – Write the second word
-                        core::ptr::write_volatile(address.add(1), (*dword >> 32) as u32);
+                for chunk in data.chunks_exact(8) {
+                    let word1 = u32::from_le_bytes(chunk[0..4].try_into().unwrap());
+                    let word2 = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
 
-                        address = address.add(2);
+                    unsafe {
+                        // Write a first word in an address aligned with double wor
+                        core::ptr::write_volatile(address, word1);
+                        address = address.add(1);
+                        // Write the second word
+                        core::ptr::write_volatile(address, word2);
+                        address = address.add(1);
                     }
 
                     // 5. Wait until the BSY bit is cleared in the FLASH_NSSR register.
@@ -366,7 +369,7 @@ impl Flash {
                     // operation has succeed), and clear it by software.
                     if self.regs.nssr.read().nseop().bit_is_set() {
                         self.regs.nssr.modify(|_, w| w.nseop().set_bit());
-                    } // todo: Else return error?
+                    }
                 }
 
                 // 7. Clear the NSPG bit in the FLASH_CR register if there no more programming request
@@ -387,21 +390,25 @@ impl Flash {
 
                 let mut address = page_to_address(page) as *mut u32;
 
-                for dword in data {
-                    unsafe {
-                        // – Write a first word in an address aligned with double word
-                        core::ptr::write_volatile(address, *dword as u32);
-                        // – Write the second word
-                        core::ptr::write_volatile(address.add(1), (*dword >> 32) as u32);
+                // todo: No need to repeat this section.
+                for chunk in data.chunks_exact(8) {
+                    let word1 = u32::from_le_bytes(chunk[0..4].try_into().unwrap());
+                    let word2 = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
 
-                        address = address.add(2);
+                    unsafe {
+                        // Write a first word in an address aligned with double wor
+                        core::ptr::write_volatile(address, word1);
+                        address = address.add(1);
+                        // Write the second word
+                        core::ptr::write_volatile(address, word2);
+                        address = address.add(1);
                     }
 
                     while self.regs.secsr.read().secbsy().bit_is_set() {}
 
                     if self.regs.secsr.read().seceop().bit_is_set() {
                         self.regs.secsr.modify(|_, w| w.seceop().set_bit()); // clear
-                    } // todo: Else return error?
+                    }
                 }
 
                 self.regs.seccr.modify(|_, w| w.secpg().clear_bit());
@@ -414,33 +421,29 @@ impl Flash {
     }
 
     /// Erase a page, then write to it.
-    pub fn erase_write_page(&mut self, page: usize, bank: Bank, data: &[u64], security: Security) {
+    pub fn erase_write_page(&mut self, page: usize, bank: Bank, data: &[u8], security: Security) {
         self.erase_page(page, bank, security);
 
         self.write_page(page, data, security);
     }
 
     /// Read a single 64-bit memory cell, indexed by its page, and an offset from the page.
-    pub fn read(&self, page: usize, offset: isize) -> u64 {
+    pub fn read(&self, page: usize, offset: usize) -> u64 {
         let addr = page_to_address(page) as *const u64;
-        unsafe { core::ptr::read(addr.offset(offset)) }
+        unsafe { core::ptr::read(addr.offset(offset as isize)) }
     }
 
     /// Read flash memory at a given page and offset into a buffer.
-    pub fn read_to_buffer(&self, page: usize, offset: isize, buff: &mut [u8]) {
-        // H742 RM, section 4.3.8:
-        // Single read sequence
-        // The recommended simple read sequence is the following:
-        // 1. Freely perform read accesses to any AXI-mapped area.
-        // 2. The embedded Flash memory effectively executes the read operation from the read
-        // command queue buffer as soon as the non-volatile memory is ready and the previously
-        // requested operations on this specific bank have been served.
+    pub fn read_to_buffer(&self, page: usize, offset: usize, buf: &mut [u8]) {
+        let mut addr = page_to_address(page) as *const u8; // todo is this right?
 
-        // todo: This is untested.
-        let addr = page_to_address(page) as *const u8; // todo is this right?
-                                                       // let addr = page_to_address(page).as_ptr(); // todo is this right?
-        for val in buff {
-            *val = unsafe { core::ptr::read(addr.offset(offset)) }
+        // Offset it by the start position
+        addr = unsafe { addr.add(offset / 4) };
+        // Iterate on chunks of 32bits
+        for chunk in buf.chunks_exact_mut(4) {
+            let word = unsafe { core::ptr::read_volatile(addr) };
+            chunk[0..4].copy_from_slice(&word.to_le_bytes());
+            unsafe { addr = addr.add(1) };
         }
     }
 }
