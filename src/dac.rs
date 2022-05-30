@@ -182,22 +182,23 @@ where
         });
 
         // See H743 RM, Table 227 for info on the buffer.
-        // todo: Currently at default setting for both channels of external pin with buffer enabled.
-        // todo make this customizable
         cfg_if! {
-            if #[cfg(not(any(
-                feature = "f3",
-                feature = "f4",
+            if #[cfg(any(
                 feature = "l5",
+                feature = "wl",
                 feature = "g4",
-                feature = "wl"
-            )))] {
-                let mode = DacMode::NormExternalOnlyBufEn;
+            ))] {
+                regs.dac_mcr.modify(|_, w| unsafe {
+                    w.mode1().bits(cfg.mode as u8);
+                    w.mode2().bits(cfg.mode as u8)
+                });
+            } else if #[cfg(any(feature = "h7", feature = "l4"))] {
                 regs.mcr.modify(|_, w| unsafe {
                     w.mode1().bits(cfg.mode as u8);
                     w.mode2().bits(cfg.mode as u8)
                 });
             }
+            // Note: mode not present on on F3 and F4.
         }
 
         Self { regs, cfg, vref }

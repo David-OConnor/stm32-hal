@@ -336,8 +336,10 @@ macro_rules! hal {
                         }
 
                         common_regs.ccr.modify(|_, w| unsafe {
-                            w.ckmode().bits(result.cfg.clock_mode as u8);
-                            w.presc().bits(result.cfg.prescaler as u8)
+                            #[cfg(not(feature = "f3"))]
+                            w.presc().bits(result.cfg.prescaler as u8);
+                            return w.ckmode().bits(result.cfg.clock_mode as u8);
+
                         });
                     });
 
