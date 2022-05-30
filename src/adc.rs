@@ -110,7 +110,7 @@ pub enum AdcInterrupt {
 /// There is always an overhead of 13 ADC clock cycles.
 /// E.g. For Sampletime T_19 the total conversion time (in ADC clock cycles) is
 /// 13 + 19 = 32 ADC Clock Cycles
-/// [derive(Clone, Copy)]
+#[derive(Clone, Copy)]
 #[repr(u8)]
 pub enum SampleTime {
     /// 1.5 ADC clock cycles (2.5 on G4)
@@ -129,6 +129,24 @@ pub enum SampleTime {
     T181 = 0b110,
     /// 601.5 ADC clock cycles (640.5 on G4)
     T601 = 0b111,
+}
+
+/// Sets ADC clock prescaler; ADCx_CCR register, PRESC field.
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum Prescaler {
+    D1 = 0b0000,
+    D2 = 0b0001,
+    D4 = 0b0010,
+    D6 = 0b0011,
+    D8 = 0b0100,
+    D10 = 0b0101,
+    D12 = 0b0110,
+    D16 = 0b0111,
+    D32 = 0b1000,
+    D64 = 0b1001,
+    D128 = 0b1010,
+    D256 = 0b1011,
 }
 
 impl Default for SampleTime {
@@ -245,6 +263,7 @@ impl Default for Align {
 /// Initial configuration data for the ADC peripheral.
 pub struct AdcConfig {
     pub clock_mode: ClockMode,
+    pub prescaler: Prescaler,
     pub operation_mode: OperationMode,
     // Most families use u8 values for calibration, but H7 uses u16.
     pub cal_single_ended: Option<u16>, // Stored calibration value for single-ended
@@ -254,6 +273,7 @@ pub struct AdcConfig {
 impl Default for AdcConfig {
     fn default() -> Self {
         Self {
+            prescaler: Prescaler::D1,
             clock_mode: Default::default(),
             operation_mode: OperationMode::OneShot,
             cal_single_ended: None,
@@ -315,7 +335,10 @@ macro_rules! hal {
                             }
                         }
 
-                        common_regs.ccr.modify(|_, w| unsafe { w.ckmode().bits(result.cfg.clock_mode as u8) });
+                        common_regs.ccr.modify(|_, w| unsafe {
+                            w.ckmode().bits(result.cfg.clock_mode as u8);
+                            w.presc().bits(result.cfg.prescaler as u8)
+                        });
                     });
 
                     //todo: Cal/VDDA code needs work.

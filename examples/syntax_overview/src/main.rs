@@ -174,7 +174,7 @@ fn main() -> ! {
 
     // Set up the Digital-to-analog converter
     let mut _dac_pin = Pin::new(Port::A, 12, PinMode::Analog);
-    let mut dac = Dac::new(dp.DAC1, Bits::TwelveR, 3.3);
+    let mut dac = Dac::new(dp.DAC1, Default::default(), 3.3);
     dac.enable(DacChannel::C1);
 
     dac.write(DacChannel::C1, 2_048); // Set DAC output voltage to half VCC, eg 1.65V

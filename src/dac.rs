@@ -143,10 +143,27 @@ pub enum Trigger {
     Exti9 = 13,
 }
 
+#[derive(Clone)]
+pub struct DacConfig {
+    /// Mode: Ie buffer enabled or not, and connected to internal, external, or both. Defaults
+    /// to external only, buffer enabled.
+    pub mode: DacMode,
+    pub bits: DacBits,
+}
+
+impl Default for DacConfig {
+    fn default() -> Self {
+        Self {
+            mode: DacMode::NormExternalOnlyBufEn,
+            bits: DacBits::TwelveR,
+        }
+    }
+}
+
 /// Represents a Digital to Analog Converter (DAC) peripheral.
 pub struct Dac<R> {
     pub regs: R,
-    bits: DacBits,
+    pub cfg: DacConfig,
     vref: f32,
 }
 
@@ -158,7 +175,7 @@ where
 {
     /// Initialize a DAC peripheral, including  enabling and resetting
     /// its RCC peripheral clock. `vref` is in volts.
-    pub fn new(regs: R, bits: DacBits, vref: f32) -> Self {
+    pub fn new(regs: R, cfg: DacConfig, vref: f32) -> Self {
         free(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
             R::en_reset(rcc);
@@ -177,13 +194,13 @@ where
             )))] {
                 let mode = DacMode::NormExternalOnlyBufEn;
                 regs.mcr.modify(|_, w| unsafe {
-                    w.mode1().bits(mode as u8);
-                    w.mode2().bits(mode as u8)
+                    w.mode1().bits(cfg.mode as u8);
+                    w.mode2().bits(cfg.mode as u8)
                 });
             }
         }
 
-        Self { regs, bits, vref }
+        Self { regs, cfg, vref }
     }
 
     /// Calibrate the DAC output buffer by performing a "User
@@ -286,13 +303,13 @@ where
 
         #[cfg(any(feature = "l5", feature = "g4"))]
         match channel {
-            DacChannel::C1 => match self.bits {
+            DacChannel::C1 => match self.cfg.bits {
                 DacBits::EightR => self.regs.dac_dhr8r1.modify(|_, w| unsafe { w.bits(val) }),
                 DacBits::TwelveL => self.regs.dac_dhr12l1.modify(|_, w| unsafe { w.bits(val) }),
                 DacBits::TwelveR => self.regs.dac_dhr12r1.modify(|_, w| unsafe { w.bits(val) }),
             },
             #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => match self.bits {
+            DacChannel::C2 => match self.cfg.bits {
                 DacBits::EightR => self.regs.dac_dhr8r2.modify(|_, w| unsafe { w.bits(val) }),
                 DacBits::TwelveL => self.regs.dac_dhr12l2.modify(|_, w| unsafe { w.bits(val) }),
                 DacBits::TwelveR => self.regs.dac_dhr12r2.modify(|_, w| unsafe { w.bits(val) }),
@@ -301,13 +318,13 @@ where
 
         #[cfg(not(any(feature = "l5", feature = "g4")))]
         match channel {
-            DacChannel::C1 => match self.bits {
+            DacChannel::C1 => match self.cfg.bits {
                 DacBits::EightR => self.regs.dhr8r1.modify(|_, w| unsafe { w.bits(val) }),
                 DacBits::TwelveL => self.regs.dhr12l1.modify(|_, w| unsafe { w.bits(val) }),
                 DacBits::TwelveR => self.regs.dhr12r1.modify(|_, w| unsafe { w.bits(val) }),
             },
             #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => match self.bits {
+            DacChannel::C2 => match self.cfg.bits {
                 DacBits::EightR => self.regs.dhr8r2.modify(|_, w| unsafe { w.bits(val) }),
                 DacBits::TwelveL => self.regs.dhr12l2.modify(|_, w| unsafe { w.bits(val) }),
                 DacBits::TwelveR => self.regs.dhr12r2.modify(|_, w| unsafe { w.bits(val) }),
@@ -389,13 +406,13 @@ where
 
         #[cfg(any(feature = "l5", feature = "g4"))]
         let periph_addr = match dac_channel {
-            DacChannel::C1 => match &self.bits {
+            DacChannel::C1 => match &self.cfg.bits {
                 DacBits::EightR => &self.regs.dac_dhr8r1 as *const _ as u32,
                 DacBits::TwelveL => &self.regs.dac_dhr12l1 as *const _ as u32,
                 DacBits::TwelveR => &self.regs.dac_dhr12r1 as *const _ as u32,
             },
             #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => match &self.bits {
+            DacChannel::C2 => match &self.cfg.bits {
                 DacBits::EightR => &self.regs.dac_dhr8r2 as *const _ as u32,
                 DacBits::TwelveL => &self.regs.dac_dhr12l2 as *const _ as u32,
                 DacBits::TwelveR => &self.regs.dac_dhr12r2 as *const _ as u32,
@@ -404,13 +421,13 @@ where
 
         #[cfg(not(any(feature = "l5", feature = "g4")))]
         let periph_addr = match dac_channel {
-            DacChannel::C1 => match &self.bits {
+            DacChannel::C1 => match &self.cfg.bits {
                 DacBits::EightR => &self.regs.dhr8r1 as *const _ as u32,
                 DacBits::TwelveL => &self.regs.dhr12l1 as *const _ as u32,
                 DacBits::TwelveR => &self.regs.dhr12r1 as *const _ as u32,
             },
             #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => match &self.bits {
+            DacChannel::C2 => match &self.cfg.bits {
                 DacBits::EightR => &self.regs.dhr8r2 as *const _ as u32,
                 DacBits::TwelveL => &self.regs.dhr12l2 as *const _ as u32,
                 DacBits::TwelveR => &self.regs.dhr12r2 as *const _ as u32,
@@ -436,7 +453,7 @@ where
 
     /// Set the DAC output voltage.
     pub fn write_voltage(&mut self, channel: DacChannel, volts: f32) {
-        let max_word = match self.bits {
+        let max_word = match self.cfg.bits {
             DacBits::EightR => 255.,
             DacBits::TwelveL => 4_095.,
             DacBits::TwelveR => 4_095.,

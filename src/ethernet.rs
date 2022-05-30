@@ -10,21 +10,17 @@ use cortex_m::interrupt::free;
 
 use smoltcp::{
     self,
-    phy::{self, DeviceCapabilities, Device, Medium},
+    phy::{self, Device, DeviceCapabilities, Medium},
     time::Instant,
 };
 
 use crate::{
+    pac::{self, ETHERNET_DMA, ETHERNET_MAC, ETHERNET_MTL, RCC},
     util::RccPeriph,
-    pac::{
-        self, RCC, ETHERNET_MAC, ETHERNET_DMA, ETHERNET_MTL,
-    }
 };
 
 /// Configuration data for Ethernet
-pub struct EthConfig {
-
-}
+pub struct EthConfig {}
 
 // impl Default for EthConfig {
 //     fn default() -> Self {
@@ -77,7 +73,8 @@ where
 
         // 3. Program the following fields to initialize the System bus mode register
         // (ETH_DMASBMR):
-        self.regs_dma.dmasbmr.modify(|_, w| { // todo
+        self.regs_dma.dmasbmr.modify(|_, w| {
+            // todo
             // a)AAL
             w.aal.bits(0);
             // b) Fixed burst or undefined burst
@@ -156,8 +153,5 @@ where
     }
 
     /// H743 RM, section 58.9.3: MAC initialization
-    pub fn init_mac(&mut self) {
-
-    }
-
+    pub fn init_mac(&mut self) {}
 }

@@ -107,7 +107,7 @@ fn main() -> ! {
 
     let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
 
-    let mut dac = Dac::new(dp.DAC, DacBits::TwelveR, 3.3);
+    let mut dac = Dac::new(dp.DAC, Default::default(), 3.3);
     dac.calibrate_buffer(DacChannel::C1, &mut delay);
     dac.set_trigger(DacChannel::C1, Trigger::Tim6);
 
