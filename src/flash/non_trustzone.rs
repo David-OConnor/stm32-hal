@@ -177,7 +177,7 @@ impl Flash {
     }
 
     /// Unlock the flash memory, allowing writes. See L4 Reference manual, section 3.3.5.
-    /// (G4 RM sectino 5.3.5)
+    /// (G4 RM section 5.3.5)
     /// "After reset, write is not allowed in the Flash control register (FLASH_CR) to protect the
     /// Flash memory against possible unwanted operations due, for example, to electric
     /// disturbances."
@@ -450,6 +450,7 @@ impl Flash {
 
     // todo: For multibank variants, accept a bank argument.
     /// Write the contents of a page. Must be erased first. See L4 RM, section 3.3.7.
+    /// Make sure the page is one your MCU has, and isn't being used for the program itself.
     #[cfg(not(feature = "h7"))]
     pub fn write_page(&mut self, bank: Bank, page: usize, data: &[u8]) -> Result<(), Error> {
         // todo: Consider a u8-based approach.
@@ -521,6 +522,8 @@ impl Flash {
     }
 
     /// Write the contents of a page. Must be erased first. See H742 RM, section 4.3.9
+    /// Make sure the page is one your MCU has, and isn't being used for the program itself.
+    /// /// Make sure the sector is one your MCU has, and isn't being used for the program itself.
     #[cfg(feature = "h7")]
     pub fn write_sector(&mut self, bank: Bank, page: usize, data: &[u8]) -> Result<(), Error> {
         // todo: Consider a u8-based approach.
@@ -581,6 +584,7 @@ impl Flash {
     }
 
     /// Erase a page, then write to it.
+    /// Make sure the sector is one your MCU has, and isn't being used for the program itself.
     #[cfg(feature = "h7")]
     pub fn erase_write_sector(
         &mut self,

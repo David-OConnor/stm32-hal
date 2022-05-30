@@ -1,5 +1,5 @@
-//! Serial audio interface (SAI) support. Used for I2S, PCM/DSP, TDM, AC'97 etc.
-//! See L443 Reference Manual, section 41. H743 FM, section 51.
+//! Serial audio interface (SAI) support, for digital audio input and output. Used for I2S, PCM/DSP, TDM,
+//! AC'97 etc. See L443 Reference Manual, section 41, or H743 RM, section 51.
 
 use core::ops::Deref;
 

@@ -174,7 +174,7 @@ pub enum OperationMode {
 /// To select this scheme, bits CKMODE[1:0] of the ADCx_CCR register must be different
 /// from “00”.
 pub enum ClockMode {
-    // Use Kernel Clock adc_ker_ck_input divided by PRESC. Asynchronous to AHB clock
+    /// Use Kernel Clock adc_ker_ck_input divided by PRESC. Asynchronous to AHB clock
     Async = 0b00,
     /// Use AHB clock rcc_hclk3.
     /// "For option 2), a prescaling factor of 1 (CKMODE[1:0]=01) can be used only if the AHB
@@ -423,7 +423,7 @@ macro_rules! hal {
 
                 // 3. If required by the application, wait until ADEN=0, until the analog
                 // ADC is effectively disabled (ADDIS will automatically be reset once ADEN=0)
-                // ( We're skipping this)
+                while self.regs.cr.read().aden().bit_is_set() {}
             }
 
             /// If any conversions are in progress, stop them. This is a step listed in the RMs
@@ -668,6 +668,10 @@ macro_rules! hal {
 
                 // RM: Note: only allowed when ADSTART = 0 and JADSTART = 0.
                 self.stop_conversions();
+
+                // self.disable();
+                // while self.regs.cr.read().adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set() {}
+
                 unsafe {
                     match chan {
                         #[cfg(not(feature = "f3"))]
@@ -694,6 +698,8 @@ macro_rules! hal {
                         _ => unreachable!(),
                     };
                 }
+
+                // self.enable();
             }
 
             /// Set up the internal voltage reference, to improve conversion from reading
@@ -747,12 +753,7 @@ macro_rules! hal {
                         return
                     }
 
-                    // Sample time can only be set with teh ADC disabled.
-                    adc1.disable();
-                    while self.regs.cr.read().adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set() {}
                     adc1.set_sample_time(0, SampleTime::T601);
-                    adc1.enable();
-                    while self.regs.cr.read().aden().bit_is_clear() {}
                     let reading = adc1.read(0);
 
                     // Disable ADC1 and its clock.
@@ -761,19 +762,11 @@ macro_rules! hal {
 
                     reading
                 } else {
-                    self.disable();
-                    while self.regs.cr.read().adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set() {}
                     self.set_sample_time(0, SampleTime::T601);
-
-                    self.enable();
-                    while self.regs.cr.read().aden().bit_is_clear() {}
                     let reading = self.read(0);
 
                     // todo: Set the requested sample time; not just the default!
-                    self.disable();
-                    while self.regs.cr.read().adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set() {}
                     self.set_sample_time(0, SampleTime::T1);
-                    self.enable();
 
                     reading
                 };

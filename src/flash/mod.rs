@@ -1,4 +1,10 @@
-//! Read and write onboard flash memory.
+//! Read and write onboard flash memory. Erase pages (sectors on H7), write data,
+//! and read data.
+//!
+//! Before using this module, check the datasheet and/or RM for your specific
+//! STM32 variant for page [sector] size, and number of pages [sectors] available.
+//! Make sure not to write to a page your MCU doesn't have, or that includes your
+//! program's memory.
 
 use cfg_if::cfg_if;
 
