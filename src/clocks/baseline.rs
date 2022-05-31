@@ -1242,15 +1242,15 @@ impl Clocks {
 
     cfg_if! {
         if #[cfg(any(feature = "g0", feature = "wl"))] {
-            fn usb(&self) -> u32 {
+            pub fn usb(&self) -> u32 {
                 unimplemented!("No USB on G0 or WL");
             }
         } else if #[cfg(feature = "g4")] {
-            fn usb(&self) -> u32 {
+            pub fn usb(&self) -> u32 {
                 48_000_000 // Uses hsi48.
             }
         } else { // L4 and L5
-            fn usb(&self) -> u32 {
+            pub fn usb(&self) -> u32 {
                 match self.clk48_src {
                     Clk48Src::Hsi48 => 48_000_000,
                     Clk48Src::PllSai1 => unimplemented!(),

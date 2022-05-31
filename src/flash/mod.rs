@@ -23,6 +23,7 @@ cfg_if! {
         const BANK2_START_ADDR: usize = 0x0810_0000;
     } else {
         const PAGE_SIZE: usize = 2_048;
+        #[allow(dead_code)]  // bank arg on single-bank MCUs.
         const BANK2_START_ADDR: usize = 0x0804_0000;
     }
 }

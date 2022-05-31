@@ -220,6 +220,7 @@ impl Flash {
     }
 
     #[cfg(not(feature = "h7"))]
+    #[allow(unused_variables)] // bank arg on single-bank MCUs.
     /// Erase an entire page. See L4 Reference manual, section 3.3.5.
     /// For why this is required, reference L4 RM, section 3.3.7:
     /// "Programming in a previously programmed address is not allowed except if the data to write
@@ -452,6 +453,7 @@ impl Flash {
     /// Write the contents of a page. Must be erased first. See L4 RM, section 3.3.7.
     /// Make sure the page is one your MCU has, and isn't being used for the program itself.
     #[cfg(not(feature = "h7"))]
+    #[allow(unused_variables)] // bank arg on single-bank MCUs.
     pub fn write_page(&mut self, bank: Bank, page: usize, data: &[u8]) -> Result<(), Error> {
         // todo: Consider a u8-based approach.
         // todo: DRY from `erase_page`.
@@ -599,6 +601,7 @@ impl Flash {
     }
 
     /// Read flash memory at a given page and offset into an 8-bit-dword buffer.
+    #[allow(unused_variables)] // bank arg on single-bank MCUs.
     pub fn read(&self, bank: Bank, page: usize, offset: usize, buf: &mut [u8]) {
         // H742 RM, section 4.3.8:
         // Single read sequence

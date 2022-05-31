@@ -336,7 +336,7 @@ macro_rules! hal {
                         }
 
                         common_regs.ccr.modify(|_, w| unsafe {
-                            #[cfg(not(feature = "f3"))]
+                            #[cfg(not(any(feature = "f3", feature = "l4x5")))] // PAC ommission l4x5?
                             w.presc().bits(result.cfg.prescaler as u8);
                             return w.ckmode().bits(result.cfg.clock_mode as u8);
 

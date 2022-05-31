@@ -897,9 +897,9 @@ macro_rules! cc_4_channels {
                     TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1np().bit(polarity.bit())),
                     TimChannel::C2 => self.regs.ccer.modify(|_, w| w.cc2np().bit(polarity.bit())),
                     TimChannel::C3 => self.regs.ccer.modify(|_, w| w.cc3np().bit(polarity.bit())),
-                    // #[cfg(not(feature = "wl"))]
                     #[cfg(not(any(feature = "wl", feature = "l4")))] // PAC ommission
                     TimChannel::C4 => self.regs.ccer.modify(|_, w| w.cc4np().bit(polarity.bit())),
+                    #[cfg(any(feature = "wl", feature = "l4"))] // PAC ommission
                     _ => panic!(),
                 }
             }

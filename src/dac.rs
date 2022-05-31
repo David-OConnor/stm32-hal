@@ -50,16 +50,16 @@ pub enum DacMode {
     /// DAC channel is connected to external pin with buffer disabled
     NormExternalOnlyBufDis = 0b010,
     /// DAC channel is connected to on chip peripherals with Buffer disabled
-    NormExternalAndPeriphBuDis = 0b011,
-    /// DAC channel is connected to external pin with Buffer enabled
+    NormExternalAndPeriphBufDis = 0b011,
+    /// DAC channel is connected to external pin with Buffer enabled. (Sample and Hold)
     ShNormExternalOnlyBufEn = 0b100,
-    /// DAC channel is connected to external pin and to on chip peripherals with buffer
+    /// DAC channel is connected to external pin and to on chip peripherals with buffer. (Sample and Hold)
     /// enabled
     ShExternalAndPeriphBufEn = 0b101,
-    /// DAC channel is connected to external pin with buffer disabled
+    /// DAC channel is connected to external pin with buffer disabled. (Sample and Hold)
     ShNormExternalOnlyBufDis = 0b110,
-    /// DAC channel is connected to on chip peripherals with Buffer disabled
-    ShNormExternalAndPeriphBuDis = 0b111,
+    /// DAC channel is connected to on chip peripherals with Buffer disabled. (Sample and Hold)
+    ShNormExternalAndPeriphBufDis = 0b111,
 }
 
 use cfg_if::cfg_if;
