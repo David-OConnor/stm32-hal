@@ -185,17 +185,18 @@ where
         cfg_if! {
             if #[cfg(any(
                 feature = "l5",
-                feature = "wl",
                 feature = "g4",
             ))] {
                 regs.dac_mcr.modify(|_, w| unsafe {
                     w.mode1().bits(cfg.mode as u8);
                     w.mode2().bits(cfg.mode as u8)
                 });
-            } else if #[cfg(any(feature = "h7", feature = "l4"))] {
+            } else if #[cfg(any(feature = "h7", feature = "l4", feature = "wl"))] {
                 regs.mcr.modify(|_, w| unsafe {
-                    w.mode1().bits(cfg.mode as u8);
-                    w.mode2().bits(cfg.mode as u8)
+                    #[cfg(not(feature = "wl"))]
+                    w.mode2().bits(cfg.mode as u8);
+                    return w.mode1().bits(cfg.mode as u8);
+
                 });
             }
             // Note: mode not present on on F3 and F4.

@@ -93,7 +93,19 @@ pub struct PllCfg {
 
 impl Default for PllCfg {
     fn default() -> Self {
-        // todo: Different defaults for different variants.
+        // Note that divn here isn't boosted.
+        cfg_if! {
+            if #[cfg(feature = "h735")] {
+                // let divn = 500,
+                let divn = 400;
+            } else if # [cfg(feature = "h7b3")] {
+                // todo: QC that this is right, and you don't need other changes on 280Mhz variants.
+                let divn = 280;
+            } else {
+                let divn = 400;
+            }
+        }
+
         Self {
             enabled: true,
             // fractional: false,
@@ -102,7 +114,7 @@ impl Default for PllCfg {
             pllr_en: false,
 
             divm: 32,
-            divn: 400,
+            divn,
             divp: 2,
             divq: 2, // Allows <150Mhz SAI clock, if it's configureud for PLL1Q.
             divr: 2,
@@ -237,12 +249,13 @@ pub enum VosRange {
 
 impl VosRange {
     /// Power regulator voltage scale.
-    /// Choose the wait states based on VSO range and hclk frequency.. See H743 RM, Table 17: FLASH
+    /// Choose the wait states based on VSO range and hclk frequency.. See H743 RM, Table 17: FLASH,
+    /// or RM0468, table 16.
     /// recommended number of wait states and programming delay. Returns a tuple of (number of wait states,
     /// programming delay) (FLASH ACR_LATENCY, WRHIGHFREQ) values respectively.
     pub fn wait_states(&self, hclk: u32) -> (u8, u8) {
-        // todo: Feature gate for other H7 variants. This is only confirmed on H742, 743, 745, 747,
-        // todo 755, 757. Likely different on the non-480-Mhz variants.
+        // todo: 280 Mhz variants.
+        #[cfg(not(feature = "h735"))]
         match self {
             #[cfg(not(feature = "h7b3"))]
             Self::VOS0 => match hclk {
@@ -276,6 +289,35 @@ impl VosRange {
                 135_000_001..=180_000_000 => (3, 2),
                 180_000_001..=225_000_000 => (4, 2),
                 _ => panic!("Can't set higher than 225Mhz HCLK with VSO3 range. (Try changing the `vos_range` setting)."),
+            },
+        }
+
+        #[cfg(feature = "h735")]
+        match self {
+            Self::VOS0 => match hclk {
+                0..=70_000_000 => (0, 0b00),
+                70_000_001..=140_000_000 => (1, 0b01),
+                140_000_001..=210_000_000 => (2, 0b10),
+                210_000_001..=275_000_000 => (3, 0b11),
+                _ => panic!("Can't set higher than 275Mhz HCLK with VSO0 range. (Try changing the `vos_range` setting)."),
+            },
+            Self::VOS1 => match hclk {
+                0..=67_000_000 => (0, 0b00),
+                67_000_001..=133_000_000 => (1, 0b01),
+                133_000_001..=200_000_000 => (2, 0b10),
+                _ => panic!("Can't set higher than 200Mhz HCLK with VOS1 range. (Try changing the `vos_range` setting)."),
+            },
+            Self::VOS2 => match hclk {
+                0..=50_000_000 => (0, 0b00),
+                50_000_001..=100_000_000 => (1, 0b01),
+                100_000_001..=150_000_000 => (2, 0b10),
+                _ => panic!("Can't set higher than 150Mhz HCLK with VSO2 range. (Try changing the `vos_range` setting)."),
+            },
+            Self::VOS3 => match hclk {
+                0..=35_000_000 => (0, 0b00),
+                35_000_001..=70_000_000 => (1, 0b01),
+                70_000_001..=85_000_000 => (2, 0b10),
+                _ => panic!("Can't set higher than 85Mhz HCLK with VSO3 range. (Try changing the `vos_range` setting)."),
             },
         }
     }
@@ -379,6 +421,8 @@ impl Clocks {
                 cfg_if! {
                     if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
                         syscfg.pwrcr.modify(|_, w| w.oden().set_bit());
+                    } else if #[cfg(feature = "h735")] {
+                        // todo! Figure out how to set up vos0 etc on h723.
                     } else {
                         syscfg.pwrcr.modify(|_, w| unsafe { w.oden().bits(1) });
                     }
@@ -478,6 +522,7 @@ impl Clocks {
         #[cfg(not(feature = "h7b3"))]
         rcc.d2ccip1r.modify(|_, w| unsafe {
             w.sai1sel().bits(self.sai1_src as u8);
+            #[cfg(not(feature = "h735"))]
             w.sai23sel().bits(self.sai23_src as u8);
             w.dfsdm1sel().bit(self.dfsdm1_src as u8 != 0)
         });
@@ -926,20 +971,22 @@ impl Clocks {
             return Err(SpeedError::new("APB2 out of limits"));
         }
 
-        // todo: Apb3/4?
+        // todo: Apb3/4
 
         Ok(())
     }
 }
 
+// todo: support default for 280Mhz variants.
+
 impl Default for Clocks {
+    // #[cfg(not(feature = "h735"))]
     /// This default configures clocks with the HSI, and a 400Mhz sysclock speed.
     /// Peripheral and timer clocks are set to 100Mhz or 200Mhz, depending on their limits.
     /// HSE output is not bypassed.
     /// todo: Not 248Mhz due to an issue with wait states on Table 17 not showing higher than 225Mhz
-    /// // todo HCLK unless in VOS0.
+    /// todo HCLK unless in VOS0.
     fn default() -> Self {
-        // todo: Feature-gate based on variant. Ie the 5xxMhz ones, the 240Mhz ones, and dual cores.
         Self {
             /// The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
             input_src: InputSrc::Pll1,
@@ -970,10 +1017,44 @@ impl Default for Clocks {
             dfsdm1_src: DfsdmSrc::Pclk2,
         }
     }
+
+    // #[cfg(feature = "h735")]
+    // fn default() -> Self {
+    //     Self {
+    //         /// The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
+    //         input_src: InputSrc::Pll1,
+    //         pll_src: PllSrc::Hsi(HsiDiv::Div1),
+    //         pll1: PllCfg::default(),
+    //         pll2: PllCfg::disabled(),
+    //         pll3: PllCfg::disabled(),
+    //         d1_core_prescaler: HclkPrescaler::Div1,
+    //         d1_prescaler: ApbPrescaler::Div2,
+    //         /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
+    //         hclk_prescaler: HclkPrescaler::Div2,
+    //         d2_prescaler1: ApbPrescaler::Div2,
+    //         d2_prescaler2: ApbPrescaler::Div2,
+    //         d3_prescaler: ApbPrescaler::Div2,
+    //         /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
+    //         /// frees up the pin for use as GPIO.
+    //         hse_bypass: false,
+    //         security_system: false,
+    //         /// Enable the HSI48.
+    //         hsi48_on: false,
+    //         /// Select the input source to use after waking up from `stop` mode. Eg HSI or MSI.
+    //         stop_wuck: StopWuck::Hsi,
+    //         vos_range: VosRange::VOS1,
+    //         sai1_src: SaiSrc::Pll1Q,
+    //         sai23_src: SaiSrc::Pll1Q,
+    //         sai4a_src: SaiSrc::Pll1Q,
+    //         sai4b_src: SaiSrc::Pll1Q,
+    //         dfsdm1_src: DfsdmSrc::Pclk2,
+    //     }
+    // }
 }
 
-#[cfg(not(feature = "h7b3"))]
+#[cfg(not(feature = "h7b3"))] // todo
 impl Clocks {
+    #[cfg(not(feature = "h735"))]
     /// Full speed of 480Mhz, with VC0 range 0. Note that special consideration needs to be taken
     /// when using low power modes (ie anything with wfe or wfi) in this mode; may need to manually
     /// disable and re-enable it.
@@ -981,6 +1062,21 @@ impl Clocks {
         Self {
             pll1: PllCfg {
                 divn: 480,
+                ..Default::default()
+            },
+            vos_range: VosRange::VOS0,
+            ..Default::default()
+        }
+    }
+
+    #[cfg(feature = "h735")]
+    /// Full speed of 480Mhz, with VC0 range 0. Note that special consideration needs to be taken
+    /// when using low power modes (ie anything with wfe or wfi) in this mode; may need to manually
+    /// disable and re-enable it.
+    pub fn full_speed() -> Self {
+        Self {
+            pll1: PllCfg {
+                divn: 550,
                 ..Default::default()
             },
             vos_range: VosRange::VOS0,

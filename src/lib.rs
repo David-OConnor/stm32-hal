@@ -167,6 +167,7 @@
     feature = "g484",
     feature = "g491",
     feature = "g4a1",
+    feature = "h735",
     feature = "h743",
     feature = "h743v",
     feature = "h747cm4",
@@ -326,6 +327,9 @@ pub use stm32g4::stm32g491 as pac;
 pub use stm32g4::stm32g4a1 as pac;
 
 // H7 PAC
+#[cfg(feature = "h735")]
+pub use stm32h7::stm32h735 as pac;
+
 #[cfg(feature = "h743")]
 pub use stm32h7::stm32h743 as pac;
 
@@ -448,7 +452,8 @@ pub mod low_power;
 #[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
 pub mod power;
 
-// F3, F4, L5, G0, and WL don't have Quad SPI.
+// F3, F4, G0, and WL don't have Quad SPI.
+// todo: L5, and newer H variants like H735 use Octospi instead. support that.
 #[cfg(not(any(
 feature = "f3",
 feature = "f4",
@@ -460,8 +465,10 @@ feature = "g441",
 feature = "g471",
 feature = "g491",
 feature = "g4a1",
+feature = "h735",
 feature = "h7b3",
 feature = "wl",
+
 )))]
 pub mod qspi;
 
@@ -483,6 +490,7 @@ pub mod rtc;
     feature = "f4",
     feature = "g0",
     feature = "g4", // todo: G4 PAC issue re getting channel-specific reg blocks.
+    feature = "h735", // todo: H735 supports SAI1 and 4. PAC errors causing compile errors?
     feature = "h7b3",
     feature = "wl"
 )))]
@@ -582,7 +590,7 @@ pub fn debug_workaround() {
         let dbgmcu = unsafe { &(*pac::DBGMCU::ptr()) };
 
         cfg_if::cfg_if! {
-            if #[cfg(all(feature = "h7", not(any(feature = "h747cm4", feature = "h747cm7"))))] {
+            if #[cfg(all(feature = "h7", not(any(feature = "h747cm4", feature = "h747cm7", feature = "h735"))))] {
                 dbgmcu.cr.modify(|_, w| w.dbgsleep_d1().set_bit());
                 dbgmcu.cr.modify(|_, w| w.dbgstop_d1().set_bit());
                 dbgmcu.cr.modify(|_, w| w.dbgstby_d1().set_bit());

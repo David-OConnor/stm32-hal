@@ -24,7 +24,6 @@ stm32f3 = { version = "0.14.0", optional = true }
 stm32f4 = { version = "0.14.0", optional = true }
 # We use custom patches for L4 and WB due to errors not yet fixed in the `stm32-rs`
 # Github and/or crates.io release.
-#stm32l4 = { package = "stm32l4-stm32hal", version = "0.14.1", optional = true }
 stm32l4 = { version = "0.14.0", optional = true }
 stm32l5 = { version = "0.14.0", optional = true }
 stm32g0 = { version = "0.14.0", optional = true }
@@ -36,7 +35,6 @@ stm32h7 = { version = "0.14.0", optional = true }
 
 # cortex-m-rt compatibility issue for h7
 #stm32h7 = { path = "../../Desktop/stm32-rs/stm32h7", optional = true }
-#stm32wb = { package = "stm32wb-stm32hal", version = "0.13.1", optional = true }
 stm32wb = { version = "0.14.0", optional = true }
 stm32wl = { version = "0.14.0", optional = true }
 
@@ -100,14 +98,14 @@ wlrt = ["stm32wl/rt"]
 # Features defined here are those taken from the SVD-generated STM32 PACs.
 # The "f3" etc designator at the end lets us group by family when feature-gating.
 
-# [F3](https://docs.rs/crate/stm32f3/0.13.0/source/Cargo.toml)
+# [F3](https://docs.rs/crate/stm32f3/latest/source/Cargo.toml)
 f301 = ["stm32f3/stm32f301", "f3"]
 f302 = ["stm32f3/stm32f302", "f3"]
 f303 = ["stm32f3/stm32f303", "f3"]
 f373 = ["stm32f3/stm32f373", "f3"]
 f3x4 = ["stm32f3/stm32f3x4", "f3"]
 
-# [F4](https://docs.rs/crate/stm32f4/0.13.0/source/Cargo.toml)
+# [F4](https://docs.rs/crate/stm32f4/latest/source/Cargo.toml)
 f401 = ["stm32f4/stm32f401", "f4"]
 f405 = ["stm32f4/stm32f405", "f4"]
 f407 = ["stm32f4/stm32f407", "f4"]
@@ -120,7 +118,7 @@ f429 = ["stm32f4/stm32f429", "f4"]
 f446 = ["stm32f4/stm32f446", "f4"]
 f469 = ["stm32f4/stm32f469", "f4"]
 
-# [L4](https://docs.rs/crate/stm32l4/0.13.0/source/Cargo.toml)
+# [L4](https://docs.rs/crate/stm32l4/latest/source/Cargo.toml)
 l4x1 = ["stm32l4/stm32l4x1", "l4"]
 l4x2 = ["stm32l4/stm32l4x2", "l4"]
 # L412 is the same as L4x2, but with an RTC like in G0, G4 and L5.
@@ -130,11 +128,11 @@ l4x5 = ["stm32l4/stm32l4x5", "l4"]
 l4x6 = ["stm32l4/stm32l4x6", "l4"]
 # todo: Handle l4+ (P, R, S, Q)
 
-# [L5](https://docs.rs/crate/stm32l5/0.13.0/source/Cargo.toml)
+# [L5](https://docs.rs/crate/stm32l5/latest/source/Cargo.toml)
 l552 = ["stm32l5/stm32l552", "l5"]
 l562 = ["stm32l5/stm32l562", "l5"]
 
-# [G0](https://docs.rs/crate/stm32g0/0.13.0/source/Cargo.toml)
+# [G0](https://docs.rs/crate/stm32g0/latest/source/Cargo.toml)
 g030 = ["stm32g0/stm32g030", "g0"]
 g031 = ["stm32g0/stm32g031", "g0"]
 g041 = ["stm32g0/stm32g041", "g0"]
@@ -148,7 +146,7 @@ g0b0 = ["stm32g0/stm32g0b0", "g0"]
 g0b1 = ["stm32g0/stm32g0b1", "g0"]
 g0c1 = ["stm32g0/stm32g0c1", "g0"]
 
-# [G4](https://docs.rs/crate/stm32g4/0.13.0/source/Cargo.toml)
+# [G4](https://docs.rs/crate/stm32g4/latest/source/Cargo.toml)
 g431 = ["stm32g4/stm32g431", "g4"]
 g441 = ["stm32g4/stm32g441", "g4"]
 g471 = ["stm32g4/stm32g471", "g4"]
@@ -159,7 +157,8 @@ g484 = ["stm32g4/stm32g484", "g4"]
 g491 = ["stm32g4/stm32g491", "g4"]
 g4a1 = ["stm32g4/stm32g4a1", "g4"]
 
-# [H7](https://docs.rs/crate/stm32h7/0.13.0/source/Cargo.toml)
+# [H7](https://docs.rs/crate/stm32h7/latest/source/Cargo.toml)
+h735 = ["stm32h7/stm32h735", "h7"]
 h743 = ["stm32h7/stm32h743", "h7"]
 h743v = ["stm32h7/stm32h743v", "h7"]
 h747cm4 = ["stm32h7/stm32h747cm4", "h7"]
@@ -168,10 +167,10 @@ h753 = ["stm32h7/stm32h753", "h7"]
 h753v = ["stm32h7/stm32h753v", "h7"]
 h7b3 = ["stm32h7/stm32h7b3", "h7"]
 
-# [WB](https://docs.rs/crate/stm32wb/0.13.0/source/Cargo.toml)
+# [WB](https://docs.rs/crate/stm32wb/latest/source/Cargo.toml)
 wb55 = ["stm32wb/stm32wb55", "wb"]
 
-# [WB](https://docs.rs/crate/stm32wl/0.13.0/source/Cargo.toml)
+# [WB](https://docs.rs/crate/stm32wl/latest/source/Cargo.toml)
 wle5 = ["stm32wl/stm32wle5", "wl"]
 
 usb = ["stm32-usbd"]

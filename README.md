@@ -313,9 +313,7 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - The DMA2 peripheral is unimplemented
 - H7 BDMA and MDMA unimplemented
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
-- USB unimplemented for H7
 - USART interrupts unimplemented on F4
-- H7 clock default is suitable for 400MHz and 480MHz variants only.
 - PWM input unimplemented
 - CRC unimplemented for L5, F4, G0, and G4
 - High-resolution timers (HRTIM), Low power timers (LPTIM), and low power usart (LPUSART) unimplemented
@@ -327,3 +325,4 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - WL is missing GPIO port C, and GPIO interrupt support
 - If using PWM (or output compare in general) on an Advanced control timer (eg TIM1 or 8),
 you must manually set the `TIMx_BDTR` register, `MOE` bit.
+- Octospi unimplemented

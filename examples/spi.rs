@@ -62,7 +62,7 @@ fn main() -> ! {
     // }
 
     // Set up an SPI peripheral, running at 4Mhz, in SPI mode 0.
-    let spi = Spi::new(
+    let mut spi = Spi::new(
         dp.SPI1,
         spi_cfg,
         BaudRate::Div32, // Eg 80Mhz apb clock / 32 = 2.5Mhz SPI clock.
@@ -74,7 +74,7 @@ fn main() -> ! {
     dma::mux(DmaChannel::C1, DmaInput::Spi1Tx, mux);
     dma::mux(DmaChannel::C2, DmaInput::Spi1Rx, mux);
 
-    // todo: Write example.
+    // todo: DMA Write example.
 
     cs.set_low();
 
@@ -90,7 +90,7 @@ fn main() -> ! {
             &mut SPI_READ_BUF,  // Read buf, where the data will go
             DmaChannel::C1,     // Write channel
             DmaChannel::C2,     // Read channel
-            Default::deafult,   // Write channel config
+            Default::default(), // Write channel config
             Default::default(), // Read channel config
             &mut dma,
         );
