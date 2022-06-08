@@ -92,29 +92,20 @@ pub struct PllCfg {
 }
 
 impl Default for PllCfg {
+    // Note that this assumes VOS1. (Not full speed)
     fn default() -> Self {
-        // Note that divn here isn't boosted.
-        cfg_if! {
-            if #[cfg(feature = "h735")] {
-                // let divn = 500,
-                let divn = 400;
-            } else if # [cfg(feature = "h7b3")] {
-                // todo: QC that this is right, and you don't need other changes on 280Mhz variants.
-                let divn = 280;
-            } else {
-                let divn = 400;
-            }
-        }
-
         Self {
             enabled: true,
             // fractional: false,
             pllp_en: true,
             pllq_en: false,
             pllr_en: false,
-
             divm: 32,
-            divn,
+            #[cfg(feature = "h7b3")]
+            // todo: QC that this is right, and you don't need other changes on 280Mhz variants.
+            divn: 280,
+            #[cfg(not(feature = "h7b3"))]
+            divn: 400,
             divp: 2,
             divq: 2, // Allows <150Mhz SAI clock, if it's configureud for PLL1Q.
             divr: 2,
@@ -359,6 +350,7 @@ pub struct Clocks {
     pub vos_range: VosRange,
     /// SAI1 and DFSDM1 kernel Aclk clock source selection
     pub sai1_src: SaiSrc,
+    #[cfg(not(feature = "h735"))]
     /// SAI2 and SAI3 kernel clock source selection
     pub sai23_src: SaiSrc,
     pub sai4a_src: SaiSrc,
@@ -399,7 +391,8 @@ impl Clocks {
         // – When decreasing performance, the system frequency shall first be decreased before
         // changing the voltage scaling.
         match self.vos_range {
-            #[cfg(not(feature = "h7b3"))]
+            #[cfg(not(any(feature = "h7b3", feature = "h735")))]
+            // Note:H735 etc have VOS0, but not oden; the RM doesn't list these steps.
             VosRange::VOS0 => {
                 // VOS0 activation/deactivation sequence: H743 HRM, section 6.6.2:
                 // The system maximum frequency can be reached by boosting the voltage scaling level to
@@ -421,8 +414,6 @@ impl Clocks {
                 cfg_if! {
                     if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
                         syscfg.pwrcr.modify(|_, w| w.oden().set_bit());
-                    } else if #[cfg(feature = "h735")] {
-                        // todo! Figure out how to set up vos0 etc on h723.
                     } else {
                         syscfg.pwrcr.modify(|_, w| unsafe { w.oden().bits(1) });
                     }
@@ -981,11 +972,11 @@ impl Clocks {
 
 impl Default for Clocks {
     // #[cfg(not(feature = "h735"))]
-    /// This default configures clocks with the HSI, and a 400Mhz sysclock speed.
+    /// This default configures clocks with the HSI, and a 400Mhz sysclock speed. (280Mhz sysclock
+    /// on variants that only go that high). Note that H723-745 still use this default speed
+    /// due to needing VOS0 for higher.
     /// Peripheral and timer clocks are set to 100Mhz or 200Mhz, depending on their limits.
     /// HSE output is not bypassed.
-    /// todo: Not 248Mhz due to an issue with wait states on Table 17 not showing higher than 225Mhz
-    /// todo HCLK unless in VOS0.
     fn default() -> Self {
         Self {
             /// The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
@@ -1011,6 +1002,7 @@ impl Default for Clocks {
             stop_wuck: StopWuck::Hsi,
             vos_range: VosRange::VOS1,
             sai1_src: SaiSrc::Pll1Q,
+            #[cfg(not(feature = "h735"))]
             sai23_src: SaiSrc::Pll1Q,
             sai4a_src: SaiSrc::Pll1Q,
             sai4b_src: SaiSrc::Pll1Q,
@@ -1055,28 +1047,25 @@ impl Default for Clocks {
 #[cfg(not(feature = "h7b3"))] // todo
 impl Clocks {
     #[cfg(not(feature = "h735"))]
-    /// Full speed of 480Mhz, with VC0 range 0. Note that special consideration needs to be taken
+    /// Full speed of 480Mhz, with VC0 range 0. Correspondingly higher periph clock speeds as well.
+    /// (520Mhz core speed on H723-35) Note that special consideration needs to be taken
     /// when using low power modes (ie anything with wfe or wfi) in this mode; may need to manually
     /// disable and re-enable it.
     pub fn full_speed() -> Self {
-        Self {
-            pll1: PllCfg {
-                divn: 480,
-                ..Default::default()
-            },
-            vos_range: VosRange::VOS0,
-            ..Default::default()
+        // todo: 550Mhz on on H723 etc instead of 520Mhz. Need to set CPU_FREQ_BOOST as well.
+        cfg_if! {
+            #[cfg(feature = "h735")] {
+                let divn = 260;
+                let divp = 1;
+            } else {
+                let divn = 480;
+                let divp = 2
+            }
         }
-    }
-
-    #[cfg(feature = "h735")]
-    /// Full speed of 480Mhz, with VC0 range 0. Note that special consideration needs to be taken
-    /// when using low power modes (ie anything with wfe or wfi) in this mode; may need to manually
-    /// disable and re-enable it.
-    pub fn full_speed() -> Self {
         Self {
             pll1: PllCfg {
-                divn: 550,
+                divn,
+                divp,
                 ..Default::default()
             },
             vos_range: VosRange::VOS0,

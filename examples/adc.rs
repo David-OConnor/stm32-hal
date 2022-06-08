@@ -24,6 +24,8 @@ use stm32_hal2::{
     low_power, pac,
 };
 
+static mut ADC_READ_BUF: [u16; 2] = [0; 2];
+
 #[entry]
 fn main() -> ! {
     // Set up CPU peripherals
@@ -45,7 +47,7 @@ fn main() -> ! {
 
     let mut adc = Adc::new_adc1(dp.ADC1, AdcDevice::One, Default::default(), &clock_cfg);
 
-    // 1: Confiuration options:
+    // 1: Configuration options:
 
     // Set a channel to a specific position in a sequence:
     adc.set_sequence(1, 2); // Set channel 1 to be the second position in the sequence.
@@ -64,7 +66,7 @@ fn main() -> ! {
 
     adc.enable_interrupt(AdcInterrupt::EndOfSequence);
 
-    // 2: Set up DMA, for nonblocking (generally faster) conversion transfers:
+    // 2: Set up DMA, for non-blocking transfers:
     let mut dma = Dma::new(&mut dp.DMA1, &dp.RCC);
 
     let mut dma_buf = [0];
@@ -75,7 +77,7 @@ fn main() -> ! {
     unsafe {
         adc.read_dma(
             &mut dma_buf,
-            chan_num,
+            &[chan_num],
             DmaChannel::C1,
             Default::default(),
             &mut dma,
@@ -93,24 +95,42 @@ fn main() -> ! {
     // Unmask the interrupt line. See the `DMA_CH1` interrupt handler below.
     unsafe { NVIC::unmask(pac::Interrupt::DMA1_CH1) }
 
-    // 3: Alternatively, we can take readings without DMA. This provides a simpler, memory-safe API,
-    // and is compatible with the `embedded_hal::adc::OneShot trait.
+    // 3: Example of starting a circular DMA transfer using 2 channels. This will continuously update
+    // the buffer with values from channels 17 and 12. (You can set longer sequence lengths as well).
+    // You can then read from the buffer at any point to get the latest reading.
+    let adc_cfg = AdcConfig {
+        operation_mode: adc::OperationMode::Continuous,
+        ..Default::default()
+    };
 
-    // Take a OneShot reading from channel 3. (Note that the Embedded HAL trait is also available,
-    // for use in embedded drivers). Channels for EH usage are included: `stm32hal2::adc::AdcChannel::C3`
+    let mut batt_curr_adc = Adc::new_adc2(dp.ADC2, AdcDevice::Two, adc_cfg, &clock_cfg);
+
+    unsafe {
+        batt_curr_adc.read_dma(
+            &mut ADC_READ_BUF,
+            &[17, 12],
+            DmaChannel::C2,
+            ChannelCfg {
+                circular: dma::Circular::Enabled,
+                ..Default::default()
+            },
+            &mut dma
+        );
+    }
+
+    // 4: Alternatively, we can take readings without DMA. This provides a simpler, blocking API.
+
+    // Take a blocking reading from channel 3.
     let reading = adc.read(chan_num);
 
     // Convert a reading to voltage, which includes compensation for the built-in VDDA
     // reference voltage
     let voltage = adc.reading_to_voltage(reading);
 
-    // Or, start reading in continuous mode, reading a single channel
-    adc.start_conversion(&[chan_num], OperationMode::Continuous);
-
-    // Or, read multiple channels in a sequence:
-    adc.start_conversion([1, 2, 3], OperationMode::Continuous);
-    // Read from the ADC's latest (continuously-running) conversion:
-    let reading = adc.read_result();
+    // Or, read convert multiple channels in a sequence. You can read the results once the transfer
+    // complete interrupt fires.
+    adc.enable_interrupt(AdcInterrupt::EndOfSequence);
+    adc.start_conversion(&[1, 2, 3]);
 
     loop {
         low_power::sleep_now();

@@ -19,11 +19,11 @@ use paste::paste;
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
-    feature = "f3",
-    feature = "l4",
-    feature = "g4",
-    feature = "h7",
-    feature = "wb"
+feature = "f3",
+feature = "l4",
+feature = "g4",
+feature = "h7",
+feature = "wb"
 ))]
 use crate::pac::dma1 as dma_p;
 
@@ -32,6 +32,28 @@ use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
+
+// Address of the ADCinterval voltage reference. This address is found in the User manual. It appears
+// to be the same for most STM32s. The voltage this is measured at my vary by variant; eg 3.0 vice 3.3.
+// So far, it seems it's always on ADC1, but the channel depends on variant.
+// G474 manual implies you can use *any* ADC on ch 18. G491 shows ADC 1 and 3, ch 18 on both.
+// L4x2 implies ADC1 only.
+cfg_if! {
+    if #[cfg(feature = "h7")] {
+        // These values are from the H723 User manual
+        const VREFINT_ADDR: u32 = 0x1FF1_E860;
+        const VREFINT_VOLTAGE: f32 = 3.3;
+        const VREFINT_CH: u8 = 0; // todo: Unknown. What is it?
+    } else if #[cfg(feature = "g4")] {
+        const VREFINT_ADDR: u32 = 0x1FFF_75AA;
+        const VREFINT_VOLTAGE: f32 = 3.0;
+        const VREFINT_CH: u8 = 18; // G491
+    } else {
+        const VREFINT_ADDR: u32 = 0x1FFF_75AA;
+        const VREFINT_VOLTAGE: f32 = 3.0;
+        const VREFINT_CH: u8 = 0; // L412
+    }
+}
 
 const MAX_ADVREGEN_STARTUP_US: u32 = 10;
 
@@ -261,6 +283,7 @@ impl Default for Align {
 // todo: Document this config struct
 
 /// Initial configuration data for the ADC peripheral.
+#[derive(Clone)]
 pub struct AdcConfig {
     pub clock_mode: ClockMode,
     pub prescaler: Prescaler,
@@ -339,11 +362,8 @@ macro_rules! hal {
                             #[cfg(not(any(feature = "f3", feature = "l4x5")))] // PAC ommission l4x5?
                             w.presc().bits(result.cfg.prescaler as u8);
                             return w.ckmode().bits(result.cfg.clock_mode as u8);
-
                         });
                     });
-
-                    //todo: Cal/VDDA code needs work.
 
                     result.set_align(Align::default());
 
@@ -365,40 +385,18 @@ macro_rules! hal {
                         ClockMode::SyncDiv4 => 4,
                     };
                     asm::delay(adc_per_cpu_cycles * 4 * 2); // additional x2 is a pad;
-                    result.enable();
 
-                    match result.cfg.operation_mode {
-                        OperationMode::OneShot => result.setup_oneshot(),
-                        OperationMode::Continuous => (),// todo: Setup Continuous
-                    }
+                    result.set_sequence_len(1);  // as a default
+
+                    result.regs.cfgr.modify(|_, w| w.cont().bit(result.cfg.operation_mode as u8 != 0));
+
+                    result.enable();
 
                     // Set up VDDA only after the ADC is otherwise enabled.
                     result.setup_vdda(clock_cfg);
 
                     result
                 }
-            }
-
-            /// Sets up adc in one shot mode for a single channel
-            pub fn setup_oneshot(&mut self) {
-                self.regs.cr.modify(|_, w| w.adstp().set_bit());
-                self.regs.isr.modify(|_, w| w.ovr().clear_bit());
-
-                self.regs.cfgr.modify(|_, w| w
-                    .cont().clear_bit()  // single conversion mode.
-                    // RM:
-                    // • OVRMOD=0: The overrun event preserves the data register from being overrun: the
-                    // old data is maintained and the new conversion is discarded and lost. If OVR remains at
-                    // 1, any further conversions will occur but the result data will be also discarded.
-                    // • OVRMOD=1: The data register is overwritten with the last conversion result and the
-                    // previous unread data is lost. If OVR remains at 1, any further conversions will operate
-                    // normally and the ADC_DR register will always contain the latest converted data.
-                    .ovrmod().clear_bit()  // preserve DR data
-                );
-
-                self.set_sequence_len(1);
-
-                self.cfg.operation_mode = OperationMode::OneShot;
             }
 
             /// Set the ADC conversion sequence length, between 1 and 16.
@@ -422,7 +420,7 @@ macro_rules! hal {
             /// Enable the ADC.
             /// ADEN=1 enables the ADC. The flag ADRDY will be set once the ADC is ready for
             /// operation.
-            fn enable(&mut self) {
+            pub fn enable(&mut self) {
                 // 1. Clear the ADRDY bit in the ADC_ISR register by writing ‘1’.
                 self.regs.isr.modify(|_, w| w.adrdy().set_bit());
                 // 2. Set ADEN=1.
@@ -437,7 +435,7 @@ macro_rules! hal {
             /// Disable the ADC.
             /// ADDIS=1 disables the ADC. ADEN and ADDIS are then automatically cleared by
             /// hardware as soon as the analog ADC is effectively disabled
-            fn disable(&mut self) {
+            pub fn disable(&mut self) {
                 // 1. Check that both ADSTART=0 and JADSTART=0 to ensure that no conversion is
                 // ongoing. If required, stop any regular and injected conversion ongoing by setting
                 // ADSTP=1 and JADSTP=1 and then wait until ADSTP=0 and JADSTP=0.
@@ -727,24 +725,10 @@ macro_rules! hal {
                 // self.enable();
             }
 
-            /// Set up the internal voltage reference, to improve conversion from reading
+            /// Find and store the internal voltage reference, to improve conversion from reading
             /// to voltage accuracy. See L44 RM, section 16.4.34: "Monitoring the internal voltage reference"
             fn setup_vdda(&mut self, clock_cfg: &Clocks) {
-                // todo: May need to use mv.
                 let common_regs = unsafe { &*pac::$ADC_COMMON::ptr() };
-
-                common_regs.ccr.modify(|_, w| w.vrefen().set_bit());
-                // "Table 24. Embedded internal voltage reference" states that it takes a maximum of 12 us
-                // to stabilize the internal voltage reference, we wait a little more.
-                let cp = unsafe { cortex_m::Peripherals::steal() };
-                let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
-                delay.delay_us(20);
-
-                // (From L4xx-hal) "Table 24. Embedded internal voltage reference" states that the sample time needs to be
-                // at a minimum 4 us. With 640.5 ADC cycles we have a minimum of 8 us at 80 MHz, leaving
-                // some headroom.
-                // todo: Reset existing sample time after this measurement?
-                // todo: This may not work properly on variants clocked faster than 80Mhz(?)
 
                 // RM: It is possible to monitor the internal voltage reference (VREFINT) to have a reference point for
                 // evaluating the ADC VREF+ voltage level.
@@ -752,8 +736,8 @@ macro_rules! hal {
                 // (ADC1_INP0).
 
                 // Regardless of which ADC we're on, we take this reading using ADC1.
-                let vref_reading = if self.device != AdcDevice::One {
-                    // todo: What if ADC1 is alreayd enabled and configured differently?
+                self.vdda_calibrated = if self.device != AdcDevice::One {
+                    // todo: What if ADC1 is already enabled and configured differently?
                     // todo: Either way, if you're also using ADC1, this will screw things up⋅.
 
                     let dp = unsafe { pac::Peripherals::steal() };
@@ -763,57 +747,67 @@ macro_rules! hal {
                     #[cfg(not(feature = "l5"))]
                     let dp_adc = dp.ADC1;
 
-                    let mut adc1 = Adc::new_adc1(
-                        dp_adc,
-                        AdcDevice::One,
-                        Default::default(),
-                        clock_cfg,
-                    );
-
                     // If we're currently using ADC1 (and this is a different ADC), skip this step for now;
                     // VDDA will be wrong,
                     // and all readings using voltage conversion will be wrong.
-                    // todo: Take an ADC1 reading if this is the case.
-                    if adc1.is_enabled() {
+                    // todo: Take an ADC1 reading if this is the case, or let the user pass in VDDA from there.
+                    if dp_adc.cr.read().aden().bit_is_set() {
                         return
                     }
 
-                    adc1.set_sample_time(0, SampleTime::T601);
-                    let reading = adc1.read(0);
+                    3.0
 
-                    // Disable ADC1 and its clock.
-                    adc1.disable();
-                    // todo: Disable the ADC1 clock. (Note it's on 3 diff regs depending on family)
-
-                    reading
+                    // todo: Put back!
+                    //
+                    // let adc1 = Adc::new_adc1(
+                    //     dp_adc,
+                    //     AdcDevice::One,
+                    //     // We use self cfg, in case ADC1 is on the same common regs as this; we don't
+                    //     // want it overwriting prescaler and clock cfg.
+                    //     self.cfg.clone(),
+                    //     clock_cfg,
+                    // );
+                    //
+                    // // This fn will be called for ADC1, generating the vdda value we need.
+                    // adc1.vdda_calibrated
                 } else {
-                    self.set_sample_time(0, SampleTime::T601);
-                    let reading = self.read(0);
+                    // "Table 24. Embedded internal voltage reference" states that the sample time needs to be
+                    // at a minimum 4 us. With 640.5 ADC cycles we have a minimum of 8 us at 80 MHz, leaving
+                    // some headroom.
 
-                    // todo: Set the requested sample time; not just the default!
-                    self.set_sample_time(0, SampleTime::T1);
+                    common_regs.ccr.modify(|_, w| w.vrefen().set_bit());
+                    // User manual table: "Embedded internal voltage reference" states that it takes a maximum of 12 us
+                    // to stabilize the internal voltage reference, we wait a little more.
+                    let cp = unsafe { cortex_m::Peripherals::steal() };
+                    let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
 
-                    reading
+                    // todo: Not sure what to set this delay to and how to change it based on variant, so picking
+                    // todo something conservative.
+                    delay.delay_us(100);
+
+                    // This sample time is overkill.
+                    // Note that you will need to reset the sample time if you use this channel on this
+                    // ADC for something other than reading vref later.
+                    self.set_sample_time(VREFINT_CH, SampleTime::T601);
+                    let reading = self.read(VREFINT_CH);
+
+                    common_regs.ccr.modify(|_, w| w.vrefen().clear_bit());
+
+                    // The VDDA power supply voltage applied to the microcontroller may be subject to variation or
+                    // not precisely known. The embedded internal voltage reference (VREFINT) and its calibration
+                    // data acquired by the ADC during the manufacturing process at VDDA = 3.0 V can be used to
+                    // evaluate the actual VDDA voltage level.
+                    // The following formula gives the actual VDDA voltage supplying the device:
+                    // VDDA = 3.0 V x VREFINT_CAL / VREFINT_DATA
+                    // where:
+                    // • VREFINT_CAL is the VREFINT calibration value
+                    // • VREFINT_DATA is the actual VREFINT output value converted by ADC
+
+                    // todo: This address may be different on different MCUs, even within the same family.
+                    // Although, it seems relatively consistent. Check User Manuals.
+                    let vrefint_cal: u16 = unsafe { ptr::read_volatile(&*(VREFINT_ADDR as *const _)) };
+                    VREFINT_VOLTAGE * vrefint_cal as f32 / reading as f32
                 };
-
-                // self.set_sample_time(0, old_sample_time);
-                common_regs.ccr.modify(|_, w| w.vrefen().clear_bit());
-
-                // The VDDA power supply voltage applied to the microcontroller may be subject to variation or
-                // not precisely known. The embedded internal voltage reference (VREFINT) and its calibration
-                // data acquired by the ADC during the manufacturing process at VDDA = 3.0 V can be used to
-                // evaluate the actual VDDA voltage level.
-                // The following formula gives the actual VDDA voltage supplying the device:
-                // VDDA = 3.0 V x VREFINT_CAL / VREFINT_DATA
-                // where:
-                // • VREFINT_CAL is the VREFINT calibration value
-                // • VREFINT_DATA is the actual VREFINT output value converted by ADC
-
-                // todo: This address may be different on different MCUs, even within the same family.
-                // Although, it seems relatively consistent. Check User Manuals.
-                let vrefint_cal: u16 = unsafe { ptr::read_volatile(&*(0x1FFF_75AA as *const _)) };
-
-                self.vdda_calibrated = 3. * vrefint_cal as f32 / vref_reading as f32
             }
 
             /// Convert a raw measurement into a voltage in Volts, using the calibrated VDDA.
@@ -837,14 +831,14 @@ macro_rules! hal {
                 // resolution, it will be 212 − 1 = 4095 or with 8-bit resolution, 28 − 1 = 255
                 // todo: Pass vdda here, or to teh struct?
                 // todo: FULL_SCALE will be different for 16-bit. And differential?
+                // todo: Does it matter if vdda is measured at 3.0 vs 3.3?
+
                 self.vdda_calibrated / 4_096. * reading as f32
             }
 
             /// Start a conversion: Either a single measurement, or continuous conversions.
             /// See L4 RM 16.4.15 for details.
-            pub fn start_conversion(&mut self, sequence: &[u8], mode: OperationMode) {
-                // Set continuous or one-shot mode.
-                self.regs.cfgr.modify(|_, w| w.cont().bit(mode as u8 != 0));
+            pub fn start_conversion(&mut self, sequence: &[u8]) {
                 // todo: You should call this elsewhere, once, to prevent unneded reg writes.
                 for (i, channel) in sequence.iter().enumerate() {
                     self.set_sequence(*channel, i as u8 + 1); // + 1, since sequences start at 1.
@@ -875,7 +869,7 @@ macro_rules! hal {
 
             /// Take a single reading, in OneShot mode
             pub fn read(&mut self, channel: u8) -> u16 {
-                self.start_conversion(&[channel], OperationMode::OneShot);
+                self.start_conversion(&[channel]);
                 self.read_result()
             }
 
@@ -886,7 +880,7 @@ macro_rules! hal {
             /// Note that the `channel` argument is only used on F3 and L4.
             pub unsafe fn read_dma<D>(
                 &mut self, buf: &mut [u16],
-                adc_channel: u8,
+                adc_channels: &[u8],
                 dma_channel: DmaChannel,
                 channel_cfg: ChannelCfg,
                 dma: &mut Dma<D>
@@ -928,8 +922,12 @@ macro_rules! hal {
                     _ => unimplemented!(),
                 }
 
-                self.set_sequence(adc_channel, 1);
-                // todo: Support sequences!
+                let mut seq_len = 0;
+                for (i, ch) in adc_channels.iter().enumerate() {
+                    self.set_sequence(*ch, i as u8 + 1);
+                    seq_len += 1;
+                }
+                self.set_sequence_len(seq_len);
 
                 self.regs.cr.modify(|_, w| w.adstart().set_bit());  // Start
 
@@ -1189,11 +1187,11 @@ hal!(ADC4, ADC3_4, adc4, 34);
 hal!(ADC1, ADC_COMMON, adc1, _);
 
 #[cfg(any(
-    feature = "l4x1",
-    feature = "l4x2",
-    feature = "l412",
-    feature = "l4x5",
-    feature = "l4x6",
+feature = "l4x1",
+feature = "l4x2",
+feature = "l412",
+feature = "l4x5",
+feature = "l4x6",
 ))]
 hal!(ADC2, ADC_COMMON, adc2, _);
 
