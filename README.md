@@ -135,10 +135,16 @@ fn main() -> ! {
     let mut sda = Pin::new(Port::B, 7, PinMode::Alt(4));
     sda.output_type(OutputType::OpenDrain);
 
+    let mut dma = Dma::new(&mut dp.DMA1);
+    dma::mux(DmaChannel::C1, DmaInput::I2c1Tx, &mut dp.DMAMUX);
+  
     let i2c = I2c::new(dp.I2C1, Default::default(), &clock_cfg);
 
     loop {
         i2c.write(0x50, &[1, 2, 3]);
+        // Or:       
+        i2c.write_dma(0x50, &BUF, DmaChannel::C1, Default::default(), &mut dma);
+      
         low_power::sleep_now();
     }
 }

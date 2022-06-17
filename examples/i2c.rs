@@ -66,6 +66,7 @@ fn main() -> ! {
 
     // Set up DMA, for nonblocking (generally faster) conversion transfers:
     let mut dma = Dma::new(&mut dp.DMA1);
+    dma::mux(DmaChannel::C6, DmaInput::I2c1Tx, &mut dp.DMAMUX);
 
     // todo fill this in)
 

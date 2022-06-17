@@ -11,10 +11,10 @@ use core::convert::Infallible;
 
 use cortex_m::interrupt::free;
 
-use crate::{
-    pac::{self, EXTI, RCC},
-    rcc_en_reset, // todo?
-};
+use crate::pac::{self, EXTI, RCC};
+
+#[cfg(not(feature = "h7"))]
+use crate::rcc_en_reset;
 
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};

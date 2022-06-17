@@ -1,6 +1,7 @@
 //! This module contains code used to place the MCU in low power modes.
 //! Reference section 5.3.3: `Low power modes` of the L4 Reference Manual.
 
+#[cfg(not(feature = "h7"))]
 use crate::pac::PWR;
 
 #[cfg(any(feature = "l4", feature = "l5"))]

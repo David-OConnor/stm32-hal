@@ -19,11 +19,11 @@ use paste::paste;
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
-feature = "f3",
-feature = "l4",
-feature = "g4",
-feature = "h7",
-feature = "wb"
+    feature = "f3",
+    feature = "l4",
+    feature = "g4",
+    feature = "h7",
+    feature = "wb"
 ))]
 use crate::pac::dma1 as dma_p;
 
@@ -149,7 +149,7 @@ pub enum SampleTime {
     T61 = 0b101,
     /// 181.5 ADC clock cycles (247.5 on G4)
     T181 = 0b110,
-    /// 601.5 ADC clock cycles (640.5 on G4)
+    /// 601.5 ADC clock cycles (640.5 on G4 and H7)
     T601 = 0b111,
 }
 
@@ -1187,11 +1187,11 @@ hal!(ADC4, ADC3_4, adc4, 34);
 hal!(ADC1, ADC_COMMON, adc1, _);
 
 #[cfg(any(
-feature = "l4x1",
-feature = "l4x2",
-feature = "l412",
-feature = "l4x5",
-feature = "l4x6",
+    feature = "l4x1",
+    feature = "l4x2",
+    feature = "l412",
+    feature = "l4x5",
+    feature = "l4x6",
 ))]
 hal!(ADC2, ADC_COMMON, adc2, _);
 

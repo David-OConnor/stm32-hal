@@ -59,30 +59,36 @@
 //!
 //! #[entry]
 //! fn main() -> ! {
-//!     let mut dp = pac::Peripherals::take().unwrap();
+//!    let mut dp = pac::Peripherals::take().unwrap();
 //!
-//!     let clock_cfg = Clocks::default();
-//!     clock_cfg.setup().unwrap();
+//!    let clock_cfg = Clocks::default();
+//!    clock_cfg.setup().unwrap();
 //!
-//!     let mut pb15 = Pin::new(Port::A, 15, PinMode::Output);
-//!     pb15.set_high();
+//!    let mut pb15 = Pin::new(Port::A, 15, PinMode::Output);
+//!    pb15.set_high();
 //!
-//!     let mut timer = Timer::new_tim3(dp.TIM3, 0.2, Default::default(), &clock_cfg);
-//!     timer.enable_interrupt(TimerInterrupt::Update);
+//!    let mut timer = Timer::new_tim3(dp.TIM3, 0.2, Default::default(), &clock_cfg);
+//!    timer.enable_interrupt(TimerInterrupt::Update);
 //!
-//!     let mut scl = Pin::new(Port::B, 6, PinMode::Alt(4));
-//!     scl.output_type(OutputType::OpenDrain);
+//!    let mut scl = Pin::new(Port::B, 6, PinMode::Alt(4));
+//!    scl.output_type(OutputType::OpenDrain);
 //!
-//!     let mut sda = Pin::new(Port::B, 7, PinMode::Alt(4));
-//!     sda.output_type(OutputType::OpenDrain);
+//!    let mut sda = Pin::new(Port::B, 7, PinMode::Alt(4));
+//!    sda.output_type(OutputType::OpenDrain);
 //!
-//!     let i2c = I2c::new(dp.I2C1, Default::default(), &clock_cfg);
+//!    let mut dma = Dma::new(&mut dp.DMA1);
+//!    dma::mux(DmaChannel::C1, DmaInput::I2c1Tx, &mut dp.DMAMUX);
 //!
-//!     loop {
-//!         i2c.write(0x50, &[1, 2, 3]);
-//!         low_power::sleep_now();
-//!     }
-//! }
+//!    let i2c = I2c::new(dp.I2C1, Default::default(), &clock_cfg);
+//!
+//!    loop {
+//!        i2c.write(0x50, &[1, 2, 3]);
+//!        // Or:
+//!        i2c.write_dma(0x50, &BUF, DmaChannel::C1, Default::default(), &mut dma);
+//!
+//!        low_power::sleep_now();
+//!    }
+//!}
 //! ```
 //!
 //! [This article](https://www.anyleaf.org/blog/writing-embedded-firmware-using-rust) provides some information

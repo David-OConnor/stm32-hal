@@ -114,7 +114,7 @@ fn main() -> ! {
                 circular: dma::Circular::Enabled,
                 ..Default::default()
             },
-            &mut dma
+            &mut dma,
         );
     }
 
