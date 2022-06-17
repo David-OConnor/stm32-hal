@@ -43,9 +43,6 @@ use crate::pac::dma1 as dma_p;
 #[cfg(not(any(feature = "f4", feature = "l5")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::dma::DmaInput;
-
 use cfg_if::cfg_if;
 use paste::paste;
 
@@ -930,6 +927,25 @@ impl Pin {
                 );
             }
         }
+    }
+
+    #[cfg(feature = "l4x6")]
+    /// For the ADC, DAC, OPAMP and COMP, configure the desired I/O in analog mode
+    /// in the GPIOx_MODER register and configure the required function in the ADC,
+    /// DAC, OPAMP, and COMP registers. For the ADC, it is necessary to configure the
+    /// GPIOx_ASCR register (only for STM32L47x/L48x). Note that our `l4x6` feature
+    /// gate is good enough here, since the most popular variants affected are L476 and L486.
+    /// todo: Disconnect method?
+    pub fn connect_to_adc(&mut self) {
+        set_field!(
+            self.regs(),
+            self.pin,
+            ascr,
+            asc,
+            bit,
+            true,
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        );
     }
 
     /// Check if the pin's input voltage is high. Reads from the `IDR` register.
