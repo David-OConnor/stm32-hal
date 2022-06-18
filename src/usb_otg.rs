@@ -22,6 +22,7 @@ pub struct USB1 {
     pub hclk: u32,
 }
 
+#[cfg(not(feature = "h735"))]
 pub struct USB2 {
     pub usb_global: pac::OTG2_HS_GLOBAL,
     pub usb_device: pac::OTG2_HS_DEVICE,
@@ -73,10 +74,11 @@ usb_peripheral! {
 }
 pub type Usb1BusType = UsbBus<USB1>;
 
+#[cfg(not(feature = "h735"))]
 usb_peripheral! {
     USB2, OTG2_HS_GLOBAL, usb2otgen, usb2otgrst
 }
-
+#[cfg(not(feature = "h735"))]
 pub type Usb2BusType = UsbBus<USB2>;
 
 pub struct Usb1Ulpi {
