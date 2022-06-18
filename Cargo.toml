@@ -1,6 +1,6 @@
 [package]
 name = "stm32-hal2"
-version = "1.4.6"
+version = "1.4.7"
 authors = ["David O'Connor <david.alan.oconnor@gmail.com>"]
 description = "Hardware abstraction layer for the STM32 MCUs"
 keywords = ["no-std", "stm32", "embedded", "embedded-hal"]
@@ -77,7 +77,7 @@ cfg-if = "1.0.0"  # if/else blocks for feature-gating
 paste = "1.0.4"  # Token pasting, to make macros easier
 
 [package.metadata.docs.rs]
-features = ["h743v", "h7rt", "usbotg_hs", "embedded-hal"]
+features = ["h735", "h7rt", "usbotg_hs", "embedded-hal"]
 targets = ["thumbv7em-none-eabihf"]
 # For bright "supported by crate feature only" text on `embedded-hal`?
 rustdoc-args = ["--cfg", "docsrs"]

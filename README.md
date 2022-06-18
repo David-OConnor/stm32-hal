@@ -170,7 +170,7 @@ If you'd like to learn more about the other HALs, check them out on the [stm32-r
 You may prefer them if you prioritize strict type checks on GPIO pins, for example.
 
 ## Docs caveat
-The Rust docs page is built for `STM32H732`, and some aspects are not accurate for other
+The Rust docs page is built for `STM32H735`, and some aspects are not accurate for other
 variants. We currently don't have a good solution to this problem, and may
 self-host docs in the future, with a separate page for each STM32 family.
 
