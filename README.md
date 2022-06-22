@@ -12,24 +12,21 @@ This library provides high-level access to STM32 peripherals.
 4. Provide a consistent API across peripheral modules
 5. Support both DMA and non-DMA interfaces
 6. Be suitable for commercial projects
-7. Implement [embedded-hal](https://github.com/rust-embedded/embedded-hal) traits for all applicable peripherals
-8. Provide a clear, concise API
-9. Provide source code readable by anyone cross-checking a reference manual (RM)
+7. Provide a clear, concise API
+8. Provide source code readable by anyone cross-checking a reference manual (RM)
 
 
 ## Specifications
 - Base code on instructions described in reference manuals (RM); document inline with
-  the relevant excerpts [4, 9]
+  the relevant excerpts [4, 8]
 - Use [STM32 Peripheral Access Crates](https://github.com/stm32-rs/stm32-rs) to allow high-level
   register access [2]
 - Wrap PAC register blocks in structs that represent the applicable peripheral, and access features
   of these peripherals using public methods [1]
 - Use `#[cfg]` blocks, and the `cfg_if!` macro to handle differences between MCUs; use separate modules
   where large differences exist [2, 3]
-- Use both peripheral struct methods, and `embedded-hal` trait implementations for non-DMA interfaces; use additional
-  struct methods for DMA interfaces [4, 5, 7]
-- Favor functionality, ergonomics, and explicit interfaces [6, 8]
-- Document configuration code with what registers and fields it sets, and desriptions from RMs [4, 9]
+- Favor functionality, ergonomics, and explicit interfaces [6, 7]
+- Document configuration code with what registers and fields it sets, and desriptions from RMs [4, 8]
 - Provide examples and documentation that demonstrate peripheral use with interrupts and DMA [6]
 
 
@@ -98,7 +95,7 @@ cortex-m-rt = "0.6.13"
 stm32-hal2 = { version = "^1.4.5", features = ["l4x3", "l4rt"]}
 ```
 
-If you need `embedded-hal` traits, include the `embedded-hal` feature.
+If you need `embedded-hal` traits, include the `embedded_hal` feature.
 
 You can review [this section of Cargo.toml](https://github.com/David-OConnor/stm32-hal/blob/main/Cargo.toml#L61)
 to see which MCU and runtime features are available.
@@ -281,20 +278,6 @@ where
             FcRadarInterrupt::TgtAcq =>  w.tacf().set_bit(),
             FcRadarInterrupt::LostTrack => w.ltcf().set_bit(),
         });
-    }
-}
-
-#[cfg(feature = "embedded-hal")]
-/// Wrap our native methods with `embedded-hal` traits.
-impl<F> embedded_hal::TargetTrack for FcRadar<F>
-where
-    F: Deref<Target = pac::fcrdr1::RegisterBlock>,
-{
-    type Error = Error;
-
-    fn track(&mut self, track: u8) -> Result<(), Error> {
-        FcRadar::track(self, track);
-        Ok(())
     }
 }
 ```

@@ -12,10 +12,7 @@ use num_traits::float::Float;
 use cortex_m::interrupt::free;
 
 #[cfg(feature = "embedded-hal")]
-use embedded_hal::{
-    blocking::delay::{DelayMs, DelayUs},
-    timer::Periodic,
-};
+use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
 // todo: LPTIM (low-power timers) and HRTIM (high-resolution timers). And Advanced control functionality
 
@@ -687,10 +684,6 @@ macro_rules! make_timer {
                 self.delay_us(us as u32);
             }
         }
-
-        #[cfg(feature = "embedded-hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
-        impl Periodic for Timer<pac::$TIMX> {}
     }
 }
 

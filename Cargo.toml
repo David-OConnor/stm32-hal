@@ -40,22 +40,11 @@ stm32wl = { version = "0.14.0", optional = true }
 
 # Embedded traits. Featured-gated with `embedded-hal`.
 embedded-hal = { version = "0.2.5", features = ["unproven"], optional = true }
+# `nb` is only included when using the embedded-hal trait.
+nb = { version = "1.0.0", optional = true }
 
-# nb is a non-blocking abstraction, eg for reading or writing one word at a time.
-# It's mainly for embedded-hal, and a few of our APIs that mimick it.
-nb = "1.0.0"
 # Chrono allows for basic time and date functionality, for use with the RTC.
 chrono = { version = "0.4.19", default-features = false }
-
-# `bit_field`, `stm32-device-signature`, `heapless`, `bitflags`, `bbqueue`, and
-# `bluetooth-hci` are used for wb_only.
-bit_field = { version = "0.10.1", optional = true }
-stm32-device-signature = { version = "0.3.3", features = ["stm32wb5x"], optional = true }
-heapless = { version = "0.5.3", optional = true}  # todo: For compatibility with the stm32wb code we're using for now.
-#bluetooth-hci = { version = "0.1.0", optional = true}
-byteorder = { version = "1.4.3", optional = true, default-features = false }
-#bitflags = { version = "1.2.1", optional = true}
-bbqueue = { version = "0.4.8", optional = true}
 
 # These USB and CAN crates are only imported if one of the `can`, `usb`, `usbotg_fs`, or `usbotg_hs`
 # features are used.
@@ -175,11 +164,11 @@ wle5 = ["stm32wl/stm32wle5", "wl"]
 
 usb = ["stm32-usbd"]
 usbotg_fs = ["synopsys-usb-otg/fs"]
-usbotg_hs = ["synopsys-usb-otg/hs"]
+usbotg_hs = ["synopsys-usb-otg/hs"]  # eg H7 for HS.
 bx_can = ["bxcan"]
 #fd_can = ["fdcan"]
 net = ["smoltcp"]
-embedded_hal = ["embedded-hal"]
+embedded_hal = ["embedded-hal", "nb"]
 
 # These features are used to featured gate sections of code that apply
 # to an entire family.
@@ -190,8 +179,8 @@ l5 = []
 g0 = []
 g4 = []
 h7 = []
-#wb = ["bit_field", "stm32-device-signature", "heapless", "bluetooth-hci", "byteorder", "bitflags", "bbqueue"]
-wb = ["bit_field", "stm32-device-signature", "heapless", "byteorder", "bbqueue"]
+#wb = ["bit_field", "stm32-device-signature", "heapless", "byteorder", "bbqueue"]
+wb = []
 wl = []
 
 

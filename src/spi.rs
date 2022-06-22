@@ -472,83 +472,81 @@ where
 
     /// Read a single byte if available, or block until it's available.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
-    pub fn read(&mut self) -> nb::Result<u8, Error> {
+    pub fn read(&mut self) -> Result<u8, Error> {
         let sr = self.regs.sr.read();
 
         cfg_if! {
             if #[cfg(feature = "h7")] {
                 let crce = sr.crce().bit_is_set();
-                let not_empty = sr.rxp().bit_is_set();
             } else {
                 let crce = sr.crcerr().bit_is_set();
-                let not_empty = sr.rxne().bit_is_set();
             }
         }
 
         if sr.ovr().bit_is_set() {
-            Err(nb::Error::Other(Error::Overrun))
+            return Err(Error::Overrun);
         } else if sr.modf().bit_is_set() {
-            Err(nb::Error::Other(Error::ModeFault))
+            return Err(Error::ModeFault);
         } else if crce {
-            Err(nb::Error::Other(Error::Crc))
-        } else if not_empty {
-            #[cfg(feature = "h7")]
-            // todo: note: H7 can support words beyond u8. (Can others too?)
-            let result = unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) };
-            #[cfg(not(feature = "h7"))]
-            let result = unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) };
-            Ok(result)
-        } else {
-            Err(nb::Error::WouldBlock)
+            return Err(Error::Crc);
+        }
+
+        cfg_if! {
+            if #[cfg(feature = "h7")] {
+                while !self.regs.sr.read().rxp().bit_is_set() {}
+                // todo: note: H7 can support words beyond u8. (Can others too?)
+                Ok(unsafe{ ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) })
+            } else {
+                while !self.regs.sr.read().rxne().bit_is_set() {}
+                Ok(unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) })
+            }
         }
     }
 
     /// Write a single byte if available, or block until it's available.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
-    pub fn write_one(&mut self, byte: u8) -> nb::Result<(), Error> {
+    pub fn write_one(&mut self, byte: u8) -> Result<(), Error> {
         let sr = self.regs.sr.read();
 
         cfg_if! {
             if #[cfg(feature = "h7")] {
                 let crce = sr.crce().bit_is_set();
-                let rdy = sr.txp().bit_is_set();
             } else {
                 let crce = sr.crcerr().bit_is_set();
-                let rdy = sr.txe().bit_is_set();
             }
         }
 
         if sr.ovr().bit_is_set() {
-            Err(nb::Error::Other(Error::Overrun))
+            return Err(Error::Overrun);
         } else if sr.modf().bit_is_set() {
-            Err(nb::Error::Other(Error::ModeFault))
+            return Err(Error::ModeFault);
         } else if crce {
-            Err(nb::Error::Other(Error::Crc))
-        } else if rdy {
-            cfg_if! {
-                if #[cfg(feature = "h7")] {
-                    // todo: note: H7 can support words beyond u8. (Can others too?)
-                    unsafe { ptr::write_volatile(&self.regs.txdr as *const _ as *mut u8, byte) };
-                    // write CSTART to start a transaction in master mode
-                    self.regs.cr1.modify(|_, w| w.cstart().started());
-                }
-                 else {
-                    unsafe { ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, byte) };
-                }
-            }
-            Ok(())
-        } else {
-            Err(nb::Error::WouldBlock)
+            return Err(Error::Crc);
         }
+
+        cfg_if! {
+            if #[cfg(feature = "h7")] {
+                while !self.regs.sr.read().txp().bit_is_set() {}
+                // todo: note: H7 can support words beyond u8. (Can others too?)
+                unsafe { ptr::write_volatile(&self.regs.txdr as *const _ as *mut u8, byte) };
+                // write CSTART to start a transaction in master mode
+                self.regs.cr1.modify(|_, w| w.cstart().started());
+            }
+             else {
+                while !self.regs.sr.read().txe().bit_is_set() {}
+                unsafe { ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, byte) };
+            }
+        }
+
+        Ok(())
     }
 
     /// Write multiple bytes on the SPI line, blocking until complete.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
     pub fn write(&mut self, words: &[u8]) -> Result<(), Error> {
         for word in words {
-            nb::block!(self.write_one(word.clone()))?;
-            // nb::block!(self.write_one(word))?; // todo: Test this without clone once you have SPI working.
-            nb::block!(self.read())?;
+            self.write_one(*word)?;
+            self.read()?;
         }
 
         Ok(())
@@ -558,9 +556,8 @@ where
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
     pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<(), Error> {
         for word in words.iter_mut() {
-            // nb::block!(self.write_one(word))?; // todo: See note above.
-            nb::block!(self.write_one(word.clone()))?;
-            *word = nb::block!(self.read())?;
+            self.write_one(*word)?;
+            *word = self.read()?;
         }
 
         Ok(())
@@ -811,7 +808,6 @@ where
 }
 
 #[cfg(feature = "embedded-hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> FullDuplex<u8> for Spi<R>
 where
     R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
@@ -819,23 +815,27 @@ where
     type Error = Error;
 
     fn read(&mut self) -> nb::Result<u8, Error> {
-        Spi::read(self)
+        match Spi::read(self) {
+            Ok(r) => Ok(r),
+            Err(e) => Err(nb::Error::Other(e)),
+        }
     }
 
     fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
-        Spi::write_one(self, byte)
+        match Spi::write_one(self, byte) {
+            Ok(r) => Ok(r),
+            Err(e) => Err(nb::Error::Other(e)),
+        }
     }
 }
 
 #[cfg(feature = "embedded-hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> embedded_hal::blocking::spi::transfer::Default<u8> for Spi<R> where
     R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph
 {
 }
 
 #[cfg(feature = "embedded-hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> embedded_hal::blocking::spi::write::Default<u8> for Spi<R> where
     R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph
 {

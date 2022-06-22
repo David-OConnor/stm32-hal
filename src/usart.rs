@@ -40,6 +40,8 @@ use embedded_hal::{
     blocking,
     serial::{Read, Write},
 };
+#[cfg(feature = "embedded-hal")]
+use nb;
 
 use cfg_if::cfg_if;
 
@@ -618,8 +620,9 @@ pub enum Error {
     Parity,
 }
 
+// todo: Use those errors above.
+
 #[cfg(feature = "embedded-hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> Read<u8> for Usart<R>
 where
     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
@@ -628,29 +631,18 @@ where
 
     #[cfg(not(feature = "f4"))]
     fn read(&mut self) -> nb::Result<u8, Error> {
-        let rxne = self.regs.isr.read().rxne().bit_is_set();
+        while !self.regs.isr.read().rxne().bit_is_set() {}
 
-        if rxne {
-            Ok(self.regs.rdr.read().rdr().bits() as u8)
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
+        Ok(self.regs.rdr.read().rdr().bits() as u8)
     }
 
     #[cfg(feature = "f4")]
-    fn read(&mut self) -> nb::Result<u8, Error> {
-        let rxne = self.regs.sr.read().rxne().bit_is_set();
-
-        if rxne {
-            Ok(self.regs.dr.read().dr().bits() as u8)
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
+    fn read(&mut self) -> Result<u8, Error> {
+        Ok(Usart::read_one(self))
     }
 }
 
 #[cfg(feature = "embedded-hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl<R> Write<u8> for Usart<R>
 where
     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
@@ -659,43 +651,31 @@ where
 
     #[cfg(not(feature = "f4"))]
     fn write(&mut self, word: u8) -> nb::Result<(), Error> {
-        let txe = self.regs.isr.read().txe().bit_is_set();
+        while !self.regs.isr.read().txe().bit_is_set() {}
 
-        if txe {
-            self.regs
-                .tdr
-                .modify(|_, w| unsafe { w.tdr().bits(word as u16) });
-            Ok(())
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
+        self.regs
+            .tdr
+            .modify(|_, w| unsafe { w.tdr().bits(word as u16) });
+
+        Ok(())
     }
 
     #[cfg(feature = "f4")]
-    fn write(&mut self, word: u8) -> nb::Result<(), Error> {
-        let txe = self.regs.sr.read().txe().bit_is_set();
+    fn write(&mut self, word: u8) {
+        while !self.regs.sr.read().txe().bit_is_set() {}
 
-        if txe {
-            self.regs
-                .dr
-                .modify(|_, w| unsafe { w.dr().bits(word as u16) });
-            Ok(())
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
+        self.regs
+            .dr
+            .modify(|_, w| unsafe { w.dr().bits(word as u16) });
     }
 
     fn flush(&mut self) -> nb::Result<(), Error> {
         #[cfg(not(feature = "f4"))]
-        let tc = self.regs.isr.read().tc().bit_is_set();
+        while !self.regs.isr.read().tc().bit_is_set() {}
         #[cfg(feature = "f4")]
-        let tc = self.regs.sr.read().tc().bit_is_set();
+        while !self.regs.sr.read().tc().bit_is_set() {}
 
-        if tc {
-            Ok(())
-        } else {
-            Err(nb::Error::WouldBlock)
-        }
+        Ok(())
     }
 }
 
@@ -713,10 +693,7 @@ where
     }
 
     fn bflush(&mut self) -> Result<(), Error> {
-        #[cfg(not(feature = "f4"))]
-        while self.regs.isr.read().tc().bit_is_clear() {}
-        #[cfg(feature = "f4")]
-        while self.regs.sr.read().tc().bit_is_clear() {}
+        Self::flush(self);
 
         Ok(())
     }
