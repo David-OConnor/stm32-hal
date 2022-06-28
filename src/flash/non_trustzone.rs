@@ -594,8 +594,8 @@ impl Flash {
         page: usize,
         data: &[u8],
     ) -> Result<(), Error> {
-        self.erase_sector(bank, page);
-        self.write_sector(bank, page, data);
+        self.erase_sector(bank, page)?;
+        self.write_sector(bank, page, data)?;
 
         Ok(())
     }

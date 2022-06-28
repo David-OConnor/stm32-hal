@@ -776,7 +776,7 @@ macro_rules! cc_4_channels {
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
                         self.regs.ccmr2_output().modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "wb")))]
+                            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "wb", feature = "h7")))]
                             w.oc4m_3().bit((mode as u8) >> 3 != 0);
                             w.oc4m().bits((mode as u8) & 0b111)
 
@@ -1653,6 +1653,7 @@ cfg_if! {
         feature = "l4x5",
         feature = "l4x6",
         feature = "l562",
+        feature = "h7",
     ))] {
         make_timer!(TIM8, tim8, 2, u16);
         // todo: Some issues with field names or something on l562 here.

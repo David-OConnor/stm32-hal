@@ -1,9 +1,14 @@
+//! This minimial example causes an LED to blink using a (blocking) systick delay. It's
+//! the canonical "Hello world" of embedded programming. It demonstrates project structure,
+//! printing text to the console, using systick delays, and setting GPIO state.
+
 #![no_std]
 #![no_main]
 
 use core::panic::PanicInfo;
 use cortex_m::delay::Delay;
 use cortex_m_rt::entry; // The runtime
+
 use stm32_hal2::{
     self,
     clocks::{Clocks},
@@ -12,23 +17,24 @@ use stm32_hal2::{
 };
 
 use defmt_rtt as _;
+// global logger
+use panic_probe as _;
 
-// This marks the entrypoint of our application. The cortex_m_rt creates some
-// startup code before this, but we don't need to worry about this
+// This marks the entrypoint of our application.
+
 #[entry]
 fn main() -> ! {
-    // Get handles to the hardware objects. These functions can only be called
-    // once, so that the borrowchecker can ensure you don't reconfigure
-    // something by accident.
+    // Set up CPU peripherals
     let cp = cortex_m::Peripherals::take().unwrap();
+    // Set up microcontroller peripherals
     let mut dp = pac::Peripherals::take().unwrap();
 
     defmt::println!("Hello, world!");
 
     let clock_cfg = Clocks::default();
 
-    // Write the clock configuration to the MCU. If you wish, you can modify `clocks` above
-    // in accordance with [its docs](https://docs.rs/stm32-hal2/0.2.0/stm32_hal2/clocks/index.html),
+    // Write the clock configuration to the MCU. If you wish, you can modify `clock_cfg` above
+    // in accordance with [its docs](https://docs.rs/stm32-hal2/latest/stm32_hal2/clocks/index.html),
     // and the `clock_cfg` example.
     clock_cfg.setup().unwrap();
 
@@ -36,19 +42,19 @@ fn main() -> ! {
     let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
     let mut led = Pin::new(Port::C, 13, PinMode::Output);
 
-    // Now, enjoy the lightshow!
     loop {
-        defmt::debug!("Our demo is alive");
         led.set_low();
-        delay.delay_ms(1000_u32);
+        defmt::debug!("Output pin is low.");
+        delay.delay_ms(1_000);
         led.set_high();
-        delay.delay_ms(1000_u32);
+        defmt::debug!("Output pin is high.");
+        delay.delay_ms(1_000);
     }
 }
 
 // same panicking *behavior* as `panic-probe` but doesn't print a panic message
 // this prevents the panic message being printed *twice* when `defmt::panic` is invoked
-#[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+#[defmt::panic_handler]
+fn panic() -> ! {
     cortex_m::asm::udf()
 }

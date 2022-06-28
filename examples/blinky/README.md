@@ -186,10 +186,9 @@ use stm32_hal2::{
 // startup code before this, but we don't need to worry about this
 #[entry]
 fn main() -> ! {
-    // Get handles to the hardware objects. These functions can only be called
-    // once, so that the borrowchecker can ensure you don't reconfigure
-    // something by accident.
+    // Set up CPU peripherals
     let cp = cortex_m::Peripherals::take().unwrap();
+    // Set up microcontroller peripherals
     let mut dp = pac::Peripherals::take().unwrap();
 
     let clock_cfg = Clocks::default();

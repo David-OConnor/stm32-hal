@@ -529,7 +529,7 @@ cfg_if::cfg_if! {
         any(feature = "usbotg_fs", feature = "usbotg_hs"),
         any(feature = "f4", feature = "l4x5", feature = "l4x6", feature = "h7")
     ))] {
-        pub mod usb_otg;
+        pub mod usb_otg; // todo: A way to export it as `usb`?
     }
 }
 

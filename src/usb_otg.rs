@@ -15,19 +15,42 @@ use crate::{
 pub use synopsys_usb_otg::UsbBus;
 use synopsys_usb_otg::UsbPeripheral;
 
-pub struct USB1 {
+pub struct Usb1 {
     pub usb_global: pac::OTG1_HS_GLOBAL,
     pub usb_device: pac::OTG1_HS_DEVICE,
     pub usb_pwrclk: pac::OTG1_HS_PWRCLK,
     pub hclk: u32,
 }
 
+impl Usb1 {
+    pub fn new(
+        usb_global: pac::OTG1_HS_GLOBAL,
+        usb_device: pac::OTG1_HS_DEVICE,
+        usb_pwrclk: pac::OTG1_HS_PWRCLK,
+        hclk: u32
+    ) -> Self {
+        Self { usb_global, usb_device, usb_pwrclk, hclk }
+    }
+}
+
 #[cfg(not(feature = "h735"))]
-pub struct USB2 {
+pub struct Usb2 {
     pub usb_global: pac::OTG2_HS_GLOBAL,
     pub usb_device: pac::OTG2_HS_DEVICE,
     pub usb_pwrclk: pac::OTG2_HS_PWRCLK,
     pub hclk: u32,
+}
+
+#[cfg(not(feature = "h735"))]
+impl Usb2 {
+    pub fn new(
+        usb_global: pac::OTG1_HS_GLOBAL,
+        usb_device: pac::OTG1_HS_DEVICE,
+        usb_pwrclk: pac::OTG1_HS_PWRCLK,
+        hclk: u32
+    ) -> Self {
+        Self { usb_global, usb_device, usb_pwrclk, hclk }
+    }
 }
 
 macro_rules! usb_peripheral {
@@ -70,9 +93,9 @@ macro_rules! usb_peripheral {
 }
 
 usb_peripheral! {
-    USB1, OTG1_HS_GLOBAL, usb1otgen, usb1otgrst
+    Usb1, OTG1_HS_GLOBAL, usb1otgen, usb1otgrst
 }
-pub type Usb1BusType = UsbBus<USB1>;
+pub type Usb1BusType = UsbBus<Usb1>;
 
 #[cfg(not(feature = "h735"))]
 usb_peripheral! {
