@@ -673,7 +673,6 @@ impl Clocks {
     }
 
     pub fn validate_speeds(&self) -> Result<(), SpeedError> {
-
         cfg_if! {
             if #[cfg(feature = "f3")] {
                 let max_clock = 72_000_000;

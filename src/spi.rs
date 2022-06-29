@@ -46,8 +46,9 @@ pub enum Error {
     Crc,
 }
 
-/// Possible interrupt types. Enable these in CR2. Check and clear with SR. There is no explicit
+/// Possible interrupt types. Enable these in SPIx_CR2. Check and clear with SR. There is no explicit
 /// way to clear these.
+#[cfg(not(feature = "h7"))]
 #[derive(Copy, Clone)]
 pub enum SpiInterrupt {
     /// Tx buffer empty (TXEIE)
@@ -56,6 +57,34 @@ pub enum SpiInterrupt {
     RxBufNotEmpty,
     /// Error (ERRIE)
     Error,
+}
+
+/// Possible interrupt types. Enable these in SPIx_IER. Check with SR. Clear with IFCR
+#[cfg(feature = "h7")]
+#[derive(Copy, Clone)]
+pub enum SpiInterrupt {
+    /// Additional number of transactions reload interrupt enable (TSERFIE)
+    NumberOfTransactionsReload,
+    /// Mode fault (MODFIE)
+    ModeFault,
+    /// TIFRE (TIFREIE)
+    Tifre,
+    /// CRC error (CRCEIE)
+    CrcError,
+    /// Overrun (OVRIE)
+    Overrun,
+    /// Underrun (UNDRIE)
+    Underrun,
+    /// TXTFIE
+    Txtfie,
+    /// EOT, SUSP, and TXC (EOTIE)
+    EotSuspTxc,
+    /// DXP (TXPIE)
+    Dxp,
+    /// TXP (TXPIE)
+    Txp,
+    /// RXP (RXPIE)
+    Rxp,
 }
 
 /// Set the factor to divide the APB clock by to set baud rate. Sets `SPI_CR1` register, `BR` field.
@@ -773,7 +802,7 @@ where
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
     }
 
-    #[cfg(not(any(feature = "g0", feature = "h7", feature = "f4", feature = "l5")))]
+    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
     /// Stop a DMA transfer. Stops the channel, and disables the `txdmaen` and `rxdmaen` bits.
     /// Run this after each transfer completes - you may wish to do this in an interrupt
     /// (eg DMA transfer complete) instead of blocking.
@@ -788,10 +817,18 @@ where
         // self.disable();
         // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
         // SPI_CR2 register, if DMA Tx and/or DMA Rx are used.
+
+        #[cfg(not(feature = "h7"))]
         self.regs.cr2.modify(|_, w| {
             w.txdmaen().clear_bit();
             w.rxdmaen().clear_bit()
-        })
+        });
+
+        #[cfg(feature = "h7")]
+        self.regs.cfg1.modify(|_, w| {
+            w.txdmaen().clear_bit();
+            w.rxdmaen().clear_bit()
+        });
     }
 
     #[cfg(not(feature = "h7"))]
@@ -803,6 +840,44 @@ where
             SpiInterrupt::TxBufEmpty => w.txeie().set_bit(),
             SpiInterrupt::RxBufNotEmpty => w.rxneie().set_bit(),
             SpiInterrupt::Error => w.errie().set_bit(),
+        });
+    }
+
+    #[cfg(feature = "h7")]
+    /// Enable an interrupt.
+    pub fn enable_interrupt(&mut self, interrupt_type: SpiInterrupt) {
+        self.regs.ier.modify(|_, w| match interrupt_type {
+            SpiInterrupt::NumberOfTransactionsReload => w.tserfie().set_bit(),
+            SpiInterrupt::ModeFault => w.modfie().set_bit(),
+            SpiInterrupt::Tifre => w.tifreie().set_bit(),
+            SpiInterrupt::CrcError => w.crceie().set_bit(),
+            SpiInterrupt::Overrun => w.ovrie().set_bit(),
+            SpiInterrupt::Underrun => w.udrie().set_bit(),
+            SpiInterrupt::Txtfie => w.txtfie().set_bit(),
+            SpiInterrupt::EotSuspTxc => w.eotie().set_bit(),
+            // SpiInterrupt::Dxp => w.dxpie().set_bit(),
+            // SpiInterrupt::Txp => w.txpie().set_bit(),
+            // SpiInterrupt::Rxp => w.rxpie().set_bit(),
+            _ => w.eotie().set_bit(), // todo: PAC ommission?
+        });
+    }
+
+    #[cfg(feature = "h7")]
+    /// Clear an interrupt.
+    pub fn clear_interrupt(&mut self, interrupt_type: SpiInterrupt) {
+        self.regs.ifcr.write(|w| match interrupt_type {
+            SpiInterrupt::NumberOfTransactionsReload => w.tserfc().set_bit(),
+            SpiInterrupt::ModeFault => w.modfc().set_bit(),
+            SpiInterrupt::Tifre => w.tifrec().set_bit(),
+            SpiInterrupt::CrcError => w.crcec().set_bit(),
+            SpiInterrupt::Overrun => w.ovrc().set_bit(),
+            SpiInterrupt::Underrun => w.udrc().set_bit(),
+            SpiInterrupt::Txtfie => w.txtfc().set_bit(),
+            SpiInterrupt::EotSuspTxc => w.eotc().set_bit(),
+            // SpiInterrupt::Dxp => w.dxpc().set_bit(),
+            // SpiInterrupt::Txp => w.txpc().set_bit(),
+            // SpiInterrupt::Rxp => w.rxpc().set_bit(),
+            _ => w.eotc().set_bit(), // todo: PAC ommission?
         });
     }
 }

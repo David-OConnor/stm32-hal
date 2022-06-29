@@ -27,9 +27,14 @@ impl Usb1 {
         usb_global: pac::OTG1_HS_GLOBAL,
         usb_device: pac::OTG1_HS_DEVICE,
         usb_pwrclk: pac::OTG1_HS_PWRCLK,
-        hclk: u32
+        hclk: u32,
     ) -> Self {
-        Self { usb_global, usb_device, usb_pwrclk, hclk }
+        Self {
+            usb_global,
+            usb_device,
+            usb_pwrclk,
+            hclk,
+        }
     }
 }
 
@@ -47,9 +52,14 @@ impl Usb2 {
         usb_global: pac::OTG1_HS_GLOBAL,
         usb_device: pac::OTG1_HS_DEVICE,
         usb_pwrclk: pac::OTG1_HS_PWRCLK,
-        hclk: u32
+        hclk: u32,
     ) -> Self {
-        Self { usb_global, usb_device, usb_pwrclk, hclk }
+        Self {
+            usb_global,
+            usb_device,
+            usb_pwrclk,
+            hclk,
+        }
     }
 }
 

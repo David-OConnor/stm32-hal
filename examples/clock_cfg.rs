@@ -30,18 +30,23 @@ fn main() -> ! {
     // will likely be innacurate. Inspect the [clocks modules here](https://github.com/David-OConnor/stm32-hal/tree/main/src/clocks)
     // for details.
 
-    // For details on what these fields are, and
+    // The default clock setting will (for most variants) enable the (or a) PLL, and configure
+    // scalers so system clock is at its maximum speed, using the internal oscillator (HSE).
+    // Most H7 variants default to their non-boosted
+    // speed, ie either 400Mhz or 520Mhz (not 480 or 550Mhz).
     let mut clock_cfg = Clocks::default();
 
-    // Or something like this to change a few of the defaults
+    // An example modifying some settings, while leaving the rest default. This is the intended
+    // pattern.
     let clock_cfg = Clocks {
         input_src: InputSrc::Hsi,
         stop_wuck: StopWuck::Hsi,
         ..Default::default()
     };
 
-    // Here's an example clock config, where you're using a 16Mhz SMD oscillator, and are using
-    // the internal HSI48 for USB:
+    // Here's an example clock config, where you're using a 16Mhz SMD oscillator (meaning we can enable
+    // HSE bypass), and are using the internal HSI48 for USB. This also demonstrates how to configure
+    // an external oscillator. (HSE)
     let clock_cfg = Clocks {
         input_src: InputSrc::Pll(PllSrc::Hse(16_000_000)),
         hse_bypass: true,
@@ -50,10 +55,13 @@ fn main() -> ! {
         ..Default::default()
     };
 
-    // Set it up to use the HSI, with no PLL. This will result in a reduced speed:
+    // If you'd prefer, you can modify fields individually from a mutable clock config, instead
+    // of using the code pattern above.
+
+    // Set it up to use the HSI directly, with no PLL. This will result in a reduced speed:
     clock_cfg.input_src = InputSrc::Hsi;
 
-    // Set it up to use a 8MHze HSE, with no PLL. This will result in a reduced speed:
+    // Set up to use a 8MHze HSE, with no PLL.
     clock_cfg.input_src = InputSrc::Hse(8_000_000);
 
     // If you set a 8Mhz HSE as above, you may need to reduce the default PLLM value to compensate
