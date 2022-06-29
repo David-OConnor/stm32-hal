@@ -23,9 +23,12 @@ fn main() -> ! {
     // Set up microcontroller peripherals
     let mut dp = pac::Peripherals::take().unwrap();
 
-    // Set up a default setting.  See documentation on Rust docs for details about
+    // Set up a default setting. See documentation on Rust docs for details about
     // what this does (it depends on the MCU), but it usually runs the core and most
     // peripheral clocks at the max rated speed, using HSI as the input source.
+    // Unfortunately, the docs hosted on `docs.rs` can only show a single variant, so
+    // will likely be innacurate. Inspect the [clocks modules here](https://github.com/David-OConnor/stm32-hal/tree/main/src/clocks)
+    // for details.
 
     // For details on what these fields are, and
     let mut clock_cfg = Clocks::default();

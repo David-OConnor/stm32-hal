@@ -541,7 +541,7 @@ where
         });
     }
 
-    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
+    #[cfg(not(any(feature = "g0",  feature = "l5")))]
     /// Read data, using DMA. See L44 RM, 37.4.16: "Transmission using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
     /// For a single write, set `autoend` to `true`. For a write_read and other use cases,
@@ -611,7 +611,7 @@ where
         );
     }
 
-    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
+    #[cfg(not(any(feature = "g0", feature = "l5")))]
     /// Read data, using DMA. See L44 RM, 37.4.16: "Reception using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
     pub unsafe fn read_dma<D>(

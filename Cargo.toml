@@ -22,19 +22,11 @@ cortex-m = "0.7.3"
 # Peripheral Access Crates
 stm32f3 = { version = "0.14.0", optional = true }
 stm32f4 = { version = "0.14.0", optional = true }
-# We use custom patches for L4 and WB due to errors not yet fixed in the `stm32-rs`
-# Github and/or crates.io release.
 stm32l4 = { version = "0.14.0", optional = true }
 stm32l5 = { version = "0.14.0", optional = true }
 stm32g0 = { version = "0.14.0", optional = true }
 stm32g4 = { version = "0.14.0", optional = true }
 stm32h7 = { version = "0.14.0", optional = true }
-
-# todo temp path and/or Git dep on H7 to deal with H743/v DFSDM pac errors
-#stm32h7 = { path = "../../Desktop/stm32-rs/stm32h7", optional = true }
-
-# cortex-m-rt compatibility issue for h7
-#stm32h7 = { path = "../../Desktop/stm32-rs/stm32h7", optional = true }
 stm32wb = { version = "0.14.0", optional = true }
 stm32wl = { version = "0.14.0", optional = true }
 

@@ -673,36 +673,27 @@ impl Clocks {
     }
 
     pub fn validate_speeds(&self) -> Result<(), SpeedError> {
-        #[cfg(feature = "f3")]
-        let max_clock = 72_000_000;
 
-        #[cfg(feature = "f401")]
-        let max_pll_out = 84_000_000;
-
-        #[cfg(any(feature = "f410", feature = "f411"))]
-        let max_pll_out = 100_000_000;
-
-        #[cfg(all(
-            feature = "f4",
-            not(any(feature = "f401", feature = "f410", feature = "f411"))
-        ))]
-        let max_pll_out = 168_000_000;
-
-        #[cfg(feature = "f4")]
-        let max_clock = 180_000_000;
+        cfg_if! {
+            if #[cfg(feature = "f3")] {
+                let max_clock = 72_000_000;
+            } else if #[cfg(feature = "f401")] {
+                let max_clock = 84_000_000;
+            } else if #[cfg(any(feature = "f410", feature = "f411", feature = "f412", feature = "f413"))] {
+                let max_clock = 110_000_000;
+            } else if #[cfg(any(feature = "f405", feature = "f407"))] {
+                let max_clock = 168_000_000;
+            } else {
+                let max_clock = 180_000_000;
+            }
+        }
 
         #[cfg(feature = "f4")]
         if self.plln < 50 || self.plln > 432 || self.pllm < 2 || self.pllm > 63 {
             return Err(SpeedError::new("A PLL divider is out of limits"));
         }
 
-        cfg_if! {
-            if #[cfg(any(feature = "f401", feature = "f405"))] {
-                let max_hclk = 42_000_000;
-            } else {
-                let max_hclk = max_clock;
-            }
-        }
+        let max_hclk = max_clock;
 
         // todo: min clock? eg for apxb?
         if self.sysclk() > max_hclk {
@@ -744,19 +735,29 @@ impl Default for Clocks {
     }
 
     #[cfg(feature = "f4")]
-    /// This preset configures clocks with a HSI, and a 180Mhz sysclck for most variants. 100Mhz for F411,
-    /// and 84Mhz for F401. APB1 and 2 are
-    /// clocked at 45Mhz. APB1 and 2 timers are clocked at 90Mhz. Not valid for USB.
+    /// This preset configures clocks with a HSI. Configures a system clock based on variant:
+    /// F401: 84Mhz
+    /// F410, 411, 412, 413: 100Mhz
+    /// F405, F407: 168Mhz
+    /// Else: 180Mhz.
+    /// Not valid for USB.
     fn default() -> Self {
+        cfg_if! {
+            if #[cfg(feature = "f401")] {
+                let plln = 84;
+            } else if #[cfg(any(feature = "f410", feature = "f411", feature = "f412", feature = "f413"))] {
+                let plln = 100;
+            } else if #[cfg(any(feature = "f405", feature = "f407"))] {
+                let plln = 168;
+            } else {
+                let plln = 180;
+            }
+        }
+
         Self {
             input_src: InputSrc::Pll(PllSrc::Hsi),
             pllm: 8,
-            #[cfg(feature = "f401")]
-            plln: 84,
-            #[cfg(any(feature = "f410", feature = "f411"))]
-            plln: 100,
-            #[cfg(not(any(feature = "f401", feature = "f410", feature = "f411")))]
-            plln: 180,
+            plln,
             pllp: Pllp::Div2,
             pllq: Pllq::Div8, // Note that this produces an invalid USB speed.
             hclk_prescaler: HclkPrescaler::Div1,
