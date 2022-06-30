@@ -58,10 +58,8 @@ cfg-if = "1.0.0"  # if/else blocks for feature-gating
 paste = "1.0.4"  # Token pasting, to make macros easier
 
 [package.metadata.docs.rs]
-features = ["h735", "h7rt", "usbotg_hs", "embedded-hal"]
+features = ["h735", "h7rt", "usbotg_hs", "embedded_hal"]
 targets = ["thumbv7em-none-eabihf"]
-# For bright "supported by crate feature only" text on `embedded-hal`?
-rustdoc-args = ["--cfg", "docsrs"]
 
 # Compile with one of these "runtime" features if the program
 # will be directly flashed to an MCU; ie not a library.

@@ -1390,7 +1390,8 @@ macro_rules! cc_1_channel {
 }
 
 /// Calculate values required to set the timer frequency: `PSC` and `ARR`. This can be
-/// used for initial timer setup, or changing the value later.
+/// used for initial timer setup, or changing the value later. If used in performance-sensitive
+/// code or frequently, set ARR and PSC directly instead of using this.
 fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16), ValueError> {
     // `period` and `clock_speed` are both in Hz.
 
@@ -1399,16 +1400,17 @@ fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16), ValueError>
     // APB1 (pclk1) is used by Tim2, 3, 4, 6, 7.
     // APB2 (pclk2) is used by Tim8, 15-20 etc.
 
-    // We need to factor the right-hand-side of the above equation (`rhs` variable)
+    // We need to factor the right-hand-side of the above equation
     // into integers. There are likely clever algorithms available to do this.
     // Some examples: https://cp-algorithms.com/algebra/factorization.html
     // We've chosen something quick to write, and with sloppy precision;
     // should be good enough for most cases.
 
-    // - If you work with pure floats, there are an infinite number of solutions: Ie for any value of PSC, you can find an ARR to solve the equation.
-    // - The actual values are integers that must be between 0 and 65_536
-    // - Different combinations will result in different amounts of rounding errors. Ideally, we pick the one with the lowest rounding error.
-    // - The aboveapproach sets PSC and ARR always equal to each other.
+    // If you work with pure floats, there are an infinite number of solutions: Ie for any value of PSC,
+    // you can find an ARR to solve the equation.
+    // The actual values are integers that must be between 0 and 65_536
+    // Different combinations will result in different amounts of rounding errors. Ideally, we pick the one with the lowest rounding error.
+    //  The above approach sets PSC and ARR always equal to each other.
     // This results in concise code, is computationally easy, and doesn't limit
     // the maximum period. There will usually be solutions that have a smaller rounding error.
 
@@ -1488,14 +1490,16 @@ cfg_if! {
             }
 
             /// Set the timer period, in seconds. Overrides the period or frequency set
-            /// in the constructor.
+            /// in the constructor.  If changing period frequently, don't use this method, as
+            /// it has computational overhead: use `set_auto_reload` and `set_prescaler` methods instead.
             pub fn set_period(&mut self, time: f32) -> Result<(), ValueError> {
                 assert!(time > 0.);
                 self.set_freq(1. / time)
             }
 
             /// Set the timer frequency, in Hz. Overrides the period or frequency set
-            /// in the constructor.
+            /// in the constructor. If changing frequency frequently, don't use this method, as
+            /// it has computational overhead: use `set_auto_reload` and `set_prescaler` methods instead.
             pub fn set_freq(&mut self, freq: f32) -> Result<(), ValueError> {
                 assert!(freq > 0.);
 

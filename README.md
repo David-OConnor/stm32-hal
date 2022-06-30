@@ -190,7 +190,7 @@ Most peripheral modules use the following format:
 - `enable_interrupt` and `clear_interrupt` functions, which accept an enum of interrupt type.
 - Add `embedded-hal` implementations as required, that call native methods. Note that
   we design APIs based on STM32 capabilities, and apply EH traits as applicable. We only
-  expose these implementations if the `embedded-hal` feature is selected.
+  expose these implementations if the `embedded_hal` feature is selected.
 - When available, base setup and usage steps on instructions provided in Reference Manuals.
   These steps are copy+pasted in comments before the code that performs each one.
 - Don't use PAC convenience field settings; they're implemented inconsistently across PACs.
