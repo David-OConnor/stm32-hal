@@ -5,7 +5,6 @@
 #![no_std]
 #![no_main]
 
-use core::panic::PanicInfo;
 use cortex_m::delay::Delay;
 use cortex_m_rt::entry; // The runtime
 
@@ -46,7 +45,6 @@ fn main() -> ! {
         led.set_low();
         defmt::debug!("Output pin is low.");
         delay.delay_ms(1_000);
-
         led.set_high();
         defmt::debug!("Output pin is high.");
         delay.delay_ms(1_000);

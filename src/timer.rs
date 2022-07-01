@@ -764,7 +764,7 @@ macro_rules! cc_4_channels {
             /// Set up input capture, eg for PWM input.
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
-            /// using the PAC. (May change later) Same with enabling captures using CC1E and CC2E.
+            /// using the PAC.
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
