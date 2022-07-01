@@ -26,12 +26,12 @@ use crate::{
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
-feature = "f3",
-feature = "l4",
-feature = "g4",
-feature = "h7",
-feature = "wb",
-feature = "wl"
+    feature = "f3",
+    feature = "l4",
+    feature = "g4",
+    feature = "h7",
+    feature = "wb",
+    feature = "wl"
 ))]
 use crate::pac::dma1 as dma_p;
 
@@ -790,7 +790,9 @@ macro_rules! cc_4_channels {
                         // clear): write the CC1P and CC1NP bits to ‘0’ (active on rising edge).
                         self.regs.ccer.modify(|_, w| {
                             w.cc1p().bit(ccp.bit());
-                            w.cc1np().bit(ccnp.bit())
+                            w.cc1np().bit(ccnp.bit());
+                            w.cc1e().set_bit();
+                            w.cc2e().set_bit()
 
                         });
                     }
@@ -799,9 +801,9 @@ macro_rules! cc_4_channels {
 
                         self.regs.ccer.modify(|_, w| {
                             w.cc2p().bit(ccp.bit());
-                            w.cc2np().bit(ccnp.bit())
-                            // w.cc1e().set_bit(); // todo: Missing on some variants; pac error?
-                            // w.cc2e().set_bit()
+                            w.cc2np().bit(ccnp.bit());
+                            w.cc1e().set_bit();
+                            w.cc2e().set_bit()
 
                         });
                     }
@@ -810,9 +812,9 @@ macro_rules! cc_4_channels {
 
                         self.regs.ccer.modify(|_, w| {
                             w.cc3p().bit(ccp.bit());
-                            w.cc3np().bit(ccnp.bit())
-                            // w.cc1e().set_bit();
-                            // w.cc2e().set_bit()
+                            w.cc3np().bit(ccnp.bit());
+                            w.cc1e().set_bit();
+                            w.cc2e().set_bit()
                         });
                     }
                     #[cfg(not(feature = "wl"))]
@@ -823,7 +825,7 @@ macro_rules! cc_4_channels {
                         self.regs.ccer.modify(|_, w| {
                             w.cc4p().bit(ccp.bit());
                             w.cc4np().bit(ccnp.bit())
-                            // cc1e().set_bit();
+                            // cc1e().set_bit(); // todo: Missing? PAC error or not a feature?
                             // cc2e().set_bit()
                         });
                     }
@@ -1128,7 +1130,7 @@ macro_rules! cc_2_channels {
             /// Set up input capture, eg for PWM input.
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
-            /// using the PAC. (May change later) Same with enabling captures using CC1E and CC2E.
+            /// using the PAC.
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1143,7 +1145,9 @@ macro_rules! cc_2_channels {
                         self.regs.ccmr1_input().modify(|_, w| unsafe { w.cc1s().bits(mode as u8) });
                         self.regs.ccer.modify(|_, w| {
                             w.cc1p().bit(ccp.bit());
-                            w.cc1np().bit(ccnp.bit())
+                            w.cc1np().bit(ccnp.bit());
+                            w.cc1e().set_bit();
+                            w.cc2e().set_bit()
 
                         });
                     }
@@ -1152,9 +1156,9 @@ macro_rules! cc_2_channels {
 
                         self.regs.ccer.modify(|_, w| {
                             w.cc2p().bit(ccp.bit());
-                            w.cc2np().bit(ccnp.bit())
-                            // w.cc1e().set_bit(); // todo: Missing on some variants; pac error?
-                            // w.cc2e().set_bit()
+                            w.cc2np().bit(ccnp.bit());
+                            w.cc1e().set_bit();
+                            w.cc2e().set_bit()
 
                         });
                     }
@@ -1386,7 +1390,7 @@ macro_rules! cc_1_channel {
             /// Set up input capture, eg for PWM input.
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
-            /// using the PAC. (May change later) Same with enabling captures using CC1E and CC2E.
+            /// using the PAC.
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1401,13 +1405,15 @@ macro_rules! cc_1_channel {
                         self.regs.ccmr1_input().modify(|_, w| unsafe { w.cc1s().bits(mode as u8) });
                         self.regs.ccer.modify(|_, w| {
                             w.cc1p().bit(ccp.bit());
-                            w.cc1np().bit(ccnp.bit())
+                            w.cc1np().bit(ccnp.bit());
+                            w.cc1e().set_bit()
 
                         });
                     }
                     _ => panic!()
                 }
 
+                // todo?
                 // self.regs.smcr.modify(|_, w| unsafe {
                 //     w.ts().bits(trigger as u8);
                 //     w.sms().bits(slave_mode as u8)
@@ -1733,20 +1739,20 @@ cfg_if! {
 make_timer!(TIM1, tim1, 2, u16);
 // PAC error, I think.
 #[cfg(not(any(
-feature = "f373",
-feature = "f4",
-feature = "l5",
-feature = "g0",
-feature = "g4",
-feature = "h7"
+    feature = "f373",
+    feature = "f4",
+    feature = "l5",
+    feature = "g0",
+    feature = "g4",
+    feature = "h7"
 )))]
 cc_4_channels!(TIM1, u16);
 #[cfg(any(
-feature = "f4",
-feature = "l5",
-feature = "g0",
-feature = "g4",
-feature = "h7"
+    feature = "f4",
+    feature = "l5",
+    feature = "g0",
+    feature = "g4",
+    feature = "h7"
 ))] // PAC bug.
 cc_2_channels!(TIM1, u16);
 
