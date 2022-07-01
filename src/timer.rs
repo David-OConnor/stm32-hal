@@ -1403,32 +1403,29 @@ fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16), ValueError>
     // We need to factor the right-hand-side of the above equation
     // into integers. There are likely clever algorithms available to do this.
     // Some examples: https://cp-algorithms.com/algebra/factorization.html
-    // We've chosen something quick to write, and with sloppy precision;
-    // should be good enough for most cases.
+    // We've chosen something that attempts to maximize ARR, for precision when
+    // setting duty cycle.
 
     // If you work with pure floats, there are an infinite number of solutions: Ie for any value of PSC,
     // you can find an ARR to solve the equation.
     // The actual values are integers that must be between 0 and 65_536
     // Different combinations will result in different amounts of rounding errors. Ideally, we pick the one with the lowest rounding error.
-    //  The above approach sets PSC and ARR always equal to each other.
+    // The above approach sets PSC and ARR always equal to each other.
     // This results in concise code, is computationally easy, and doesn't limit
     // the maximum period. There will usually be solutions that have a smaller rounding error.
 
-    let max_val = 65_535;
+    let max_val = 65_535.;
     let rhs = clock_speed as f32 / freq;
 
-    let arr = rhs.sqrt().round() as u16 - 1;
-    let psc = arr;
+    let psc = (rhs - 1.) / (1 << 16) as f32;
+    let arr = rhs / (psc + 1.) - 1.;
 
     if arr > max_val || psc > max_val {
         return Err(ValueError {});
     }
 
-    Ok((psc, arr))
+    Ok((psc as u16, arr as u16))
 }
-
-// todo: Concepts for non-macro approach
-// todo: Basic timers are easier to handle, since they generally deref to tim6.
 
 cfg_if! {
     if #[cfg(not(any(
