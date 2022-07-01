@@ -35,8 +35,8 @@
 //!  include a run-time feature, following the template `l4rt`. For example:
 //! ```toml
 //! cortex-m = "0.7.3"
-//! cortex-m-rt = "0.6.13"
-//! stm32-hal2 = { version = "^1.4.5", features = ["l4x3", "l4rt"]}
+//! cortex-m-rt = "0.7.0"
+//! stm32-hal2 = { version = "^1.4.8", features = ["l4x3", "l4rt"]}
 //! ```
 //!
 //! If you need `embedded-hal` traits, include the `embedded-hal` feature.
@@ -76,7 +76,7 @@
 //!    let mut sda = Pin::new(Port::B, 7, PinMode::Alt(4));
 //!    sda.output_type(OutputType::OpenDrain);
 //!
-//!    let mut dma = Dma::new(&mut dp.DMA1);
+//!    let mut dma = Dma::new(dp.DMA1);
 //!    dma::mux(DmaChannel::C1, DmaInput::I2c1Tx, &mut dp.DMAMUX);
 //!
 //!    let i2c = I2c::new(dp.I2C1, Default::default(), &clock_cfg);
@@ -95,9 +95,9 @@
 //! on using this library, as well as background information on Rust embedded in general.
 //!
 //! ## Docs caveat
-//! This Rust docs page is built for `STM32L4x3`, and some aspects are not accurate for other
-//! variants. We currently don't have a good solution to this problem, and may
-//! self-host docs in the future.
+//! This Rust docs page is built for `STM32H735`, and some aspects are not accurate for other
+//! variants. Clock (RCC) config in particular varies significantly between variants. We currently
+//! don't have a good solution to this problem, and may self-host docs in the future.
 
 // Some overall notes:
 // We generally don't use the named field methods provided by PACs, as these are inconsistently
@@ -415,8 +415,6 @@ pub mod dac;
 )))]
 pub mod dfsdm;
 
-// todo: G0 missing many DMA registers like CCR?
-// todo: F4 needs some mods. So, only working on L4 and G4.
 // todo: L5 has a PAC bug on CCR registers past 1.
 // https://github.com/stm32-rs/stm32-rs/issues/551
 #[cfg(not(any(feature = "f4", feature = "l5")))]
@@ -425,7 +423,6 @@ pub mod dma;
 #[cfg(all(feature = "h7", feature = "net"))]
 pub mod ethernet;
 
-// PAC error on bank 2 accessor for H747cmx.
 pub mod flash;
 
 // todo: PAC doesn't yet support these newer H7 MCUs that use FMAC.
@@ -434,11 +431,6 @@ pub mod flash;
 // pub mod fmac;
 
 pub mod gpio;
-
-// #[cfg(feature = "wb")]
-// pub mod bluetooth;
-// #[cfg(feature = "wb")]
-// pub mod tl_mbox; // Mailbox for communicating with the RF core.
 
 #[cfg(feature = "wb")]
 pub mod hsem;

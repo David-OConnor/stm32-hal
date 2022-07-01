@@ -34,9 +34,9 @@ This library provides high-level access to STM32 peripherals.
 F3, F4, L4, L5, G0, G4, H7, WB, and WL. U5 is planned once its SVD files and PAC
 become available.
 
-Operationally tested on the following devices:
+Tested on the following devices:
 - STM32F303
-- STM32F411
+- STM32F401, F411
 - STM32L476, L433, L443, L412, L432
 - STM32L552
 - STM32WB5MMG
@@ -132,7 +132,7 @@ fn main() -> ! {
     let mut sda = Pin::new(Port::B, 7, PinMode::Alt(4));
     sda.output_type(OutputType::OpenDrain);
 
-    let mut dma = Dma::new(&mut dp.DMA1);
+    let mut dma = Dma::new(dp.DMA1);
     dma::mux(DmaChannel::C1, DmaInput::I2c1Tx, &mut dp.DMAMUX);
   
     let i2c = I2c::new(dp.I2C1, Default::default(), &clock_cfg);
@@ -303,7 +303,6 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - H7 BDMA and MDMA unimplemented
 - Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
 - USART interrupts unimplemented on F4
-- PWM input unimplemented
 - CRC unimplemented for L5, F4, G0, and G4
 - High-resolution timers (HRTIM), Low power timers (LPTIM), and low power usart (LPUSART) unimplemented
 - ADC unimplemented on F4

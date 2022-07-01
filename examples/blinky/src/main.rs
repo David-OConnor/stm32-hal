@@ -46,6 +46,7 @@ fn main() -> ! {
         led.set_low();
         defmt::debug!("Output pin is low.");
         delay.delay_ms(1_000);
+
         led.set_high();
         defmt::debug!("Output pin is high.");
         delay.delay_ms(1_000);

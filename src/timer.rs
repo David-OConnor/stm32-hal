@@ -26,12 +26,12 @@ use crate::{
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
-    feature = "f3",
-    feature = "l4",
-    feature = "g4",
-    feature = "h7",
-    feature = "wb",
-    feature = "wl"
+feature = "f3",
+feature = "l4",
+feature = "g4",
+feature = "h7",
+feature = "wb",
+feature = "wl"
 ))]
 use crate::pac::dma1 as dma_p;
 
@@ -49,6 +49,68 @@ use paste::paste;
 #[derive(Clone, Copy, Debug)]
 /// Used for when attempting to set a timer period that is out of range.
 pub struct ValueError {}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// This bit-field selects the trigger input to be used to synchronize the counter.
+/// Sets SMCR register, TS field.
+pub enum InputTrigger {
+    ///Internal Trigger 0 (ITR0)
+    Internal0 = 0b00000,
+    Internal1 = 0b00001,
+    Internal2 = 0b00010,
+    Internal3 = 0b00011,
+    /// TI1 Edge Detector (TI1F_ED)
+    Ti1Edge = 0b00100,
+    FilteredTimerInput1 = 0b00101,
+    FilteredTimerInput2 = 0b00110,
+    ExternalTriggerInput = 0b00111,
+    Internal4 = 0b01000,
+    Internal5 = 0b01001,
+    Internal6 = 0b01010,
+    Internal7 = 0b01011,
+    Internal8 = 0b01100,
+    Internal9 = 0b01101,
+    Internal10 = 0b01110,
+    Internal11 = 0b01111,
+    Internal12 = 0b10000,
+    Internal13 = 0b10001,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// When external signals are selected the active edge of the trigger signal (TRGI) is linked to
+/// the polarity selected on the external input (see Input Control register and Control Register
+/// description. Sets SMCR register, SMS field.
+pub enum InputSlaveMode {
+    /// Slave mode disabled - if CEN = ‘1 then the prescaler is clocked directly by the internal
+    /// clock
+    Disabled = 0b0000,
+    /// Encoder mode 1 - Counter counts up/down on TI1FP1 edge depending on TI2FP2
+    /// level
+    Encoder1 = 0b0001,
+    /// Encoder mode 2 - Counter counts up/down on TI2FP2 edge depending on TI1FP1
+    /// level.
+    Encoder2 = 0b0010,
+    /// Encoder mode 3 - Counter counts up/down on both TI1FP1 and TI2FP2 edges
+    /// depending on the level of the other input.
+    Encoder3 = 0b0011,
+    /// Reset mode - Rising edge of the selected trigger input (TRGI) reinitializes the counter
+    /// and generates an update of the registers.
+    Reset = 0b0100,
+    /// Gated Mode - The counter clock is enabled when the trigger input (TRGI) is high. The
+    /// counter stops (but is not reset) as soon as the trigger becomes low. Both start and stop of
+    /// the counter are controlled.
+    Gated = 0b0101,
+    /// Trigger Mode - The counter starts at a rising edge of the trigger TRGI (but it is not
+    /// reset). Only the start of the counter is controlled.
+    Trigger = 0b0110,
+    /// External Clock Mode 1 - Rising edges of the selected trigger (TRGI) clock the counter.
+    ExternalClock1 = 0b0111,
+    /// Combined reset + trigger mode - Rising edge of the selected trigger input (TRGI)
+    /// reinitializes the counter, generates an update of the registers and starts the counter.
+    CombinedResetTrigger = 0b1000,
+}
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
@@ -699,50 +761,82 @@ macro_rules! cc_4_channels {
                 self.regs.cr1.modify(|_, w| unsafe { w.cms().bits(self.cfg.alignment as u8) });
             }
 
-            /// Enables basic PWM input. TODO: Doesn't work yet.
-            /// L4 RM, section 26.3.8
-            pub fn _enable_pwm_input(
+            /// Set up input capture, eg for PWM input.
+            /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
+            /// Note: Does not handle TISEL (timer input selection register - you must do this manually
+            /// using the PAC. (May change later) Same with enabling captures using CC1E and CC2E.
+            pub fn set_input_capture(
                 &mut self,
-                _channel: TimChannel,
-                _compare: OutputCompare,
-                _dir: CountDir,
-                _duty: f32,
+                channel: TimChannel,
+                mode: CaptureCompare,
+                trigger: InputTrigger,
+                slave_mode: InputSlaveMode,
+                ccp: Polarity,
+                ccnp: Polarity,
             ) {
-                // todo: These instruction sare specifically for TI1
+                // (H7) 1. Select the proper TI1x source (internal or external) with the TI1SEL[3:0] bits in the
+                // TIMx_TISEL register.
+                // todo: Support this within the API.
+                // self.regs.tisel.modify(|_, w| unsafe { w.ti1sel().bits(0b00) });
+
+                // todo: These instruction sare specifically for TI1, on L4. Steps incorporate H7 steps as well.
                 // 1. Select the active input for TIMx_CCR1: write the CC1S bits to 01 in the TIMx_CCMR1
                 // register (TI1 selected).
-                // self.regs.ccmr1.modify(|_, w| w.cc1s().bit(0b01));
+                match channel {
+                    TimChannel::C1 => {
+                        self.regs.ccmr1_input().modify(|_, w| unsafe { w.cc1s().bits(mode as u8) });
 
-                // 2. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
-                // clear): write the CC1P and CC1NP bits to ‘0’ (active on rising edge).
-                // self.regs.ccmr1.modify(|_, w| {
-                //     w.cc1p().bits(0b00);
-                //     w.cc1np().bits(0b00)
-                // });
-                // 3. Select the active input for TIMx_CCR2: write the CC2S bits to 10 in the TIMx_CCMR1
-                // register (TI1 selected).
-                // self.regs.ccmr2.modify(|_, w| w.cc2s().bit(0b10));
+                        // 2. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
+                        // clear): write the CC1P and CC1NP bits to ‘0’ (active on rising edge).
+                        self.regs.ccer.modify(|_, w| {
+                            w.cc1p().bit(ccp.bit());
+                            w.cc1np().bit(ccnp.bit())
 
-                // 4. Select the active polarity for TI1FP2 (used for capture in TIMx_CCR2): write the CC2P
-                // and CC2NP bits to CC2P/CC2NP=’10’ (active on falling edge).
-                // self.regs.ccr2.modify(|_, w| {
-                //     w.cc2p().bits(0b10);
-                //     w.cc2np().bits(0b10)
-                // });
+                        });
+                    }
+                    TimChannel::C2 => {
+                        self.regs.ccmr1_input().modify(|_, w| unsafe { w.cc2s().bits(mode as u8) });
+
+                        self.regs.ccer.modify(|_, w| {
+                            w.cc2p().bit(ccp.bit());
+                            w.cc2np().bit(ccnp.bit())
+                            // w.cc1e().set_bit(); // todo: Missing on some variants; pac error?
+                            // w.cc2e().set_bit()
+
+                        });
+                    }
+                    TimChannel::C3 => {
+                        self.regs.ccmr2_input().modify(|_, w| unsafe { w.cc3s().bits(mode as u8) });
+
+                        self.regs.ccer.modify(|_, w| {
+                            w.cc3p().bit(ccp.bit());
+                            w.cc3np().bit(ccnp.bit())
+                            // w.cc1e().set_bit();
+                            // w.cc2e().set_bit()
+                        });
+                    }
+                    #[cfg(not(feature = "wl"))]
+                    TimChannel::C4 => {
+                        self.regs.ccmr2_input().modify(|_, w| unsafe { w.cc4s().bits(mode as u8) });
+
+                        #[cfg(not(feature = "l4"))] // todo: PAC ommission, or not present?
+                        self.regs.ccer.modify(|_, w| {
+                            w.cc4p().bit(ccp.bit());
+                            w.cc4np().bit(ccnp.bit())
+                            // cc1e().set_bit();
+                            // cc2e().set_bit()
+                        });
+                    }
+                }
 
                 // 5. Select the valid trigger input: write the TS bits to 101 in the TIMx_SMCR register
                 // (TI1FP1 selected).
-                // self.regs.smcr.modify(|_, w| w.ts().bits(0b101));
-
-                // 6. Configure the slave mode controller in reset mode: write the SMS bits to 0100 in the
-                // TIMx_SMCR register.
-                // self.regs.smcr.modify(|_, w| w.sms().bits(0b0100));
-
-                // 7. Enable the captures: write the CC1E and CC2E bits to ‘1’ in the TIMx_CCER register.
-                // self.regs.ccer.modify(|_, w| {
-                //     w.cc1e().set_bit();
-                //     w.cc2e().set_bit()
-                // });
+                self.regs.smcr.modify(|_, w| unsafe {
+                    w.ts().bits(trigger as u8);
+                    // 6. Configure the slave mode controller in reset mode: write the SMS bits to 0100 in the
+                    // TIMx_SMCR register.
+                    w.sms().bits(slave_mode as u8)
+                });
             }
 
             // todo: more advanced PWM modes. Asymmetric, combined, center-aligned etc.
@@ -1031,6 +1125,48 @@ macro_rules! cc_2_channels {
 
             // todo: more advanced PWM modes. Asymmetric, combined, center-aligned etc.
 
+            /// Set up input capture, eg for PWM input.
+            /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
+            /// Note: Does not handle TISEL (timer input selection register - you must do this manually
+            /// using the PAC. (May change later) Same with enabling captures using CC1E and CC2E.
+            pub fn set_input_capture(
+                &mut self,
+                channel: TimChannel,
+                mode: CaptureCompare,
+                trigger: InputTrigger,
+                slave_mode: InputSlaveMode,
+                ccp: Polarity,
+                ccnp: Polarity,
+            ) {
+                match channel {
+                    TimChannel::C1 => {
+                        self.regs.ccmr1_input().modify(|_, w| unsafe { w.cc1s().bits(mode as u8) });
+                        self.regs.ccer.modify(|_, w| {
+                            w.cc1p().bit(ccp.bit());
+                            w.cc1np().bit(ccnp.bit())
+
+                        });
+                    }
+                    TimChannel::C2 => {
+                        self.regs.ccmr1_input().modify(|_, w| unsafe { w.cc2s().bits(mode as u8) });
+
+                        self.regs.ccer.modify(|_, w| {
+                            w.cc2p().bit(ccp.bit());
+                            w.cc2np().bit(ccnp.bit())
+                            // w.cc1e().set_bit(); // todo: Missing on some variants; pac error?
+                            // w.cc2e().set_bit()
+
+                        });
+                    }
+                    _ => panic!()
+                }
+
+                self.regs.smcr.modify(|_, w| unsafe {
+                    w.ts().bits(trigger as u8);
+                    w.sms().bits(slave_mode as u8)
+                });
+            }
+
             /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
             pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
                 match channel {
@@ -1247,6 +1383,37 @@ macro_rules! cc_1_channel {
 
             // todo: more advanced PWM modes. Asymmetric, combined, center-aligned etc.
 
+            /// Set up input capture, eg for PWM input.
+            /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
+            /// Note: Does not handle TISEL (timer input selection register - you must do this manually
+            /// using the PAC. (May change later) Same with enabling captures using CC1E and CC2E.
+            pub fn set_input_capture(
+                &mut self,
+                channel: TimChannel,
+                mode: CaptureCompare,
+                trigger: InputTrigger,
+                slave_mode: InputSlaveMode,
+                ccp: Polarity,
+                ccnp: Polarity,
+            ) {
+                match channel {
+                    TimChannel::C1 => {
+                        self.regs.ccmr1_input().modify(|_, w| unsafe { w.cc1s().bits(mode as u8) });
+                        self.regs.ccer.modify(|_, w| {
+                            w.cc1p().bit(ccp.bit());
+                            w.cc1np().bit(ccnp.bit())
+
+                        });
+                    }
+                    _ => panic!()
+                }
+
+                // self.regs.smcr.modify(|_, w| unsafe {
+                //     w.ts().bits(trigger as u8);
+                //     w.sms().bits(slave_mode as u8)
+                // });
+            }
+
             /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
             pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
                 match channel {
@@ -1404,15 +1571,13 @@ fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16), ValueError>
     // into integers. There are likely clever algorithms available to do this.
     // Some examples: https://cp-algorithms.com/algebra/factorization.html
     // We've chosen something that attempts to maximize ARR, for precision when
-    // setting duty cycle.
+    // setting duty cycle. Alternative approaches might involve setting a frequency closest to the
+    // requested one.
 
     // If you work with pure floats, there are an infinite number of solutions: Ie for any value of PSC,
     // you can find an ARR to solve the equation.
     // The actual values are integers that must be between 0 and 65_536
-    // Different combinations will result in different amounts of rounding errors. Ideally, we pick the one with the lowest rounding error.
-    // The above approach sets PSC and ARR always equal to each other.
-    // This results in concise code, is computationally easy, and doesn't limit
-    // the maximum period. There will usually be solutions that have a smaller rounding error.
+    // Different combinations will result in different amounts of rounding error.
 
     let max_val = 65_535.;
     let rhs = clock_speed as f32 / freq;
@@ -1568,20 +1733,20 @@ cfg_if! {
 make_timer!(TIM1, tim1, 2, u16);
 // PAC error, I think.
 #[cfg(not(any(
-    feature = "f373",
-    feature = "f4",
-    feature = "l5",
-    feature = "g0",
-    feature = "g4",
-    feature = "h7"
+feature = "f373",
+feature = "f4",
+feature = "l5",
+feature = "g0",
+feature = "g4",
+feature = "h7"
 )))]
 cc_4_channels!(TIM1, u16);
 #[cfg(any(
-    feature = "f4",
-    feature = "l5",
-    feature = "g0",
-    feature = "g4",
-    feature = "h7"
+feature = "f4",
+feature = "l5",
+feature = "g0",
+feature = "g4",
+feature = "h7"
 ))] // PAC bug.
 cc_2_channels!(TIM1, u16);
 
