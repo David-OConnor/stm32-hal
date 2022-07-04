@@ -417,9 +417,7 @@ pub mod dac;
 )))]
 pub mod dfsdm;
 
-// todo: L5 has a PAC bug on CCR registers past 1.
-// https://github.com/stm32-rs/stm32-rs/issues/551
-#[cfg(not(any(feature = "f4", feature = "l5")))]
+#[cfg(not(feature = "f4"))]
 pub mod dma;
 
 #[cfg(all(feature = "h7", feature = "net"))]
@@ -590,7 +588,7 @@ pub fn debug_workaround() {
         let dbgmcu = unsafe { &(*pac::DBGMCU::ptr()) };
 
         cfg_if::cfg_if! {
-            if #[cfg(all(feature = "h7", not(any(feature = "h747cm4", feature = "h747cm7", feature = "h735"))))] {
+            if #[cfg(all(feature = "h7", not(any(feature = "h747cm4", feature = "h747cm7"))))] {
                 dbgmcu.cr.modify(|_, w| w.dbgsleep_d1().set_bit());
                 dbgmcu.cr.modify(|_, w| w.dbgstop_d1().set_bit());
                 dbgmcu.cr.modify(|_, w| w.dbgstby_d1().set_bit());

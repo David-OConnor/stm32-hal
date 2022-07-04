@@ -22,6 +22,7 @@ const BLINK_FREQ: f32 = 1.; // seconds
 
 #[rtic::app(device = pac, peripherals = false)]
 mod app {
+    // This line is required to allow imports inside an RTIC module.
     use super::*;
 
     #[shared]

@@ -18,13 +18,14 @@ use crate::pac::dma as dma_p;
 #[cfg(any(
     feature = "f3",
     feature = "l4",
+    feature = "l5",
     feature = "g4",
     feature = "h7",
     feature = "wb"
 ))]
 use crate::pac::dma1 as dma_p;
 
-#[cfg(not(any(feature = "f4", feature = "l5")))]
+#[cfg(not(any(feature = "f4")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -704,7 +705,7 @@ where
     /// You need to shift the result 8 bits to the result after reading the values from memory
     /// to discard the other fields. (The integer signing is unchanged, since the 24-bit integer data
     /// is aligned to the left of the 32-bit register, which maps to an `i32` here.)
-    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
+    #[cfg(not(feature = "f4"))]
     pub unsafe fn read_dma<D>(
         &mut self,
         buf: &mut [i32],

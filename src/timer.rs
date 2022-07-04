@@ -887,7 +887,6 @@ macro_rules! cc_4_channels {
                 cfg_if! {
                     if #[cfg(feature = "g0")] {
                         match channel {
-                            // todo: This isn't right!!
                             TimChannel::C1 => self.regs.ccr1.read().bits(),
                             TimChannel::C2 => self.regs.ccr2.read().bits(),
                             TimChannel::C3 => self.regs.ccr3.read().bits(),
@@ -896,19 +895,19 @@ macro_rules! cc_4_channels {
                         }
                     } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
                         match channel {
-                            TimChannel::C1 => self.regs.ccr1.read().ccr1().bits(),
-                            TimChannel::C2 => self.regs.ccr2.read().ccr2().bits(),
-                            TimChannel::C3 => self.regs.ccr3.read().ccr3().bits(),
+                            TimChannel::C1 => self.regs.ccr1().read().ccr1().bits(),
+                            TimChannel::C2 => self.regs.ccr2().read().ccr2().bits(),
+                            TimChannel::C3 => self.regs.ccr3().read().ccr3().bits(),
                             #[cfg(not(feature = "wl"))]
-                            TimChannel::C4 => self.regs.ccr4.read().ccr4().bits(),
+                            TimChannel::C4 => self.regs.ccr4().read().ccr4().bits(),
                         }
                     } else {
                         match channel {
-                            TimChannel::C1 => self.regs.ccr1.read().ccr().bits().into(),
-                            TimChannel::C2 => self.regs.ccr2.read().ccr().bits().into(),
-                            TimChannel::C3 => self.regs.ccr3.read().ccr().bits().into(),
+                            TimChannel::C1 => self.regs.ccr1().read().ccr().bits().into(),
+                            TimChannel::C2 => self.regs.ccr2().read().ccr().bits().into(),
+                            TimChannel::C3 => self.regs.ccr3().read().ccr().bits().into(),
                             #[cfg(not(feature = "wl"))]
-                            TimChannel::C4 => self.regs.ccr4.read().ccr().bits().into(),
+                            TimChannel::C4 => self.regs.ccr4().read().ccr().bits().into(),
                         }
                     }
                 }
@@ -919,32 +918,30 @@ macro_rules! cc_4_channels {
             pub fn set_duty(&mut self, channel: TimChannel, duty: $res) {
                 cfg_if! {
                     if #[cfg(feature = "g0")] {
-                        match channel {
-                            // todo: This isn't right!!
-                            TimChannel::C1 => self.regs.ccr1.read().bits(),
-                            TimChannel::C2 => self.regs.ccr2.read().bits(),
-                            TimChannel::C3 => self.regs.ccr3.read().bits(),
-                            #[cfg(not(feature = "wl"))]
-                            TimChannel::C4 => self.regs.ccr4.read().bits(),
-                        };
+                        // match channel {
+                            // TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr1().bits(duty.try_into().unwrap())),
+                            // TimChannel::C2 => self.regs.ccr2.write(|w| w.ccr2().bits(duty.try_into().unwrap())),
+                            // TimChannel::C3 => self.regs.ccr3.write(|w| w.ccr3().bits(duty.try_into().unwrap())),
+                            // TimChannel::C4 => self.regs.ccr4.write(|w| w.ccr4().bits(duty.try_into().unwrap())),
+                        // };
                     } else if #[cfg(any(feature = "wb", feature = "wl"))] {
                         unsafe {
                             match channel {
-                                TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr1().bits(duty.try_into().unwrap())),
-                                TimChannel::C2 => self.regs.ccr2.write(|w| w.ccr2().bits(duty.try_into().unwrap())),
-                                TimChannel::C3 => self.regs.ccr3.write(|w| w.ccr3().bits(duty.try_into().unwrap())),
+                                TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr1().bits(duty.try_into().unwrap())),
+                                TimChannel::C2 => self.regs.ccr2().write(|w| w.ccr2().bits(duty.try_into().unwrap())),
+                                TimChannel::C3 => self.regs.ccr3().write(|w| w.ccr3().bits(duty.try_into().unwrap())),
                                 #[cfg(not(feature = "wl"))]
-                                TimChannel::C4 => self.regs.ccr4.write(|w| w.ccr4().bits(duty.try_into().unwrap())),
+                                TimChannel::C4 => self.regs.ccr4().write(|w| w.ccr4().bits(duty.try_into().unwrap())),
                             }
                         }
                     } else {
                         unsafe {
                             match channel {
-                                TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr().bits(duty.try_into().unwrap())),
-                                TimChannel::C2 => self.regs.ccr2.write(|w| w.ccr().bits(duty.try_into().unwrap())),
-                                TimChannel::C3 => self.regs.ccr3.write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                                TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                                TimChannel::C2 => self.regs.ccr2().write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                                TimChannel::C3 => self.regs.ccr3().write(|w| w.ccr().bits(duty.try_into().unwrap())),
                                 #[cfg(not(feature = "wl"))]
-                                TimChannel::C4 => self.regs.ccr4.write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                                TimChannel::C4 => self.regs.ccr4().write(|w| w.ccr().bits(duty.try_into().unwrap())),
                             }
                         }
                     }
@@ -1200,7 +1197,6 @@ macro_rules! cc_2_channels {
                 cfg_if! {
                     if #[cfg(feature = "g0")] {
                         match channel {
-                            // todo: This isn't right!!
                             TimChannel::C1 => self.regs.ccr1.read().bits().try_into().unwrap(),
                             TimChannel::C2 => self.regs.ccr2.read().bits().try_into().unwrap(),
                             _ => panic!()
@@ -1213,8 +1209,8 @@ macro_rules! cc_2_channels {
                         }
                     } else {
                         match channel {
-                            TimChannel::C1 => self.regs.ccr1.read().ccr().bits().try_into().unwrap(),
-                            TimChannel::C2 => self.regs.ccr2.read().ccr().bits().try_into().unwrap(),
+                            TimChannel::C1 => self.regs.ccr1().read().ccr().bits().try_into().unwrap(),
+                            TimChannel::C2 => self.regs.ccr2().read().ccr().bits().try_into().unwrap(),
                             _ => panic!()
                         }
                     }
@@ -1227,9 +1223,8 @@ macro_rules! cc_2_channels {
                 cfg_if! {
                     if #[cfg(feature = "g0")] {
                         match channel {
-                            // todo: This isn't right!!
-                            TimChannel::C1 => self.regs.ccr1.read().bits(),
-                            TimChannel::C2 => self.regs.ccr2.read().bits(),
+                            // TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr1().bits(duty.try_into().unwrap())),
+                            // TimChannel::C2 => self.regs.ccr2().write(|w| w.ccr2().bits(duty.try_into().unwrap())),
                             _ => panic!()
                         };
                     } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
@@ -1243,8 +1238,8 @@ macro_rules! cc_2_channels {
                     } else {
                         unsafe {
                             match channel {
-                                TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr().bits(duty.try_into().unwrap())),
-                                TimChannel::C2 => self.regs.ccr2.write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                                TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                                TimChannel::C2 => self.regs.ccr2().write(|w| w.ccr().bits(duty.try_into().unwrap())),
                                 _ => panic!()
                             }
                         }
@@ -1455,7 +1450,7 @@ macro_rules! cc_1_channel {
                         }
                     } else {
                         match channel {
-                            TimChannel::C1 => self.regs.ccr1.read().ccr().bits().try_into().unwrap(),
+                            TimChannel::C1 => self.regs.ccr1().read().ccr().bits().try_into().unwrap(),
                             _ => panic!()
                         }
                     }
@@ -1482,7 +1477,7 @@ macro_rules! cc_1_channel {
                     } else {
                         unsafe {
                             match channel {
-                                TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                                TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr().bits(duty.try_into().unwrap())),
                                 _ => panic!()
                             }
                         }

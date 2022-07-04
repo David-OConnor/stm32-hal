@@ -22,6 +22,7 @@ use crate::pac::dma as dma_p;
 #[cfg(any(
     feature = "f3",
     feature = "l4",
+    feature = "l5",
     feature = "g4",
     feature = "h7",
     feature = "wb",
@@ -29,7 +30,7 @@ use crate::pac::dma as dma_p;
 ))]
 use crate::pac::dma1 as dma_p;
 
-#[cfg(not(any(feature = "f4", feature = "l5")))]
+#[cfg(not(any(feature = "f4")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -367,7 +368,7 @@ where
         }
     }
 
-    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
+    #[cfg(not(feature = "f4"))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is only used on F3 and L4.
     pub unsafe fn write_dma<D>(
@@ -441,7 +442,7 @@ where
         // of the last frame.
     }
 
-    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
+    #[cfg(not(feature = "f4"))]
     /// Receive data using DMA. (L44 RM, section 38.5.15; G4 RM section 37.5.19.
     /// Note that the `channel` argument is only used on F3 and L4.
     pub unsafe fn read_dma<D>(
@@ -526,13 +527,16 @@ where
                     w.addm7().set_bit();
                     // Set the character to detect
                     cfg_if! {
-                        if #[cfg(any(feature = "f3", feature = "l4", feature = "h7", feature = "wl"))] {
+                        if #[cfg(any(feature = "f3", feature = "l4", feature = "h7", feature = "wl", feature = "g0"))] {
+
                             w.add().bits(char)
-                        // } else if #[cfg(feature = "g4")] {
-                        //     w.add0_3().bits(char) // PAC error. Should be just like above. (?)
-                        } else { // note: G4 should be like above, but use below due to PAC error. (Should be equiv)
-                            w.add0_3().bits(char);
-                            w.add4_7().bits(char >> 4)
+
+                        } else if #[cfg(feature = "g4")] {
+                            w.add0_3().bits(char) // PAC error. Should be just like above. (?)
+
+                        // } else { // note: G4 should be like above, but use below due to PAC error. (Should be equiv)
+                        //     w.add().bits(char);
+                        //     w.add4_7().bits(char >> 4)
                         }
                     }
                 });

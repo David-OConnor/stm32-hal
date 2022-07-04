@@ -21,6 +21,7 @@ use crate::pac::dma as dma_p;
 #[cfg(any(
     feature = "f3",
     feature = "l4",
+    feature = "l5",
     feature = "g4",
     feature = "h7",
     feature = "wb",
@@ -28,7 +29,6 @@ use crate::pac::dma as dma_p;
 ))]
 use crate::pac::dma1 as dma_p;
 
-#[cfg(not(feature = "l5"))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -541,7 +541,7 @@ where
         });
     }
 
-    #[cfg(not(any(feature = "g0", feature = "l5")))]
+    #[cfg(not(feature = "g0"))]
     /// Read data, using DMA. See L44 RM, 37.4.16: "Transmission using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
     /// For a single write, set `autoend` to `true`. For a write_read and other use cases,
@@ -611,7 +611,7 @@ where
         );
     }
 
-    #[cfg(not(any(feature = "g0", feature = "l5")))]
+    // #[cfg(not(feature = "g0"))]
     /// Read data, using DMA. See L44 RM, 37.4.16: "Reception using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
     pub unsafe fn read_dma<D>(

@@ -19,8 +19,15 @@ jobs:
           - g030
           - g031
           - g041
+          - g050
+          - g051
+          - g061
           - g070
           - g071
+          - g081
+          - g0b0
+          - g0b1
+          - g0c1
 
     steps:
       - uses: actions/checkout@v2

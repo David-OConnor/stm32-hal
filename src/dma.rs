@@ -21,11 +21,11 @@ use crate::pac::dma;
 #[cfg(not(feature = "g0"))]
 use crate::pac::dma1 as dma;
 
-#[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "wl"))]
+#[cfg(any(feature = "g0", feature = "g4", feature = "wl"))]
 use pac::DMAMUX;
 
 // todo: DMAMUX2 support (Not sure if WB has it, but H7 has both).
-#[cfg(any(feature = "wb", feature = "h7"))]
+#[cfg(any(feature = "l5", feature = "wb", feature = "h7"))]
 use pac::DMAMUX1 as DMAMUX;
 
 #[cfg(feature = "h7")]
@@ -633,6 +633,8 @@ where
                     cfg_if! {
                         if #[cfg(any(feature = "f3", feature = "g0"))] {
                             let cmar = &self.regs.ch1.mar;
+                        } else if #[cfg(feature = "l5")] {
+                            let cmar = &self.regs.cm0ar1;
                         } else {
                             let cmar = &self.regs.cmar1;
                         }
@@ -643,6 +645,8 @@ where
                     cfg_if! {
                         if #[cfg(any(feature = "f3", feature = "g0"))] {
                             let cmar = &self.regs.ch2.mar;
+                        } else if #[cfg(feature = "l5")] {
+                            let cmar = &self.regs.cm0ar2;
                         } else {
                             let cmar = &self.regs.cmar2;
                         }
@@ -653,6 +657,8 @@ where
                     cfg_if! {
                         if #[cfg(any(feature = "f3", feature = "g0"))] {
                             let cmar = &self.regs.ch3.mar;
+                        } else if #[cfg(feature = "l5")] {
+                            let cmar = &self.regs.cm0ar3;
                         } else {
                             let cmar = &self.regs.cmar3;
                         }
@@ -663,6 +669,8 @@ where
                     cfg_if! {
                         if #[cfg(any(feature = "f3", feature = "g0"))] {
                             let cmar = &self.regs.ch4.mar;
+                        } else if #[cfg(feature = "l5")] {
+                            let cmar = &self.regs.cm0ar4;
                         } else {
                             let cmar = &self.regs.cmar4;
                         }
@@ -673,6 +681,8 @@ where
                     cfg_if! {
                         if #[cfg(any(feature = "f3", feature = "g0"))] {
                             let cmar = &self.regs.ch5.mar;
+                        } else if #[cfg(feature = "l5")] {
+                            let cmar = &self.regs.cm0ar5;
                         } else {
                             let cmar = &self.regs.cmar5;
                         }
@@ -684,6 +694,8 @@ where
                     cfg_if! {
                         if #[cfg(any(feature = "f3", feature = "g0"))] {
                             let cmar = &self.regs.ch6.mar;
+                        } else if #[cfg(feature = "l5")] {
+                            let cmar = &self.regs.cm0ar6;
                         } else {
                             let cmar = &self.regs.cmar6;
                         }
@@ -695,6 +707,8 @@ where
                     cfg_if! {
                         if #[cfg(any(feature = "f3", feature = "g0"))] {
                             let cmar = &self.regs.ch7.mar;
+                        } else if #[cfg(feature = "l5")] {
+                            let cmar = &self.regs.cm0ar7;
                         } else {
                             let cmar = &self.regs.cmar7;
                         }
@@ -703,13 +717,16 @@ where
                 }
                 #[cfg(any(feature = "l5", feature = "g4"))]
                 DmaChannel::C8 => {
+                    #[cfg(feature = "l5")]
+                    let cmar = &self.regs.cm0ar8;
+                    #[cfg(feature = "g4")]
                     let cmar = &self.regs.cmar8;
                     cmar.write(|w| w.bits(mem_addr));
                 }
             }
         }
 
-        #[cfg(feature = "wl")]
+        #[cfg(any(feature = "l5", feature = "wl"))]
         let num_data = num_data as u32;
 
         unsafe {
@@ -1560,7 +1577,7 @@ pub fn mux(channel: DmaChannel, input: DmaInput, mux: &mut DMAMUX) {
     // of feature-gating within the same function so the name can be recognizable
     // from the RM etc.
     unsafe {
-        #[cfg(not(any(feature = "g070", feature = "g071", feature = "g081", feature = "h7")))]
+        #[cfg(not(feature = "h7"))]
         match channel {
             // Note the offset by 1, due to mismatch in DMA channels starting at 1, and DMAMUX
             // channels starting at 0. Ops tested this is correct on G4.
@@ -1575,25 +1592,6 @@ pub fn mux(channel: DmaChannel, input: DmaInput, mux: &mut DMAMUX) {
             DmaChannel::C7 => mux.c6cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
             #[cfg(any(feature = "l5", feature = "g4"))]
             DmaChannel::C8 => mux.c7cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-        }
-        #[cfg(any(feature = "g070", feature = "g071", feature = "g081"))]
-        // todo: Do we also need to offset by one on G4?
-        match channel {
-            DmaChannel::C1 => mux
-                .dmamux_c1cr
-                .modify(|_, w| w.dmareq_id().bits(input as u8)),
-            DmaChannel::C2 => mux
-                .dmamux_c2cr
-                .modify(|_, w| w.dmareq_id().bits(input as u8)),
-            DmaChannel::C3 => mux
-                .dmamux_c3cr
-                .modify(|_, w| w.dmareq_id().bits(input as u8)),
-            DmaChannel::C4 => mux
-                .dmamux_c4cr
-                .modify(|_, w| w.dmareq_id().bits(input as u8)),
-            DmaChannel::C5 => mux
-                .dmamux_c5cr
-                .modify(|_, w| w.dmareq_id().bits(input as u8)),
         }
 
         #[cfg(feature = "h7")]

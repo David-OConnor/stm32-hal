@@ -27,7 +27,7 @@ use crate::dma::{self, Dma, DmaChannel, DmaInput};
     feature = "g0"
 )))]
 cfg_if::cfg_if! {
-    if #[cfg(any(all(feature = "f3", not(feature = "f302")), all(feature = "l4", not(feature = "l4x6")), feature = "g4", feature = "h7b3"))] {
+    if #[cfg(any(all(feature = "f3", not(feature = "f302")), feature = "g4", feature = "h7b3"))] {
         use crate::pac::DAC1;
     } else {
         use crate::pac::DAC as DAC1;
@@ -43,15 +43,9 @@ cfg_if::cfg_if! {
     }
 }
 
-// #[cfg(feature = "g0")]
-// use crate::pac::dma as dma_p;
 #[cfg(any(
     feature = "f3",
     feature = "l4",
-    // feature = "g4",
-    // feature = "h7",
-    // feature = "wb",
-    // feature = "wl"
 ))]
 use crate::pac::dma1 as dma_p;
 

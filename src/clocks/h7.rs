@@ -428,7 +428,7 @@ impl Clocks {
                 // PAC inconsistency between variants on if there's a modify field, and if
                 // `write` has a `bits()` or `bit()` method.
                 cfg_if! {
-                    if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
+                    if #[cfg(any(feature = "h743", feature = "h743v", feature = "h747cm4", feature = "h747cm7"))] {
                         syscfg.pwrcr.modify(|_, w| w.oden().set_bit());
                     } else {
                         syscfg.pwrcr.modify(|_, w| unsafe { w.oden().bits(1) });

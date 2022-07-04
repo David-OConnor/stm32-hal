@@ -19,6 +19,7 @@ use crate::pac::dma as dma_p;
 #[cfg(any(
     feature = "f3",
     feature = "l4",
+    feature = "l5",
     feature = "g4",
     feature = "h7",
     feature = "wb",
@@ -26,7 +27,7 @@ use crate::pac::dma as dma_p;
 ))]
 use crate::pac::dma1 as dma_p;
 
-#[cfg(not(any(feature = "f4", feature = "l5")))]
+#[cfg(not(any(feature = "f4")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -592,7 +593,7 @@ where
         Ok(())
     }
 
-    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
+    #[cfg(not(any(feature = "g0", feature = "f4")))]
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note that the `channel` argument has no effect on F3 and L4.
     pub unsafe fn write_dma<D>(
@@ -661,7 +662,7 @@ where
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
     }
 
-    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
+    #[cfg(not(any(feature = "g0", feature = "f4")))]
     /// Receive data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note thay the `channel` argument has no effect on F3 and L4.
     pub unsafe fn read_dma<D>(
@@ -712,7 +713,7 @@ where
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
     }
 
-    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
+    #[cfg(not(any(feature = "g0", feature = "f4")))]
     /// Transfer data from DMA; this is the basic reading API, using both write and read transfers:
     /// It performs a write with register data, and reads to a buffer.
     pub unsafe fn transfer_dma<D>(
@@ -802,7 +803,7 @@ where
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
     }
 
-    #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5")))]
+    #[cfg(not(any(feature = "g0", feature = "f4")))]
     /// Stop a DMA transfer. Stops the channel, and disables the `txdmaen` and `rxdmaen` bits.
     /// Run this after each transfer completes - you may wish to do this in an interrupt
     /// (eg DMA transfer complete) instead of blocking.
