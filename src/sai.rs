@@ -762,8 +762,7 @@ where
         regs.cha().frcr.modify(|_, w| unsafe {
             w.fsoff().bit(config_a.fs_offset as u8 != 0);
             w.fspol().bit(config_a.fs_polarity as u8 != 0);
-            // w.fsdef().bit(config_a.fs_signal as u8 != 0); // todo: PAC error in 0.15
-            // todo https://github.com/stm32-rs/stm32-rs/issues/749
+            w.fsdef().bit(config_a.fs_signal as u8 != 0);
             w.fsall().bits(fsall_bits_a);
             w.frl().bits((config_a.frame_length - 1) as u8)
         });
@@ -771,7 +770,7 @@ where
         regs.chb().frcr.modify(|_, w| unsafe {
             w.fsoff().bit(config_a.fs_offset as u8 != 0);
             w.fspol().bit(config_b.fs_polarity as u8 != 0);
-            // w.fsdef().bit(config_b.fs_signal as u8 != 0);// todo: PAC error in 0.15
+            w.fsdef().bit(config_b.fs_signal as u8 != 0);
             w.fsall().bits(fsall_bits_b);
             w.frl().bits((config_b.frame_length - 1) as u8)
         });

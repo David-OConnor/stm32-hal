@@ -31,7 +31,7 @@ cfg_if! {
     }
 }
 
-#[cfg(not(any(feature = "f4", feature = "l5")))]
+#[cfg(not(feature = "f4"))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
