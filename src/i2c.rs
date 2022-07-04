@@ -16,18 +16,15 @@ use crate::{
     util::RccPeriph,
 };
 
-#[cfg(any(feature = "g0"))]
-use crate::pac::dma as dma_p;
-#[cfg(any(
-    feature = "f3",
-    feature = "l4",
-    feature = "l5",
-    feature = "g4",
-    feature = "h7",
-    feature = "wb",
-    feature = "wl"
-))]
-use crate::pac::dma1 as dma_p;
+use cfg_if::cfg_if;
+
+cfg_if! {
+    if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
+        use crate::pac::dma as dma_p;
+    } else if #[cfg(feature = "f4")] {} else {
+        use crate::pac::dma1 as dma_p;
+    }
+}
 
 #[cfg(not(feature = "l552"))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};

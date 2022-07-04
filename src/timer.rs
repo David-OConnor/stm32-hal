@@ -23,17 +23,13 @@ use crate::{
     util::RccPeriph,
 };
 
-#[cfg(feature = "g0")]
-use crate::pac::dma as dma_p;
-#[cfg(any(
-    feature = "f3",
-    feature = "l4",
-    feature = "g4",
-    feature = "h7",
-    feature = "wb",
-    feature = "wl"
-))]
-use crate::pac::dma1 as dma_p;
+cfg_if! {
+    if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
+        use crate::pac::dma as dma_p;
+    } else if #[cfg(feature = "f4")] {} else {
+        use crate::pac::dma1 as dma_p;
+    }
+}
 
 #[cfg(not(any(feature = "f4", feature = "l5")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
@@ -595,7 +591,7 @@ macro_rules! make_timer {
              /// software overhead, but it can also be used to read several registers in a row, at regular
              /// intervals." This may be used to create arbitrary waveforms by modifying the CCR register
              /// (base address = 13-16, for CCR1-4), or for implementing duty-cycle based digital protocols.
-            #[cfg(not(any(feature = "g0", feature = "f4", feature = "l5", feature = "f3", feature = "l4")))]
+            #[cfg(not(any(feature = "g0", feature = "f4", feature = "l552", feature = "f3", feature = "l4")))]
             pub unsafe fn write_dma_burst<D>(
                 &mut self,
                 buf: &[u16],

@@ -477,7 +477,9 @@ pub mod qspi;
     feature = "g030",
     feature = "g031",
     feature = "g070",
-    feature = "g071"
+    feature = "g071",
+    feature = "g0b1",
+    feature = "g0c1",
 )))]
 pub mod rng;
 

@@ -16,10 +16,13 @@ use crate::{
     rcc_en_reset,
 };
 
-#[cfg(feature = "g0")]
-use crate::pac::dma;
-#[cfg(not(feature = "g0"))]
-use crate::pac::dma1 as dma;
+cfg_if! {
+    if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
+        use crate::pac::dma;
+    } else {
+        use crate::pac::dma1 as dma;
+    }
+}
 
 #[cfg(any(feature = "g0", feature = "g4", feature = "wl"))]
 use pac::DMAMUX;
