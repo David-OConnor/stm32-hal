@@ -13,7 +13,7 @@ use crate::{
 };
 
 cfg_if! {
-    if #[cfg(any(feature = "f3", feature = "g4", feature = "h7b3"))] {
+    if #[cfg(any(feature = "f3", feature = "l412", feature = "g4", feature = "h7b3"))] {
         use pac::dac1 as dac_p;
     } else {
         use pac::dac as dac_p;
@@ -569,7 +569,7 @@ where
         });
     }
 
-    #[cfg(not(feature = "g4"))] // todo: PAC ommission? SR missing on L5/G4? In RM.
+    #[cfg(not(feature = "g4"))] // todo: PAC ommission? SR missing on G4? In RM. (may not affect all G4 variants)
     /// Clear the DMA Underrun interrupt - the only interrupt available.
     pub fn clear_interrupt(&mut self, channel: DacChannel) {
         self.regs.sr.write(|w| match channel {

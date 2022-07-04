@@ -527,7 +527,7 @@ where
                     w.addm7().set_bit();
                     // Set the character to detect
                     cfg_if! {
-                        if #[cfg(any(feature = "l5", feature = "g4"))] {
+                        if #[cfg(any(feature = "l5", feature = "g4", feature = "wb"))] {
                             w.add0_3().bits(char) // PAC error. Should be just like above. (?)
                         } else {
                             w.add().bits(char)

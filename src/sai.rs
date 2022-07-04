@@ -666,7 +666,7 @@ where
         // second SAI audio block through SYNCEN[1:0] bits.
 
         // We use config A's settings here, and ignore config B. These must be set with SAI disabled.
-        #[cfg(not(feature = "l4"))]
+        #[cfg(not(any(feature = "l4", feature = "wb")))]
         regs.gcr.modify(|_, w| unsafe {
             w.syncout().bits(config_a.sync_out as u8);
             w.syncin().bits(config_a.sync_in as u8)
@@ -694,7 +694,7 @@ where
             w.comp().bits(0);
             w.cpl().clear_bit();
             #[cfg(feature = "wb")]
-            w.mutecn().bits(0); // rec only
+            w.mutecnt().bits(0); // rec only
             #[cfg(not(feature = "wb"))]
             w.muteval().clear_bit(); // xmitter only
             w.mute().clear_bit(); // xmitter only
@@ -711,7 +711,7 @@ where
             w.comp().bits(0);
             w.cpl().clear_bit();
             #[cfg(feature = "wb")]
-            w.mutecn().bits(0); // rec only
+            w.mutecnt().bits(0); // rec only
             #[cfg(not(feature = "wb"))]
             w.muteval().clear_bit(); // xmitter only
             w.mute().clear_bit(); // xmitter only

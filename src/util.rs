@@ -27,7 +27,7 @@ use crate::dma::{self, Dma, DmaChannel, DmaInput};
     feature = "g0"
 )))]
 cfg_if::cfg_if! {
-    if #[cfg(any(feature = "f3", feature = "g4", feature = "h7b3"))] {
+    if #[cfg(any(feature = "f3", feature = "l412", feature = "g4", feature = "h7b3"))] {
         use crate::pac::DAC1;
     } else {
         use crate::pac::DAC as DAC1;
