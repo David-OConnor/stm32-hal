@@ -41,7 +41,7 @@ use crate::pac::dma as dma_p;
 ))]
 use crate::pac::dma1 as dma_p;
 
-#[cfg(not(feature = "f4"))]
+#[cfg(not(any(feature = "f4", feature = "l552")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 use cfg_if::cfg_if;
@@ -1267,13 +1267,7 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
     }
 }
 
-#[cfg(not(any(
-    // feature = "g0",
-    feature = "f4",
-    // feature = "l5",
-    feature = "f3",
-    feature = "l4"
-)))]
+#[cfg(not(any(feature = "f4", feature = "l5", feature = "f3", feature = "l4")))]
 /// Write a series of words to the BSRR (atomic output) register. Note that these are direct writes
 /// to the full, 2-sided register - not a series of low/high values.
 pub unsafe fn write_dma<D>(

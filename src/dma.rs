@@ -729,6 +729,7 @@ where
         #[cfg(any(feature = "l5", feature = "wl"))]
         let num_data = num_data as u32;
 
+        #[cfg(not(feature = "l5"))] // todo: PAC ommission? ndt fields missing for diff ndt regs.
         unsafe {
             match channel {
                 DmaChannel::C1 => {

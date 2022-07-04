@@ -29,6 +29,7 @@ use crate::pac::dma as dma_p;
 ))]
 use crate::pac::dma1 as dma_p;
 
+#[cfg(not(feature = "l552"))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -546,6 +547,7 @@ where
     /// Note that the `channel` argument is only used on F3 and L4.
     /// For a single write, set `autoend` to `true`. For a write_read and other use cases,
     /// set it to `false`.
+    #[cfg(not(feature = "l552"))]
     pub unsafe fn write_dma<D>(
         &mut self,
         addr: u8,
@@ -614,6 +616,7 @@ where
     // #[cfg(not(feature = "g0"))]
     /// Read data, using DMA. See L44 RM, 37.4.16: "Reception using DMA"
     /// Note that the `channel` argument is only used on F3 and L4.
+    #[cfg(not(feature = "l552"))]
     pub unsafe fn read_dma<D>(
         &mut self,
         addr: u8,

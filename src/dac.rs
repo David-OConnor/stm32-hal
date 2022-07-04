@@ -13,7 +13,7 @@ use crate::{
 };
 
 cfg_if! {
-    if #[cfg(any(all(feature = "f3", not(feature = "f302")), feature = "g4", feature = "h7b3"))] {
+    if #[cfg(any(feature = "f3", feature = "g4", feature = "h7b3"))] {
         use pac::dac1 as dac_p;
     } else {
         use pac::dac as dac_p;
@@ -33,7 +33,7 @@ use pac::dma as dma_p;
 ))]
 use pac::dma1 as dma_p;
 
-#[cfg(not(feature = "f4"))]
+#[cfg(not(any(feature = "f4", feature = "l552")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -338,7 +338,7 @@ where
     /// Send values to the DAC using DMA. Each trigger (Eg using a timer; the basic timers Tim6
     /// and Tim7 are designed for DAC triggering) sends one word from the buffer to the DAC's
     /// output.
-    #[cfg(not( feature = "f4"))]
+    #[cfg(not(any(feature = "f4", feature = "l552")))]
     pub unsafe fn write_dma<D>(
         &mut self,
         buf: &[u16],

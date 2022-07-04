@@ -32,9 +32,6 @@ impl Rng {
             }
         });
 
-        #[cfg(feature = "l5")]
-        regs.rng_cr.modify(|_, w| w.rngen().set_bit());
-        #[cfg(not(feature = "l5"))]
         regs.cr.modify(|_, w| w.rngen().set_bit());
 
         Self { regs }
@@ -48,19 +45,12 @@ impl Rng {
         // event).
         // todo: CHeck for 0? Check for DREDY?
 
-        // https://github.com/stm32-rs/stm32-rs/issues/650 L5 error
-        #[cfg(feature = "l5")]
-        return self.regs.rng_dr.read().bits() as i32;
-        #[cfg(not(feature = "l5"))]
-        return self.regs.dr.read().bits() as i32;
+        self.regs.dr.read().bits() as i32
     }
 
     /// Return true if a reading is available.
     pub fn reading_ready(&mut self) -> bool {
-        #[cfg(feature = "l5")]
-        return self.regs.rng_sr.read().drdy().bit_is_set();
-        #[cfg(not(feature = "l5"))]
-        return self.regs.sr.read().drdy().bit_is_set();
+        self.regs.sr.read().drdy().bit_is_set()
     }
 
     /// Enable an interrupt. An interrupt isgenerated when a random number is ready or when an error
@@ -68,9 +58,6 @@ impl Rng {
     /// to 0 in the RNG_SR register. A random number is ready. The DRDY bit must be set to 1 in the
     /// RNG_SR register.
     pub fn enable_interrupt(&mut self) {
-        #[cfg(feature = "l5")]
-        self.regs.rng_cr.modify(|_, w| w.ie().set_bit());
-        #[cfg(not(feature = "l5"))]
         self.regs.cr.modify(|_, w| w.ie().set_bit());
     }
 }

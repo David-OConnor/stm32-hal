@@ -18,14 +18,14 @@ use crate::pac::dma as dma_p;
 #[cfg(any(
     feature = "f3",
     feature = "l4",
-feature = "l5",
+    feature = "l5",
     feature = "g4",
     feature = "h7",
     feature = "wb"
 ))]
 use crate::pac::dma1 as dma_p;
 
-#[cfg(not(any(feature = "f4")))]
+#[cfg(not(any(feature = "f4", feature = "l552")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -845,7 +845,7 @@ macro_rules! hal {
 
             // todo: fn read_voltage, using vrefint and L4xx-hal style calibration?
 
-            #[cfg(not(feature = "f4"))]
+            #[cfg(not(any(feature = "f4", feature = "l552")))]
             /// Take a one shot reading, using DMA. See L44 RM, 16.4.27: "DMA one shot mode".
             /// Note that the `channel` argument is only used on F3 and L4.
             pub unsafe fn read_dma<D>(

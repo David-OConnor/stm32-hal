@@ -24,7 +24,7 @@ use crate::pac::dma as dma_p;
 ))]
 use crate::pac::dma1 as dma_p;
 
-#[cfg(not(feature = "f4"))]
+#[cfg(not(any(feature = "f4", feature = "l552")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -762,8 +762,8 @@ where
         regs.cha().frcr.modify(|_, w| unsafe {
             w.fsoff().bit(config_a.fs_offset as u8 != 0);
             w.fspol().bit(config_a.fs_polarity as u8 != 0);
-            // #[cfg(not(any(feature = "h743", feature = "h743v")))]
-            // w.fsdef().bit(config_a.fs_signal as u8 != 0); // todo: PAC error in 0.15?
+            // w.fsdef().bit(config_a.fs_signal as u8 != 0); // todo: PAC error in 0.15
+            // todo https://github.com/stm32-rs/stm32-rs/issues/749
             w.fsall().bits(fsall_bits_a);
             w.frl().bits((config_a.frame_length - 1) as u8)
         });
@@ -771,8 +771,7 @@ where
         regs.chb().frcr.modify(|_, w| unsafe {
             w.fsoff().bit(config_a.fs_offset as u8 != 0);
             w.fspol().bit(config_b.fs_polarity as u8 != 0);
-            // #[cfg(not(any(feature = "h743", feature = "h743v")))]
-            // w.fsdef().bit(config_b.fs_signal as u8 != 0);// todo: PAC error in 0.15?
+            // w.fsdef().bit(config_b.fs_signal as u8 != 0);// todo: PAC error in 0.15
             w.fsall().bits(fsall_bits_b);
             w.frl().bits((config_b.frame_length - 1) as u8)
         });
@@ -978,7 +977,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
     /// There is one DMA channel per audio subblock supporting basic DMA request/acknowledge
     /// protocol.
     /// Before configuring the SAI block, the SAI DMA channel must be disabled.
-    #[cfg(not(feature = "f4"))]
+    #[cfg(not(any(feature = "f4", feature = "l552")))]
     pub unsafe fn write_dma<D>(
         &mut self,
         buf: &[i32], // todo size?
@@ -1067,7 +1066,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
     /// DMA interface to read/write from/to the SAI_xDR register (to access the internal FIFO).
     /// There is one DMA channel per audio subblock supporting basic DMA request/acknowledge
     /// protocol.
-    #[cfg(not(feature = "f4"))]
+    #[cfg(not(any(feature = "f4", feature = "l552")))]
     pub unsafe fn read_dma<D>(
         &mut self,
         buf: &mut [i32], // todo size?
