@@ -251,19 +251,24 @@ impl Default for Align {
 /// Initial configuration data for the ADC peripheral.
 #[derive(Clone)]
 pub struct AdcConfig {
+    /// ADC clock mode. Defaults to AHB clock rcc_hclk3 divided by 2.
     pub clock_mode: ClockMode,
+    /// ADC clock prescaler. Defaults to no division.
     pub prescaler: Prescaler,
+    /// One-shot, or continuous measurements. Defaults to one-shot.
     pub operation_mode: OperationMode,
     // Most families use u8 values for calibration, but H7 uses u16.
-    pub cal_single_ended: Option<u16>, // Stored calibration value for single-ended
-    pub cal_differential: Option<u16>, // Stored calibration value for differential
+    /// Optional calibration data for single-ended measurements.
+    pub cal_single_ended: Option<u16>,
+    /// Optional calibration data for differential measurements.
+    pub cal_differential: Option<u16>,
 }
 
 impl Default for AdcConfig {
     fn default() -> Self {
         Self {
-            prescaler: Prescaler::D1,
             clock_mode: Default::default(),
+            prescaler: Prescaler::D1,
             operation_mode: OperationMode::OneShot,
             cal_single_ended: None,
             cal_differential: None,

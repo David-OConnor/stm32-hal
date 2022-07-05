@@ -131,24 +131,22 @@ pub enum NoiseFilter {
     Disabled,
 }
 
-/// Initial configuration data for the I2C peripheral.
+/// Configuration data for the I2C peripheral.
 #[derive(Clone)]
 pub struct I2cConfig {
     /// Select master or slave mode. Defaults to Master.
     pub mode: I2cMode,
-    // /// Select between standard, fast, and fast-plus speeds. Default to standard.
-    /// pub speed_mode: SpeedMode,
     /// Select between one of 4 preset speeds. If you'd like to use custom
     /// speed settings, use the PAC directly, with I2C disabled, after the
     /// peripheral clocks are enabled by `new()`. Default to Standard mode, 100kHz.
     pub speed: I2cSpeed,
     /// Allows setting 7 or 10-bit addresses. Defaults to 7.
     pub address_bits: AddressBits,
-    /// Select the analog noise filter, a digital filter, or no filter.
+    /// Select the analog noise filter, a digital filter, or no filter. Deafults to analog.
     pub noise_filter: NoiseFilter,
     /// Support for SMBUS, including hardware PEC, and alert pin. Defaults to false.
     pub smbus: bool,
-    /// Optionally disable clock stretching. Defaults to false (stretching allowed)
+    /// Optionally disable clock stretching. Defaults to false (stretching allowed).
     /// Only relevant in slave mode.
     pub nostretch: bool,
 }

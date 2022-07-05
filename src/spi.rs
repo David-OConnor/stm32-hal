@@ -164,7 +164,8 @@ pub enum ReceptionThresh {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-/// Select the communication mode between.
+/// Select the duplex communication mode between the 2 devices. Sets `CR1` register, `BIDIMODE`,
+/// and `RXONLY` fields.
 pub enum SpiCommMode {
     FullDuplex,
     HalfDuplex,
@@ -263,7 +264,9 @@ impl SpiMode {
 pub struct SpiConfig {
     /// SPI mode associated with Polarity and Phase. Defaults to Mode0: Idle low, capture on first transition.
     pub mode: SpiMode,
+    /// Sets the (duplex) communication mode between the devices. Defaults to full duplex.
     pub comm_mode: SpiCommMode,
+    /// Controls use of hardware vs software CS/NSS pin. Defaults to software.
     pub slave_select: SlaveSelect,
     /// Data size. Defaults to 8 bits.
     pub data_size: DataSize,

@@ -8,22 +8,23 @@ use num_traits::Float; // Float rounding.
 
 use crate::{clocks::Clocks, pac::RCC, rcc_en_reset};
 
-#[cfg(not(feature = "l5"))]
-use crate::pac::dfsdm as dfsdm_p;
-#[cfg(feature = "l5")]
-use crate::pac::dfsdm1 as dfsdm_p;
+use cfg_if::cfg_if;
 
-#[cfg(feature = "g0")]
-use crate::pac::dma as dma_p;
-#[cfg(any(
-    feature = "f3",
-    feature = "l4",
-    feature = "l5",
-    feature = "g4",
-    feature = "h7",
-    feature = "wb"
-))]
-use crate::pac::dma1 as dma_p;
+cfg_if! {
+    if #[cfg(any(feature = "l5", feature = "h7b3"))] {
+        use crate::pac::dfsdm1 as dfsdm_p;
+    } else {
+        use crate::pac::dfsdm as dfsdm_p;
+    }
+}
+
+cfg_if! {
+    if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
+        use crate::pac::dma as dma_p;
+    } else if #[cfg(feature = "f4")] {} else {
+        use crate::pac::dma1 as dma_p;
+    }
+}
 
 #[cfg(not(any(feature = "f4")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};

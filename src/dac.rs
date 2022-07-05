@@ -20,18 +20,13 @@ cfg_if! {
     }
 }
 
-#[cfg(feature = "g0")]
-use pac::dma as dma_p;
-#[cfg(any(
-    feature = "f3",
-    feature = "l4",
-    feature = "l5",
-    feature = "g4",
-    feature = "h7",
-    feature = "wb",
-    feature = "wl"
-))]
-use pac::dma1 as dma_p;
+cfg_if! {
+    if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
+        use crate::pac::dma as dma_p;
+    } else if #[cfg(feature = "f4")] {} else {
+        use crate::pac::dma1 as dma_p;
+    }
+}
 
 #[cfg(not(any(feature = "f4", feature = "l552")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
@@ -149,6 +144,7 @@ pub struct DacConfig {
     /// Mode: Ie buffer enabled or not, and connected to internal, external, or both. Defaults
     /// to external only, buffer enabled.
     pub mode: DacMode,
+    /// Output bit depth and alignment. Defaults to 12 bits, right-aligned.
     pub bits: DacBits,
 }
 
