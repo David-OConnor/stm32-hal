@@ -14,7 +14,7 @@ use cortex_m::interrupt::free;
 use crate::pac::{self, EXTI, RCC};
 
 #[cfg(not(feature = "h7"))]
-use crate::rcc_en_reset;
+use crate::util::rcc_en_reset;
 
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};

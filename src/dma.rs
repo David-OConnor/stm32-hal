@@ -13,7 +13,7 @@ use cortex_m::interrupt::free;
 
 use crate::{
     pac::{self, RCC},
-    rcc_en_reset,
+    util::rcc_en_reset,
 };
 
 cfg_if! {

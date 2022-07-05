@@ -138,7 +138,7 @@ pub struct I2cConfig {
     pub mode: I2cMode,
     /// Select between one of 4 preset speeds. If you'd like to use custom
     /// speed settings, use the PAC directly, with I2C disabled, after the
-    /// peripheral clocks are enabled by `new()`. Default to Standard mode, 100kHz.
+    /// peripheral clocks are enabled by `new()`. Defaults to Standard mode, 100kHz.
     pub speed: I2cSpeed,
     /// Allows setting 7 or 10-bit addresses. Defaults to 7.
     pub address_bits: AddressBits,

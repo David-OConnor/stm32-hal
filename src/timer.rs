@@ -19,8 +19,7 @@ use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 use crate::{
     clocks::Clocks,
     pac::{self, RCC},
-    rcc_en_reset,
-    util::RccPeriph,
+    util::{rcc_en_reset, RccPeriph},
 };
 
 cfg_if! {

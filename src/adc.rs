@@ -7,7 +7,7 @@ use core::{ops::Deref, ptr};
 use crate::{
     clocks::Clocks,
     pac::{self, RCC},
-    rcc_en_reset,
+    util::rcc_en_reset,
 };
 
 use cfg_if::cfg_if;

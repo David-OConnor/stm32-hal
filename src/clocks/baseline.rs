@@ -7,7 +7,7 @@
 use crate::{
     clocks::SpeedError,
     pac::{self, FLASH, RCC},
-    rcc_en_reset,
+    util::rcc_en_reset,
 };
 
 #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]

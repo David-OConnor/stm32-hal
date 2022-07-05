@@ -46,12 +46,9 @@ cfg_if::cfg_if! {
 #[cfg(any(feature = "f3", feature = "l4",))]
 use crate::pac::dma1 as dma_p;
 
-// todo: Unable to import `paste` and `cfgif` macros directly
-
 /// Enables and resets peripheral clocks on various RCC registesr.
 /// The first argument is a `apb1`, `ahb2` etc to specify the reg block. The second is something like
 /// `tim1`, and the third is a `pac::RCC`.
-#[macro_export]
 macro_rules! rcc_en_reset {
     (apb1, $periph:expr, $rcc:expr) => {
         paste::paste! { cfg_if::cfg_if! {
@@ -134,6 +131,8 @@ macro_rules! rcc_en_reset {
         }}
     };
 }
+
+pub(crate) use rcc_en_reset;
 
 // todo: This trait is currently a one-off for usart
 pub trait BaudPeriph {

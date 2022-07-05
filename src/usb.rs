@@ -7,7 +7,7 @@
 //! For G0 series, USB is only available on G0B0, G0B1, G0C1, which the PAC doesn't yet differentiate,
 //! and this library doesn't yet support.
 
-use crate::{pac, rcc_en_reset};
+use crate::{pac, util::rcc_en_reset};
 
 #[cfg(any(feature = "l4", feature = "l5", feature = "g0"))]
 use crate::pac::PWR;

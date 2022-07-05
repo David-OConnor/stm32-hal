@@ -6,7 +6,7 @@ use cortex_m::interrupt::free;
 
 use num_traits::Float; // Float rounding.
 
-use crate::{clocks::Clocks, pac::RCC, rcc_en_reset};
+use crate::{clocks::Clocks, pac::RCC, util::rcc_en_reset};
 
 use cfg_if::cfg_if;
 

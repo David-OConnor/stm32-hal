@@ -1,7 +1,7 @@
 use crate::{
     clocks::SpeedError,
     pac::{self, FLASH, RCC},
-    rcc_en_reset,
+    util::rcc_en_reset,
 };
 
 use cfg_if::cfg_if;

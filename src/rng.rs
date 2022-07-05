@@ -4,7 +4,7 @@ use cortex_m::interrupt::free;
 
 use crate::{
     pac::{RCC, RNG},
-    rcc_en_reset,
+    util::rcc_en_reset,
 };
 
 use cfg_if::cfg_if;
