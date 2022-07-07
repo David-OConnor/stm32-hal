@@ -896,10 +896,14 @@ impl Clocks {
     }
 
     pub fn validate_speeds(&self) -> Result<(), SpeedError> {
-        // todo: This depends on variant
-        // let max_clock = 550_000_000;
-        // #[cfg(feature = "h743")]
-        let max_sysclk = 480_000_000;
+        let max_clock = 550_000_000;
+        cfg_if! {
+            if #[cfg(feature = "h735")] {
+                let max_sysclk = 480_000_000;
+            } else {
+                let max_sysclk = 550_000_000;
+            }
+        }
         // #[cfg(feature = "h743")]
         let max_hclk = 240_000_000;
         // #[cfg(feature = "h743")]
@@ -979,7 +983,6 @@ impl Clocks {
 // todo: support default for 280Mhz variants.
 
 impl Default for Clocks {
-    // #[cfg(not(feature = "h735"))]
     /// This default configures clocks with the HSI, and a 400Mhz sysclock speed. (280Mhz sysclock
     /// on variants that only go that high). Note that H723-745 still use this default speed
     /// due to needing VOS0 for higher.
@@ -1018,39 +1021,6 @@ impl Default for Clocks {
             dfsdm1_src: DfsdmSrc::Pclk2,
         }
     }
-
-    // #[cfg(feature = "h735")]
-    // fn default() -> Self {
-    //     Self {
-    //         /// The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
-    //         input_src: InputSrc::Pll1,
-    //         pll_src: PllSrc::Hsi(HsiDiv::Div1),
-    //         pll1: PllCfg::default(),
-    //         pll2: PllCfg::disabled(),
-    //         pll3: PllCfg::disabled(),
-    //         d1_core_prescaler: HclkPrescaler::Div1,
-    //         d1_prescaler: ApbPrescaler::Div2,
-    //         /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
-    //         hclk_prescaler: HclkPrescaler::Div2,
-    //         d2_prescaler1: ApbPrescaler::Div2,
-    //         d2_prescaler2: ApbPrescaler::Div2,
-    //         d3_prescaler: ApbPrescaler::Div2,
-    //         /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
-    //         /// frees up the pin for use as GPIO.
-    //         hse_bypass: false,
-    //         security_system: false,
-    //         /// Enable the HSI48.
-    //         hsi48_on: false,
-    //         /// Select the input source to use after waking up from `stop` mode. Eg HSI or MSI.
-    //         stop_wuck: StopWuck::Hsi,
-    //         vos_range: VosRange::VOS1,
-    //         sai1_src: SaiSrc::Pll1Q,
-    //         sai23_src: SaiSrc::Pll1Q,
-    //         sai4a_src: SaiSrc::Pll1Q,
-    //         sai4b_src: SaiSrc::Pll1Q,
-    //         dfsdm1_src: DfsdmSrc::Pclk2,
-    //     }
-    // }
 }
 
 #[cfg(not(feature = "h7b3"))] // todo
@@ -1061,8 +1031,27 @@ impl Clocks {
     /// disable and re-enable it.
     pub fn full_speed() -> Self {
         // todo: 550Mhz on on H723 etc instead of 520Mhz. Need to set CPU_FREQ_BOOST as well for that.
+        // todo: "The CPU frequency boost can be enabled through the CPUFREQ_BOOST option byte in
+        // todo FLASH_OPTSR2_PRG register."
+        // todo: The change is
+        //
         cfg_if! {
             if #[cfg(feature = "h735")] {
+                // let flash_regs = unsafe { &(*pac::FLASH::ptr()) };
+
+                // To modify user option bytes, follow the sequence below:
+                // unsafe {
+                // 1.Unlock FLASH_OPTCR register as described in Section 4.5.1: FLASH configuration
+                // protection, unless the register is already unlocked.
+                // 2. Write the desired new option byte values in the corresponding option registers
+                // (FLASH_XXX_PRG).
+                // flash_regs.optsr2_prg.modify(|_, w| w.cpufreq_boost().set_bit());
+                // 3. Set the option byte start change OPTSTART bit to 1 in the FLASH_OPTCR register.
+                // flash_regs.optcr.modify(|_, w| w.optstart().set_bit());
+                // 4. Wait until OPT_BUSY bit is cleared.
+                // while flash_regs.optcr.read().opt_busy().bit_is_set() { }
+
+                // let divn 275; // for 550Mhz
                 let divn = 260;
                 let divp = 1;
             } else {

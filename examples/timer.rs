@@ -15,14 +15,13 @@ use stm32_hal2::{
     gpio::{Edge, Pin, PinMode, Port},
     low_power, pac,
     timer::{
-        BasicTimer, CountDir, MasterModeSelection, OutputCompare, TimChannel, Timer, TimerInterrupt,
+        BasicTimer, Alignment, CaptureCompare, InputTrigger, InputSlaveMode, CountDir, MasterModeSelection,
+        OutputCompare, TimerConfig, TimChannel, Timer, TimerInterrupt,
     },
 };
 
 #[entry]
 fn main() -> ! {
-    // Set up CPU peripherals
-    let mut cp = cortex_m::Peripherals::take().unwrap();
     // Set up microcontroller peripherals
     let mut dp = pac::Peripherals::take().unwrap();
 
@@ -45,14 +44,35 @@ fn main() -> ! {
         },
         &clock_cfg,
     );
+
+    // Example syntax to set up PWM output on channel1, with a 50% duty cycle.
     pwm_timer.enable_pwm_output(TimChannel::C1, OutputCompare::Pwm1, 0.5);
+
+    // Example syntax for enabling input capture. Eg, for PWM input
+    pwm_timer.set_input_capture(
+        TimChannel::C2,
+        CaptureCompare::InputTi1,
+        InputTrigger::Internal0,
+        InputSlaveMode::Disabled,
+        true,
+        false
+    );
 
     pwm_timer.enable();
 
-    // Change the duty cycle.
+    // Change the duty cycle. The argument is the auto-reload value (ARR).
     pwm_timer.set_duty(TimChannel::C1, 100);
 
-    let mut countdown_timer = Timer::new_tim3(dp.TIM3, 0.5, Default::default(), &clock_cfg);
+    // Exampler of more settings
+    let timer_config = TimerConfig {
+        one_pulse_mode: true,
+        alignment: Alignment::Edge,
+        direction: CountDir::Down,
+        ..Default::default()
+    };
+
+    let period = 2.; // seconds.
+    let mut countdown_timer = Timer::new_tim3(dp.TIM3, countdown_period, timer_config, &clock_cfg);
     countdown_timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
     countdown_timer.enable();
 
@@ -63,6 +83,9 @@ fn main() -> ! {
     // used in `set_freq`.
     pwm_timer.set_auto_reload(100);
     pwm_timer.set_prescaler(100);
+
+    let seconds_elapsed = countdown_timer.read_count() / countdown_timer.get_max_duty() * period;
+    println!("Time elapsed since timer start: {}", seconds_elapsed);
 
     // Set up a basic timer, eg for DAC triggering
     let mut dac_timer = BasicTimer::new(

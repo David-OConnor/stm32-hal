@@ -12,6 +12,8 @@ use cfg_if::cfg_if;
 
 const FLASH_KEY1: u32 = 0x4567_0123;
 const FLASH_KEY2: u32 = 0xCDEF_89AB;
+const FLASH_OPT_KEY1: u32 = 0x0819_2A3B;
+const FLASH_OPT_KEY2: u32 = 0x4C5D_6E7F;
 
 #[derive(Clone, Copy, PartialEq)]
 /// Set dual bank mode (DBANK option bit). Eg G4
@@ -203,6 +205,27 @@ impl Flash {
             Err(Error::Failure)
         }
     }
+
+    // /// Unlock the FLASH_OPTCR register, for writing option bits.
+    // pub fn unlock_options(&mut self) -> Result<(), Error> {
+    //     #[cfg(not(feature = "h7"))]
+    //     let regs = &self.regs;
+    //     #[cfg(feature = "h7")]
+    //     let regs = self.regs.bank1();
+    //
+    //     if regs.cr.read().lock().bit_is_clear() {
+    //         return Ok(());
+    //     }
+    //
+    //     regs.optkeyr.write(|w| unsafe { w.bits(FLASH_OPT_KEY1) });
+    //     regs.optkeyr.write(|w| unsafe { w.bits(FLASH_OPT_KEY2) });
+    //
+    //     if regs.cr.read().lock().bit_is_clear() {
+    //         Ok(())
+    //     } else {
+    //         Err(Error::Failure)
+    //     }
+    // }
 
     pub fn lock(&mut self) {
         // The FLASH_CR register cannot be written when the BSY bit in the Flash status register

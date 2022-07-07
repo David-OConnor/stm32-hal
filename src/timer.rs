@@ -1071,52 +1071,6 @@ macro_rules! cc_2_channels {
                 // self.regs.cr1.modify(|_, w| w.dir().bit(self.cfg.direction as u8 != 0));
             }
 
-            /// Enables basic PWM input. TODO: Doesn't work yet.
-            /// L4 RM, section 26.3.8
-            pub fn _enable_pwm_input(
-                &mut self,
-                _channel: TimChannel,
-                _compare: OutputCompare,
-                _dir: CountDir,
-                _duty: f32,
-            ) {
-                // todo: These instruction sare specifically for TI1
-                // 1. Select the active input for TIMx_CCR1: write the CC1S bits to 01 in the TIMx_CCMR1
-                // register (TI1 selected).
-                // self.regs.ccmr1.modify(|_, w| w.cc1s().bit(0b01));
-
-                // 2. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
-                // clear): write the CC1P and CC1NP bits to ‘0’ (active on rising edge).
-                // self.regs.ccmr1.modify(|_, w| {
-                //     w.cc1p().bits(0b00);
-                //     w.cc1np().bits(0b00)
-                // });
-                // 3. Select the active input for TIMx_CCR2: write the CC2S bits to 10 in the TIMx_CCMR1
-                // register (TI1 selected).
-                // self.regs.ccmr2.modify(|_, w| w.cc2s().bit(0b10));
-
-                // 4. Select the active polarity for TI1FP2 (used for capture in TIMx_CCR2): write the CC2P
-                // and CC2NP bits to CC2P/CC2NP=’10’ (active on falling edge).
-                // self.regs.ccr2.modify(|_, w| {
-                //     w.cc2p().bits(0b10);
-                //     w.cc2np().bits(0b10)
-                // });
-
-                // 5. Select the valid trigger input: write the TS bits to 101 in the TIMx_SMCR register
-                // (TI1FP1 selected).
-                // self.regs.smcr.modify(|_, w| w.ts().bits(0b101));
-
-                // 6. Configure the slave mode controller in reset mode: write the SMS bits to 0100 in the
-                // TIMx_SMCR register.
-                // self.regs.smcr.modify(|_, w| w.sms().bits(0b0100));
-
-                // 7. Enable the captures: write the CC1E and CC2E bits to ‘1’ in the TIMx_CCER register.
-                // self.regs.ccer.modify(|_, w| {
-                //     w.cc1e().set_bit();
-                //     w.cc2e().set_bit()
-                // });
-            }
-
             // todo: more advanced PWM modes. Asymmetric, combined, center-aligned etc.
 
             /// Set up input capture, eg for PWM input.
@@ -1327,53 +1281,7 @@ macro_rules! cc_1_channel {
     ($TIMX:ident, $res:ident) => {
         impl Timer<pac::$TIMX> {
             /// Function that allows us to set direction only on timers that have this option.
-            fn set_dir(&mut self) {}
-
-            /// Enables basic PWM input. TODO: Doesn't work yet.
-            /// L4 RM, section 26.3.8
-            pub fn _enable_pwm_input(
-                &mut self,
-                _channel: TimChannel,
-                _compare: OutputCompare,
-                _dir: CountDir,
-                _duty: f32,
-            ) {
-                // todo: These instruction sare specifically for TI1
-                // 1. Select the active input for TIMx_CCR1: write the CC1S bits to 01 in the TIMx_CCMR1
-                // register (TI1 selected).
-                // self.regs.ccmr1.modify(|_, w| w.cc1s().bit(0b01));
-
-                // 2. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
-                // clear): write the CC1P and CC1NP bits to ‘0’ (active on rising edge).
-                // self.regs.ccmr1.modify(|_, w| {
-                //     w.cc1p().bits(0b00);
-                //     w.cc1np().bits(0b00)
-                // });
-                // 3. Select the active input for TIMx_CCR2: write the CC2S bits to 10 in the TIMx_CCMR1
-                // register (TI1 selected).
-                // self.regs.ccmr2.modify(|_, w| w.cc2s().bit(0b10));
-
-                // 4. Select the active polarity for TI1FP2 (used for capture in TIMx_CCR2): write the CC2P
-                // and CC2NP bits to CC2P/CC2NP=’10’ (active on falling edge).
-                // self.regs.ccr2.modify(|_, w| {
-                //     w.cc2p().bits(0b10);
-                //     w.cc2np().bits(0b10)
-                // });
-
-                // 5. Select the valid trigger input: write the TS bits to 101 in the TIMx_SMCR register
-                // (TI1FP1 selected).
-                // self.regs.smcr.modify(|_, w| w.ts().bits(0b101));
-
-                // 6. Configure the slave mode controller in reset mode: write the SMS bits to 0100 in the
-                // TIMx_SMCR register.
-                // self.regs.smcr.modify(|_, w| w.sms().bits(0b0100));
-
-                // 7. Enable the captures: write the CC1E and CC2E bits to ‘1’ in the TIMx_CCER register.
-                // self.regs.ccer.modify(|_, w| {
-                //     w.cc1e().set_bit();
-                //     w.cc2e().set_bit()
-                // });
-            }
+            fn set_dir(&mut self) {} // N/A with these 1-channel timers.
 
             // todo: more advanced PWM modes. Asymmetric, combined, center-aligned etc.
 
