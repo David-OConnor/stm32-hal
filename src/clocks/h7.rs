@@ -390,7 +390,6 @@ impl Clocks {
         let rcc = unsafe { &(*RCC::ptr()) };
         let flash = unsafe { &(*FLASH::ptr()) };
         let pwr = unsafe { &(*PWR::ptr()) };
-        let syscfg = unsafe { &(*SYSCFG::ptr()) };
 
         // Enable and reset System Configuration Controller, ie for interrupts.
         // todo: Is this the right module to do this in?
@@ -410,6 +409,8 @@ impl Clocks {
             #[cfg(not(any(feature = "h7b3", feature = "h735")))]
             // Note:H735 etc have VOS0, but not oden; the RM doesn't list these steps.
             VosRange::VOS0 => {
+                let syscfg = unsafe { &(*SYSCFG::ptr()) };
+
                 // VOS0 activation/deactivation sequence: H743 HRM, section 6.6.2:
                 // The system maximum frequency can be reached by boosting the voltage scaling level to
                 // VOS0. This is done through the ODEN bit in the SYSCFG_PWRCR register.
@@ -896,7 +897,6 @@ impl Clocks {
     }
 
     pub fn validate_speeds(&self) -> Result<(), SpeedError> {
-        let max_clock = 550_000_000;
         cfg_if! {
             if #[cfg(feature = "h735")] {
                 let max_sysclk = 480_000_000;

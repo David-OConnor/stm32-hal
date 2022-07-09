@@ -132,6 +132,7 @@ pub enum DmaInput {
 #[cfg(feature = "h7")]
 /// A list of DMA input sources. The integer values represent their DMAMUX register value, on
 /// MCUs that use this. H743 RM, Table 121: DMAMUX1: Assignment of multiplexer inputs to resources.
+/// (Table 118 in RM0468)
 /// Note that this is only for DMAMUX1
 pub enum DmaInput {
     Adc1 = 9,
@@ -188,8 +189,18 @@ pub enum DmaInput {
     DacCh2 = 68,
     Tim6Up = 69,
     Tim7Up = 70,
+    Uart6Rx = 71,
+    Uart6Tx = 72,
     I2c3Rx = 73,
     I2c3Tx = 74,
+    Dcmi = 75,
+    CrypIn = 76,
+    CrypOut = 77,
+    HashIn = 78,
+    Uart7Rx = 79,
+    Uart7Tx = 80,
+    Uart8Rx = 81,
+    Uart8Tx = 82,
     Sai1A = 87,
     Sai1B = 88,
     Sai2A = 89,
@@ -200,6 +211,11 @@ pub enum DmaInput {
     Dfsdm1F3 = 104,
     Sai3A = 113,
     Sai3B = 114,
+    Adc3 = 115,
+    Uart9Rx = 116,
+    Uart9Tx = 117,
+    Uart10Rx = 118,
+    Uart10Tx = 119,
 }
 
 #[derive(Copy, Clone)]

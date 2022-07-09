@@ -7,8 +7,6 @@
 
 use core::ops::Deref;
 
-use num_traits::float::Float;
-
 use cortex_m::interrupt::free;
 
 #[cfg(feature = "embedded-hal")]
@@ -1293,8 +1291,8 @@ macro_rules! cc_1_channel {
                 &mut self,
                 channel: TimChannel,
                 mode: CaptureCompare,
-                trigger: InputTrigger,
-                slave_mode: InputSlaveMode,
+                // trigger: InputTrigger,
+                // slave_mode: InputSlaveMode,
                 ccp: Polarity,
                 ccnp: Polarity,
             ) {

@@ -8,16 +8,15 @@ use crate::{
     pac::{self, rcc::RegisterBlock},
 };
 
-// #[cfg(feature = "g0")]
-// use crate::pac::DMA as DMA1;
-// #[cfg(not(feature = "g0"))]
+
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::pac::DMA1;
 
 // todo: L5 has a PAC bug on CCR registers past 1.
-// #[cfg(not(any(feature = "f4", feature = "l5")))]
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::{self, Dma, DmaChannel, DmaInput};
+
+use cfg_if::cfg_if;
 
 #[cfg(not(any(
     feature = "f401",
@@ -26,7 +25,7 @@ use crate::dma::{self, Dma, DmaChannel, DmaInput};
     feature = "wb",
     feature = "g0"
 )))]
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(any(feature = "f3", feature = "l412", feature = "g4", feature = "h7b3"))] {
         use crate::pac::DAC1;
     } else {
@@ -34,7 +33,7 @@ cfg_if::cfg_if! {
     }
 }
 
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(any(feature = "l5", feature = "g0", feature = "wl"))] {
         use crate::pac::ADC as ADC1;
 
@@ -166,6 +165,55 @@ impl BaudPeriph for pac::USART2 {
 impl BaudPeriph for pac::USART3 {
     fn baud(clock_cfg: &Clocks) -> u32 {
         clock_cfg.apb1()
+    }
+}
+
+cfg_if! {
+    if #[cfg(feature = "h7")] {
+        impl BaudPeriph for pac::UART4 {
+            fn baud(clock_cfg: &Clocks) -> u32 {
+                clock_cfg.apb1()
+            }
+        }
+
+        impl BaudPeriph for pac::UART5 {
+            fn baud(clock_cfg: &Clocks) -> u32 {
+                clock_cfg.apb1()
+            }
+        }
+
+        impl BaudPeriph for pac::USART6 {
+            fn baud(clock_cfg: &Clocks) -> u32 {
+                clock_cfg.apb2()
+            }
+        }
+
+        impl BaudPeriph for pac::UART7 {
+            fn baud(clock_cfg: &Clocks) -> u32 {
+                clock_cfg.apb1()
+            }
+        }
+
+        impl BaudPeriph for pac::UART8 {
+            fn baud(clock_cfg: &Clocks) -> u32 {
+                clock_cfg.apb1()
+            }
+        }
+
+        #[cfg(feature = "h735")]
+        impl BaudPeriph for pac::UART9 {
+            fn baud(clock_cfg: &Clocks) -> u32 {
+                clock_cfg.apb2()
+            }
+        }
+
+        #[cfg(feature = "h735")]
+        impl BaudPeriph for pac::USART10 {
+            fn baud(clock_cfg: &Clocks) -> u32 {
+                clock_cfg.apb2()
+            }
+        }
+
     }
 }
 
@@ -428,7 +476,7 @@ impl RccPeriph for pac::SPI2 {
 )))]
 impl RccPeriph for pac::SPI3 {
     fn en_reset(rcc: &RegisterBlock) {
-        cfg_if::cfg_if! {
+        cfg_if! {
             // Note `sp3en` mixed with `spi3rst`; why we can't use the usual macro.
             if #[cfg(feature = "l5")] {
                 rcc.apb1enr1.modify(|_, w| w.sp3en().set_bit());
@@ -464,7 +512,7 @@ impl RccPeriph for pac::SPI3 {
 #[cfg(feature = "h7")]
 impl RccPeriph for pac::SPI4 {
     fn en_reset(rcc: &RegisterBlock) {
-        cfg_if::cfg_if! {
+        cfg_if! {
             // Note `sp4en` mixed with `spi4rst`; why we can't use the usual macro.
             if #[cfg(feature = "l5")] {
                 rcc.apb2enr1.modify(|_, w| w.sp4en().set_bit());
@@ -621,7 +669,7 @@ impl RccPeriph for pac::USART1 {
 #[cfg(not(any(feature = "wb", feature = "wl")))]
 impl RccPeriph for pac::USART2 {
     fn en_reset(rcc: &RegisterBlock) {
-        cfg_if::cfg_if! {
+        cfg_if! {
             if #[cfg(not(feature = "f4"))] {
                 rcc_en_reset!(apb1, usart2, rcc);
             } else {
@@ -667,7 +715,7 @@ impl RccPeriph for pac::USART2 {
 )))]
 impl RccPeriph for pac::USART3 {
     fn en_reset(rcc: &RegisterBlock) {
-        cfg_if::cfg_if! {
+        cfg_if! {
             if #[cfg(not(feature = "f4"))] {
                 rcc_en_reset!(apb1, usart3, rcc);
             } else {
@@ -699,6 +747,55 @@ impl RccPeriph for pac::USART3 {
     }
 }
 
+cfg_if! {
+    if #[cfg(feature = "h7")] {
+        impl RccPeriph for pac::UART4 {
+            fn en_reset(rcc: &RegisterBlock) {
+                rcc_en_reset!(apb1, uart4, rcc);
+            }
+        }
+
+        impl RccPeriph for pac::UART5 {
+            fn en_reset(rcc: &RegisterBlock) {
+                rcc_en_reset!(apb1, uart5, rcc);
+            }
+        }
+
+        impl RccPeriph for pac::USART6 {
+            fn en_reset(rcc: &RegisterBlock) {
+                rcc_en_reset!(apb2, usart6, rcc);
+            }
+        }
+
+        impl RccPeriph for pac::UART7 {
+            fn en_reset(rcc: &RegisterBlock) {
+                rcc_en_reset!(apb1, uart7, rcc);
+            }
+        }
+
+        impl RccPeriph for pac::UART8 {
+            fn en_reset(rcc: &RegisterBlock) {
+                rcc_en_reset!(apb1, uart8, rcc);
+            }
+        }
+
+        #[cfg(feature = "h735")]
+        impl RccPeriph for pac::UART9 {
+            fn en_reset(rcc: &RegisterBlock) {
+                rcc_en_reset!(apb2, uart9, rcc);
+            }
+        }
+
+        #[cfg(feature = "h735")]
+        impl RccPeriph for pac::USART10 {
+            fn en_reset(rcc: &RegisterBlock) {
+                rcc_en_reset!(apb2, usart10, rcc);
+            }
+        }
+
+    }
+}
+
 // todo: USART 4 and 5.
 
 #[cfg(not(any(
@@ -708,7 +805,7 @@ impl RccPeriph for pac::USART3 {
     feature = "wb",
     feature = "g0"
 )))]
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
         impl RccPeriph for DAC1 {
             fn en_reset(rcc: &RegisterBlock) {

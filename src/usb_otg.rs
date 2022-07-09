@@ -7,7 +7,6 @@
 // Based on `stm3h7xx-hal`
 
 use crate::{
-    clocks::Clocks,
     gpio::Pin,
     pac::{self, PWR, RCC},
 };
