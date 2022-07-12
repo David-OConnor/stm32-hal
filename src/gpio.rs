@@ -428,7 +428,7 @@ macro_rules! set_exti_l5 {
 #[cfg(feature = "g0")]
 // For G0. See `set_exti!`. Todo? Reduce DRY.
 macro_rules! set_exti_g0 {
-    ($pin:expr, $rising:expr, falling:$expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
+    ($pin:expr, $rising:expr, $falling:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
         let exti = unsafe { &(*pac::EXTI::ptr()) };
 
         paste! {
