@@ -15,8 +15,8 @@ use stm32_hal2::{
     gpio::{Edge, Pin, PinMode, Port},
     low_power, pac,
     timer::{
-        BasicTimer, Alignment, CaptureCompare, InputTrigger, InputSlaveMode, CountDir, MasterModeSelection,
-        OutputCompare, TimerConfig, TimChannel, Timer, TimerInterrupt,
+        Alignment, BasicTimer, CaptureCompare, CountDir, InputSlaveMode, InputTrigger,
+        MasterModeSelection, OutputCompare, TimChannel, Timer, TimerConfig, TimerInterrupt,
     },
 };
 
@@ -55,7 +55,7 @@ fn main() -> ! {
         InputTrigger::Internal0,
         InputSlaveMode::Disabled,
         true,
-        false
+        false,
     );
 
     pwm_timer.enable();

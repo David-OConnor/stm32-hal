@@ -44,11 +44,17 @@ use paste::paste;
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
-/// Values for `GPIOx_MODER`
+/// Values for `GPIOx_MODER`. Sets pin to input, output, and other functionality.
 pub enum PinMode {
+    /// An input pin; read by firmware; set by something connected to the pin.
     Input,
+    /// An input pin; set by firmware; read by something connected to the pin.
     Output,
+    /// An alternate function, as defined in the MCU's user manual. Used for various
+    /// onboard peripherals like buses, timers etc.
     Alt(u8),
+    /// For use with the onboard ADC and DAC. Prevent parasitic power loss on the pin
+    // if using it for one of these functionalities.
     Analog,
 }
 
@@ -67,7 +73,7 @@ impl PinMode {
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
-/// Values for `GPIOx_OTYPER`
+/// Values for `GPIOx_OTYPER`.
 pub enum OutputType {
     PushPull = 0,
     OpenDrain = 1,
@@ -88,7 +94,8 @@ pub enum OutputSpeed {
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
-/// Values for `GPIOx_PUPDR`
+/// Values for `GPIOx_PUPDR`. Sets if the pin uses the internal pull-up or pull-down
+// resistor.
 pub enum Pull {
     Floating = 0b00,
     Up = 0b01,
@@ -240,10 +247,14 @@ impl Port {
 }
 
 #[derive(Copy, Clone, Debug)]
-/// The pulse edge used to trigger interrupts.
+/// The pulse edge used to trigger interrupts. Either rising, falling, or either.
 pub enum Edge {
+    /// Interrupts trigger on rising pin edge.
     Rising,
+    /// Interrupts trigger on falling pin edge.
     Falling,
+    /// Interrupts trigger on either rising or falling pin edges.
+    Either,
 }
 
 // These macros are used to interate over pin number, for use with PAC fields.
@@ -317,7 +328,7 @@ macro_rules! set_state {
 
 // Reduce DRY for setting up interrupts.
 macro_rules! set_exti {
-    ($pin:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr)),+]) => {
+    ($pin:expr, $rising:expr, $falling:expr, $val:expr, [$(($num:expr, $crnum:expr)),+]) => {
         let exti = unsafe { &(*pac::EXTI::ptr()) };
         let syscfg  = unsafe { &(*pac::SYSCFG::ptr()) };
 
@@ -340,8 +351,8 @@ macro_rules! set_exti {
 
                         cfg_if! {
                             if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
-                                exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($trigger));
-                                exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit(!$trigger));
+                                exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($rising));
+                                exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit($falling));
                             // } else if #[cfg(any(feature = "wb", feature = "wl"))] {
                             //     // todo: Missing in PAC, so we read+write. https://github.com/stm32-rs/stm32-rs/issues/570
                             //     let val_r =  $exti.rtsr1.read().bits();
@@ -350,8 +361,8 @@ macro_rules! set_exti {
                             //     $exti.ftsr1.write(|w| unsafe { w.bits(val_f | (1 << $num)) });
                             //     // todo: Core 2 interrupts.
                             } else {
-                                exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($trigger));
-                                exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit(!$trigger));
+                                exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($rising));
+                                exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit(!$falling));
                             }
                         }
                         syscfg
@@ -368,7 +379,7 @@ macro_rules! set_exti {
 #[cfg(feature = "f4")]
 // Similar to `set_exti`, but with reg names sans `1`.
 macro_rules! set_exti_f4 {
-    ($pin:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr)),+]) => {
+    ($pin:expr, $rising:expr, $falling:expr, $val:expr, [$(($num:expr, $crnum:expr)),+]) => {
         let exti = unsafe { &(*pac::EXTI::ptr()) };
         let syscfg  = unsafe { &(*pac::SYSCFG::ptr()) };
 
@@ -377,8 +388,8 @@ macro_rules! set_exti_f4 {
                 $(
                     $num => {
                         exti.imr.modify(|_, w| w.[<mr $num>]().unmasked());
-                        exti.rtsr.modify(|_, w| w.[<tr $num>]().bit($trigger));
-                        exti.ftsr.modify(|_, w| w.[<tr $num>]().bit(!$trigger));
+                        exti.rtsr.modify(|_, w| w.[<tr $num>]().bit($rising));
+                        exti.ftsr.modify(|_, w| w.[<tr $num>]().bit($falling));
                         syscfg
                             .[<exticr $crnum>]
                             .modify(|_, w| unsafe { w.[<exti $num>]().bits($val) });
@@ -393,7 +404,7 @@ macro_rules! set_exti_f4 {
 #[cfg(feature = "l5")]
 // For L5 See `set_exti!`. Different method naming pattern for exticr.
 macro_rules! set_exti_l5 {
-    ($pin:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
+    ($pin:expr, $rising:expr, $falling:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
         let exti = unsafe { &(*pac::EXTI::ptr()) };
 
         paste! {
@@ -401,8 +412,8 @@ macro_rules! set_exti_l5 {
                 $(
                     $num => {
                         exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());  // unmask
-                        exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($trigger));  // Rising trigger
-                        exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit(!$trigger));   // Falling trigger
+                        exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($rising));  // Rising trigger
+                        exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit($falling));   // Falling trigger
                         exti
                             .[<exticr $crnum>]
                             .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
@@ -417,7 +428,7 @@ macro_rules! set_exti_l5 {
 #[cfg(feature = "g0")]
 // For G0. See `set_exti!`. Todo? Reduce DRY.
 macro_rules! set_exti_g0 {
-    ($pin:expr, $trigger:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
+    ($pin:expr, $rising:expr, falling:$sxprs, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
         let exti = unsafe { &(*pac::EXTI::ptr()) };
 
         paste! {
@@ -425,9 +436,9 @@ macro_rules! set_exti_g0 {
                 $(
                     $num => {
                         exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());  // unmask
-                        exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($trigger));  // Rising trigger
+                        exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($rising));  // Rising trigger
                         // This field name is probably a PAC error.
-                        exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit(!$trigger));   // Falling trigger
+                        exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit($falling));   // Falling trigger
                         exti
                             .[<exticr $crnum>]
                             .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
@@ -456,7 +467,8 @@ impl Pin {
     }
 
     /// Create a new pin, with a specific mode. Enables the RCC peripheral clock to the port,
-    /// if not already enabled. Example: `let pa1 = Pin::new(Port::A, 1);`
+    /// if not already enabled. Example: `let pa1 = Pin::new(Port::A, 1);` Leaves settings
+    /// other than mode and alternate function (if applicable) at their hardware defaults.
     pub fn new(port: Port, pin: u8, mode: PinMode) -> Self {
         assert!(pin <= 15, "Pin must be 0 - 15.");
 
@@ -887,37 +899,36 @@ impl Pin {
     #[cfg(not(any(feature = "f373", feature = "wl")))]
     /// Configure this pin as an interrupt source. Set the edge as Rising or Falling.
     pub fn enable_interrupt(&mut self, edge: Edge) {
-        let rise_trigger = match edge {
-            Edge::Rising => {
-                // configure EXTI line to trigger on rising edge, disable trigger on falling edge.
-                true
-            }
-            Edge::Falling => {
-                // configure EXTI line to trigger on falling edge, disable trigger on rising edge.
-                false
-            }
+        let rising = match edge {
+            Edge::Falling => false,
+            _ => true, // rising or either.
+        };
+
+        let falling = match edge {
+            Edge::Rising => false,
+            _ => true, // fallingor either.
         };
 
         cfg_if! {
             if #[cfg(feature = "g0")] {
-                set_exti_g0!(self.pin, rise_trigger, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
+                set_exti_g0!(self.pin, rising, falling, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
                     (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
                     (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
                     (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]
                 );
             } else if #[cfg(feature = "l5")] {
-                set_exti_l5!(self.pin, rise_trigger, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
+                set_exti_l5!(self.pin, rising, falling, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
                     (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
                     (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
                     (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]
                 );
             } else if #[cfg(feature = "f4")] {
-                set_exti_f4!(self.pin, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
+                set_exti_f4!(self.pin, rising, falling, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
                         (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
                         (13, 4), (14, 4), (15, 4)]
                 );
             } else {
-                set_exti!(self.pin, rise_trigger, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
+                set_exti!(self.pin, rising, falling, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
                     (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
                     (13, 4), (14, 4), (15, 4)]
                 );
@@ -968,9 +979,8 @@ impl Pin {
         self.set_state(PinState::Low);
     }
 }
-//
+
 #[cfg(feature = "embedded-hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl InputPin for Pin {
     type Error = Infallible;
 
@@ -984,7 +994,6 @@ impl InputPin for Pin {
 }
 
 #[cfg(feature = "embedded-hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl OutputPin for Pin {
     type Error = Infallible;
 
@@ -1000,7 +1009,6 @@ impl OutputPin for Pin {
 }
 
 #[cfg(feature = "embedded-hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
 impl ToggleableOutputPin for Pin {
     type Error = Infallible;
 
@@ -1045,7 +1053,7 @@ pub fn set_low(port: Port, pin: u8) {
 /// Set a pin state (ie set high or low output voltage level). See also `set_high()` and
 /// `set_low()`. Sets the `BSRR` register. Atomic.
 /// Does not require a `Pin` struct.
-fn set_state(port: Port, pin: u8, value: PinState) {
+pub fn set_state(port: Port, pin: u8, value: PinState) {
     let offset = match value {
         PinState::Low => 16,
         PinState::High => 0,

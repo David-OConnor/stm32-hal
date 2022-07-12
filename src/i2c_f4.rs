@@ -15,7 +15,7 @@ use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 use crate::{
     clocks::Clocks,
     pac::{self, i2c1, RCC},
-    rcc_en_reset,
+    util::rcc_en_reset,
 };
 
 use paste::paste;

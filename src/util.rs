@@ -8,7 +8,6 @@ use crate::{
     pac::{self, rcc::RegisterBlock},
 };
 
-
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::pac::DMA1;
 

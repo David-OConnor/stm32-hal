@@ -19,7 +19,7 @@ use cortex_m_rt::entry;
 use stm32_hal2::{
     adc::{Adc, AdcChannel, Align, CkMode, InputType, OperationMode},
     clocks::Clocks,
-    gpio::{Edge, OutputSpeed, Pin, PinMode, PinState, Port},
+    gpio::{self, Edge, OutputSpeed, Pin, PinMode, PinState, Port},
     low_power, pac,
     prelude::*,
 };
@@ -155,7 +155,7 @@ fn main() -> ! {
 fn EXTI3() {
     free(|cs| {
         // Clear the interrupt flag, to prevent continous firing.
-        unsafe { (*EXTI::ptr()).pr1.modify(|_, w| w.pr3().bit(true)) }
+        gpio::clear_exti_interrupt(3);
 
         // A helper macro to access the pin and timer we stored in mutexes.
         access_global!(DEBOUNCE_TIMER, debounce_timer, cs);
@@ -177,7 +177,7 @@ fn EXTI3() {
 fn EXTI4() {
     free(|cs| {
         // Clear the interrupt flag, to prevent continous firing.
-        unsafe { (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr4().set_bit()) }
+        gpio::clear_exti_interrupt(4);
 
         access_global!(DEBOUNCE_TIMER, debounce_timer, cs);
         if debounce_timer.is_enabled() {
