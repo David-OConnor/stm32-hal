@@ -814,10 +814,11 @@ macro_rules! cc_4_channels {
                     TimChannel::C4 => {
                         self.regs.ccmr2_input().modify(|_, w| unsafe { w.cc4s().bits(mode as u8) });
 
-                        #[cfg(not(feature = "l4"))] // todo: PAC ommission, or not present?
                         self.regs.ccer.modify(|_, w| {
-                            w.cc4p().bit(ccp.bit());
-                            w.cc4np().bit(ccnp.bit())
+                            #[cfg(not(any(feature = "f4", feature = "l4")))]
+                            w.cc4np().bit(ccnp.bit());
+                            w.cc4p().bit(ccp.bit())
+
                             // cc1e().set_bit(); // todo: Missing? PAC error or not a feature?
                             // cc2e().set_bit()
                         });
@@ -917,7 +918,7 @@ macro_rules! cc_4_channels {
                             // TimChannel::C3 => self.regs.ccr3.write(|w| w.ccr3().bits(duty.try_into().unwrap())),
                             // TimChannel::C4 => self.regs.ccr4.write(|w| w.ccr4().bits(duty.try_into().unwrap())),
                         // };
-                    } else if #[cfg(any(feature = "wb", feature = "wl"))] {
+                    } else if #[cfg(any(feature = "l5", feature = "wb", feature = "wl"))] {
                         unsafe {
                             match channel {
                                 TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr1().bits(duty.try_into().unwrap())),
@@ -977,9 +978,9 @@ macro_rules! cc_4_channels {
                     TimChannel::C1 => self.regs.ccer.modify(|_, w| w.cc1np().bit(polarity.bit())),
                     TimChannel::C2 => self.regs.ccer.modify(|_, w| w.cc2np().bit(polarity.bit())),
                     TimChannel::C3 => self.regs.ccer.modify(|_, w| w.cc3np().bit(polarity.bit())),
-                    #[cfg(not(any(feature = "wl", feature = "l4")))] // PAC ommission
+                    #[cfg(not(any(feature = "f4", feature = "wl", feature = "l4")))]
                     TimChannel::C4 => self.regs.ccer.modify(|_, w| w.cc4np().bit(polarity.bit())),
-                    #[cfg(any(feature = "wl", feature = "l4"))] // PAC ommission
+                    #[cfg(any(feature = "f4", feature = "wl", feature = "l4"))] // PAC ommission
                     _ => panic!(),
                 }
             }
@@ -1633,23 +1634,12 @@ cfg_if! {
 
 #[cfg(not(any(feature = "f373")))]
 make_timer!(TIM1, tim1, 2, u16);
-// PAC error, I think.
-#[cfg(not(any(
-    feature = "f373",
-    feature = "f4",
-    feature = "l5",
-    feature = "g0",
-    feature = "g4",
-    feature = "h7"
-)))]
+
+#[cfg(not(any(feature = "f373", feature = "g0", feature = "g4")))]
 cc_4_channels!(TIM1, u16);
-#[cfg(any(
-    feature = "f4",
-    feature = "l5",
-    feature = "g0",
-    feature = "g4",
-    feature = "h7"
-))] // PAC bug.
+// todo: PAC error?
+// TIM1 on G4 is nominally 16-bits, but has ~20 bits on ARR, with PAC showing 32 bits?
+#[cfg(any(feature = "g0", feature = "g4"))]
 cc_2_channels!(TIM1, u16);
 
 cfg_if! {
