@@ -1057,11 +1057,11 @@ macro_rules! cc_4_channels {
                 // bit in the TIMx_EGR register."
                 self.reinitialize();
             }
-
         }
     }
 }
 
+#[cfg(any(feature = "g0", feature = "g4"))]
 macro_rules! cc_2_channels {
     ($TIMX:ident, $res:ident) => {
         impl Timer<pac::$TIMX> {

@@ -168,7 +168,7 @@ impl BaudPeriph for pac::USART3 {
 }
 
 cfg_if! {
-    if #[cfg(feature = "h7")] {
+    if #[cfg(any(feature = "l4x6", feature = "h7"))] {
         impl BaudPeriph for pac::UART4 {
             fn baud(clock_cfg: &Clocks) -> u32 {
                 clock_cfg.apb1()
@@ -181,18 +181,21 @@ cfg_if! {
             }
         }
 
+        #[cfg(feature = "h7")]
         impl BaudPeriph for pac::USART6 {
             fn baud(clock_cfg: &Clocks) -> u32 {
                 clock_cfg.apb2()
             }
         }
 
+        #[cfg(feature = "h7")]
         impl BaudPeriph for pac::UART7 {
             fn baud(clock_cfg: &Clocks) -> u32 {
                 clock_cfg.apb1()
             }
         }
 
+        #[cfg(feature = "h7")]
         impl BaudPeriph for pac::UART8 {
             fn baud(clock_cfg: &Clocks) -> u32 {
                 clock_cfg.apb1()
@@ -747,10 +750,30 @@ impl RccPeriph for pac::USART3 {
 }
 
 cfg_if! {
-    if #[cfg(feature = "h7")] {
+    if #[cfg(any(feature = "l4x6", feature = "h7"))] {
         impl RccPeriph for pac::UART4 {
             fn en_reset(rcc: &RegisterBlock) {
                 rcc_en_reset!(apb1, uart4, rcc);
+            }
+
+             #[cfg(feature = "l4")]
+            fn read_chan() -> DmaChannel {
+                DmaInput::Uart4Rx.dma1_channel()
+            }
+
+            #[cfg(feature = "l4")]
+            fn write_chan() -> DmaChannel {
+                DmaInput::Uart4Tx.dma1_channel()
+            }
+
+            #[cfg(feature = "l4")]
+            fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+                dma.channel_select(DmaInput::Uart4Rx);
+            }
+
+            #[cfg(feature = "l4")]
+            fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+                dma.channel_select(DmaInput::Uart4Tx);
             }
         }
 
@@ -758,20 +781,43 @@ cfg_if! {
             fn en_reset(rcc: &RegisterBlock) {
                 rcc_en_reset!(apb1, uart5, rcc);
             }
+
+            #[cfg(feature = "l4")]
+            fn read_chan() -> DmaChannel {
+                DmaInput::Uart5Rx.dma1_channel()
+            }
+
+            #[cfg(feature = "l4")]
+            fn write_chan() -> DmaChannel {
+                DmaInput::Uart5Tx.dma1_channel()
+            }
+
+            #[cfg(feature = "l4")]
+            fn read_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+                dma.channel_select(DmaInput::Uart5Rx);
+            }
+
+            #[cfg(feature = "l4")]
+            fn write_sel<D: Deref<Target = dma_p::RegisterBlock>>(dma: &mut Dma<D>) {
+                dma.channel_select(DmaInput::Uart5Tx);
+            }
         }
 
+        #[cfg(feature = "h7")]
         impl RccPeriph for pac::USART6 {
             fn en_reset(rcc: &RegisterBlock) {
                 rcc_en_reset!(apb2, usart6, rcc);
             }
         }
 
+        #[cfg(feature = "h7")]
         impl RccPeriph for pac::UART7 {
             fn en_reset(rcc: &RegisterBlock) {
                 rcc_en_reset!(apb1, uart7, rcc);
             }
         }
 
+        #[cfg(feature = "h7")]
         impl RccPeriph for pac::UART8 {
             fn en_reset(rcc: &RegisterBlock) {
                 rcc_en_reset!(apb1, uart8, rcc);
@@ -794,8 +840,6 @@ cfg_if! {
 
     }
 }
-
-// todo: USART 4 and 5.
 
 #[cfg(not(any(
     feature = "f401",
