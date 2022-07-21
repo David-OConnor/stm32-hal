@@ -1,10 +1,18 @@
 //! Quad Serial Peripheral Interface (SPI) bus: A specialized interface used for
-//! high-speed communications with external flash memory.
+//! high-speed communications with external flash memory. Also supports OctoSPI
+//! on variants that support it.
 
-use crate::{
-    clocks::Clocks,
-    pac::{QUADSPI, RCC},
-};
+use crate::{clocks::Clocks, pac::RCC};
+
+use cfg_if::cfg_if;
+
+cfg_if! {
+    if #[cfg(any(feature = "l5", feature = "h735", feature = "h7b3"))] {
+        use crate::pac::OCTOSPI1 as QUADSPI;
+    } else {
+        use crate::pac::QUADSPI;
+    }
+}
 
 use core::ptr;
 
@@ -125,6 +133,7 @@ pub struct Qspi {
     pub cfg: QspiConfig,
 }
 
+// todo: Use the deref pattern for OCTOSPI2 support.
 impl Qspi {
     pub fn new(regs: QUADSPI, cfg: QspiConfig, clocks: &Clocks) -> Self {
         assert!(
@@ -145,9 +154,20 @@ impl Qspi {
             //         rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
             //     }
             // }
-            rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
-            rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
-            rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
+
+            // todo: You need to get rcc en reset working for this to make it work on octospi2.
+
+            cfg_if! {
+                if #[cfg(any(feature = "l5", feature = "h735", feature = "h7b3"))] {
+                    rcc.ahb3enr.modify(|_, w| w.octospi1en().set_bit());
+                    rcc.ahb3rstr.modify(|_, w| w.octospi1rst().set_bit());
+                    rcc.ahb3rstr.modify(|_, w| w.octospi1rst().clear_bit());
+                } else {
+                    rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
+                    rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+                    rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
+                }
+            }
         });
 
         // Disable QUADSPI before configuring it.
@@ -161,9 +181,13 @@ impl Qspi {
             w.admode().bits(cfg.protocol_mode as u8);
             w.imode().bits(cfg.protocol_mode as u8);
             w.dmode().bits(cfg.protocol_mode as u8);
+            #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+            // todo: Equiv for octo?
             w.ddrm().bit(cfg.data_mode as u8 != 0);
-            w.adsize().bits(cfg.address_size as u8);
-            w.dcyc().bits(cfg.dummy_cycles)
+            #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+            // todo: Equiv for octo?
+            w.dcyc().bits(cfg.dummy_cycles);
+            w.adsize().bits(cfg.address_size as u8)
         });
 
         // RM: The FSIZE[4:0] field defines the size of external memory using the following formula:
@@ -179,6 +203,8 @@ impl Qspi {
             }
         }
 
+        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+        // todo: Equiv for octo?
         regs.dcr.modify(|_, w| unsafe { w.fsize().bits(fsize) }); // todo
                                                                   // regs.dcr.modify(|_, w| unsafe { w.fsize().bits(24) });
 
@@ -207,6 +233,8 @@ impl Qspi {
             DataMode::Ddr => SamplingEdge::Rising,
         };
 
+        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+        // todo: Equiv for octo?
         regs.cr.write(|w| unsafe {
             w.prescaler().bits(prescaler as u8);
             w.sshift().bit(sampling_edge as u8 != 0);
@@ -281,6 +309,8 @@ impl Qspi {
         // and DMAEN = 1, then QUADSPI_AR should be specified before QUADSPI_CR,
         // because otherwise QUADSPI_DR might be written by the DMA before QUADSPI_AR
         // is updated (if the DMA controller has already been enabled)
+        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+        // todo: Equiv for octo?
         self.regs
             .ccr
             .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::IndirectWrite as u8) });
@@ -343,6 +373,8 @@ impl Qspi {
         self.regs
             .dlr
             .write(|w| unsafe { w.dl().bits(buf.len() as u32 - 1) });
+        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+        // todo: Equiv for octo?
         self.regs
             .ccr
             .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::IndirectRead as u8) });
@@ -374,6 +406,8 @@ impl Qspi {
         // todo: unsafe fn? word size?
         while self.is_busy() {}
 
+        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+        // todo: Equiv for octo?
         if self.regs.ccr.read().fmode().bits() != FunctionalMode::MemoryMapped as u8 {
             self.regs
                 .ccr

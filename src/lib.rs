@@ -456,15 +456,12 @@ pub mod power;
 feature = "f3",
 feature = "f4",
 feature = "l4x3", // todo: PAC bug?
-feature = "l5",
 feature = "g0",
 feature = "g431",
 feature = "g441",
 feature = "g471",
 feature = "g491",
 feature = "g4a1",
-feature = "h735",
-feature = "h7b3",
 feature = "wl",
 
 )))]
