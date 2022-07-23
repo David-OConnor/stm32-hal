@@ -546,52 +546,36 @@ impl Flash {
         Ok(())
     }
 
-    /// Write the contents of a page. Must be erased first. See H742 RM, section 4.3.9
-    /// Make sure the page is one your MCU has, and isn't being used for the program itself.
-    /// /// Make sure the sector is one your MCU has, and isn't being used for the program itself.
+    /// Write the contents of a page. Must be erased first. See H742 or H723-35 RM, section 4.3.9.
+    /// Make sure the sector is one your MCU has, and isn't being used for the program itself.
     #[cfg(feature = "h7")]
     pub fn write_sector(&mut self, bank: Bank, page: usize, data: &[u8]) -> Result<(), Error> {
-        // todo: Consider a u8-based approach.
-        // todo: DRY from `erase_page`.
-
-        // The recommended single write sequence in bank 1/2 is the following:
-
         // 1. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration
         // protection (only if register is not already unlocked).
         self.unlock()?;
 
-        let regs = &self.regs.bank1(); // todo: Bank 2!
+        let regs = &self.regs.bank1(); // todo: Bank 2 support!
 
         // 2. Enable write operations by setting the PG1/2 bit in the FLASH_CR1/2 register.
         regs.cr.modify(|_, w| w.pg().set_bit());
 
         // 3. Check the protection of the targeted memory area. (todo?)
 
-        // 4. Perform the data write operation at the desired memory address, inside main memory
-        // block or OTP area. Only double word can be programmed.
-
+        // 4. Write one Flash-word corresponding to 32-byte data starting at a 32-byte aligned
+        // address.
         let mut address = sector_to_address(bank, page) as *mut u32;
 
-        // todo: Support other data write sizes if supported?
-
-        // 4. Write one Flash-word corresponding to 32-byte data starting at a 32-byte aligned
-        // address.'
-        // todo: Consider larger write ops, up to 256 bits. Could at least reduce the number of
-        // todo write ops used. For now, starting with 32 bits at a time.
-        for chunk in data.chunks_exact(8) {
-            let word1 = u32::from_le_bytes(chunk[0..4].try_into().unwrap());
-            // let word2 = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
-
-            unsafe {
-                // Write a first word in an address aligned with double wor
-                core::ptr::write_volatile(address, word1);
-                address = address.add(1);
-                // Write the second word
-                // core::ptr::write_volatile(address, word2);
-                // address = address.add(1);
+        for chunk in data.chunks_exact(32) {
+            // We use 8 pointer-sized (32-bit) words to meet our full 32-byte (256-bit) write.
+            for i in 0..8 {
+                let word = u32::from_le_bytes(chunk[i * 4..i * 4 + 4].try_into().unwrap());
+                unsafe {
+                    core::ptr::write_volatile(address, word);
+                    address = address.add(1);
+                }
             }
 
-            // 5. Check that QW1 (respectively QW2) has been raised and wait until it is reset to 0.
+            // 5. Check that QW has been raised and wait until it is reset to 0.
             while regs.sr.read().qw().bit_is_set() {}
         }
         self.lock();
