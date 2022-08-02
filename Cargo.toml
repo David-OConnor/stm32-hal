@@ -105,6 +105,7 @@ l412 = ["stm32l4/stm32l412", "l4"]
 l4x3 = ["stm32l4/stm32l4x3", "l4"]
 l4x5 = ["stm32l4/stm32l4x5", "l4"]
 l4x6 = ["stm32l4/stm32l4x6", "l4"]
+l496 = ["l4x6", "pllpdiv"]
 # todo: Handle l4+ (P, R, S, Q)
 
 # [L5](https://docs.rs/crate/stm32l5/latest/source/Cargo.toml)
