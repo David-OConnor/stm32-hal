@@ -1363,12 +1363,12 @@ impl Clocks {
 
         match self.sai1_src {
             SaiSrc::PllSai1P => {
-                input_freq / self.pll.divm.value() as u32 * self.pll.divn as u32
-                    / self.pll.divp.value() as u32
-            }
-            SaiSrc::Pllp => {
                 input_freq / self.pll.divm.value() as u32 * self.pllsai1.divn as u32
                     / self.pllsai1.divp.value() as u32
+            }
+            SaiSrc::Pllp => {
+                input_freq / self.pll.divm.value() as u32 * self.pll.divn as u32
+                    / self.pll.divp.value() as u32
             }
             SaiSrc::Hsi => 16_000_000,
             SaiSrc::ExtClk => unimplemented!(),
@@ -1406,6 +1406,14 @@ impl Clocks {
             || self.pllsai1.divn > 86
         {
             return Err(SpeedError::new("A PLL divider is out of limits"));
+        }
+
+        #[cfg(any(feature = "l4x6"))]
+        if matches!(self.pll.divp, Pllp::Extended(1))
+            || matches!(self.pllsai1.divp, Pllp::Extended(1))
+            || matches!(self.pllsai2.divp, Pllp::Extended(1))
+        {
+            return Err(SpeedError::new("A Pllp divider is invalid"));
         }
 
         #[cfg(feature = "g0")]
