@@ -10,7 +10,7 @@ use crate::{
     util::rcc_en_reset,
 };
 
-#[cfg(any(feature = "l4", feature = "l5", enfeature = "wb", feature = "g4", feature = "wb"))]
+#[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]
 use crate::pac::CRS;
 
 use cfg_if::cfg_if;
