@@ -450,8 +450,8 @@ pub mod low_power;
 #[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
 pub mod power;
 
-// F3, F4, G0, and WL don't have Quad SPI.
-// todo: L5, and newer H variants like H735 use Octospi instead. support that.
+// F3, F4, G0, and WL don't have Quad SPI. L5 and newer H variants (eg H735) use OctoSPI,
+// also supported by this module.
 #[cfg(not(any(
 feature = "f3",
 feature = "f4",
@@ -463,7 +463,7 @@ feature = "g471",
 feature = "g491",
 feature = "g4a1",
 feature = "wl",
-
+feature = "l5", // todo: PAC errors on some regs.
 )))]
 pub mod qspi;
 

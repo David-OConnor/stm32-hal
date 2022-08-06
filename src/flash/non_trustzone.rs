@@ -546,10 +546,11 @@ impl Flash {
         Ok(())
     }
 
-    /// Write the contents of a page. Must be erased first. See H742 or H723-35 RM, section 4.3.9.
-    /// Make sure the sector is one your MCU has, and isn't being used for the program itself.
+    /// Write the contents of a sector. Must be erased first. See H742 or H723-35 RM, section 4.3.9.
+    /// Make sure the sector is one your MCU has, and isn't being used for the program itself. Writes
+    /// a byte array, 256 bits at a time.
     #[cfg(feature = "h7")]
-    pub fn write_sector(&mut self, bank: Bank, page: usize, data: &[u8]) -> Result<(), Error> {
+    pub fn write_sector(&mut self, bank: Bank, sector: usize, data: &[u8]) -> Result<(), Error> {
         // 1. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration
         // protection (only if register is not already unlocked).
         self.unlock()?;
@@ -563,8 +564,10 @@ impl Flash {
 
         // 4. Write one Flash-word corresponding to 32-byte data starting at a 32-byte aligned
         // address.
-        let mut address = sector_to_address(bank, page) as *mut u32;
+        let mut address = sector_to_address(bank, sector) as *mut u32;
 
+        // Note that the key element separating each 256-bit writes is wating until the `qw` bit
+        // is cleared.
         for chunk in data.chunks_exact(32) {
             // We use 8 pointer-sized (32-bit) words to meet our full 32-byte (256-bit) write.
             for i in 0..8 {
@@ -578,6 +581,7 @@ impl Flash {
             // 5. Check that QW has been raised and wait until it is reset to 0.
             while regs.sr.read().qw().bit_is_set() {}
         }
+
         self.lock();
 
         Ok(())

@@ -158,10 +158,14 @@ impl Qspi {
             // todo: You need to get rcc en reset working for this to make it work on octospi2.
 
             cfg_if! {
-                if #[cfg(any(feature = "l5", feature = "h735", feature = "h7b3"))] {
+                if #[cfg(any(feature = "h735", feature = "h7b3"))] {
                     rcc.ahb3enr.modify(|_, w| w.octospi1en().set_bit());
                     rcc.ahb3rstr.modify(|_, w| w.octospi1rst().set_bit());
                     rcc.ahb3rstr.modify(|_, w| w.octospi1rst().clear_bit());
+                } else if #[cfg(feature = "l5")] {
+                    rcc.ahb3enr.modify(|_, w| w.ospi1en().set_bit());
+                    rcc.ahb3rstr.modify(|_, w| w.ospi1rst().set_bit());
+                    rcc.ahb3rstr.modify(|_, w| w.ospi1rst().clear_bit());
                 } else {
                     rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
                     rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());

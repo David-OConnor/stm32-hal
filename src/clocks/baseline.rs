@@ -10,7 +10,7 @@ use crate::{
     util::rcc_en_reset,
 };
 
-#[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]
+#[cfg(any(feature = "l4", feature = "l5", enfeature = "wb", feature = "g4", feature = "wb"))]
 use crate::pac::CRS;
 
 use cfg_if::cfg_if;
@@ -239,7 +239,10 @@ pub struct PllCfg {
     pub divn: u8,
     pub divr: Pllr,
     pub divq: Pllr,
-    pub divp: Pllr,
+    pub divp: Pllp,
+    /// Defaults to 0, which causes the PLLP setting to take effect (of 7 or 17), instead of this
+    /// field.
+    pub pdiv: u8,
 }
 
 impl Default for PllCfg {
@@ -268,7 +271,8 @@ impl Default for PllCfg {
             #[cfg(feature = "wb")]
             divr: Pllr::Div4,
             divq: Pllr::Div4,
-            divp: Pllr::Div4,
+            divp: Pllp::Div7,
+            pdiv: 0,
         }
     }
 }
@@ -360,7 +364,8 @@ impl Pllm {
 #[cfg(any(feature = "g0", feature = "wb"))]
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// Main PLL division factor for PLLCLK (system clock). Also usd for PllQ and P
+/// Main PLL division factor for PLLCLK (system clock). Also usd for PllQ.
+/// Sets `PLLCFGR` reg.
 pub enum Pllr {
     Div2 = 0b000,
     Div3 = 0b001,
@@ -405,6 +410,23 @@ impl Pllr {
             Self::Div4 => 4,
             Self::Div6 => 6,
             Self::Div8 => 8,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// Divisor for PLLP. Sets `PLLCFGR` reg, `PLLP` field.
+pub enum Pllp {
+    Div7 = 0,
+    Div17 = 1,
+}
+
+impl Pllp {
+    pub fn value(&self) -> u8 {
+        match self {
+            Self::Div7 => 7,
+            Self::Div17=> 17,
         }
     }
 }
@@ -850,7 +872,9 @@ impl Clocks {
                         w.plln().bits(self.pll.divn);
                         w.pllm().bits(self.pll.divm as u8);
                         w.pllr().bits(self.pll.divr as u8);
-                        w.pllq().bits(self.pll.divq as u8)
+                        w.pllq().bits(self.pll.divq as u8);
+                        w.pllp().bit(self.pll.divp as u8 != 0);
+                        w.pllpdiv().bits(self.pll.pdiv)
                     });
                 } else {
                     rcc.pllcfgr.modify(|_, w| unsafe {
@@ -861,7 +885,15 @@ impl Clocks {
                         w.plln().bits(self.pll.divn);
                         w.pllm().bits(self.pll.divm as u8);
                         w.pllr().bits(self.pll.divr as u8);
+                        #[cfg(not(feature = "wb"))]
+                        w.pllpdiv().bits(self.pll.pdiv);
+                        #[cfg(not(feature = "wb"))]
+                        w.pllp().bit(self.pll.divp as u8 != 0);
+                        #[cfg(feature = "wb")]
+                        w.pllp().bits(self.pll.divp as u8);
                         w.pllq().bits(self.pll.divq as u8)
+
+
                     });
                 }
             }
@@ -870,14 +902,14 @@ impl Clocks {
                 if #[cfg(feature = "g0")] {
                     // Set Pen, Qen, and Ren after we enable the PLL.
                     rcc.pllsyscfgr.modify(|_, w| {
-                        // w.pllpen().set_bit();
-                        // w.pllqen().set_bit();
+                        w.pllpen().set_bit();
+                        w.pllqen().set_bit();
                         w.pllren().set_bit()
                     });
                 } else {
                     rcc.pllcfgr.modify(|_, w| {
-                        // w.pllpen().set_bit();
-                        // w.pllqen().set_bit();
+                        w.pllpen().set_bit();
+                        w.pllqen().set_bit();
                         w.pllren().set_bit()
                     });
                 }
@@ -891,9 +923,10 @@ impl Clocks {
                         w.pllsai1qen().bit(self.pllsai1.pllq_en);
                         w.pllsai1pen().bit(self.pllsai1.pllp_en);
                         w.pllsai1n().bits(self.pllsai1.divn);
-                        // w.pllsai1pdiv().bits(self.pllsai1.divp as u8)
+                        w.pllsai1pdiv().bits(self.pllsai1.pdiv);
                         w.pllsai1r().bits(self.pllsai1.divr as u8);
-                        w.pllsai1q().bits(self.pllsai1.divq as u8)
+                        w.pllsai1q().bits(self.pllsai1.divq as u8);
+                        w.pllsai1p().bit(self.pllsai1.divp as u8 != 0)
                     });
 
                     #[cfg(any(feature = "l4x5", feature = "l4x6"))]
@@ -902,9 +935,10 @@ impl Clocks {
                         // w.pllsai2qen().bit(self.pllsai1.pllq_en);
                         w.pllsai2pen().bit(self.pllsai1.pllp_en);
                         w.pllsai2n().bits(self.pllsai1.divn);
-                        // w.pllsai1pdiv().bits(self.pllsai1.divp as u8)
-                        w.pllsai2r().bits(self.pllsai1.divr as u8)
-                        // w.pllsai2q().bits(self.pllsai1.divq as u8)
+                        // w.pllsai1pdiv().bits(self.pllsai1.pdiv);
+                        w.pllsai2r().bits(self.pllsai1.divr as u8);
+                        // w.pllsai2q().bits(self.pllsai1.divq as u8);
+                        w.pllsai2p().bit(self.pllsai1.divp as u8 != 0)
                     });
 
                 } else if #[cfg(feature = "wb")] {
@@ -914,7 +948,8 @@ impl Clocks {
                         w.pllpen().bit(self.pllsai1.pllp_en);
                         w.plln().bits(self.pllsai1.divn);
                         w.pllr().bits(self.pllsai1.divr as u8);
-                        w.pllq().bits(self.pllsai1.divq as u8)
+                        w.pllq().bits(self.pllsai1.divq as u8);
+                        w.pllp().bits(self.pllsai1.divp as u8)
                     });
                 }
             }
