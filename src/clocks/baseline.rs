@@ -241,7 +241,7 @@ pub struct PllCfg {
     pub divq: Pllr,
     pub divp: Pllp,
     /// Defaults to 0, which causes the PLLP setting to take effect (of 7 or 17), instead of this
-    /// field.
+    /// field.  Unused on "wb", "wl", "l4x5", and "l4x3" variants.
     pub pdiv: u8,
 }
 
@@ -285,6 +285,13 @@ impl PllCfg {
             pllr_en: false,
             pllq_en: false,
             ..Default::default()
+        }
+    }
+
+    pub fn pvalue(&self) -> u8 {
+        match self.pdiv {
+            0 => self.divp.value(),
+            pdiv => pdiv,
         }
     }
 }
@@ -885,11 +892,11 @@ impl Clocks {
                         w.plln().bits(self.pll.divn);
                         w.pllm().bits(self.pll.divm as u8);
                         w.pllr().bits(self.pll.divr as u8);
-                        #[cfg(not(feature = "wb"))]
+                        #[cfg(not(any(feature = "wb", feature = "wl", feature = "l4x5", feature = "l4x3")))]
                         w.pllpdiv().bits(self.pll.pdiv);
-                        #[cfg(not(feature = "wb"))]
+                        #[cfg(not(any(feature = "wb", feature = "wl")))]
                         w.pllp().bit(self.pll.divp as u8 != 0);
-                        #[cfg(feature = "wb")]
+                        #[cfg(any(feature = "wb", feature = "wl"))]
                         w.pllp().bits(self.pll.divp as u8);
                         w.pllq().bits(self.pll.divq as u8)
 
@@ -923,6 +930,7 @@ impl Clocks {
                         w.pllsai1qen().bit(self.pllsai1.pllq_en);
                         w.pllsai1pen().bit(self.pllsai1.pllp_en);
                         w.pllsai1n().bits(self.pllsai1.divn);
+                        #[cfg(not(any(feature = "l4x5", feature = "l4x3")))]
                         w.pllsai1pdiv().bits(self.pllsai1.pdiv);
                         w.pllsai1r().bits(self.pllsai1.divr as u8);
                         w.pllsai1q().bits(self.pllsai1.divq as u8);
@@ -935,7 +943,8 @@ impl Clocks {
                         // w.pllsai2qen().bit(self.pllsai1.pllq_en);
                         w.pllsai2pen().bit(self.pllsai1.pllp_en);
                         w.pllsai2n().bits(self.pllsai1.divn);
-                        // w.pllsai1pdiv().bits(self.pllsai1.pdiv);
+                        #[cfg(not(feature = "l4x5"))]
+                        w.pllsai2pdiv().bits(self.pllsai1.pdiv);
                         w.pllsai2r().bits(self.pllsai1.divr as u8);
                         // w.pllsai2q().bits(self.pllsai1.divq as u8);
                         w.pllsai2p().bit(self.pllsai1.divp as u8 != 0)
@@ -1364,11 +1373,11 @@ impl Clocks {
         match self.sai1_src {
             SaiSrc::PllSai1P => {
                 input_freq / self.pll.divm.value() as u32 * self.pllsai1.divn as u32
-                    / self.pllsai1.divp.value() as u32
+                    / self.pllsai1.pvalue() as u32
             }
             SaiSrc::Pllp => {
                 input_freq / self.pll.divm.value() as u32 * self.pll.divn as u32
-                    / self.pll.divp.value() as u32
+                    / self.pll.pvalue() as u32
             }
             SaiSrc::Hsi => 16_000_000,
             SaiSrc::ExtClk => unimplemented!(),
@@ -1408,11 +1417,17 @@ impl Clocks {
             return Err(SpeedError::new("A PLL divider is out of limits"));
         }
 
-        #[cfg(any(feature = "l4x6"))]
-        if matches!(self.pll.divp, Pllp::Extended(1))
-            || matches!(self.pllsai1.divp, Pllp::Extended(1))
-            || matches!(self.pllsai2.divp, Pllp::Extended(1))
-        {
+        if self.pll.pdiv == 1 {
+            return Err(SpeedError::new("A Pllp divider is invalid"));
+        }
+
+        #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
+        if self.pllsai1.pdiv == 1 {
+            return Err(SpeedError::new("A Pllp divider is invalid"));
+        }
+
+        #[cfg(any(feature = "l4x5", feature = "l4x6"))]
+        if self.pllsai2.pdiv == 1 {
             return Err(SpeedError::new("A Pllp divider is invalid"));
         }
 
