@@ -880,8 +880,7 @@ impl Clocks {
                         w.pllm().bits(self.pll.divm as u8);
                         w.pllr().bits(self.pll.divr as u8);
                         w.pllq().bits(self.pll.divq as u8);
-                        w.pllp().bit(self.pll.divp as u8 != 0);
-                        w.pllpdiv().bits(self.pll.pdiv)
+                        w.pllp().bits(self.pll.divp as u8)
                     });
                 } else {
                     rcc.pllcfgr.modify(|_, w| unsafe {
