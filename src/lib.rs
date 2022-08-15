@@ -408,13 +408,12 @@ pub mod dac;
     feature = "l4x2",
     feature = "l412",
     feature = "l4x3",
-    // feature = "l4x6",
+    feature = "l4x6",
     feature = "g0",
     feature = "g4",
     feature = "wb",
     feature = "wl",
 // todo: DFSDM support for other platforms that don't support clustering
-    // feature = "l5", // todo: L5 just doesn't have the same PAC layout; doesn't use clusters.
 )))]
 pub mod dfsdm;
 

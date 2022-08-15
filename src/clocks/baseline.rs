@@ -433,7 +433,7 @@ impl Pllp {
     pub fn value(&self) -> u8 {
         match self {
             Self::Div7 => 7,
-            Self::Div17=> 17,
+            Self::Div17 => 17,
         }
     }
 }
