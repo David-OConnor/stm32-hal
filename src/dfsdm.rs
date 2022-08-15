@@ -11,7 +11,7 @@ use crate::{clocks::Clocks, pac::RCC, util::rcc_en_reset};
 use cfg_if::cfg_if;
 
 cfg_if! {
-    if #[cfg(any(feature = "l5", feature = "h7b3"))] {
+    if #[cfg(any(feature = "l4x6", feature = "l5", feature = "h7b3"))] {
         use crate::pac::dfsdm1 as dfsdm_p;
     } else {
         use crate::pac::dfsdm as dfsdm_p;
@@ -242,7 +242,15 @@ where
         // CKOUTDIV also defines the threshold for a clock absence detection.
         assert!(divider >= 2); // (1 is invalid. 2 would disable the output clock.)
 
-        regs.ch0.cfgr1.modify(|_, w| unsafe {
+        cfg_if! {
+            if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                let cfgr1 = &regs.ch0cfgr1;
+            } else {
+                let cfgr1 = &regs.ch0.cfgr1;
+            }
+        }
+
+       cfgr1.modify(|_, w| unsafe {
             w.ckoutsrc().bit(config.clock_src as u8 != 0);
             w.ckoutdiv().bits(divider as u8 - 1)
         });
@@ -279,14 +287,28 @@ where
     /// enable bit CHEN in CHyCFGR1 and FLTx enable bit DFEN in
     /// FLTxCR1).
     pub fn enable(&mut self) {
-        self.regs.ch0.cfgr1.modify(|_, w| w.dfsdmen().set_bit());
+        cfg_if! {
+            if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                let cfgr1 = &self.regs.ch0cfgr1;
+            } else {
+                let cfgr1 = &self.regs.ch0.cfgr1;
+            }
+        }
+        cfgr1.modify(|_, w| w.dfsdmen().set_bit());
     }
 
     /// Disables the DFSDM peripheral.
     /// DFSDM must be globally disabled (by DFSDMEN=0 in CH0CFGR1) before
     /// stopping the system clock to enter in the STOP mode of the device
     pub fn disable(&mut self) {
-        self.regs.ch0.cfgr1.modify(|_, w| w.dfsdmen().clear_bit());
+        cfg_if! {
+            if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                let cfgr1 = &self.regs.ch0cfgr1;
+            } else {
+                let cfgr1 = &self.regs.ch0.cfgr1;
+            }
+        }
+        cfgr1.modify(|_, w| w.dfsdmen().clear_bit());
     }
 
     /// Configures and enables the DFSDM filter for a given channel, and enables
@@ -618,12 +640,46 @@ where
         // Injected conversions can be launched using the following methods:
         // • Software: writing ‘1’ to JSWSTART in the FLTxCR1 register.
         match filter {
-            Filter::F0 => self.regs.flt0.cr1.modify(|_, w| w.jswstart().set_bit()),
-            Filter::F1 => self.regs.flt1.cr1.modify(|_, w| w.jswstart().set_bit()),
-            #[cfg(not(any(feature = "l4")))]
-            Filter::F2 => self.regs.flt2.cr1.modify(|_, w| w.jswstart().set_bit()),
-            #[cfg(not(any(feature = "l4")))]
-            Filter::F3 => self.regs.flt3.cr1.modify(|_, w| w.jswstart().set_bit()),
+            Filter::F0 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let cr1 = &self.regs.flt0cr1;
+                    } else {
+                        let cr1 = &self.regs.flt0.cr1;
+                    }
+                }
+                cr1.modify(|_, w| w.jswstart().set_bit())
+            },
+            Filter::F1 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let cr1 = &self.regs.flt1cr1;
+                    } else {
+                        let cr1 = &self.regs.flt1.cr1;
+                    }
+                }
+                cr1.modify(|_, w| w.jswstart().set_bit())
+            },
+            Filter::F2 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let cr1 = &self.regs.flt2cr1;
+                    } else {
+                        let cr1 = &self.regs.flt2.cr1;
+                    }
+                }
+                cr1.modify(|_, w| w.jswstart().set_bit())
+            },
+            Filter::F3 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let cr1 = &self.regs.flt3cr1;
+                    } else {
+                        let cr1 = &self.regs.flt3.cr1;
+                    }
+                }
+                cr1.modify(|_, w| w.jswstart().set_bit())
+            },
         }
 
         // • Trigger: JEXTSEL[4:0] selects the trigger signal while JEXTEN activates the trigger
@@ -669,12 +725,48 @@ where
             // advantage of the sign bit being in the same place in the data register as for 32-bit
             // integers in Rust. (Data is the left 24 most bits of the register. The shift discards
             // the other fields).
-            Filter::F0 => (self.regs.flt0.rdatar.read().bits() as i32) >> 8,
-            Filter::F1 => (self.regs.flt1.rdatar.read().bits() as i32) >> 8,
+            Filter::F0 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let rdatar = &self.regs.flt0rdatar;
+                    } else {
+                        let rdatar = &self.regs.flt0.rdatar;
+                    }
+                }
+                (rdatar.read().bits() as i32) >> 8
+            },
+            Filter::F1 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let rdatar = &self.regs.flt1rdatar;
+                    } else {
+                        let rdatar = &self.regs.flt1.rdatar;
+                    }
+                }
+                (rdatar.read().bits() as i32) >> 8
+            },
             #[cfg(not(any(feature = "l4")))]
-            Filter::F2 => (self.regs.flt2.rdatar.read().bits() as i32) >> 8,
+            Filter::F2 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let rdatar = &self.regs.flt2rdatar;
+                    } else {
+                        let rdatar = &self.regs.flt2.rdatar;
+                    }
+                }
+                (rdatar.read().bits() as i32) >> 8
+            },
             #[cfg(not(any(feature = "l4")))]
-            Filter::F3 => (self.regs.flt3.rdatar.read().bits() as i32) >> 8,
+            Filter::F3 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let rdatar = &self.regs.flt3rdatar;
+                    } else {
+                        let rdatar = &self.regs.flt3.rdatar;
+                    }
+                }
+                (rdatar.read().bits() as i32) >> 8
+            },
         }
     }
 
@@ -682,12 +774,48 @@ where
     /// Suitable for use after a conversion is complete.
     pub fn read_injected(&self, filter: Filter) -> i32 {
         match filter {
-            Filter::F0 => (self.regs.flt0.jdatar.read().bits() as i32) >> 8,
-            Filter::F1 => (self.regs.flt1.jdatar.read().bits() as i32) >> 8,
+            Filter::F0 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let cr1 = &self.regs.flt0jdatar;
+                    } else {
+                        let cr1 = &self.regs.flt0.jdatar;
+                    }
+                }
+                (jdatar.read().bits() as i32) >> 8
+            },
+            Filter::F1 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let jdatar = &self.regs.flt1jdatar;
+                    } else {
+                        let jdatar = &self.regs.flt1.jdatar;
+                    }
+                }
+                (jdatar.read().bits() as i32) >> 8
+            },
             #[cfg(not(any(feature = "l4")))]
-            Filter::F2 => (self.regs.flt2.jdatar.read().bits() as i32) >> 8,
+            Filter::F2 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let jdatar = &self.regs.flt2jdatar;
+                    } else {
+                        let jdatar = &self.regs.flt2.jdatar;
+                    }
+                }
+                (jdatar.read().bits() as i32) >> 8
+            },
             #[cfg(not(any(feature = "l4")))]
-            Filter::F3 => (self.regs.flt3.jdatar.read().bits() as i32) >> 8,
+            Filter::F3 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let jdatar = &self.regs.flt3jdatar;
+                    } else {
+                        let jdatar = &self.regs.flt3.jdatar;
+                    }
+                }
+                (jdatar.read().bits() as i32) >> 8
+            },
         }
         // todo: JDATACH to know which channel was converted??
         // todo isn't this implied to the register we choose to sue?
@@ -722,7 +850,7 @@ where
         // todo: DMA2 support.
 
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let dma_channel = match filter {
+            let dma_channel = match filter {
             Filter::F0 => DmaInput::Dfsdm1F0.dma1_channel(),
             Filter::F1 => DmaInput::Dfsdm1F1.dma1_channel(),
         };
@@ -734,21 +862,93 @@ where
         };
 
         match filter {
-            Filter::F0 => self.regs.flt0.cr1.modify(|_, w| w.rdmaen().set_bit()),
-            Filter::F1 => self.regs.flt1.cr1.modify(|_, w| w.rdmaen().set_bit()),
+            Filter::F0 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let cr1 = &self.regs.flt0cr1;
+                    } else {
+                        let cr1 = &self.regs.flt0.cr1;
+                    }
+                }
+                cr1.modify(|_, w| w.rdmaen().set_bit())
+            },
+            Filter::F1 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let cr1 = &self.regs.flt1cr1;
+                    } else {
+                        let cr1 = &self.regs.flt1.cr1;
+                    }
+                }
+                cr1.modify(|_, w| w.rdmaen().set_bit())
+            },
             #[cfg(not(any(feature = "l4")))]
-            Filter::F2 => self.regs.flt2.cr1.modify(|_, w| w.rdmaen().set_bit()),
+            Filter::F2 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let cr1 = &self.regs.flt2cr1;
+                    } else {
+                        let cr1 = &self.regs.flt2.cr1;
+                    }
+                }
+                cr1.modify(|_, w| w.rdmaen().set_bit())
+            },
             #[cfg(not(any(feature = "l4")))]
-            Filter::F3 => self.regs.flt3.cr1.modify(|_, w| w.rdmaen().set_bit()),
+            Filter::F3 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let cr1 = &self.regs.flt3cr1;
+                    } else {
+                        let cr1 = &self.regs.flt3.cr1;
+                    }
+                }
+                cr1.modify(|_, w| w.rdmaen().set_bit())
+            },
         }
 
         let periph_addr = match filter {
-            Filter::F0 => &self.regs.flt0.rdatar as *const _ as u32,
-            Filter::F1 => &self.regs.flt1.rdatar as *const _ as u32,
+            Filter::F0 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let rdatar = &self.regs.flt0rdatar;
+                    } else {
+                        let rdatar = &self.regs.flt0.rdatar;
+                    }
+                }
+                &rdatar as *const _ as u32
+            },
+            Filter::F1 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let rdatar = &self.regs.flt1rdatar;
+                    } else {
+                        let rdatar = &self.regs.flt1.rdatar;
+                    }
+                }
+                &rdatar as *const _ as u32
+            },
             #[cfg(not(any(feature = "l4")))]
-            Filter::F2 => &self.regs.flt2.rdatar as *const _ as u32,
+            Filter::F2 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let rdatar = &self.regs.flt2rdatar;
+                    } else {
+                        let rdatar = &self.regs.flt2.rdatar;
+                    }
+                }
+                &rdatar as *const _ as u32
+            },
             #[cfg(not(any(feature = "l4")))]
-            Filter::F3 => &self.regs.flt3.rdatar as *const _ as u32,
+            Filter::F3 => {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let rdatar = &self.regs.flt3rdatar;
+                    } else {
+                        let rdatar = &self.regs.flt3.rdatar;
+                    }
+                }
+                &rdatar as *const _ as u32
+            },
         };
 
         // todo: Injected support. Should just need to add the option flag and enable `jdmaen()` bits
@@ -779,7 +979,15 @@ where
         // todo: Macro to reduce DRY here?
         match channel {
             Filter::F0 => {
-                self.regs.flt0.cr2.modify(|_, w| match interrupt_type {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let cr2 = &self.regs.flt0cr2;
+                    } else {
+                        let cr2 = &self.regs.flt0.cr2;
+                    }
+                }
+
+                cr2.modify(|_, w| match interrupt_type {
                     DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),
                     DfsdmInterrupt::EndOfConversion => w.reocie().set_bit(),
                     DfsdmInterrupt::DataOverrunInjected => w.jovrie().set_bit(),
@@ -790,7 +998,15 @@ where
                 });
             }
             Filter::F1 => {
-                self.regs.flt1.cr2.modify(|_, w| match interrupt_type {
+                cfg_if! {
+                    if #[cfg(any(feature = "l5"))] {
+                        let cr2 = &self.regs.flt1cr2;
+                    } else {
+                        let cr2 = &self.regs.flt1.cr2;
+                    }
+                }
+                #[cfg(not(feature = "l4x6"))] // pac missing flt1 on l4x6
+                cr2.modify(|_, w| match interrupt_type {
                     DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),
                     DfsdmInterrupt::EndOfConversion => w.reocie().set_bit(),
                     DfsdmInterrupt::DataOverrunInjected => w.jovrie().set_bit(),
@@ -800,9 +1016,16 @@ where
                     DfsdmInterrupt::ChannelClockAbsense => w.ckabie().set_bit(),
                 });
             }
-            #[cfg(not(any(feature = "l4")))]
             Filter::F2 => {
-                self.regs.flt2.cr2.modify(|_, w| match interrupt_type {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let cr2 = &self.regs.flt1cr2;
+                    } else {
+                        let cr2 = &self.regs.flt2.cr2;
+                    }
+                }
+
+                cr2.modify(|_, w| match interrupt_type {
                     DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),
                     DfsdmInterrupt::EndOfConversion => w.reocie().set_bit(),
                     DfsdmInterrupt::DataOverrunInjected => w.jovrie().set_bit(),
@@ -812,9 +1035,16 @@ where
                     DfsdmInterrupt::ChannelClockAbsense => w.ckabie().set_bit(),
                 });
             }
-            #[cfg(not(any(feature = "l4")))]
             Filter::F3 => {
-                self.regs.flt3.cr2.modify(|_, w| match interrupt_type {
+                cfg_if! {
+                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                        let cr2 = &self.regs.flt3cr2;
+                    } else {
+                        let cr2 = &self.regs.flt3.cr2;
+                    }
+                }
+
+                cr2.modify(|_, w| match interrupt_type {
                     DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),
                     DfsdmInterrupt::EndOfConversion => w.reocie().set_bit(),
                     DfsdmInterrupt::DataOverrunInjected => w.jovrie().set_bit(),
