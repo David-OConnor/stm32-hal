@@ -119,24 +119,6 @@ pub enum SampleTime {
     T601 = 0b111,
 }
 
-/// Sets ADC clock prescaler; ADCx_CCR register, PRESC field.
-#[derive(Clone, Copy)]
-#[repr(u8)]
-pub enum Prescaler {
-    D1 = 0b0000,
-    D2 = 0b0001,
-    D4 = 0b0010,
-    D6 = 0b0011,
-    D8 = 0b0100,
-    D10 = 0b0101,
-    D12 = 0b0110,
-    D16 = 0b0111,
-    D32 = 0b1000,
-    D64 = 0b1001,
-    D128 = 0b1010,
-    D256 = 0b1011,
-}
-
 impl Default for SampleTime {
     /// T_1 is also the reset value.
     fn default() -> Self {
@@ -182,20 +164,32 @@ pub enum OperationMode {
 pub enum ClockMode {
     /// Use Kernel Clock adc_ker_ck_input divided by PRESC. Asynchronous to AHB clock
     Async = 0b00,
-    /// Use AHB clock rcc_hclk3.
+    /// Use AHB clock rcc_hclk3 (or just hclk depending on variant).
     /// "For option 2), a prescaling factor of 1 (CKMODE[1:0]=01) can be used only if the AHB
     /// prescaler is set to 1 (HPRE[3:0] = 0xxx in RCC_CFGR register)."
     SyncDiv1 = 0b01,
-    /// Use AHB clock rcc_hclk3 divided by 2
+    /// Use AHB clock rcc_hclk3 (or just hclk depending on variant) divided by 2
     SyncDiv2 = 0b10,
-    /// Use AHB clock rcc_hclk3 divided by 4
+    /// Use AHB clock rcc_hclk3 (or just hclk depending on variant) divided by 4
     SyncDiv4 = 0b11,
 }
 
-impl Default for ClockMode {
-    fn default() -> Self {
-        Self::SyncDiv2
-    }
+/// Sets ADC clock prescaler; ADCx_CCR register, PRESC field.
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum Prescaler {
+    D1 = 0b0000,
+    D2 = 0b0001,
+    D4 = 0b0010,
+    D6 = 0b0011,
+    D8 = 0b0100,
+    D10 = 0b0101,
+    D12 = 0b0110,
+    D16 = 0b0111,
+    D32 = 0b1000,
+    D64 = 0b1001,
+    D128 = 0b1010,
+    D256 = 0b1011,
 }
 
 #[cfg(not(feature = "h7"))]
@@ -246,12 +240,10 @@ impl Default for Align {
     }
 }
 
-// todo: Document this config struct
-
 /// Initial configuration data for the ADC peripheral.
 #[derive(Clone)]
 pub struct AdcConfig {
-    /// ADC clock mode. Defaults to AHB clock rcc_hclk3 divided by 2.
+    /// ADC clock mode. Defaults to AHB clock rcc_hclk3 (or hclk) divided by 2.
     pub clock_mode: ClockMode,
     /// ADC clock prescaler. Defaults to no division.
     pub prescaler: Prescaler,
@@ -267,7 +259,7 @@ pub struct AdcConfig {
 impl Default for AdcConfig {
     fn default() -> Self {
         Self {
-            clock_mode: Default::default(),
+            clock_mode: ClockMode::SyncDiv2,
             prescaler: Prescaler::D1,
             operation_mode: OperationMode::OneShot,
             cal_single_ended: None,

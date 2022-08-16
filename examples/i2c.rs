@@ -70,8 +70,8 @@ fn main() -> ! {
     // Associate DMA channels with I2C1: One for transmit; one for receive.
     // Note that mux is not used on F3, F4, and most L4s: DMA channels are hard-coded
     // to peripherals on those platforms.
-    dma::mux(DmaChannel::C6, DmaInput::I2c1Tx, &mut dp.DMAMUX);
-    dma::mux(DmaChannel::C7, DmaInput::I2c1Rx, &mut dp.DMAMUX);
+    dma::mux(DmaChannel::C6, DmaInput::I2c1Tx);
+    dma::mux(DmaChannel::C7, DmaInput::I2c1Rx);
 
     // todo fill this in)
 

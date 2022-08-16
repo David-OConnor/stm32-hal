@@ -73,7 +73,7 @@ fn main() -> ! {
 
     // Begin a DMA transfer. Note that the `DmaChannel` we pass here is only used on
     // MCUs that use `DMAMUX`, eg L5, G0, and G4. For those, you need to run `mux`, to
-    // set the channel: `dma::mux(DmaChannel::C1, MuxInput::Adc1, &mut dp.DMAMUX);
+    // set the channel: `dma::mux(DmaChannel::C1, MuxInput::Adc1);
     unsafe {
         adc.read_dma(
             &mut dma_buf,

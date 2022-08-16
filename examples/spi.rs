@@ -74,8 +74,8 @@ fn main() -> ! {
     // Associate a pair of DMA channels with SPI1: One for transmit; one for receive.
     // Note that mux is not used on F3, F4, and most L4s: DMA channels are hard-coded
     // to peripherals on those platforms.
-    dma::mux(DmaChannel::C1, DmaInput::Spi1Tx, mux);
-    dma::mux(DmaChannel::C2, DmaInput::Spi1Rx, mux);
+    dma::mux(DmaChannel::C1, DmaInput::Spi1Tx);
+    dma::mux(DmaChannel::C2, DmaInput::Spi1Rx);
 
     cs.set_low();
 
