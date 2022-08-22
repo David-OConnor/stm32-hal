@@ -39,9 +39,9 @@ use crate::dma::DmaInput;
 pub enum Filter {
     F0,
     F1,
-    // #[cfg(not(any(feature = "l4")))]
+    // 
     F2,
-    // #[cfg(not(any(feature = "l4")))]
+    // 
     F3,
 }
 
@@ -246,8 +246,10 @@ where
         assert!(divider >= 2); // (1 is invalid. 2 would disable the output clock.)
 
         cfg_if! {
-            if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+            if #[cfg(any(feature = "l5"))] {
                 let cfgr1 = &regs.ch0cfgr1;
+            } else if #[cfg(any(feature = "l4"))] {
+                let cfgr1 = &regs.chcfg0r1;
             } else {
                 let cfgr1 = &regs.ch0.cfgr1;
             }
@@ -291,8 +293,10 @@ where
     /// FLTxCR1).
     pub fn enable(&mut self) {
         cfg_if! {
-            if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+            if #[cfg(any(feature = "l5"))] {
                 let cfgr1 = &self.regs.ch0cfgr1;
+            } else if #[cfg(any(feature = "l4"))] {
+                let cfgr1 = &self.regs.chcfg0r1;
             } else {
                 let cfgr1 = &self.regs.ch0.cfgr1;
             }
@@ -305,8 +309,10 @@ where
     /// stopping the system clock to enter in the STOP mode of the device
     pub fn disable(&mut self) {
         cfg_if! {
-            if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+            if #[cfg(any(feature = "l5"))] {
                 let cfgr1 = &self.regs.ch0cfgr1;
+            } else if #[cfg(any(feature = "l4"))] {
+                let cfgr1 = &self.regs.chcfg0r1;
             } else {
                 let cfgr1 = &self.regs.ch0.cfgr1;
             }
@@ -375,9 +381,12 @@ where
         match filter {
             Filter::F0 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let fcr = &self.regs.flt0fcr;
                         let cr1 = &self.regs.flt0cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let fcr = &self.regs.dfsdm0_fcr;
+                        let cr1 = &self.regs.dfsdm0_cr1;
                     } else {
                         let fcr = &self.regs.flt0.fcr;
                         let cr1 = &self.regs.flt0.cr1;
@@ -396,11 +405,17 @@ where
                     w.dfen().set_bit()
                 });
             }
+            #[cfg(feature = "l4x6")]
+            Filter::F1 => (),
+            #[cfg(not(feature = "l4x6"))]
             Filter::F1 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let fcr = &self.regs.flt1fcr;
                         let cr1 = &self.regs.flt1cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        // let fcr = &self.regs.dfsdm1_fcr;
+                        // let cr1 = &self.regs.dfsdm1_cr1;
                     } else {
                         let fcr = &self.regs.flt1.fcr;
                         let cr1 = &self.regs.flt1.cr1;
@@ -422,9 +437,12 @@ where
             }
             Filter::F2 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let fcr = &self.regs.flt2fcr;
                         let cr1 = &self.regs.flt2cr1;
+                    }  else if #[cfg(any(feature = "l4"))] {
+                        let fcr = &self.regs.dfsdm2_fcr;
+                        let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
                         let fcr = &self.regs.flt2.fcr;
                         let cr1 = &self.regs.flt2.cr1;
@@ -446,9 +464,12 @@ where
             }
             Filter::F3 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let fcr = &self.regs.flt3fcr;
                         let cr1 = &self.regs.flt3cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let fcr = &self.regs.dfsdm3_fcr;
+                        let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
                         let fcr = &self.regs.flt3.fcr;
                         let cr1 = &self.regs.flt3.cr1;
@@ -480,9 +501,12 @@ where
         match channel {
             DfsdmChannel::C0 => unsafe {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch0cfgr1;
                         let cfgr2 = &self.regs.ch0cfgr2;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cfgr1 = &self.regs.chcfg0r1;
+                        let cfgr2 = &self.regs.chcfg0r2;
                     } else {
                         let cfgr1 = &self.regs.ch0.cfgr1;
                         let cfgr2 = &self.regs.ch0.cfgr2;
@@ -500,9 +524,12 @@ where
             },
             DfsdmChannel::C1 => unsafe {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch1cfgr1;
                         let cfgr2 = &self.regs.ch1cfgr2;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cfgr1 = &self.regs.chcfg1r1;
+                        let cfgr2 = &self.regs.chcfg1r2;
                     } else {
                         let cfgr1 = &self.regs.ch1.cfgr1;
                         let cfgr2 = &self.regs.ch1.cfgr2;
@@ -520,9 +547,12 @@ where
             },
             DfsdmChannel::C2 => unsafe {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch2cfgr1;
                         let cfgr2 = &self.regs.ch2cfgr2;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cfgr1 = &self.regs.chcfg3r1;
+                        let cfgr2 = &self.regs.chcfg3r2;
                     } else {
                         let cfgr1 = &self.regs.ch2.cfgr1;
                         let cfgr2 = &self.regs.ch2.cfgr2;
@@ -540,9 +570,12 @@ where
             },
             DfsdmChannel::C3 => unsafe {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch3cfgr1;
                         let cfgr2 = &self.regs.ch3cfgr2;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cfgr1 = &self.regs.chcfg3r1;
+                        let cfgr2 = &self.regs.chcfg3r2;
                     } else {
                         let cfgr1 = &self.regs.ch3.cfgr1;
                         let cfgr2 = &self.regs.ch3.cfgr2;
@@ -560,9 +593,12 @@ where
             },
             DfsdmChannel::C4 => unsafe {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch4cfgr1;
                         let cfgr2 = &self.regs.ch4cfgr2;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cfgr1 = &self.regs.chcfg4r1;
+                        let cfgr2 = &self.regs.chcfg4r2;
                     } else {
                         let cfgr1 = &self.regs.ch4.cfgr1;
                         let cfgr2 = &self.regs.ch4.cfgr2;
@@ -580,9 +616,12 @@ where
             },
             DfsdmChannel::C5 => unsafe {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch5cfgr1;
                         let cfgr2 = &self.regs.ch5cfgr2;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cfgr1 = &self.regs.chcfg5r1;
+                        let cfgr2 = &self.regs.chcfg5r2;
                     } else {
                         let cfgr1 = &self.regs.ch5.cfgr1;
                         let cfgr2 = &self.regs.ch5.cfgr2;
@@ -600,9 +639,12 @@ where
             },
             DfsdmChannel::C6 => unsafe {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch6cfgr1;
                         let cfgr2 = &self.regs.ch6cfgr2;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cfgr1 = &self.regs.chcfg6r1;
+                        let cfgr2 = &self.regs.chcfg6r2;
                     } else {
                         let cfgr1 = &self.regs.ch6.cfgr1;
                         let cfgr2 = &self.regs.ch6.cfgr2;
@@ -620,9 +662,12 @@ where
             },
             DfsdmChannel::C7 => unsafe {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch7cfgr1;
                         let cfgr2 = &self.regs.ch7cfgr2;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cfgr1 = &self.regs.chcfg7r1;
+                        let cfgr2 = &self.regs.chcfg7r2;
                     } else {
                         let cfgr1 = &self.regs.ch7.cfgr1;
                         let cfgr2 = &self.regs.ch7.cfgr2;
@@ -649,18 +694,25 @@ where
         match filter {
             Filter::F0 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt0cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr1 = &self.regs.dfsdm0_cr1;
                     } else {
                         let cr1 = &self.regs.flt0.cr1;
                     }
                 }
                 cr1.modify(|_, w| w.dfen().clear_bit())
             }
+            #[cfg(feature = "l4x6")]
+            Filter::F1 => (),
+            #[cfg(not(feature = "l4x6"))]
             Filter::F1 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt1cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        // let cr1 = &self.regs.dfsdm1_cr1;
                     } else {
                         let cr1 = &self.regs.flt1.cr1;
                     }
@@ -669,8 +721,10 @@ where
             }
             Filter::F2 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt2cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
                         let cr1 = &self.regs.flt2.cr1;
                     }
@@ -679,8 +733,10 @@ where
             }
             Filter::F3 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt3cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
                         let cr1 = &self.regs.flt3.cr1;
                     }
@@ -701,9 +757,12 @@ where
         match channel {
             DfsdmChannel::C0 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch0cfgr1;
                         let cfgr1b = &self.regs.ch7cfgr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cfgr1 = &self.regs.chcfg0r1;
+                        let cfgr1b = &self.regs.chcfg7r1;
                     } else {
                         let cfgr1 = &self.regs.ch0.cfgr1;
                         let cfgr1b = &self.regs.ch7.cfgr1;
@@ -730,9 +789,12 @@ where
             }
             DfsdmChannel::C1 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch1cfgr1;
                         let cfgr1b = &self.regs.ch0cfgr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cfgr1 = &self.regs.chcfg1r1;
+                        let cfgr1b = &self.regs.chcfg0r1;
                     } else {
                         let cfgr1 = &self.regs.ch1.cfgr1;
                         let cfgr1b = &self.regs.ch0.cfgr1;
@@ -751,9 +813,12 @@ where
             }
             DfsdmChannel::C2 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch2cfgr1;
                         let cfgr1b = &self.regs.ch1cfgr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cfgr1 = &self.regs.chcfg2r1;
+                        let cfgr1b = &self.regs.chcfg1r1;
                     } else {
                         let cfgr1 = &self.regs.ch2.cfgr1;
                         let cfgr1b = &self.regs.ch1.cfgr1;
@@ -772,9 +837,12 @@ where
             }
             DfsdmChannel::C3 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch3cfgr1;
                         let cfgr1b = &self.regs.ch2cfgr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cfgr1 = &self.regs.chcfg3r1;
+                        let cfgr1b = &self.regs.chcfg2r1;
                     } else {
                         let cfgr1 = &self.regs.ch3.cfgr1;
                         let cfgr1b = &self.regs.ch2.cfgr1;
@@ -808,18 +876,25 @@ where
         match filter {
             Filter::F0 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt0cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr1 = &self.regs.dfsdm0_cr1;
                     } else {
                         let cr1 = &self.regs.flt0.cr1;
                     }
                 }
                 cr1.modify(|_, w| w.rswstart().set_bit())
             }
+            #[cfg(feature = "l4x6")]
+            Filter::F1 => (),
+            #[cfg(not(feature = "l4x6"))]
             Filter::F1 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt1cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        // let cr1 = &regs.dfsdm1_cr1;
                     } else {
                         let cr1 = &self.regs.flt1.cr1;
                     }
@@ -828,8 +903,10 @@ where
             }
             Filter::F2 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt2cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
                         let cr1 = &self.regs.flt2.cr1;
                     }
@@ -838,8 +915,10 @@ where
             }
             Filter::F3 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt3cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
                         let cr1 = &self.regs.flt3.cr1;
                     }
@@ -869,18 +948,25 @@ where
         match filter {
             Filter::F0 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt0cr1;
-                    } else {
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr1 = &self.regs.dfsdm0_cr1;
+                    }else {
                         let cr1 = &self.regs.flt0.cr1;
                     }
                 }
                 cr1.modify(|_, w| w.jswstart().set_bit())
             }
+            #[cfg(feature = "l4x6")]
+            Filter::F1 => (),
+            #[cfg(not(feature = "l4x6"))]
             Filter::F1 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt1cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        // let cr1 = &self.regs.dfsdm1_cr1;
                     } else {
                         let cr1 = &self.regs.flt1.cr1;
                     }
@@ -889,8 +975,10 @@ where
             }
             Filter::F2 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt2cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
                         let cr1 = &self.regs.flt2.cr1;
                     }
@@ -899,8 +987,10 @@ where
             }
             Filter::F3 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt3cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
                         let cr1 = &self.regs.flt3.cr1;
                     }
@@ -954,40 +1044,49 @@ where
             // the other fields).
             Filter::F0 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt0rdatar;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let rdatar = &self.regs.dfsdm0_rdatar;
                     } else {
                         let rdatar = &self.regs.flt0.rdatar;
                     }
                 }
                 (rdatar.read().bits() as i32) >> 8
             }
+            #[cfg(feature = "l4x6")]
+            Filter::F1 => 0,
+            #[cfg(not(feature = "l4x6"))]
             Filter::F1 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt1rdatar;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        // let rdatar = &self.regs.dfsdm1_rdatar;
                     } else {
                         let rdatar = &self.regs.flt1.rdatar;
                     }
                 }
                 (rdatar.read().bits() as i32) >> 8
             }
-            #[cfg(not(any(feature = "l4")))]
             Filter::F2 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt2rdatar;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let rdatar = &self.regs.dfsdm2_rdatar;
                     } else {
                         let rdatar = &self.regs.flt2.rdatar;
                     }
                 }
                 (rdatar.read().bits() as i32) >> 8
             }
-            #[cfg(not(any(feature = "l4")))]
             Filter::F3 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt3rdatar;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let rdatar = &self.regs.dfsdm3_rdatar;
                     } else {
                         let rdatar = &self.regs.flt3.rdatar;
                     }
@@ -1003,40 +1102,49 @@ where
         match filter {
             Filter::F0 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let jdatar = &self.regs.flt0jdatar;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let jdatar = &self.regs.dfsdm0_jdatar;
                     } else {
                         let jdatar = &self.regs.flt0.jdatar;
                     }
                 }
                 (jdatar.read().bits() as i32) >> 8
             }
+            #[cfg(feature = "l4x6")]
+            Filter::F1 => 0,
+            #[cfg(not(feature = "l4x6"))]
             Filter::F1 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let jdatar = &self.regs.flt1jdatar;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        // let jdatar = &self.regs.dfsdm1_jdatar;
                     } else {
                         let jdatar = &self.regs.flt1.jdatar;
                     }
                 }
                 (jdatar.read().bits() as i32) >> 8
             }
-            #[cfg(not(any(feature = "l4")))]
             Filter::F2 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let jdatar = &self.regs.flt2jdatar;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let jdatar = &self.regs.dfsdm2_jdatar;
                     } else {
                         let jdatar = &self.regs.flt2.jdatar;
                     }
                 }
                 (jdatar.read().bits() as i32) >> 8
             }
-            #[cfg(not(any(feature = "l4")))]
             Filter::F3 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let jdatar = &self.regs.flt3jdatar;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let jdatar = &self.regs.dfsdm3_jdatar;
                     } else {
                         let jdatar = &self.regs.flt3.jdatar;
                     }
@@ -1076,7 +1184,7 @@ where
 
         // todo: DMA2 support.
 
-        #[cfg(any(feature = "f3", feature = "l4"))]
+        #[cfg(feature = "f3")]
         let dma_channel = match filter {
             Filter::F0 => DmaInput::Dfsdm1F0.dma1_channel(),
             Filter::F1 => DmaInput::Dfsdm1F1.dma1_channel(),
@@ -1086,45 +1194,57 @@ where
         match filter {
             Filter::F0 => dma.channel_select(DmaInput::Dfsdm1F0),
             Filter::F1 => dma.channel_select(DmaInput::Dfsdm1F1),
+            Filter::F2 => dma.channel_select(DmaInput::Dfsdm1F2),
+            Filter::F3 => dma.channel_select(DmaInput::Dfsdm1F3),
         };
 
         match filter {
             Filter::F0 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt0cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr1 = &self.regs.dfsdm0_cr1;
                     } else {
                         let cr1 = &self.regs.flt0.cr1;
                     }
                 }
                 cr1.modify(|_, w| w.rdmaen().set_bit())
             }
+            #[cfg(feature = "l4x6")]
+            Filter::F1 => (),
+            #[cfg(not(feature = "l4x6"))]
             Filter::F1 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt1cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        // let cr1 = &self.regs.dfsdm1_cr1;
                     } else {
                         let cr1 = &self.regs.flt1.cr1;
                     }
                 }
                 cr1.modify(|_, w| w.rdmaen().set_bit())
             }
-            #[cfg(not(any(feature = "l4")))]
             Filter::F2 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt2cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
                         let cr1 = &self.regs.flt2.cr1;
                     }
                 }
                 cr1.modify(|_, w| w.rdmaen().set_bit())
             }
-            #[cfg(not(any(feature = "l4")))]
+            
             Filter::F3 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt3cr1;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
                         let cr1 = &self.regs.flt3.cr1;
                     }
@@ -1136,40 +1256,51 @@ where
         let periph_addr = match filter {
             Filter::F0 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt0rdatar;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let rdatar = &self.regs.dfsdm0_rdatar;
                     } else {
                         let rdatar = &self.regs.flt0.rdatar;
                     }
                 }
                 &rdatar as *const _ as u32
             }
+            #[cfg(feature = "l4x6")]
+            Filter::F1 => 0,
+            #[cfg(not(feature = "l4x6"))]
             Filter::F1 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt1rdatar;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        // let rdatar = &self.regs.dfsdm1_rdatar;
                     } else {
                         let rdatar = &self.regs.flt1.rdatar;
                     }
                 }
                 &rdatar as *const _ as u32
             }
-            #[cfg(not(any(feature = "l4")))]
+            
             Filter::F2 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt2rdatar;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let rdatar = &self.regs.dfsdm2_rdatar;
                     } else {
                         let rdatar = &self.regs.flt2.rdatar;
                     }
                 }
                 &rdatar as *const _ as u32
             }
-            #[cfg(not(any(feature = "l4")))]
+            
             Filter::F3 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt3rdatar;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let rdatar = &self.regs.dfsdm3_rdatar;
                     } else {
                         let rdatar = &self.regs.flt3.rdatar;
                     }
@@ -1207,8 +1338,10 @@ where
         match channel {
             Filter::F0 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr2 = &self.regs.flt0cr2;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr2 = &self.regs.dfsdm0_cr2;
                     } else {
                         let cr2 = &self.regs.flt0.cr2;
                     }
@@ -1224,10 +1357,15 @@ where
                     DfsdmInterrupt::ChannelClockAbsense => w.ckabie().set_bit(),
                 });
             }
+            #[cfg(feature = "l4x6")]
+            Filter::F1 => (),
+            #[cfg(not(feature = "l4x6"))]
             Filter::F1 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr2 = &self.regs.flt1cr2;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        // let cr2 = &self.regs.dfsdm1_cr2;
                     } else {
                         let cr2 = &self.regs.flt1.cr2;
                     }
@@ -1244,8 +1382,10 @@ where
             }
             Filter::F2 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr2 = &self.regs.flt1cr2;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr2 = &self.regs.dfsdm2_cr2;
                     } else {
                         let cr2 = &self.regs.flt2.cr2;
                     }
@@ -1263,8 +1403,10 @@ where
             }
             Filter::F3 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l4x6", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         let cr2 = &self.regs.flt3cr2;
+                    } else if #[cfg(any(feature = "l4"))] {
+                        let cr2 = &self.regs.dfsdm3_cr2;
                     } else {
                         let cr2 = &self.regs.flt3.cr2;
                     }

@@ -113,7 +113,7 @@ fn main() -> ! {
 
     let mut dma = Dma::new(dp.DMA1);
 
-    dma::mux(DmaChannel::C3, dma::DmaInput::DacCh1, &mut dp.DMAMUX1);
+    dma::mux(DmaChannel::C3, dma::DmaInput::DacCh1);
 
     // Load the Sine LUT into a DMA circular buffer, which will send a 16-byte word of data
     // to the DAC on each timer trigger. Because it's a circular buffer, it will start at

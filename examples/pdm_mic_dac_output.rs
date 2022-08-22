@@ -168,9 +168,9 @@ mod app {
 
         let mut dma = Dma::new(dp.DMA1);
 
-        dma::mux(DmaChannel::C0, dma::DmaInput::Dfsdm1F0, &mut dp.DMAMUX1);
-        dma::mux(DmaChannel::C1, dma::DmaInput::Dfsdm1F1, &mut dp.DMAMUX1);
-        dma::mux(DmaChannel::C2, dma::DmaInput::DacCh1, &mut dp.DMAMUX1);
+        dma::mux(DmaChannel::C0, dma::DmaInput::Dfsdm1F0);
+        dma::mux(DmaChannel::C1, dma::DmaInput::Dfsdm1F11);
+        dma::mux(DmaChannel::C2, dma::DmaInput::DacCh1);
 
         dma.enable_interrupt(DmaChannel::C0, DmaInterrupt::HalfTransfer);
         dma.enable_interrupt(DmaChannel::C0, DmaInterrupt::TransferComplete);

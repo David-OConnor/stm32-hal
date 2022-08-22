@@ -123,6 +123,8 @@ pub enum DmaInput {
     // todo: Can't find DFSDM periph on G4 rm: These assigned values are bogus.
     Dfsdm1F0 = 200,
     Dfsdm1F1 = 201,
+    Dfsdm1F2 = 205,
+    Dfsdm1F3 = 206,
 }
 
 // todo: Trigger, synchronization etc mappings. Perhaps DmaTrigger, DmaSync enums etc.
@@ -276,8 +278,10 @@ impl DmaInput {
             // Note: Sai1 appears to be DMA2 only.
             Self::Sai2A => DmaChannel::C6,
             Self::Sai2B => DmaChannel::C7,
-            Self::Dfsdm1F0 => DmaChannel::C5,
-            Self::Dfsdm1F1 => DmaChannel::C6,
+            Self::Dfsdm1F0 => DmaChannel::C4,
+            Self::Dfsdm1F1 => DmaChannel::C5,
+            Self::Dfsdm1F2 => DmaChannel::C6,
+            Self::Dfsdm1F3=> DmaChannel::C7,
             _ => unimplemented!(),
         }
     }
@@ -324,6 +328,8 @@ impl DmaInput {
             // Self::Adc5 => 39,
             Self::Dfsdm1F0 => 0b0000,
             Self::Dfsdm1F1 => 0b0000,
+            Self::Dfsdm1F2 => 0b0000, // todo: QC?
+            Self::Dfsdm1F3 => 0b0000,
             _ => unimplemented!(),
         }
     }

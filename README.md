@@ -316,3 +316,4 @@ STM32WL radio support is WIP, and will be provided through interaction withnewAM
 - If using PWM (or output compare in general) on an Advanced control timer (eg TIM1 or 8),
 you must manually set the `TIMx_BDTR` register, `MOE` bit.
 - Octospi implementation is broken
+- DFSDM on L4x6 is missing Filter 1.
