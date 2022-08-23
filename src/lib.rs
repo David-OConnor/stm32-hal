@@ -18,7 +18,7 @@
 //! light (ie hello world) using an STM32F411 "blackpill" board. Its readme provides instructions for how to get
 //! started from scratch, and its code contains detailed comments explaining each part. The
 //! [blinky with timer interrupt example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/blinky_timer_interrupt)
-//! demonstrates how to accomplish the same in a non-blocking way, using a hardware timer. It usesf RTIC.
+//! demonstrates how to accomplish the same in a non-blocking way, using a hardware timer. It uses RTIC.
 //!
 //! The [conductivity module example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/conductivity_module)
 //! is a complete example of simple production firmware. It uses the DAC, I2C, Timer, and UART peripherals,

@@ -74,7 +74,12 @@ fn main() -> ! {
     let period = 2.; // seconds.
     let mut countdown_timer = Timer::new_tim3(dp.TIM3, countdown_period, timer_config, &clock_cfg);
     countdown_timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
-    countdown_timer.enable();
+
+    countdown_timer.enable(); // Start the counter.
+
+    countdown_timer.disable(); // Stop the counter.
+
+    countdown_timer.reset_count(); // Reset the count to 0.
 
     // Change the frequency to 1Khz.
     pwm_timer.set_freq(1_000.);

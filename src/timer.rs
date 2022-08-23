@@ -531,7 +531,7 @@ macro_rules! make_timer {
             }
 
             /// Reset the countdown; set the counter to 0.
-            pub fn reset_countdown(&mut self) {
+            pub fn reset_count(&mut self) {
                 self.regs.cnt.write(|w| unsafe { w.bits(0) });
             }
 
@@ -717,7 +717,7 @@ macro_rules! make_timer {
         impl DelayUs<u32> for Timer<pac::$TIMX> {
             fn delay_us(&mut self, us: u32) {
                 self.set_freq(1. / (us as f32 * 1_000.)).ok();
-                self.reset_countdown();
+                self.reset_count();
                 self.enable();
                 while self.read_count() != 0 {}
                 self.disable();
@@ -1594,8 +1594,8 @@ cfg_if! {
                 self.regs.psc.write(|w| unsafe { w.bits(psc.into()) });
             }
 
-            /// Reset the countdown; set the counter to 0.
-            pub fn reset_countdown(&mut self) {
+            /// Reset the count; set the counter to 0.
+            pub fn reset_count(&mut self) {
                 self.regs.cnt.write(|w| unsafe { w.bits(0) });
             }
 

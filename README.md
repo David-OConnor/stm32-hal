@@ -69,7 +69,7 @@ The [blinky example](https://github.com/David-OConnor/stm32-hal/tree/main/exampl
 light (ie hello world) using an STM32F411 "blackpill" board. Its readme provides instructions for how to get
 started from scratch, and its code contains detailed comments explaining each part. The 
 [blinky with timer interrupt example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/blinky_timer_interrupt)
-demonstrates how to accomplish the same in a non-blocking way, using a hardware timer. It usesf RTIC.
+demonstrates how to accomplish the same in a non-blocking way, using a hardware timer. It uses RTIC.
 
 The [conductivity module example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/conductivity_module)
 is a complete example of simple production firmware. It uses the DAC, I2C, Timer, and UART peripherals,
@@ -152,8 +152,8 @@ fn main() -> ! {
 ## Compatible with RTIC
 [Real-Time Interrupt-driven Concurrency](https://rtic.rs/0.5/book/en/) is
 a light-weight framework that manages safely sharing state between contexts. Eg between ISRs and the main loop.
-Most examples use global `Mutex`es, `RefCell`s, and `Cell`s, sometimes
-with macros to simplify syntax; you could easily substitute RTIC syntax.
+Some examples use global `Mutex`es, `RefCell`s, and `Cell`s; others use macros to simplify syntax; 
+some use RTIC.
 
 ## Why this is different from `stm32yxx-hal` libraries
 - Works with multiple STM32 families, with identical syntax when able
@@ -293,7 +293,7 @@ This library doesn't include any radio functionality for the STM32WB. If you'd l
 with bluetooth, use this HAL in conjuction with with [@eupn](https://github.com/eupn)'s [stm32wb55](https://github.com/eupn/stm32wb55)
 bluetooth library.
 
-STM32WL radio support is WIP, and will be provided through interaction withnewAM's
+STM32WL radio support is WIP, and will be provided through interaction with newAM's
 [stm32wl-hal](https://github.com/newAM/stm32wl-hal) library.
 
 

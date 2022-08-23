@@ -839,7 +839,7 @@ macro_rules! hal {
             // todo: fn read_voltage, using vrefint and L4xx-hal style calibration?
 
             #[cfg(not(any(feature = "f4", feature = "l552")))]
-            /// Take a one shot reading, using DMA. See L44 RM, 16.4.27: "DMA one shot mode".
+            /// Take a reading, using DMA. Sets conversion sequence; no need to set it directly.
             /// Note that the `channel` argument is only used on F3 and L4.
             pub unsafe fn read_dma<D>(
                 &mut self, buf: &mut [u16],

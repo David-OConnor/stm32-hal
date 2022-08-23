@@ -39,9 +39,9 @@ use crate::dma::DmaInput;
 pub enum Filter {
     F0,
     F1,
-    // 
+    //
     F2,
-    // 
+    //
     F3,
 }
 
@@ -1238,7 +1238,7 @@ where
                 }
                 cr1.modify(|_, w| w.rdmaen().set_bit())
             }
-            
+
             Filter::F3 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
@@ -1281,7 +1281,7 @@ where
                 }
                 &rdatar as *const _ as u32
             }
-            
+
             Filter::F2 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
@@ -1294,7 +1294,7 @@ where
                 }
                 &rdatar as *const _ as u32
             }
-            
+
             Filter::F3 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {

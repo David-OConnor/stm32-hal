@@ -281,7 +281,7 @@ impl DmaInput {
             Self::Dfsdm1F0 => DmaChannel::C4,
             Self::Dfsdm1F1 => DmaChannel::C5,
             Self::Dfsdm1F2 => DmaChannel::C6,
-            Self::Dfsdm1F3=> DmaChannel::C7,
+            Self::Dfsdm1F3 => DmaChannel::C7,
             _ => unimplemented!(),
         }
     }
