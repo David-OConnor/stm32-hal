@@ -79,7 +79,7 @@
 //!    sda.output_type(OutputType::OpenDrain);
 //!
 //!    let mut dma = Dma::new(dp.DMA1);
-//!    dma::mux(DmaChannel::C1, DmaInput::I2c1Tx);
+//!    dma::mux(DmaPeriph::Dma1, DmaChannel::C1, DmaInput::I2c1Tx);
 //!
 //!    let i2c = I2c::new(dp.I2C1, Default::default(), &clock_cfg);
 //!

@@ -19,7 +19,7 @@ use stm32_hal2::{
         SampleTime,
     },
     clocks::Clocks,
-    dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
+    dma::{self, DmaPeriph, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
     low_power, pac,
 };
@@ -73,7 +73,7 @@ fn main() -> ! {
 
     // Begin a DMA transfer. Note that the `DmaChannel` we pass here is only used on
     // MCUs that use `DMAMUX`, eg L5, G0, and G4. For those, you need to run `mux`, to
-    // set the channel: `dma::mux(DmaChannel::C1, MuxInput::Adc1);
+    // set the channel: `dma::mux(DmaPeriph::Dma1, DmaChannel::C1, MuxInput::Adc1);
     unsafe {
         adc.read_dma(
             &mut dma_buf,
@@ -144,7 +144,6 @@ fn DMA1_CH1() {
         unsafe { (*pac::DMA1::ptr()).ifcr.write(|w| w.tcif1().set_bit()) }
         // Or, if you have access to the Dma peripheral struct:
         // dma.clear_interrupt(DmaChannel::C1);
-        // dma.stop(DmaChannel::C1);
     });
 }
 

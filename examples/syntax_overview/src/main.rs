@@ -27,7 +27,7 @@ use stm32_hal2::{
     adc::{self, Adc, AdcChannel},
     clocks::Clocks,
     dac::{Dac, DacChannel, DacBits},
-    dma::{Dma, DmaChannel, DmaInterrupt, DmaReadBuf, DmaWriteBuf},
+    dma::{Dma, DmaPeriph, DmaChannel, DmaInterrupt, DmaReadBuf, DmaWriteBuf},
     flash::Flash,
     gpio::{Edge, Pin, Port, PinMode, OutputType, Pull},
     i2c::I2c,

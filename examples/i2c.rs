@@ -16,7 +16,7 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     clocks::Clocks,
-    dma::{self, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
+    dma::{self, Dma, DmaPeriph, DmaChannel, DmaInterrupt, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
     i2c::{I2c, I2cConfig, I2cSpeed, NoiseFilter},
     low_power, pac,
@@ -86,8 +86,8 @@ fn main() -> ! {
 
     // Unmask the interrupt line. See the `DMA_CH6` and `DMA_CH78` interrupt handlers below.
     unsafe {
-        NVIC::unmask(pac::Interrupt::DMA1_CH6);
-        NVIC::unmask(pac::Interrupt::DMA1_CH7);
+        NVIC::unmask(DmaPeriph::Dma1, pac::Interrupt::DMA1_CH6);
+        NVIC::unmask(DmaPeriph::Dma1, pac::Interrupt::DMA1_CH7);
     }
 
     loop {
