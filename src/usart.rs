@@ -633,7 +633,7 @@ where
     }
 
     #[cfg(feature = "f4")]
-    fn read(&mut self) -> Result<u8, Error> {
+    fn read(&mut self) -> nb::Result<u8, Error> {
         Ok(Usart::read_one(self))
     }
 }
@@ -657,12 +657,14 @@ where
     }
 
     #[cfg(feature = "f4")]
-    fn write(&mut self, word: u8) {
+    fn write(&mut self, word: u8) -> nb::Result<(), Error> {
         while !self.regs.sr.read().txe().bit_is_set() {}
 
         self.regs
             .dr
             .modify(|_, w| unsafe { w.dr().bits(word as u16) });
+
+        Ok(())
     }
 
     fn flush(&mut self) -> nb::Result<(), Error> {
