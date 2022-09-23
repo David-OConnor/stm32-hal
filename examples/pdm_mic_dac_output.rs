@@ -42,7 +42,7 @@ use stm32_hal2::{
     dac::{Dac, DacBits, DacChannel, Trigger},
     debug_workaround,
     dfsdm::{self, Dfsdm, DfsdmChannel, DfsdmConfig, Filter},
-    dma::{self, Dma, DmaChannel, DmaInterrupt},
+    dma::{self, DmaPeriph, Dma, DmaChannel, DmaInterrupt},
     gpio::{OutputType, Pin, PinMode, Port, Pull},
     pac::{self, interrupt, DAC, DFSDM, DMA1, SAI1},
     prelude::*,
@@ -168,9 +168,9 @@ mod app {
 
         let mut dma = Dma::new(dp.DMA1);
 
-        dma::mux(DmaChannel::C0, dma::DmaInput::Dfsdm1F0);
-        dma::mux(DmaChannel::C1, dma::DmaInput::Dfsdm1F11);
-        dma::mux(DmaChannel::C2, dma::DmaInput::DacCh1);
+        dma::mux(DmaPeriph::Dma1, DmaChannel::C0, dma::DmaInput::Dfsdm1F0);
+        dma::mux(DmaPeriph::Dma1, DmaChannel::C1, dma::DmaInput::Dfsdm1F11);
+        dma::mux(DmaPeriph::Dma1, DmaChannel::C2, dma::DmaInput::DacCh1);
 
         dma.enable_interrupt(DmaChannel::C0, DmaInterrupt::HalfTransfer);
         dma.enable_interrupt(DmaChannel::C0, DmaInterrupt::TransferComplete);

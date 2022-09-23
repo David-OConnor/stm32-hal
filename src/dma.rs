@@ -43,7 +43,8 @@ use cfg_if::cfg_if;
 #[derive(Clone, Copy)]
 pub enum DmaPeriph {
     Dma1,
-    Dma2, // todo: Feature-gate?
+    #[cfg(not(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1")))))]
+    Dma2,
 }
 
 #[derive(Copy, Clone)]
@@ -1639,6 +1640,7 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
                 #[cfg(feature = "h7")]
                 mux.ccr[channel as usize].modify(|_, w| w.dmareq_id().bits(input as u8));
             }
+            #[cfg(not(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1")))))]
             DmaPeriph::Dma2 => {
                 #[cfg(not(feature = "h7"))]
                 match channel {
@@ -1649,8 +1651,10 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
                     DmaChannel::C5 => mux.c12cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
                     #[cfg(not(feature = "g0"))]
                     DmaChannel::C6 => mux.c13cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                    #[cfg(not(feature = "g0"))]
+                    #[cfg(not(any(feature = "g0", feature = "wb", feature = "wl")))]
                     DmaChannel::C7 => mux.c14cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+                    #[cfg(any(feature = "wb", feature = "wl"))]
+                    DmaChannel::C7 => (), // Maybe no channel 7 on DMA2 on these platforms.
                     #[cfg(any(feature = "l5", feature = "g4"))]
                     DmaChannel::C8 => mux.c15cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
                 }

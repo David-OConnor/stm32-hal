@@ -9,7 +9,7 @@ use cortex_m::{self, asm, delay::Delay};
 
 use stm32_hal2::{
     clocks::{self, Clocks},
-    dma::{self, ChannelCfg, Dma, DmaChannel, DmaInterrupt},
+    dma::{self, DmaPeriph, ChannelCfg, Dma, DmaChannel, DmaInterrupt},
     gpio::{self, Edge, OutputSpeed, OutputType, Pin, PinMode, Port, Pull},
     pac::{self, DMA1, SPI1},
     spi::{BaudRate, Spi, SpiConfig, SpiMode},
@@ -393,8 +393,8 @@ mod app {
 
         // Assign appropriate DMA channels to SPI transmit and receive. (Required on DMAMUX-supporting
         // MCUs only; channels are hard-coded on older ones).
-        dma::mux(DmaChannel::C1, DmaInput::Spi1Tx, &dp.DMAMUX);
-        dma::mux(DmaChannel::C2, DmaInput::Spi1Rx, &dp.DMAMUX);
+        dma::mux(DmaPeriph::Dma1, ::C1, DmaInput::Spi1Tx, &dp.DMAMUX);
+        dma::mux(DmaPeriph::Dma1, DmaChannel::C2, DmaInput::Spi1Rx, &dp.DMAMUX);
 
         // We use Spi transfer complete to know when our readings are ready.
         dma.enable_interrupt(DmaChannel::C2, DmaInterrupt::TransferComplete);
