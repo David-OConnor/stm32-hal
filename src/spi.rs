@@ -734,16 +734,6 @@ where
 
         // todo: DRY here, with `write_dma`, and `read_dma`.
 
-        #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel_write = R::write_chan();
-        #[cfg(feature = "l4")]
-        R::write_sel(dma);
-
-        #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel_read = R::read_chan();
-        #[cfg(feature = "l4")]
-        R::read_sel(dma);
-
         #[cfg(feature = "h7")]
         let periph_addr_write = &self.regs.txdr as *const _ as u32;
         #[cfg(not(feature = "h7"))]
@@ -771,6 +761,11 @@ where
         #[cfg(feature = "h7")]
         self.regs.cfg1.modify(|_, w| w.rxdmaen().set_bit());
 
+        #[cfg(any(feature = "f3", feature = "l4"))]
+        let channel_write = R::write_chan();
+        #[cfg(feature = "l4")]
+        R::write_sel(dma);
+
         dma.cfg_channel(
             channel_write,
             periph_addr_write,
@@ -781,6 +776,11 @@ where
             dma::DataSize::S8,
             channel_cfg_write,
         );
+
+        #[cfg(any(feature = "f3", feature = "l4"))]
+        let channel_read = R::read_chan();
+        #[cfg(feature = "l4")]
+        R::read_sel(dma);
 
         dma.cfg_channel(
             channel_read,
