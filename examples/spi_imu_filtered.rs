@@ -436,9 +436,8 @@ mod app {
         (cx.shared.dma, cx.shared.spi).lock(|dma, spi| {
             dma.clear_interrupt(DmaInterrupt::TransferComplete);
 
-            // Note that these steps are mandatory, per STM32 RM.
-            dma.stop(DmaChannel::C1); // spi.stop_dma only can stop a single channel atm.
-            spi.stop_dma(DmaChannel::C2, dma);
+            // Note that this step is mandatory, per STM32 RM.
+            spi.stop_dma(DmaChannel::C1, Some(DmaChannel::C2), dma);
         });
 
         cx.shared.cs_imu.lock(|cs| {

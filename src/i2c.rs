@@ -667,85 +667,85 @@ where
         );
     }
 
-    /// Write, and read data, using DMA. This is the primary read api.
-    /// See L44 RM, 37.4.16: "Reception using DMA"
-    /// Note that the `channel` argument is only used on F3 and L4.
-    // todo: WIP. Is this the way to do it?
-    #[cfg(not(feature = "l552"))]
-    pub unsafe fn write_read_dma<D>(
-        &mut self,
-        addr: u8,
-        buf_write: &[u8],
-        buf_read: &mut [u8],
-        channel_write: DmaChannel,
-        channel_read: DmaChannel,
-        channel_cfg_write: ChannelCfg,
-        channel_cfg_read: ChannelCfg,
-        dma: &mut Dma<D>,
-    ) where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
-        // todo: This might not work as you expect. Maybe remove it?
+    // /// Write, and read data, using DMA. This is the primary read api.
+    // /// See L44 RM, 37.4.16: "Reception using DMA"
+    // /// Note that the `channel` argument is only used on F3 and L4.
+    // // todo: WIP. Is this the way to do it?
+    // #[cfg(not(feature = "l552"))]
+    // pub unsafe fn write_read_dma<D>(
+    //     &mut self,
+    //     addr: u8,
+    //     buf_write: &[u8],
+    //     buf_read: &mut [u8],
+    //     channel_write: DmaChannel,
+    //     channel_read: DmaChannel,
+    //     channel_cfg_write: ChannelCfg,
+    //     channel_cfg_read: ChannelCfg,
+    //     dma: &mut Dma<D>,
+    // ) where
+    //     D: Deref<Target = dma_p::RegisterBlock>,
+    // {
+    //     // todo: This might not work as you expect. Maybe remove it?
 
-        while self.regs.cr2.read().start().bit_is_set() {}
+    //     while self.regs.cr2.read().start().bit_is_set() {}
 
-        let (ptr_write, len_write) = (buf_write.as_ptr(), buf_write.len());
-        let (ptr_read, len_read) = (buf_read.as_mut_ptr(), buf_read.len());
+    //     let (ptr_write, len_write) = (buf_write.as_ptr(), buf_write.len());
+    //     let (ptr_read, len_read) = (buf_read.as_mut_ptr(), buf_read.len());
 
-        self.regs.cr1.modify(|_, w| w.txdmaen().set_bit());
-        while self.regs.cr1.read().txdmaen().bit_is_clear() {}
-        self.regs.cr1.modify(|_, w| w.rxdmaen().set_bit());
-        while self.regs.cr1.read().rxdmaen().bit_is_clear() {}
+    //     self.regs.cr1.modify(|_, w| w.txdmaen().set_bit());
+    //     while self.regs.cr1.read().txdmaen().bit_is_clear() {}
+    //     self.regs.cr1.modify(|_, w| w.rxdmaen().set_bit());
+    //     while self.regs.cr1.read().rxdmaen().bit_is_clear() {}
        
-        let periph_addr_write = &self.regs.txdr as *const _ as u32;
-        let periph_addr_read = &self.regs.rxdr as *const _ as u32;
+    //     let periph_addr_write = &self.regs.txdr as *const _ as u32;
+    //     let periph_addr_read = &self.regs.rxdr as *const _ as u32;
 
-        #[cfg(feature = "h7")]
-        let num_data_write = len_write as u32;
-        #[cfg(not(feature = "h7"))]
-        let num_data_write = len_write as u16;
+    //     #[cfg(feature = "h7")]
+    //     let num_data_write = len_write as u32;
+    //     #[cfg(not(feature = "h7"))]
+    //     let num_data_write = len_write as u16;
 
-        #[cfg(feature = "h7")]
-        let num_data_read = len_read as u32;
-        #[cfg(not(feature = "h7"))]
-        let num_data_read = len_read as u16;
+    //     #[cfg(feature = "h7")]
+    //     let num_data_read = len_read as u32;
+    //     #[cfg(not(feature = "h7"))]
+    //     let num_data_read = len_read as u16;
 
-        #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel_write = R::write_chan();
-        #[cfg(feature = "l4")]
-        R::write_sel(dma);
+    //     #[cfg(any(feature = "f3", feature = "l4"))]
+    //     let channel_write = R::write_chan();
+    //     #[cfg(feature = "l4")]
+    //     R::write_sel(dma);
 
-        self.set_cr2_write(addr, len_write as u8, false);
+    //     self.set_cr2_write(addr, len_write as u8, false);
 
-        dma.cfg_channel(
-            channel_write,
-            periph_addr_write,
-            ptr_write as u32,
-            num_data_write,
-            dma::Direction::ReadFromMem,
-            dma::DataSize::S8,
-            dma::DataSize::S8,
-            channel_cfg_write,
-        );
+    //     dma.cfg_channel(
+    //         channel_write,
+    //         periph_addr_write,
+    //         ptr_write as u32,
+    //         num_data_write,
+    //         dma::Direction::ReadFromMem,
+    //         dma::DataSize::S8,
+    //         dma::DataSize::S8,
+    //         channel_cfg_write,
+    //     );
 
-        #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel_read = R::read_chan();
-        #[cfg(feature = "l4")]
-        R::read_sel(dma);
+    //     #[cfg(any(feature = "f3", feature = "l4"))]
+    //     let channel_read = R::read_chan();
+    //     #[cfg(feature = "l4")]
+    //     R::read_sel(dma);
 
-        self.set_cr2_read(addr, len_read as u8);
+    //     self.set_cr2_read(addr, len_read as u8);
 
-        dma.cfg_channel(
-            channel_read,
-            periph_addr_read,
-            ptr_read as u32,
-            num_data_read,
-            dma::Direction::ReadFromPeriph,
-            dma::DataSize::S8,
-            dma::DataSize::S8,
-            channel_cfg_read,
-        );
-    }
+    //     dma.cfg_channel(
+    //         channel_read,
+    //         periph_addr_read,
+    //         ptr_read as u32,
+    //         num_data_read,
+    //         dma::Direction::ReadFromPeriph,
+    //         dma::DataSize::S8,
+    //         dma::DataSize::S8,
+    //         channel_cfg_read,
+    //     );
+    // }
 }
 
 #[cfg(feature = "embedded-hal")]

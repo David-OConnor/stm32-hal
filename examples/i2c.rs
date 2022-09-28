@@ -22,6 +22,12 @@ use stm32_hal2::{
     low_power, pac,
 };
 
+static WRITE_BUF: [u8; 2] = [0, 0];
+
+static mut READ_BUF: [u8; 8] = [0; 8];
+
+const ADDR: u8 = 0x48;
+
 #[entry]
 fn main() -> ! {
     // Set up CPU peripherals
@@ -56,7 +62,6 @@ fn main() -> ! {
     // todo: Show how to set up SMBUS.
 
     // Configure settings for the ADS1115 ADC:
-    let addr: u8 = 0x48;
     // This config is the 16-bit register contents to set up the ADC in one-shot mode
     // with certain settings, and initiate a conversion. For I2C communications, we
     // use u8 words. Since this ADC uses 16-bit registers, we split into bytes.
@@ -70,18 +75,28 @@ fn main() -> ! {
     // Associate DMA channels with I2C1: One for transmit; one for receive.
     // Note that mux is not used on F3, F4, and most L4s: DMA channels are hard-coded
     // to peripherals on those platforms.
-    dma::mux(DmaChannel::C6, DmaInput::I2c1Tx);
-    dma::mux(DmaChannel::C7, DmaInput::I2c1Rx);
+    dma::mux(DmaPeriaph::Dma1, DmaChannel::C6, DmaInput::I2c1Tx);
+    dma::mux(DmaPeriaph::Dma2, DmaChannel::C7, DmaInput::I2c1Rx);
 
-    // todo fill this in)
+    // Write to DMA, requesting readings
+    unsafe {
+        i2c.write_dma(
+            ADDR,
+            &WRITE_BUF,
+            false,
+            DmaChannel::C6,
+            Default::default(),
+            dma2,
+        );
+    }
 
     // Alternatively, use the blocking, non-DMA I2C API` (Also supports `embedded-hal` traits):
     let mut read_buf = [0, 0];
     // Write the config register address, then the 2 bytes of the value we're writing.
-    i2c.write(addr, &[cfg_reg, cfg[0], cfg[1]]).ok();
+    i2c.write(ADDR, &[cfg_reg, cfg[0], cfg[1]]).ok();
     // Now request a reading by passing the conversion reg, and a buffer to write
     // the results to.
-    i2c.write_read(addr, &[conversion_reg], &mut read_buf).ok();
+    i2c.write_read(ADDR, &[conversion_reg], &mut read_buf).ok();
     let reading = i16::from_be_bytes([read_buf[0], read_buf[1]]);
 
     // Unmask the interrupt line. See the `DMA_CH6` and `DMA_CH78` interrupt handlers below.
@@ -111,6 +126,19 @@ fn DMA1_CH6() {
 /// This interrupt fires when a DMA read is complete
 fn DMA1_CH7() {
     free(|cs| unsafe { (*pac::DMA1::ptr()).ifcr.write(|w| w.tcif7().set_bit()) });
+
+    // Once the write is complete, command a transfer to receive the readings.
+    // todo: Need a way to access the `I2c` and `Dma` structs from this ISR context.
+    // See other examples for info on how to do this.
+    unsafe {
+        i2c.read_dma(
+            ADDR,
+            &mut READ_BUF,
+            DmaChannel::C7,
+            Default::default(),
+            dma,
+        );
+    }
 }
 
 // same panicking *behavior* as `panic-probe` but doesn't print a panic message

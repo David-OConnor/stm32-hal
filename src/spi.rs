@@ -803,15 +803,20 @@ where
 
     /// Stop a DMA transfer. Stops the channel, and disables the `txdmaen` and `rxdmaen` bits.
     /// Run this after each transfer completes - you may wish to do this in an interrupt
-    /// (eg DMA transfer complete) instead of blocking.
+    /// (eg DMA transfer complete) instead of blocking. `channel` is an optional second channel 
+    /// to stop; eg if you have both a tx and rx channel.
     #[cfg(not(any(feature = "f4", feature = "l552")))]
-    pub fn stop_dma<D>(&mut self, channel: DmaChannel, dma: &mut Dma<D>)
+    pub fn stop_dma<D>(&mut self, channel: DmaChannel, channel2: Option<DmaChannel>, dma: &mut Dma<D>)
     where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         // (RM:) To close communication it is mandatory to follow these steps in order:
         // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
         dma.stop(channel);
+        if let Some(ch2) = channel2 {
+            dma.stop(ch2);
+        };
+
         // 2. Disable the SPI by following the SPI disable procedure:
         // self.disable();
         // 3. Disable DMA Tx and Rx buffers by clearing the TXDMAEN and RXDMAEN bits in the
