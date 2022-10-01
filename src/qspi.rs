@@ -142,7 +142,8 @@ impl Qspi {
         );
 
         free(|_| {
-            let mut rcc = unsafe { &(*RCC::ptr()) };
+            let rcc = unsafe { &(*RCC::ptr()) };
+
             // cfg_if! {
             //     if #[cfg(any(feature = "l4", feature = "l5", feature = "")] {
             //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
