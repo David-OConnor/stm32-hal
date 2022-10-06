@@ -38,7 +38,10 @@ unsafe impl Send for IirInstWrapper {}
 
 mod imu {
     ///! Module for TDK ICM-426xx IMUs. Stripped down in this example to include only what we need.
-    use stm32_hal2::{gpio::Pin, pac::SPI1, spi::Spi};
+    use stm32_hal2::{
+        gpio::Pin, pac::{DMA1, SPI1}, spi::Spi,
+        dma::{Dma, DmaChannel},
+    };
 
     use cortex_m::delay::Delay;
 
@@ -436,7 +439,7 @@ mod app {
     /// we receive IMU data; it triggers the inner PID loop.
     fn imu_tc_isr(mut cx: imu_tc_isr::Context) {
         (cx.shared.dma, cx.shared.spi).lock(|dma, spi| {
-            dma.clear_interrupt(DmaInterrupt::TransferComplete);
+            dma.clear_interrupt(DmaChannel::C2, DmaInterrupt::TransferComplete);
 
             // Note that this step is mandatory, per STM32 RM.
             spi.stop_dma(DmaChannel::C1, Some(DmaChannel::C2), dma);
