@@ -342,7 +342,7 @@ macro_rules! set_exti {
                                 exti.cpuimr1.modify(|_, w| w.[<mr $num>]().set_bit());
                             } else if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
                                 exti.c1imr1.modify(|_, w| w.[<mr $num>]().set_bit());
-                            }else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
+                            } else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
                                 exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());
                             } else {
                                 exti.imr1.modify(|_, w| w.[<mr $num>]().set_bit());
@@ -362,7 +362,7 @@ macro_rules! set_exti {
                             //     // todo: Core 2 interrupts.
                             } else {
                                 exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($rising));
-                                exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit(!$falling));
+                                exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit($falling));
                             }
                         }
                         syscfg
@@ -906,7 +906,7 @@ impl Pin {
 
         let falling = match edge {
             Edge::Rising => false,
-            _ => true, // fallingor either.
+            _ => true, // falling or either.
         };
 
         cfg_if! {
