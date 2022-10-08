@@ -2,30 +2,57 @@
 //! the `usbd` crate.
 //!
 //! Requires the `usbotg_fs` or `usbotg_hs` features.
-//! Used on F4, L4x5, L4x6, and H7. Others use the `usb` module.
+//! Used on F4, L4x6, and H7. Others use the `usb` module.
 
 // Based on `stm3h7xx-hal`
+
+#[cfg(all(feature = "h7", feature = "usbotg_fs"))]
+compile_error!("target only supports usbotg_hs feature");
+#[cfg(all(not(feature = "h7"), feature = "usbotg_hs"))]
+compile_error!("target only supports usbotg_fs feature");
 
 use crate::{
     gpio::Pin,
     pac::{self, PWR, RCC},
 };
 
+use cfg_if::cfg_if;
 pub use synopsys_usb_otg::UsbBus;
 use synopsys_usb_otg::UsbPeripheral;
 
+cfg_if! {
+    if #[cfg(feature = "usbotg_hs")] {
+
+        type Usb1GlobalRegType = pac::OTG1_HS_GLOBAL;
+        type Usb1DeviceRegType = pac::OTG1_HS_DEVICE;
+        type Usb1PwrclkRegType = pac::OTG1_HS_PWRCLK;
+
+        cfg_if!{
+            if #[cfg(not(any(feature = "h735", feature = "h7b3")))] {
+                type Usb2RegGlobalType = pac::OTG2_HS_GLOBAL;
+                type Usb2RegDeviceType = pac::OTG2_HS_DEVICE;
+                type Usb2RegPwrclkType = pac::OTG2_HS_PWRCLK;
+            }
+        }
+    } else if #[cfg(feature = "usbotg_fs")] {
+        type Usb1GlobalRegType = pac::OTG_FS_GLOBAL;
+        type Usb1DeviceRegType = pac::OTG_FS_DEVICE;
+        type Usb1PwrclkRegType = pac::OTG_FS_PWRCLK;
+    }
+}
+
 pub struct Usb1 {
-    pub usb_global: pac::OTG1_HS_GLOBAL,
-    pub usb_device: pac::OTG1_HS_DEVICE,
-    pub usb_pwrclk: pac::OTG1_HS_PWRCLK,
+    pub usb_global: Usb1GlobalRegType,
+    pub usb_device: Usb1DeviceRegType,
+    pub usb_pwrclk: Usb1PwrclkRegType,
     pub hclk: u32,
 }
 
 impl Usb1 {
     pub fn new(
-        usb_global: pac::OTG1_HS_GLOBAL,
-        usb_device: pac::OTG1_HS_DEVICE,
-        usb_pwrclk: pac::OTG1_HS_PWRCLK,
+        usb_global: Usb1GlobalRegType,
+        usb_device: Usb1DeviceRegType,
+        usb_pwrclk: Usb1PwrclkRegType,
         hclk: u32,
     ) -> Self {
         Self {
@@ -37,41 +64,46 @@ impl Usb1 {
     }
 }
 
-#[cfg(not(feature = "h735"))]
-pub struct Usb2 {
-    pub usb_global: pac::OTG2_HS_GLOBAL,
-    pub usb_device: pac::OTG2_HS_DEVICE,
-    pub usb_pwrclk: pac::OTG2_HS_PWRCLK,
-    pub hclk: u32,
-}
+cfg_if! {
+    if #[cfg(all(feature = "h7", not(any(feature = "h735", feature = "h7b3"))))] {
+        pub struct Usb2 {
+            pub usb_global: Usb2RegGlobalType,
+            pub usb_device: Usb2RegDeviceType,
+            pub usb_pwrclk: Usb2RegPwrclkType,
+            pub hclk: u32,
+        }
 
-#[cfg(not(feature = "h735"))]
-impl Usb2 {
-    pub fn new(
-        usb_global: pac::OTG1_HS_GLOBAL,
-        usb_device: pac::OTG1_HS_DEVICE,
-        usb_pwrclk: pac::OTG1_HS_PWRCLK,
-        hclk: u32,
-    ) -> Self {
-        Self {
-            usb_global,
-            usb_device,
-            usb_pwrclk,
-            hclk,
+        impl Usb2 {
+            pub fn new(
+                usb_global: Usb2RegGlobalType,
+                usb_device: Usb2RegDeviceType,
+                usb_pwrclk: Usb2RegPwrclkType,
+                hclk: u32,
+            ) -> Self {
+                Self {
+                    usb_global,
+                    usb_device,
+                    usb_pwrclk,
+                    hclk,
+                }
+            }
         }
     }
 }
 
 macro_rules! usb_peripheral {
-    ($USB:ident, $GLOBAL:ident, $en:ident, $rst:ident) => {
+    ($USB:ident, $GLOBAL:ident, $clock_enable_reg:ident, $reset_reg:ident, $en:ident, $rst:ident) => {
         unsafe impl Sync for $USB {}
 
         unsafe impl UsbPeripheral for $USB {
-            const REGISTERS: *const () = pac::$GLOBAL::ptr() as *const ();
+            const REGISTERS: *const () = $GLOBAL::ptr() as *const ();
 
+            #[cfg(feature = "usbotg_fs")]
+            const HIGH_SPEED: bool = false;
+            #[cfg(feature = "usbotg_hs")]
             const HIGH_SPEED: bool = true;
-            const FIFO_DEPTH_WORDS: usize = 1024;
-            const ENDPOINT_COUNT: usize = 9;
+            const FIFO_DEPTH_WORDS: usize = 1024; // <-- do something here maybe?
+            const ENDPOINT_COUNT: usize = 9; // <--
 
             fn enable() {
                 let pwr = unsafe { &*PWR::ptr() };
@@ -79,14 +111,15 @@ macro_rules! usb_peripheral {
 
                 cortex_m::interrupt::free(|_| {
                     // USB Regulator in BYPASS mode
+                    #[cfg(feature = "h7")] // only h7 seems to have this
                     pwr.cr3.modify(|_, w| w.usb33den().set_bit());
 
                     // Enable USB peripheral
-                    rcc.ahb1enr.modify(|_, w| w.$en().set_bit());
+                    rcc.$clock_enable_reg.modify(|_, w| w.$en().set_bit());
 
                     // Reset USB peripheral
-                    rcc.ahb1rstr.modify(|_, w| w.$rst().set_bit());
-                    rcc.ahb1rstr.modify(|_, w| w.$rst().clear_bit());
+                    rcc.$reset_reg.modify(|_, w| w.$rst().set_bit());
+                    rcc.$reset_reg.modify(|_, w| w.$rst().clear_bit());
                 });
             }
 
@@ -101,69 +134,86 @@ macro_rules! usb_peripheral {
     };
 }
 
-usb_peripheral! {
-    Usb1, OTG1_HS_GLOBAL, usb1otgen, usb1otgrst
+cfg_if! {
+    if #[cfg(any(feature = "f4", feature = "l4"))] {
+        usb_peripheral! {
+            Usb1, Usb1GlobalRegType, ahb2enr, ahb2rstr, otgfsen, otgfsrst
+        }
+    } else if #[cfg(feature = "h7")] {
+        usb_peripheral! {
+            Usb1, Usb1GlobalRegType, ahb1enr, ahb1rstr, usb1otgen, usb1otgrst
+        }
+    }
 }
+
 pub type Usb1BusType = UsbBus<Usb1>;
 
-#[cfg(not(feature = "h735"))]
-usb_peripheral! {
-    USB2, OTG2_HS_GLOBAL, usb2otgen, usb2otgrst
-}
-#[cfg(not(feature = "h735"))]
-pub type Usb2BusType = UsbBus<USB2>;
-
-pub struct Usb1Ulpi {
-    pub usb_global: pac::OTG1_HS_GLOBAL,
-    pub usb_device: pac::OTG1_HS_DEVICE,
-    pub usb_pwrclk: pac::OTG1_HS_PWRCLK,
-    pub prec: u32, // todo: What should this be? Maybe d2ccip2 / cdccip2 ?
-    pub hclk: u32,
-    pub ulpi_clk: Pin,
-    pub ulpi_dir: Pin,
-    pub ulpi_nxt: Pin,
-    pub ulpi_stp: Pin,
-    pub ulpi_d0: Pin,
-    pub ulpi_d1: Pin,
-    pub ulpi_d2: Pin,
-    pub ulpi_d3: Pin,
-    pub ulpi_d4: Pin,
-    pub ulpi_d5: Pin,
-    pub ulpi_d6: Pin,
-    pub ulpi_d7: Pin,
-}
-
-unsafe impl Sync for Usb1Ulpi {}
-
-unsafe impl UsbPeripheral for Usb1Ulpi {
-    const REGISTERS: *const () = pac::OTG1_HS_GLOBAL::ptr() as *const ();
-
-    const HIGH_SPEED: bool = true;
-    const FIFO_DEPTH_WORDS: usize = 1024;
-    const ENDPOINT_COUNT: usize = 9;
-
-    fn enable() {
-        let rcc = unsafe { &*pac::RCC::ptr() };
-
-        cortex_m::interrupt::free(|_| {
-            // Enable USB peripheral
-            rcc.ahb1enr.modify(|_, w| w.usb1otgen().enabled());
-
-            // Enable ULPI Clock
-            rcc.ahb1enr.modify(|_, w| w.usb1ulpien().enabled());
-
-            // Reset USB peripheral
-            rcc.ahb1rstr.modify(|_, w| w.usb1otgrst().set_bit());
-            rcc.ahb1rstr.modify(|_, w| w.usb1otgrst().clear_bit());
-        });
+cfg_if! {
+if #[cfg(all(feature = "h7", not(any(feature = "h735", feature = "h7b3"))))] {
+    usb_peripheral! {
+        Usb2, Usb2RegGlobalType, ahb1enr, ahb1rstr, usb2otgen, usb2otgrst
     }
 
-    fn ahb_frequency_hz(&self) -> u32 {
-        self.hclk
-    }
+    pub type Usb2BusType = UsbBus<Usb2>;
+}
+}
 
-    fn phy_type(&self) -> synopsys_usb_otg::PhyType {
-        synopsys_usb_otg::PhyType::ExternalHighSpeed
+cfg_if! {
+    if #[cfg(feature = "h7")] {
+        pub struct Usb1Ulpi {
+            pub usb_global: Usb1GlobalRegType,
+            pub usb_device: Usb1DeviceRegType,
+            pub usb_pwrclk: Usb1PwrclkRegType,
+            pub prec: u32, // todo: What should this be? Maybe d2ccip2 / cdccip2 ?
+            pub hclk: u32,
+            pub ulpi_clk: Pin,
+            pub ulpi_dir: Pin,
+            pub ulpi_nxt: Pin,
+            pub ulpi_stp: Pin,
+            pub ulpi_d0: Pin,
+            pub ulpi_d1: Pin,
+            pub ulpi_d2: Pin,
+            pub ulpi_d3: Pin,
+            pub ulpi_d4: Pin,
+            pub ulpi_d5: Pin,
+            pub ulpi_d6: Pin,
+            pub ulpi_d7: Pin,
+        }
+
+        unsafe impl Sync for Usb1Ulpi {}
+
+
+        unsafe impl UsbPeripheral for Usb1Ulpi {
+            const REGISTERS: *const () = Usb1GlobalRegType::ptr() as *const ();
+
+            const HIGH_SPEED: bool = true;
+            const FIFO_DEPTH_WORDS: usize = 1024;
+            const ENDPOINT_COUNT: usize = 9;
+
+            fn enable() {
+                let rcc = unsafe { &*pac::RCC::ptr() };
+
+                cortex_m::interrupt::free(|_| {
+                    // Enable USB peripheral
+                    rcc.ahb1enr.modify(|_, w| w.usb1otgen().enabled());
+
+                    // Enable ULPI Clock
+                    rcc.ahb1enr.modify(|_, w| w.usb1ulpien().enabled());
+
+                    // Reset USB peripheral
+                    rcc.ahb1rstr.modify(|_, w| w.usb1otgrst().set_bit());
+                    rcc.ahb1rstr.modify(|_, w| w.usb1otgrst().clear_bit());
+                });
+            }
+
+            fn ahb_frequency_hz(&self) -> u32 {
+                self.hclk
+            }
+
+            fn phy_type(&self) -> synopsys_usb_otg::PhyType {
+                synopsys_usb_otg::PhyType::ExternalHighSpeed
+            }
+        }
+        pub type Usb1UlpiBusType = UsbBus<Usb1Ulpi>;
     }
 }
-pub type Usb1UlpiBusType = UsbBus<Usb1Ulpi>;
