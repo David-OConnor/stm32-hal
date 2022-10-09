@@ -111,8 +111,11 @@ macro_rules! usb_peripheral {
 
                 cortex_m::interrupt::free(|_| {
                     // USB Regulator in BYPASS mode
-                    #[cfg(feature = "h7")] // only h7 seems to have this
+                    #[cfg(feature = "h7")]
                     pwr.cr3.modify(|_, w| w.usb33den().set_bit());
+                    #[cfg(feature = "l4x6")] // this was present in the usb module
+                    pwr.cr2.modify(|_, w| w.usv().set_bit());
+                    // The f4 doesn't seem to have anything similar
 
                     // Enable USB peripheral
                     rcc.$clock_enable_reg.modify(|_, w| w.$en().set_bit());
