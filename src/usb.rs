@@ -16,6 +16,8 @@
  Further inspection shows that the generated pac for the l4x5 has a USB peripheral
  while the l4r5 has an OTG, but this crate doesn't currently seem to support the 
  l4r5 variant.
+
+ Strangely, the register modification commands for the l4x5 have OTG in their names
 */
 
 use crate::{pac, util::rcc_en_reset};
@@ -93,7 +95,13 @@ unsafe impl UsbPeripheral for Peripheral {
         cortex_m::interrupt::free(|_| {
             cfg_if! {
                 if #[cfg(feature = "l4")] {
-                    rcc_en_reset!(apb1, usbfs, rcc);
+                    cfg_if! {
+                        if #[cfg(feature = "l4x5")] {
+                            rcc_en_reset!(ahb2, otgfs, rcc); // Why does the l4x5 have USB peripheral but OTG names?
+                        } else {
+                            rcc_en_reset!(apb1, usbfs, rcc);
+                        }
+                    }
                 } else if #[cfg(feature = "l5")] {
                     rcc.apb1enr2.modify(|_, w| w.usbfsen().set_bit());
                     rcc.apb1rstr2.modify(|_, w| w.usbfsrst().set_bit());
