@@ -197,73 +197,81 @@ pub enum SlaveSelect {
     HardwareOutDisable,
 }
 
-#[derive(Clone, Copy)]
-#[repr(u8)]
-/// Clock polarity. Sets CFGR2 register, CPOL field. Stored in the config as a field of `SpiMode`.
-pub enum SpiPolarity {
-    /// Clock signal low when idle
-    IdleLow = 0,
-    /// Clock signal high when idle
-    IdleHigh = 1,
-}
-
-#[derive(Clone, Copy)]
-#[repr(u8)]
-/// Clock phase. Sets CFGR2 register, CPHA field. Stored in the config as a field of `SpiMode`.
-pub enum SpiPhase {
-    /// Data in "captured" on the first clock transition
-    CaptureOnFirstTransition = 0,
-    /// Data in "captured" on the second clock transition
-    CaptureOnSecondTransition = 1,
-}
-
-#[derive(Clone, Copy)]
-/// SPI mode. Sets CFGR2 reigster, CPOL and CPHA fields.
-pub struct SpiMode {
-    /// Clock polarity
-    pub polarity: SpiPolarity,
-    /// Clock phase
-    pub phase: SpiPhase,
-}
-
-impl SpiMode {
-    /// Set Spi Mode 0: Idle low, capture on first transition.
-    pub fn mode0() -> Self {
-        Self {
-            polarity: SpiPolarity::IdleLow,
-            phase: SpiPhase::CaptureOnFirstTransition,
+cfg_if! {
+    if #[cfg(feature = "embedded_hal")] {
+        type SpiModeType = embedded_hal::spi::Mode;
+    } else {
+        #[derive(Clone, Copy)]
+        #[repr(u8)]
+        /// Clock polarity. Sets CFGR2 register, CPOL field. Stored in the config as a field of `SpiMode`.
+        pub enum SpiPolarity {
+            /// Clock signal low when idle
+            IdleLow = 0,
+            /// Clock signal high when idle
+            IdleHigh = 1,
         }
-    }
 
-    /// Set Spi Mode 1: Idle low, capture on second transition.
-    pub fn mode1() -> Self {
-        Self {
-            polarity: SpiPolarity::IdleLow,
-            phase: SpiPhase::CaptureOnSecondTransition,
+        #[derive(Clone, Copy)]
+        #[repr(u8)]
+        /// Clock phase. Sets CFGR2 register, CPHA field. Stored in the config as a field of `SpiMode`.
+        pub enum SpiPhase {
+            /// Data in "captured" on the first clock transition
+            CaptureOnFirstTransition = 0,
+            /// Data in "captured" on the second clock transition
+            CaptureOnSecondTransition = 1,
         }
-    }
 
-    /// Set Spi Mode 2: Idle high, capture on first transition.
-    pub fn mode2() -> Self {
-        Self {
-            polarity: SpiPolarity::IdleHigh,
-            phase: SpiPhase::CaptureOnFirstTransition,
+        #[derive(Clone, Copy)]
+        /// SPI mode. Sets CFGR2 reigster, CPOL and CPHA fields.
+        pub struct SpiMode {
+            /// Clock polarity
+            pub polarity: SpiPolarity,
+            /// Clock phase
+            pub phase: SpiPhase,
         }
-    }
 
-    /// Set Spi Mode 3: Idle high, capture on second transition.
-    pub fn mode3() -> Self {
-        Self {
-            polarity: SpiPolarity::IdleHigh,
-            phase: SpiPhase::CaptureOnSecondTransition,
+        impl SpiMode {
+            /// Set Spi Mode 0: Idle low, capture on first transition.
+            pub fn mode0() -> Self {
+                Self {
+                    polarity: SpiPolarity::IdleLow,
+                    phase: SpiPhase::CaptureOnFirstTransition,
+                }
+            }
+
+            /// Set Spi Mode 1: Idle low, capture on second transition.
+            pub fn mode1() -> Self {
+                Self {
+                    polarity: SpiPolarity::IdleLow,
+                    phase: SpiPhase::CaptureOnSecondTransition,
+                }
+            }
+
+            /// Set Spi Mode 2: Idle high, capture on first transition.
+            pub fn mode2() -> Self {
+                Self {
+                    polarity: SpiPolarity::IdleHigh,
+                    phase: SpiPhase::CaptureOnFirstTransition,
+                }
+            }
+
+            /// Set Spi Mode 3: Idle high, capture on second transition.
+            pub fn mode3() -> Self {
+                Self {
+                    polarity: SpiPolarity::IdleHigh,
+                    phase: SpiPhase::CaptureOnSecondTransition,
+                }
+            }
         }
+
+        type SpiModeType = SpiMode;
     }
 }
 
 /// Configuration data for SPI.
 pub struct SpiConfig {
     /// SPI mode associated with Polarity and Phase. Defaults to Mode0: Idle low, capture on first transition.
-    pub mode: SpiMode,
+    pub mode: SpiModeType,
     /// Sets the (duplex) communication mode between the devices. Defaults to full duplex.
     pub comm_mode: SpiCommMode,
     /// Controls use of hardware vs software CS/NSS pin. Defaults to software.
@@ -279,8 +287,16 @@ pub struct SpiConfig {
 
 impl Default for SpiConfig {
     fn default() -> Self {
+        cfg_if! {
+            if #[cfg(feature = "embedded_hal")] {
+                let mode0 = embedded_hal::spi::MODE_0;
+            } else {
+                let mode0 = SpiModeType::mode0();
+            }
+        }
+
         Self {
-            mode: SpiMode::mode0(),
+            mode: mode0,
             comm_mode: SpiCommMode::FullDuplex,
             slave_select: SlaveSelect::Software,
             data_size: DataSize::D8,
