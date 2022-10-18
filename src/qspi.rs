@@ -7,7 +7,7 @@ use crate::{clocks::Clocks, pac::RCC};
 use cfg_if::cfg_if;
 
 cfg_if! {
-    if #[cfg(any(feature = "l5", feature = "h735", feature = "h7b3"))] {
+    if #[cfg(any(feature = "l5", feature = "h735", feature = "h7b3", feature = "l4p"))] {
         use crate::pac::OCTOSPI1 as QUADSPI;
     } else {
         use crate::pac::QUADSPI;
@@ -163,7 +163,7 @@ impl Qspi {
                     rcc.ahb3enr.modify(|_, w| w.octospi1en().set_bit());
                     rcc.ahb3rstr.modify(|_, w| w.octospi1rst().set_bit());
                     rcc.ahb3rstr.modify(|_, w| w.octospi1rst().clear_bit());
-                } else if #[cfg(feature = "l5")] {
+                } else if #[cfg(any(feature = "l5", feature = "l4p"))] {
                     rcc.ahb3enr.modify(|_, w| w.ospi1en().set_bit());
                     rcc.ahb3rstr.modify(|_, w| w.ospi1rst().set_bit());
                     rcc.ahb3rstr.modify(|_, w| w.ospi1rst().clear_bit());
@@ -186,13 +186,20 @@ impl Qspi {
             w.admode().bits(cfg.protocol_mode as u8);
             w.imode().bits(cfg.protocol_mode as u8);
             w.dmode().bits(cfg.protocol_mode as u8);
-            #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+            #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3", feature = "l4p")))]
             // todo: Equiv for octo?
             w.ddrm().bit(cfg.data_mode as u8 != 0);
-            #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+            #[cfg(any(feature = "l4p"))]
+            w.ddtr().bit(cfg.data_mode as u8 != 0);
+            #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3", feature = "l4p")))]
             // todo: Equiv for octo?
             w.dcyc().bits(cfg.dummy_cycles);
             w.adsize().bits(cfg.address_size as u8)
+        });
+
+        #[cfg(any(feature = "l4p"))]
+        regs.tcr.modify(|_, w| unsafe {
+            w.dcyc().bits(cfg.dummy_cycles)
         });
 
         // RM: The FSIZE[4:0] field defines the size of external memory using the following formula:
@@ -208,10 +215,13 @@ impl Qspi {
             }
         }
 
-        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3", feature = "l4p")))]
         // todo: Equiv for octo?
         regs.dcr.modify(|_, w| unsafe { w.fsize().bits(fsize) }); // todo
                                                                   // regs.dcr.modify(|_, w| unsafe { w.fsize().bits(24) });
+
+        #[cfg(any(feature = "l4p"))]
+        regs.dcr1.modify(|_, w| unsafe { w.devsize().bits(fsize) });
 
         // RM: This field [prescaler] defines the scaler factor for generating CLK based on the
         // clock (value+1).
@@ -238,7 +248,7 @@ impl Qspi {
             DataMode::Ddr => SamplingEdge::Rising,
         };
 
-        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3", feature = "l4p")))]
         // todo: Equiv for octo?
         regs.cr.write(|w| unsafe {
             w.prescaler().bits(prescaler as u8);
@@ -246,7 +256,16 @@ impl Qspi {
             w.fthres().bits(cfg.fifo_threshold - 1)
         });
 
-        // Enable ther peripheral
+        #[cfg(any(feature = "l4p"))]
+        regs.dcr2.modify(|_, w| w.prescaler().bits(prescaler as u8));
+
+        #[cfg(any(feature = "l4p"))]
+        regs.tcr.modify(|_, w| w.sshift().bit(sampling_edge as u8 != 0));
+
+        #[cfg(any(feature = "l4p"))]
+        regs.cr.modify(|_, w| w.fthres().bits(cfg.fifo_threshold - 1));
+
+        // Enable the peripheral
         regs.cr.modify(|_, w| w.en().set_bit());
 
         Self { regs, cfg }
@@ -314,11 +333,17 @@ impl Qspi {
         // and DMAEN = 1, then QUADSPI_AR should be specified before QUADSPI_CR,
         // because otherwise QUADSPI_DR might be written by the DMA before QUADSPI_AR
         // is updated (if the DMA controller has already been enabled)
-        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3", feature = "l4p")))]
         // todo: Equiv for octo?
         self.regs
             .ccr
             .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::IndirectWrite as u8) });
+
+        #[cfg(any(feature = "l4p"))]
+        self.regs
+            .cr
+            .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::IndirectWrite as u8) });
+
         // 5. Specify the targeted address in the QUADSPI_AR.
         self.regs
             .ar
@@ -378,10 +403,14 @@ impl Qspi {
         self.regs
             .dlr
             .write(|w| unsafe { w.dl().bits(buf.len() as u32 - 1) });
-        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3", feature = "l4p")))]
         // todo: Equiv for octo?
         self.regs
             .ccr
+            .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::IndirectRead as u8) });
+        #[cfg(any(feature = "l4p"))]
+        self.regs
+            .cr
             .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::IndirectRead as u8) });
         self.regs
             .ar
@@ -411,11 +440,18 @@ impl Qspi {
         // todo: unsafe fn? word size?
         while self.is_busy() {}
 
-        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
+        #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3", feature = "l4p")))]
         // todo: Equiv for octo?
         if self.regs.ccr.read().fmode().bits() != FunctionalMode::MemoryMapped as u8 {
             self.regs
                 .ccr
+                .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::MemoryMapped as u8) });
+        }
+
+        #[cfg(any(feature = "l4p"))]
+        if self.regs.cr.read().fmode().bits() != FunctionalMode::MemoryMapped as u8 {
+            self.regs
+                .cr
                 .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::MemoryMapped as u8) });
         }
 

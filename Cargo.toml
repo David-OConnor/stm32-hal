@@ -22,7 +22,7 @@ cortex-m = "0.7.3"
 # Peripheral Access Crates
 stm32f3 = { version = "0.15.1", optional = true }
 stm32f4 = { version = "0.15.1", optional = true }
-stm32l4 = { version = "0.15.1", optional = true }
+stm32l4 = { path = "../stm32-rs/stm32l4", optional = true }
 stm32l5 = { version = "0.15.1", optional = true }
 stm32g0 = { version = "0.15.1", optional = true }
 stm32g4 = { version = "0.15.1", optional = true }
@@ -107,6 +107,8 @@ l4x5 = ["stm32l4/stm32l4x5", "l4"]
 l4x6 = ["stm32l4/stm32l4x6", "l4"]
 # todo: Handle l4+ (P, R, S, Q)
 
+l4p5 = ["stm32l4/stm32l4p5", "l4p"]
+
 # [L5](https://docs.rs/crate/stm32l5/latest/source/Cargo.toml)
 l552 = ["stm32l5/stm32l552", "l5"]
 l562 = ["stm32l5/stm32l562", "l5"]
@@ -165,6 +167,7 @@ embedded_hal = ["embedded-hal", "nb"]
 f3 = []
 f4 = []
 l4 = []
+l4p = []
 l5 = []
 g0 = []
 g4 = []

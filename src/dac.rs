@@ -347,13 +347,13 @@ where
     {
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
-        #[cfg(any(feature = "f3", feature = "l4"))]
+        #[cfg(any(feature = "f3", all(feature = "l4", not(feature = "l4plus"))))]
         let dma_channel = match dac_channel {
             DacChannel::C1 => DmaInput::Dac1Ch1.dma1_channel(),
             DacChannel::C2 => DmaInput::Dac1Ch2.dma1_channel(),
         };
 
-        #[cfg(feature = "l4")]
+        #[cfg(all(feature = "l4", not(feature = "l4plus")))]
         match dac_channel {
             DacChannel::C1 => dma.channel_select(DmaInput::Dac1Ch1),
             DacChannel::C2 => dma.channel_select(DmaInput::Dac1Ch2),

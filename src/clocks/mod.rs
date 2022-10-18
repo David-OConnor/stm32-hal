@@ -17,7 +17,7 @@ cfg_if::cfg_if! {
     if #[cfg(any(feature = "f3", feature = "f4"))] {
         mod f;
         pub use f::*;
-    } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g0", feature = "g4", feature = "wb", feature = "wl"))] {
+    } else if #[cfg(any(feature = "l4", feature = "l4p", feature = "l5", feature = "g0", feature = "g4", feature = "wb", feature = "wl"))] {
         mod baseline;
         pub use baseline::*;
     } else if #[cfg(feature = "u5")] {

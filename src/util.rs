@@ -54,7 +54,7 @@ macro_rules! rcc_en_reset {
                 $rcc.apb1enr.modify(|_, w| w.[<$periph en>]().set_bit());
                 $rcc.apb1rstr.modify(|_, w| w.[<$periph rst>]().set_bit());
                 $rcc.apb1rstr.modify(|_, w| w.[<$periph rst>]().clear_bit());
-            } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "wb", feature = "wl"))] {
+            } else if #[cfg(any(feature = "l4", feature = "l5", feature = "l4p", feature = "g4", feature = "wb", feature = "wl"))] {
                 $rcc.apb1enr1.modify(|_, w| w.[<$periph en>]().set_bit());
                 $rcc.apb1rstr1.modify(|_, w| w.[<$periph rst>]().set_bit());
                 $rcc.apb1rstr1.modify(|_, w| w.[<$periph rst>]().clear_bit());

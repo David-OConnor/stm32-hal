@@ -312,7 +312,7 @@ impl Flash {
 
         // 4. Set the STRT bit in the FLASH_CR register.
         cfg_if! {
-            if #[cfg(not(any(feature = "l4", feature = "h7")))] {
+            if #[cfg(not(any(feature = "l4", feature = "l4p", feature = "h7")))] {
                 regs.cr.modify(|_, w| w.strt().set_bit());
             } else {
                 regs.cr.modify(|_, w| w.start().set_bit());
@@ -446,7 +446,7 @@ impl Flash {
                 // wait until the QW1/2 bit is cleared in the corresponding FLASH_SR1/2 register.
                 regs.cr.modify(|_, w| w.start().set_bit());
                 while regs.sr.read().qw().bit_is_set() {}
-            } else if #[cfg(feature = "l4")] {
+            } else if #[cfg(any(feature = "l4", feature = "l4p"))] {
                 regs.cr.modify( | _, w | w.start().set_bit());
             } else {
                 regs.cr.modify(|_, w| w.strt().set_bit());
@@ -460,7 +460,7 @@ impl Flash {
         cfg_if! {
             if #[cfg(feature = "h7")] {
                 regs.cr.modify(|_, w| w.ber().clear_bit());
-            } else if #[cfg(any(feature = "l4", feature = "g4"))] {
+            } else if #[cfg(any(feature = "l4", feature = "l4p", feature = "g4"))] {
                 regs.cr.modify(|_, w| w.mer1().clear_bit());
             } else {
                 regs.cr.modify(|_, w| w.mer().clear_bit());

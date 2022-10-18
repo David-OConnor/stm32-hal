@@ -14,9 +14,11 @@ use crate::pac::sai4 as sai;
 
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
+
 #[cfg(any(
     feature = "f3",
     feature = "l4",
+    feature = "l4p",
     feature = "l5",
     feature = "g4",
     feature = "h7",
@@ -621,7 +623,7 @@ where
             // The NOMCK bit of the SAI_xCR1 register is used to define whether the master clock is
             // generated or not.
             // Inversed polarity on non-H7 based on how we have `MasterClock` enabled.
-            #[cfg(not(any(feature = "h7", feature = "l4", feature = "l5")))]
+            #[cfg(not(any(feature = "h7", feature = "l4", feature = "l4p", feature = "l5")))]
             w.mcken().bit(config_a.master_clock as u8 == 0);
             #[cfg(feature = "h7")]
             // Due to an H743v PAC error, xCR bit 19 is called NODIV (Which is how it is on other platforms).
@@ -678,7 +680,7 @@ where
             w.mono().bit(config_b.mono as u8 != 0);
             w.syncen().bits(config_b.sync as u8);
             w.ckstr().bit(config_b.clock_strobe as u8 != 0);
-            #[cfg(not(any(feature = "h7", feature = "l4", feature = "l5")))]
+            #[cfg(not(any(feature = "h7", feature = "l4", feature = "l4p", feature = "l5")))]
             w.mcken().bit(config_b.master_clock as u8 == 0);
             #[cfg(feature = "h7")]
             w.nodiv().bit(config_b.master_clock as u8 != 0);
@@ -814,7 +816,7 @@ where
         // 1. Configure SAI_A in TDM master mode (see Table 422).
         // (Above. Although we don't check this)
         // 2. Configure the PDM interface as follows:
-        #[cfg(not(feature = "l4"))]
+        #[cfg(not(any(feature = "l4", feature = "l4p")))]
         if config_a.pdm_mode {
             assert!(config_a.pdm_clock_used <= 4 && config_a.pdm_clock_used >= 1);
 

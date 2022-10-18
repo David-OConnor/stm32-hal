@@ -20,7 +20,7 @@ impl CrcExt for CRC {
             if #[cfg(feature = "f3")] {
                 rcc.ahbenr.modify(|_, w| w.crcen().set_bit());
                 // F3 doesn't appear to have a crcrst field in `ahbrstr`, per RM.
-            } else if #[cfg(any(feature = "l4", feature = "wb"))] {
+            } else if #[cfg(any(feature = "l4", feature = "l4p", feature = "wb"))] {
                 rcc.ahb1enr.modify(|_, w| w.crcen().set_bit());
                 rcc.ahb1rstr.modify(|_, w| w.crcrst().set_bit());
                 rcc.ahb1rstr.modify(|_, w| w.crcrst().clear_bit());
@@ -157,7 +157,7 @@ impl Crc {
             ///
             /// The IDR is not involved with CRC calculation.
             pub fn set_idr(&mut self, value: u8) {
-                self.reg.idr.write(|w| w.idr().bits(value));
+                self.reg.idr.write(|w| unsafe { w.idr().bits(value) });
             }
         }
     }

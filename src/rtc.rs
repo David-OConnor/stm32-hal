@@ -137,7 +137,7 @@ impl Rtc {
                     pwr.cr.read(); // read to allow the pwr clock to enable
                     pwr.cr.modify(|_, w| w.dbp().set_bit());
                     while pwr.cr.read().dbp().bit_is_clear() {}
-                } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "l412", feature = "wb", feature = "wl"))] {
+                } else if #[cfg(any(feature = "l4", feature = "l4p", feature = "l5", feature = "g4", feature = "l412", feature = "wb", feature = "wl"))] {
                     // 1. Enable the power interface clock by setting the PWREN bits in the Section 6.4.18:
                     // APB1 peripheral clock enable register 1 (RCC_APB1ENR1)
                     #[cfg(not(any(feature = "wb", feature = "wl")))]
@@ -390,7 +390,7 @@ impl Rtc {
         let exti = unsafe { &(*EXTI::ptr()) };
 
         cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "l4"))] {
+            if #[cfg(any(feature = "f3", feature = "l4", feature = "l4p"))] {
                 exti.imr1.modify(|_, w| w.mr20().unmasked());
                 exti.rtsr1.modify(|_, w| w.tr20().set_bit());
                 exti.ftsr1.modify(|_, w| w.tr20().clear_bit());
@@ -429,7 +429,7 @@ impl Rtc {
         // Ensure access to Wakeup auto-reload counter and bits WUCKSEL[2:0] is allowed.
         // Poll WUTWF until it is set in RTC_ISR (RTC2)/RTC_ICSR (RTC3) (May not be avail on F3)
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
+            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "l4p"))] {
                 while self.regs.icsr.read().wutwf().bit_is_clear() {}
             } else {
                 while self.regs.isr.read().wutwf().bit_is_clear() {}
@@ -445,7 +445,7 @@ impl Rtc {
         self.regs.cr.modify(|_, w| w.wutie().set_bit());
 
         cfg_if! {
-            if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
+            if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "l4p"))] {
                 self.regs.scr.write(|w| w.cwutf().set_bit());
             } else {
                 self.regs.isr.modify(|_, w| w.wutf().clear_bit());
@@ -492,7 +492,7 @@ impl Rtc {
         }
 
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
+            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "l4p"))] {
                 while self.regs.icsr.read().wutwf().bit_is_clear() {}
             } else {
                 while self.regs.isr.read().wutwf().bit_is_clear() {}
@@ -515,7 +515,7 @@ impl Rtc {
             regs.cr.modify(|_, w| w.wute().clear_bit());
 
             cfg_if! {
-                if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
+                if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "l4p"))] {
                     regs.scr.write(|w| w.cwutf().set_bit());
                 } else {
                     // Note that we clear this by writing 0, which isn't
@@ -544,7 +544,7 @@ impl Rtc {
         // todo: L4 has ICSR and ISR regs. Maybe both for backwards compat?
 
         cfg_if! {
-             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
+             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "l4p"))] {
                  // Enter init mode if required. This is generally used to edit the clock or calendar,
                  // but not for initial enabling steps.
                  if init_mode && self.regs.icsr.read().initf().bit_is_clear() {
