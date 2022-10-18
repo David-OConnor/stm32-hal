@@ -64,8 +64,7 @@ for example uses of many of this library's features. Copy and paste its whole fo
 using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml`
 and `main.rs` as required.
 
-The [blinky example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/blinky), written by
-[toudi](https://github.com/toudi), provides a detailed example and instructions for how to set up a blinking
+The [blinky example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/blinky) provides a detailed example and instructions for how to set up a blinking
 light (ie hello world) using an STM32F411 "blackpill" board. Its readme provides instructions for how to get
 started from scratch, and its code contains detailed comments explaining each part. The 
 [blinky with timer interrupt example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/blinky_timer_interrupt)

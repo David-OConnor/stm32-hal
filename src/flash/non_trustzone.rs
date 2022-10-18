@@ -12,8 +12,8 @@ use cfg_if::cfg_if;
 
 const FLASH_KEY1: u32 = 0x4567_0123;
 const FLASH_KEY2: u32 = 0xCDEF_89AB;
-const FLASH_OPT_KEY1: u32 = 0x0819_2A3B;
-const FLASH_OPT_KEY2: u32 = 0x4C5D_6E7F;
+// const FLASH_OPT_KEY1: u32 = 0x0819_2A3B;
+// const FLASH_OPT_KEY2: u32 = 0x4C5D_6E7F;
 
 #[derive(Clone, Copy, PartialEq)]
 /// Set dual bank mode (DBANK option bit). Eg G4

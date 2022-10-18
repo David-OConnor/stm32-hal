@@ -196,7 +196,7 @@ pub enum TimChannel {
     C4,
 }
 
-/// Timer count direction
+/// Timer count direction. Defaults to `Up`.
 #[repr(u8)]
 #[derive(Clone, Copy)]
 pub enum CountDir {
