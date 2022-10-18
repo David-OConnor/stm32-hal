@@ -14,7 +14,7 @@ use crate::{clocks::Clocks, pac::RCC, util::rcc_en_reset};
 use cfg_if::cfg_if;
 
 cfg_if! {
-    if #[cfg(any(feature = "l4", feature = "l5", feature = "h7b3"))] {
+    if #[cfg(any(feature = "l4", feature = "l4p", feature = "l5", feature = "h7b3"))] {
         use crate::pac::dfsdm1 as dfsdm_p;
     } else {
         use crate::pac::dfsdm as dfsdm_p;
@@ -248,10 +248,10 @@ where
         cfg_if! {
             if #[cfg(any(feature = "l5"))] {
                 let cfgr1 = &regs.ch0cfgr1;
-            } else if #[cfg(any(feature = "l4"))] {
+            } else if #[cfg(feature = "l4")] {
                 let cfgr1 = &regs.chcfg0r1;
             } else {
-                let cfgr1 = &regs.ch0.cfgr1;
+                let cfgr1 = &regs.ch[0].cfgr1;
             }
         }
 
@@ -295,10 +295,10 @@ where
         cfg_if! {
             if #[cfg(any(feature = "l5"))] {
                 let cfgr1 = &self.regs.ch0cfgr1;
-            } else if #[cfg(any(feature = "l4"))] {
+            } else if #[cfg(feature = "l4")] {
                 let cfgr1 = &self.regs.chcfg0r1;
             } else {
-                let cfgr1 = &self.regs.ch0.cfgr1;
+                let cfgr1 = &self.regs.ch[0].cfgr1;
             }
         }
         cfgr1.modify(|_, w| w.dfsdmen().set_bit());
@@ -311,10 +311,10 @@ where
         cfg_if! {
             if #[cfg(any(feature = "l5"))] {
                 let cfgr1 = &self.regs.ch0cfgr1;
-            } else if #[cfg(any(feature = "l4"))] {
+            } else if #[cfg(feature = "l4")] {
                 let cfgr1 = &self.regs.chcfg0r1;
             } else {
-                let cfgr1 = &self.regs.ch0.cfgr1;
+                let cfgr1 = &self.regs.ch[0].cfgr1;
             }
         }
         cfgr1.modify(|_, w| w.dfsdmen().clear_bit());
@@ -384,12 +384,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let fcr = &self.regs.flt0fcr;
                         let cr1 = &self.regs.flt0cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let fcr = &self.regs.dfsdm0_fcr;
                         let cr1 = &self.regs.dfsdm0_cr1;
                     } else {
-                        let fcr = &self.regs.flt0.fcr;
-                        let cr1 = &self.regs.flt0.cr1;
+                        let fcr = &self.regs.flt[0].fcr;
+                        let cr1 = &self.regs.flt[0].cr1;
                     }
                 }
                 fcr.modify(|_, w| unsafe {
@@ -413,12 +413,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let fcr = &self.regs.flt1fcr;
                         let cr1 = &self.regs.flt1cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
-                        // let fcr = &self.regs.dfsdm1_fcr;
-                        // let cr1 = &self.regs.dfsdm1_cr1;
+                    } else if #[cfg(feature = "l4")] {
+                        let fcr = &self.regs.dfsdm1_fcr;
+                        let cr1 = &self.regs.dfsdm1_cr1;
                     } else {
-                        let fcr = &self.regs.flt1.fcr;
-                        let cr1 = &self.regs.flt1.cr1;
+                        let fcr = &self.regs.flt[1].fcr;
+                        let cr1 = &self.regs.flt[1].cr1;
                     }
                 }
 
@@ -440,12 +440,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let fcr = &self.regs.flt2fcr;
                         let cr1 = &self.regs.flt2cr1;
-                    }  else if #[cfg(any(feature = "l4"))] {
+                    }  else if #[cfg(feature = "l4")] {
                         let fcr = &self.regs.dfsdm2_fcr;
                         let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
-                        let fcr = &self.regs.flt2.fcr;
-                        let cr1 = &self.regs.flt2.cr1;
+                        let fcr = &self.regs.flt[2].fcr;
+                        let cr1 = &self.regs.flt[2].cr1;
                     }
                 }
 
@@ -467,12 +467,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let fcr = &self.regs.flt3fcr;
                         let cr1 = &self.regs.flt3cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let fcr = &self.regs.dfsdm3_fcr;
                         let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
-                        let fcr = &self.regs.flt3.fcr;
-                        let cr1 = &self.regs.flt3.cr1;
+                        let fcr = &self.regs.flt[3].fcr;
+                        let cr1 = &self.regs.flt[3].cr1;
                     }
                 }
                 fcr.modify(|_, w| unsafe {
@@ -504,12 +504,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch0cfgr1;
                         let cfgr2 = &self.regs.ch0cfgr2;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cfgr1 = &self.regs.chcfg0r1;
                         let cfgr2 = &self.regs.chcfg0r2;
                     } else {
-                        let cfgr1 = &self.regs.ch0.cfgr1;
-                        let cfgr2 = &self.regs.ch0.cfgr2;
+                        let cfgr1 = &self.regs.ch[0].cfgr1;
+                        let cfgr2 = &self.regs.ch[0].cfgr2;
                     }
                 }
 
@@ -527,12 +527,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch1cfgr1;
                         let cfgr2 = &self.regs.ch1cfgr2;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cfgr1 = &self.regs.chcfg1r1;
                         let cfgr2 = &self.regs.chcfg1r2;
                     } else {
-                        let cfgr1 = &self.regs.ch1.cfgr1;
-                        let cfgr2 = &self.regs.ch1.cfgr2;
+                        let cfgr1 = &self.regs.ch[1].cfgr1;
+                        let cfgr2 = &self.regs.ch[1].cfgr2;
                     }
                 }
 
@@ -550,12 +550,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch2cfgr1;
                         let cfgr2 = &self.regs.ch2cfgr2;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cfgr1 = &self.regs.chcfg3r1;
                         let cfgr2 = &self.regs.chcfg3r2;
                     } else {
-                        let cfgr1 = &self.regs.ch2.cfgr1;
-                        let cfgr2 = &self.regs.ch2.cfgr2;
+                        let cfgr1 = &self.regs.ch[2].cfgr1;
+                        let cfgr2 = &self.regs.ch[2].cfgr2;
                     }
                 }
 
@@ -573,12 +573,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch3cfgr1;
                         let cfgr2 = &self.regs.ch3cfgr2;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cfgr1 = &self.regs.chcfg3r1;
                         let cfgr2 = &self.regs.chcfg3r2;
                     } else {
-                        let cfgr1 = &self.regs.ch3.cfgr1;
-                        let cfgr2 = &self.regs.ch3.cfgr2;
+                        let cfgr1 = &self.regs.ch[3].cfgr1;
+                        let cfgr2 = &self.regs.ch[3].cfgr2;
                     }
                 }
 
@@ -596,12 +596,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch4cfgr1;
                         let cfgr2 = &self.regs.ch4cfgr2;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cfgr1 = &self.regs.chcfg4r1;
                         let cfgr2 = &self.regs.chcfg4r2;
                     } else {
-                        let cfgr1 = &self.regs.ch4.cfgr1;
-                        let cfgr2 = &self.regs.ch4.cfgr2;
+                        let cfgr1 = &self.regs.ch[4].cfgr1;
+                        let cfgr2 = &self.regs.ch[4].cfgr2;
                     }
                 }
 
@@ -619,12 +619,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch5cfgr1;
                         let cfgr2 = &self.regs.ch5cfgr2;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cfgr1 = &self.regs.chcfg5r1;
                         let cfgr2 = &self.regs.chcfg5r2;
                     } else {
-                        let cfgr1 = &self.regs.ch5.cfgr1;
-                        let cfgr2 = &self.regs.ch5.cfgr2;
+                        let cfgr1 = &self.regs.ch[5].cfgr1;
+                        let cfgr2 = &self.regs.ch[5].cfgr2;
                     }
                 }
 
@@ -642,12 +642,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch6cfgr1;
                         let cfgr2 = &self.regs.ch6cfgr2;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cfgr1 = &self.regs.chcfg6r1;
                         let cfgr2 = &self.regs.chcfg6r2;
                     } else {
-                        let cfgr1 = &self.regs.ch6.cfgr1;
-                        let cfgr2 = &self.regs.ch6.cfgr2;
+                        let cfgr1 = &self.regs.ch[6].cfgr1;
+                        let cfgr2 = &self.regs.ch[6].cfgr2;
                     }
                 }
 
@@ -665,12 +665,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch7cfgr1;
                         let cfgr2 = &self.regs.ch7cfgr2;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cfgr1 = &self.regs.chcfg7r1;
                         let cfgr2 = &self.regs.chcfg7r2;
                     } else {
-                        let cfgr1 = &self.regs.ch7.cfgr1;
-                        let cfgr2 = &self.regs.ch7.cfgr2;
+                        let cfgr1 = &self.regs.ch[7].cfgr1;
+                        let cfgr2 = &self.regs.ch[7].cfgr2;
                     }
                 }
 
@@ -696,10 +696,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt0cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr1 = &self.regs.dfsdm0_cr1;
                     } else {
-                        let cr1 = &self.regs.flt0.cr1;
+                        let cr1 = &self.regs.flt[0].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.dfen().clear_bit())
@@ -711,10 +711,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt1cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
-                        // let cr1 = &self.regs.dfsdm1_cr1;
+                    } else if #[cfg(feature = "l4")] {
+                        let cr1 = &self.regs.dfsdm1_cr1;
                     } else {
-                        let cr1 = &self.regs.flt1.cr1;
+                        let cr1 = &self.regs.flt[1].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.dfen().clear_bit())
@@ -723,10 +723,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt2cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
-                        let cr1 = &self.regs.flt2.cr1;
+                        let cr1 = &self.regs.flt[2].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.dfen().clear_bit())
@@ -735,10 +735,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt3cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
-                        let cr1 = &self.regs.flt3.cr1;
+                        let cr1 = &self.regs.flt[3].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.dfen().clear_bit())
@@ -760,12 +760,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch0cfgr1;
                         let cfgr1b = &self.regs.ch7cfgr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cfgr1 = &self.regs.chcfg0r1;
                         let cfgr1b = &self.regs.chcfg7r1;
                     } else {
-                        let cfgr1 = &self.regs.ch0.cfgr1;
-                        let cfgr1b = &self.regs.ch7.cfgr1;
+                        let cfgr1 = &self.regs.ch[0].cfgr1;
+                        let cfgr1b = &self.regs.ch[7].cfgr1;
                     }
                 }
 
@@ -792,12 +792,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch1cfgr1;
                         let cfgr1b = &self.regs.ch0cfgr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cfgr1 = &self.regs.chcfg1r1;
                         let cfgr1b = &self.regs.chcfg0r1;
                     } else {
-                        let cfgr1 = &self.regs.ch1.cfgr1;
-                        let cfgr1b = &self.regs.ch0.cfgr1;
+                        let cfgr1 = &self.regs.ch[1].cfgr1;
+                        let cfgr1b = &self.regs.ch[0].cfgr1;
                     }
                 }
 
@@ -816,12 +816,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch2cfgr1;
                         let cfgr1b = &self.regs.ch1cfgr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cfgr1 = &self.regs.chcfg2r1;
                         let cfgr1b = &self.regs.chcfg1r1;
                     } else {
-                        let cfgr1 = &self.regs.ch2.cfgr1;
-                        let cfgr1b = &self.regs.ch1.cfgr1;
+                        let cfgr1 = &self.regs.ch[2].cfgr1;
+                        let cfgr1b = &self.regs.ch[1].cfgr1;
                     }
                 }
 
@@ -840,12 +840,12 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cfgr1 = &self.regs.ch3cfgr1;
                         let cfgr1b = &self.regs.ch2cfgr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cfgr1 = &self.regs.chcfg3r1;
                         let cfgr1b = &self.regs.chcfg2r1;
                     } else {
-                        let cfgr1 = &self.regs.ch3.cfgr1;
-                        let cfgr1b = &self.regs.ch2.cfgr1;
+                        let cfgr1 = &self.regs.ch[3].cfgr1;
+                        let cfgr1b = &self.regs.ch[2].cfgr1;
                     }
                 }
 
@@ -878,10 +878,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt0cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr1 = &self.regs.dfsdm0_cr1;
                     } else {
-                        let cr1 = &self.regs.flt0.cr1;
+                        let cr1 = &self.regs.flt[0].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.rswstart().set_bit())
@@ -893,10 +893,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt1cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
-                        // let cr1 = &regs.dfsdm1_cr1;
+                    } else if #[cfg(feature = "l4")] {
+                        let cr1 = &self.regs.dfsdm1_cr1;
                     } else {
-                        let cr1 = &self.regs.flt1.cr1;
+                        let cr1 = &self.regs.flt[1].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.rswstart().set_bit())
@@ -905,10 +905,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt2cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
-                        let cr1 = &self.regs.flt2.cr1;
+                        let cr1 = &self.regs.flt[2].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.rswstart().set_bit())
@@ -917,10 +917,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt3cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
-                        let cr1 = &self.regs.flt3.cr1;
+                        let cr1 = &self.regs.flt[3].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.rswstart().set_bit())
@@ -950,10 +950,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt0cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr1 = &self.regs.dfsdm0_cr1;
                     }else {
-                        let cr1 = &self.regs.flt0.cr1;
+                        let cr1 = &self.regs.flt[0].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.jswstart().set_bit())
@@ -965,10 +965,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt1cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
-                        // let cr1 = &self.regs.dfsdm1_cr1;
+                    } else if #[cfg(feature = "l4")] {
+                        let cr1 = &self.regs.dfsdm1_cr1;
                     } else {
-                        let cr1 = &self.regs.flt1.cr1;
+                        let cr1 = &self.regs.flt[1].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.jswstart().set_bit())
@@ -977,10 +977,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt2cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
-                        let cr1 = &self.regs.flt2.cr1;
+                        let cr1 = &self.regs.flt[2].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.jswstart().set_bit())
@@ -989,10 +989,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt3cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
-                        let cr1 = &self.regs.flt3.cr1;
+                        let cr1 = &self.regs.flt[3].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.jswstart().set_bit())
@@ -1046,10 +1046,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt0rdatar;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let rdatar = &self.regs.dfsdm0_rdatar;
                     } else {
-                        let rdatar = &self.regs.flt0.rdatar;
+                        let rdatar = &self.regs.flt[0].rdatar;
                     }
                 }
                 (rdatar.read().bits() as i32) >> 8
@@ -1061,10 +1061,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt1rdatar;
-                    } else if #[cfg(any(feature = "l4"))] {
-                        // let rdatar = &self.regs.dfsdm1_rdatar;
+                    } else if #[cfg(feature = "l4")] {
+                        let rdatar = &self.regs.dfsdm1_rdatar;
                     } else {
-                        let rdatar = &self.regs.flt1.rdatar;
+                        let rdatar = &self.regs.flt[1].rdatar;
                     }
                 }
                 (rdatar.read().bits() as i32) >> 8
@@ -1073,10 +1073,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt2rdatar;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let rdatar = &self.regs.dfsdm2_rdatar;
                     } else {
-                        let rdatar = &self.regs.flt2.rdatar;
+                        let rdatar = &self.regs.flt[2].rdatar;
                     }
                 }
                 (rdatar.read().bits() as i32) >> 8
@@ -1085,10 +1085,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt3rdatar;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let rdatar = &self.regs.dfsdm3_rdatar;
                     } else {
-                        let rdatar = &self.regs.flt3.rdatar;
+                        let rdatar = &self.regs.flt[3].rdatar;
                     }
                 }
                 (rdatar.read().bits() as i32) >> 8
@@ -1104,10 +1104,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let jdatar = &self.regs.flt0jdatar;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let jdatar = &self.regs.dfsdm0_jdatar;
                     } else {
-                        let jdatar = &self.regs.flt0.jdatar;
+                        let jdatar = &self.regs.flt[0].jdatar;
                     }
                 }
                 (jdatar.read().bits() as i32) >> 8
@@ -1119,10 +1119,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let jdatar = &self.regs.flt1jdatar;
-                    } else if #[cfg(any(feature = "l4"))] {
-                        // let jdatar = &self.regs.dfsdm1_jdatar;
+                    } else if #[cfg(feature = "l4")] {
+                        let jdatar = &self.regs.dfsdm1_jdatar;
                     } else {
-                        let jdatar = &self.regs.flt1.jdatar;
+                        let jdatar = &self.regs.flt[1].jdatar;
                     }
                 }
                 (jdatar.read().bits() as i32) >> 8
@@ -1131,10 +1131,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let jdatar = &self.regs.flt2jdatar;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let jdatar = &self.regs.dfsdm2_jdatar;
                     } else {
-                        let jdatar = &self.regs.flt2.jdatar;
+                        let jdatar = &self.regs.flt[2].jdatar;
                     }
                 }
                 (jdatar.read().bits() as i32) >> 8
@@ -1143,10 +1143,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let jdatar = &self.regs.flt3jdatar;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let jdatar = &self.regs.dfsdm3_jdatar;
                     } else {
-                        let jdatar = &self.regs.flt3.jdatar;
+                        let jdatar = &self.regs.flt[3].jdatar;
                     }
                 }
                 (jdatar.read().bits() as i32) >> 8
@@ -1203,10 +1203,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt0cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr1 = &self.regs.dfsdm0_cr1;
                     } else {
-                        let cr1 = &self.regs.flt0.cr1;
+                        let cr1 = &self.regs.flt[0].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.rdmaen().set_bit())
@@ -1218,10 +1218,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt1cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
-                        // let cr1 = &self.regs.dfsdm1_cr1;
+                    } else if #[cfg(feature = "l4")] {
+                        let cr1 = &self.regs.dfsdm1_cr1;
                     } else {
-                        let cr1 = &self.regs.flt1.cr1;
+                        let cr1 = &self.regs.flt[1].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.rdmaen().set_bit())
@@ -1230,10 +1230,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt2cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
-                        let cr1 = &self.regs.flt2.cr1;
+                        let cr1 = &self.regs.flt[2].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.rdmaen().set_bit())
@@ -1243,10 +1243,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr1 = &self.regs.flt3cr1;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
-                        let cr1 = &self.regs.flt3.cr1;
+                        let cr1 = &self.regs.flt[3].cr1;
                     }
                 }
                 cr1.modify(|_, w| w.rdmaen().set_bit())
@@ -1258,10 +1258,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt0rdatar;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let rdatar = &self.regs.dfsdm0_rdatar;
                     } else {
-                        let rdatar = &self.regs.flt0.rdatar;
+                        let rdatar = &self.regs.flt[0].rdatar;
                     }
                 }
                 &rdatar as *const _ as u32
@@ -1273,10 +1273,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt1rdatar;
-                    } else if #[cfg(any(feature = "l4"))] {
-                        // let rdatar = &self.regs.dfsdm1_rdatar;
+                    } else if #[cfg(feature = "l4")] {
+                        let rdatar = &self.regs.dfsdm1_rdatar;
                     } else {
-                        let rdatar = &self.regs.flt1.rdatar;
+                        let rdatar = &self.regs.flt[1].rdatar;
                     }
                 }
                 &rdatar as *const _ as u32
@@ -1286,10 +1286,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt2rdatar;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let rdatar = &self.regs.dfsdm2_rdatar;
                     } else {
-                        let rdatar = &self.regs.flt2.rdatar;
+                        let rdatar = &self.regs.flt[2].rdatar;
                     }
                 }
                 &rdatar as *const _ as u32
@@ -1299,10 +1299,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let rdatar = &self.regs.flt3rdatar;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let rdatar = &self.regs.dfsdm3_rdatar;
                     } else {
-                        let rdatar = &self.regs.flt3.rdatar;
+                        let rdatar = &self.regs.flt[3].rdatar;
                     }
                 }
                 &rdatar as *const _ as u32
@@ -1340,10 +1340,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr2 = &self.regs.flt0cr2;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr2 = &self.regs.dfsdm0_cr2;
                     } else {
-                        let cr2 = &self.regs.flt0.cr2;
+                        let cr2 = &self.regs.flt[0].cr2;
                     }
                 }
 
@@ -1364,10 +1364,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr2 = &self.regs.flt1cr2;
-                    } else if #[cfg(any(feature = "l4"))] {
-                        // let cr2 = &self.regs.dfsdm1_cr2;
+                    } else if #[cfg(feature = "l4")] {
+                        let cr2 = &self.regs.dfsdm1_cr2;
                     } else {
-                        let cr2 = &self.regs.flt1.cr2;
+                        let cr2 = &self.regs.flt[1].cr2;
                     }
                 }
                 cr2.modify(|_, w| match interrupt_type {
@@ -1384,10 +1384,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr2 = &self.regs.flt1cr2;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr2 = &self.regs.dfsdm2_cr2;
                     } else {
-                        let cr2 = &self.regs.flt2.cr2;
+                        let cr2 = &self.regs.flt[2].cr2;
                     }
                 }
 
@@ -1405,10 +1405,10 @@ where
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
                         let cr2 = &self.regs.flt3cr2;
-                    } else if #[cfg(any(feature = "l4"))] {
+                    } else if #[cfg(feature = "l4")] {
                         let cr2 = &self.regs.dfsdm3_cr2;
                     } else {
-                        let cr2 = &self.regs.flt3.cr2;
+                        let cr2 = &self.regs.flt[3].cr2;
                     }
                 }
 

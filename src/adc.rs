@@ -870,7 +870,7 @@ macro_rules! hal {
 
                 // L44 RM, Table 41. "DMA1 requests for each channel
                 // todo: DMA2 support.
-                #[cfg(any(feature = "f3", feature = "l4"))]
+                #[cfg(any(feature = "f3", all(feature = "l4", not(feature = "l4plus"))))]
                 let dma_channel = match self.device {
                     AdcDevice::One => DmaInput::Adc1.dma1_channel(),
                     AdcDevice::Two => DmaInput::Adc2.dma1_channel(),
@@ -878,7 +878,7 @@ macro_rules! hal {
                 or PR on Github.")
                 };
 
-                #[cfg(feature = "l4")]
+                #[cfg(all(feature = "l4", not(feature = "l4plus")))]
                 match self.device {
                     AdcDevice::One => dma.channel_select(DmaInput::Adc1),
                     AdcDevice::Two => dma.channel_select(DmaInput::Adc2),

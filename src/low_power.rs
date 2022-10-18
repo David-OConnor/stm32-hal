@@ -191,7 +191,7 @@ cfg_if! {
             // – WUFx bits are cleared in power status register 1 (PWR_SR1)
             // (Clear by setting cwfuf bits in `pwr_scr`.)
             cfg_if! {
-                if #[cfg(feature = "l4")] {
+                if #[cfg(all(feature = "l4", not(feature = "l4plus")))] {
                     pwr.scr.write(|w| {
                         w.wuf1().set_bit();
                         w.wuf2().set_bit();

@@ -151,6 +151,7 @@
     feature = "l4x3",
     feature = "l4x5",
     feature = "l4x6",
+    feature = "l4p5",
     feature = "l552",
     feature = "l562",
     feature = "g030",
@@ -257,6 +258,9 @@ pub use stm32l4::stm32l4x5 as pac;
 
 #[cfg(feature = "l4x6")]
 pub use stm32l4::stm32l4x6 as pac;
+
+#[cfg(feature = "l4p5")]
+pub use stm32l4::stm32l4p5 as pac;
 
 // L5 PAC
 #[cfg(feature = "l552")]

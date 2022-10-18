@@ -10,7 +10,7 @@ use crate::{
     util::rcc_en_reset,
 };
 
-#[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]
+#[cfg(any(feature = "l4", feature = "l4p", feature = "l5", feature = "wb", feature = "g4"))]
 use crate::pac::CRS;
 
 use cfg_if::cfg_if;
@@ -31,7 +31,7 @@ pub enum Clk48Src {
     Msi = 0b11,
 }
 
-#[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]
+#[cfg(any(feature = "l4", feature = "l4p", feature = "l5", feature = "wb", feature = "g4"))]
 #[derive(Clone, Copy)]
 #[repr(u8)]
 /// Select the SYNC signal source. Sets the CRS_CFGR register, SYNCSRC field.
@@ -80,7 +80,7 @@ impl PllSrc {
     }
 }
 
-#[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
+#[cfg(any(feature = "l4", feature = "l4p", feature = "l5", feature = "wb", feature = "wl"))]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 /// Select the system clock used when exiting Stop mode. Sets RCC_CFGR register, STOPWUCK field.
@@ -266,6 +266,8 @@ impl Default for PllCfg {
             divn: 64,
             #[cfg(feature = "wl")]
             divn: 24,
+            #[cfg(feature = "l4p")]
+            divn: 16,
             #[cfg(not(feature = "wb"))]
             divr: Pllr::Div2,
             #[cfg(feature = "wb")]
@@ -568,7 +570,7 @@ pub struct Clocks {
     #[cfg(not(any(feature = "g0", feature = "wl")))]
     /// Enable the HSI48. For L4, this is only applicable for some devices.
     pub hsi48_on: bool,
-    #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
+    #[cfg(any(feature = "l4", feature = "l4p", feature = "l5", feature = "wb", feature = "wl"))]
     /// Select the input source to use after waking up from `stop` mode. Eg HSI or MSI.
     pub stop_wuck: StopWuck,
     #[cfg(feature = "wb")]
@@ -577,7 +579,7 @@ pub struct Clocks {
     #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
     /// SAI1 kernel clock source selection
     pub sai1_src: SaiSrc,
-    #[cfg(feature = "g4")]
+    #[cfg(any(feature = "g4", feature = "l4p"))]
     /// Range 1 boost mode: Used to increase regulator voltage to 1.28v, for when system
     /// clock frequency is up to 170Mhz. Defaults to true.
     pub boost_mode: bool,
@@ -619,7 +621,7 @@ impl Clocks {
         }
 
         cfg_if! {
-            if #[cfg(feature = "g4")] {
+            if #[cfg(any(feature = "g4", feature = "l4p"))] {
                 if self.boost_mode {
                     // The sequence to switch from Range1 normal mode to Range1 boost mode is:
                     // 1. The system clock must be divided by 2 using the AHB prescaler before switching to a
@@ -1066,7 +1068,7 @@ impl Clocks {
                         while rcc.cr.read().hserdy().bit_is_clear() {}
                     }
                     PllSrc::Hsi => {
-                        #[cfg(any(feature = "l4", feature = "l5"))]
+                        #[cfg(any(feature = "l4", feature = "l4p", feature = "l5"))]
                         // Generally reverts to MSI (see note below)
                         if let StopWuck::Msi = self.stop_wuck {
                             rcc.cr.modify(|_, w| w.hsion().set_bit());
@@ -1387,6 +1389,9 @@ impl Clocks {
         #[cfg(feature = "l4")]
         let max_clock = 80_000_000;
 
+        #[cfg(feature = "l4p")]
+        let max_clock = 120_000_000;
+
         #[cfg(feature = "l5")]
         let max_clock = 110_000_000;
 
@@ -1497,13 +1502,13 @@ impl Default for Clocks {
             security_system: false,
             #[cfg(not(any(feature = "g0", feature = "wl")))]
             hsi48_on: false,
-            #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
+            #[cfg(any(feature = "l4", feature = "l4p", feature = "l5", feature = "wb", feature = "wl"))]
             stop_wuck: StopWuck::Msi,
             #[cfg(feature = "wb")]
             rf_wakeup_src: RfWakeupSrc::Lse,
             #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
             sai1_src: SaiSrc::Pllp,
-            #[cfg(feature = "g4")]
+            #[cfg(any(feature = "g4", feature = "l4p"))]
             boost_mode: true,
         }
     }

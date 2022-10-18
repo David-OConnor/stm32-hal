@@ -24,7 +24,7 @@ cfg_if! {
     }
 }
 
-#[cfg(any(feature = "g0", feature = "g4", feature = "wl"))]
+#[cfg(any(feature = "g0", feature = "g4", feature = "wl", feature = "l4plus"))]
 use pac::DMAMUX;
 
 // todo: DMAMUX2 support (Not sure if WB has it, but H7 has both).
@@ -49,7 +49,101 @@ pub enum DmaPeriph {
 
 #[derive(Copy, Clone)]
 #[repr(usize)]
-#[cfg(not(feature = "h7"))]
+#[cfg(feature = "l4p5")]
+pub enum DmaInput {
+    Adc1 = 5,
+    Adc2 = 6,
+    Dac1Ch1 = 7,
+    Dac1Ch2 = 8,
+    Tim6Up = 9,
+    Tim7Up = 10,
+    Spi1Rx = 11,
+    Spi1Tx = 12,
+    Spi2Rx = 13,
+    Spi2Tx = 14,
+    Spi3Rx = 15,
+    Spi3Tx = 16,
+    I2c1Rx = 17,
+    I2c1Tx = 18,
+    I2c2Rx = 19,
+    I2c2Tx = 20,
+    I2c3Rx = 21,
+    I2c3Tx = 22,
+    I2c4Rx = 23,
+    I2c4Tx = 24,
+    Usart1Rx = 25,
+    Usart1Tx = 26,
+    Usart2Rx = 27,
+    Usart2Tx = 28,
+    Usart3Rx = 29,
+    Usart3Tx = 30,
+    Uart4Rx = 31,
+    Uart4Tx = 32,
+    Uart5Rx = 33,
+    Uart5Tx = 34,
+    Lpuart1Rx = 35,
+    Lpuart1Tx = 36,
+    Sai1A = 37,
+    Sai1B = 38,
+    Sai2A = 39,
+    Sai2B = 40,
+    Octospi1 = 41,
+    Octospi2 = 42,
+    Tim1Ch1 = 43,
+    Tim1Ch2 = 44,
+    Tim1Ch3 = 45,
+    Tim1Ch4 = 46,
+    Tim1Up = 47,
+    Tim1Trig = 48,
+    Tim1Com = 49,
+    Tim8Ch1 = 50,
+    Tim8Ch2 = 51,
+    Tim8Ch3 = 52,
+    Tim8Ch4 = 53,
+    Tim8Up = 54,
+    Tim8Trig = 55,
+    Tim8Com = 56,
+    Tim2Ch1 = 57,
+    Tim2Ch2 = 58,
+    Tim2Ch3 = 59,
+    Tim2Ch4 = 60,
+    Tim2Up = 61,
+    Tim3Ch1 = 62,
+    Tim3Ch2 = 63,
+    Tim3Ch3 = 64,
+    Tim3Ch4 = 65,
+    Tim3Up = 66,
+    Tim3Trig = 67,
+    Tim4Ch1 = 68,
+    Tim4Ch2 = 69,
+    Tim4Ch3 = 70,
+    Tim4Ch4 = 71,
+    Tim4Up = 72,
+    Tim5Ch1 = 73,
+    Tim5Ch2 = 74,
+    Tim5Ch3 = 75,
+    Tim5Ch4 = 76,
+    Tim5Up = 77,
+    Tim5Trig = 78,
+    Tim15Ch1 = 79,
+    Tim15Up = 80,
+    Tim15Trig = 81,
+    Tim15Com = 82,
+    Tim16Ch1 = 83,
+    Tim16Up = 84,
+    Tim17Ch1 = 85,
+    Tim17Up = 86,
+    Dfsdm1F0 = 87,
+    Dfsdm1F1 = 88,
+    DcmiPssi = 91,
+    AesIn = 92,
+    AesOut = 93,
+    HashIn = 94,
+}
+
+#[derive(Copy, Clone)]
+#[repr(usize)]
+#[cfg(all(not(feature = "h7"), not(feature = "l4p5")))]
 /// A list of DMA input sources. The integer values represent their DMAMUX register value, on
 /// MCUs that use this. G4 RM, Table 91: DMAMUX: Assignment of multiplexer inputs to resources.
 pub enum DmaInput {
@@ -243,7 +337,7 @@ pub enum DmaInput2 {
 }
 
 impl DmaInput {
-    #[cfg(any(feature = "f3", feature = "l4"))]
+    #[cfg(all(any(feature = "f3", feature = "l4"), not(feature = "l4plus")))]
     /// Select the hard set channel associated with a given input source. See L44 RM, Table 41.
     pub fn dma1_channel(&self) -> DmaChannel {
         match self {
@@ -293,7 +387,7 @@ impl DmaInput {
         }
     }
 
-    #[cfg(feature = "l4")]
+    #[cfg(all(feature = "l4", not(feature = "l4plus")))]
     /// Find the value to set in the DMA_CSELR register, for L4. Ie, channel select value for a given DMA input.
     /// See L44 RM, Table 41.
     pub fn dma1_channel_select(&self) -> u8 {
@@ -1277,7 +1371,7 @@ pub struct Dma<D> {
                 }
             }
 
-            #[cfg(feature = "l4")] // Only required on L4
+            #[cfg(all(feature = "l4", not(feature = "l4plus")))] // Only required on L4
             /// Select which peripheral on a given channel we're using.
             /// See L44 RM, Table 41.
             pub fn channel_select(&mut self, input: DmaInput) {
@@ -1608,6 +1702,7 @@ pub struct Dma<D> {
     feature = "h7",
     feature = "wb",
     feature = "wl",
+    feature = "l4plus"
 ))]
 /// Configure a specific DMA channel to work with a specific peripheral.
 pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {

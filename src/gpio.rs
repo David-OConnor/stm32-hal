@@ -1161,7 +1161,7 @@ pub fn clear_exti_interrupt(line: u8) {
                         _ => panic!(),
                     }
                 });
-            } else if #[cfg(any(feature = "f3", feature = "l4"))] {
+            } else if #[cfg(any(feature = "f3", feature = "l4", feature = "l4p"))] {
                 (*EXTI::ptr()).pr1.modify(|_, w| {
                     match line {
                         0 => w.pr0().set_bit(),
