@@ -506,6 +506,7 @@ cfg_if::cfg_if! {
                 feature = "l4x2",
                 feature = "l412",
                 feature = "l4x3",
+                feature = "l4x5",
                 feature = "l5",
                 feature = "g4",
                 feature = "wb",
@@ -516,7 +517,8 @@ cfg_if::cfg_if! {
     } else if #[cfg(all(
     // todo: I think only H7 has hs (high-speed), while F4 and L4 have FS only.
         any(feature = "usbotg_fs", feature = "usbotg_hs"),
-        any(feature = "f4", feature = "l4x5", feature = "l4x6", feature = "h7")
+        any(feature = "f4", feature = "l4x6", feature = "h7"),
+        not(feature = "f410")
     ))] {
         pub mod usb_otg; // todo: A way to export it as `usb`?
     }

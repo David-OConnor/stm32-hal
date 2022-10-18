@@ -3,9 +3,22 @@
 //!
 //! Requires the `usb` feature.
 //!
-//! Used on F303, L4x2, L4x3, L5, G0, and G4. F4, L4x5, L4x6 and H7 use the `usb_otg` module.
+//! Used on F303, L4x2, L4x3, L4x5, L5, G0, and G4. F4, L4x6 and H7 use the `usb_otg` module.
 //! For G0 series, USB is only available on G0B0, G0B1, G0C1, which the PAC doesn't yet differentiate,
 //! and this library doesn't yet support.
+
+/* 
+ Small caveat, the pac for the l4x5 exposes a USB peripheral instead
+ of a OTG peripheral, even though this chart
+ https://www.st.com/en/microcontrollers-microprocessors/stm32l4-series.html
+ shows that the stm32l475 has OTG.
+
+ Further inspection shows that the generated pac for the l4x5 has a USB peripheral
+ while the l4r5 has an OTG, but this crate doesn't currently seem to support the 
+ l4r5 variant.
+
+ Strangely, the register modification commands for the l4x5 have OTG in their names
+*/
 
 use crate::{pac, util::rcc_en_reset};
 
@@ -82,7 +95,13 @@ unsafe impl UsbPeripheral for Peripheral {
         cortex_m::interrupt::free(|_| {
             cfg_if! {
                 if #[cfg(feature = "l4")] {
-                    rcc_en_reset!(apb1, usbfs, rcc);
+                    cfg_if! {
+                        if #[cfg(feature = "l4x5")] {
+                            rcc_en_reset!(ahb2, otgfs, rcc); // Why does the l4x5 have USB peripheral but OTG names?
+                        } else {
+                            rcc_en_reset!(apb1, usbfs, rcc);
+                        }
+                    }
                 } else if #[cfg(feature = "l5")] {
                     rcc.apb1enr2.modify(|_, w| w.usbfsen().set_bit());
                     rcc.apb1rstr2.modify(|_, w| w.usbfsrst().set_bit());
