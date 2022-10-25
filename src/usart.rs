@@ -575,7 +575,56 @@ where
             }
         }
 
-        self.regs.cr1.modify(|_, w| w.ue().set_bit());
+        // todo: Why?
+        // self.regs.cr1.modify(|_, w| w.ue().set_bit());
+    }
+
+    #[cfg(not(feature = "f4"))]
+    /// Disable a specific type of interrupt.
+    pub fn disable_interrupt(&mut self, interrupt: UsartInterrupt) {
+        match interrupt {
+            UsartInterrupt::CharDetect(_) => {
+                self.regs.cr1.modify(|_, w| w.cmie().clear_bit());
+            }
+            UsartInterrupt::Cts => {
+                self.regs.cr3.modify(|_, w| w.ctsie().clear_bit());
+            }
+            UsartInterrupt::EndOfBlock => {
+                self.regs.cr1.modify(|_, w| w.eobie().clear_bit());
+            }
+            UsartInterrupt::Idle => {
+                self.regs.cr1.modify(|_, w| w.idleie().clear_bit());
+            }
+            UsartInterrupt::FramingError => {
+                self.regs.cr3.modify(|_, w| w.eie().clear_bit());
+            }
+            UsartInterrupt::LineBreak => {
+                self.regs.cr2.modify(|_, w| w.lbdie().clear_bit());
+            }
+            UsartInterrupt::Overrun => {
+                self.regs.cr3.modify(|_, w| w.eie().clear_bit());
+            }
+            UsartInterrupt::ParityError => {
+                self.regs.cr1.modify(|_, w| w.peie().clear_bit());
+            }
+            UsartInterrupt::ReadNotEmpty => {
+                self.regs.cr1.modify(|_, w| w.rxneie().clear_bit());
+            }
+            UsartInterrupt::ReceiverTimeout => {
+                self.regs.cr1.modify(|_, w| w.rtoie().clear_bit());
+            }
+            #[cfg(not(any(feature = "f3", feature = "l4")))]
+            UsartInterrupt::Tcbgt => {
+                self.regs.cr3.modify(|_, w| w.tcbgtie().clear_bit());
+                self.regs.cr3.modify(|_, w| w.tcbgtie().clear_bit());
+            }
+            UsartInterrupt::TransmissionComplete => {
+                self.regs.cr1.modify(|_, w| w.tcie().clear_bit());
+            }
+            UsartInterrupt::TransmitEmpty => {
+                self.regs.cr1.modify(|_, w| w.txeie().clear_bit());
+            }
+        }
     }
 
     #[cfg(not(feature = "f4"))]

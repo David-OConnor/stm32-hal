@@ -277,7 +277,7 @@ pub struct Adc<R> {
     device: AdcDevice,
     pub cfg: AdcConfig,
     /// This field is managed internally, and is set up on init.
-    vdda_calibrated: f32,
+    pub vdda_calibrated: f32,
 }
 
 // todo: Remove this macro, and replace using a `regs` fn like you use in GPIO.
@@ -462,12 +462,14 @@ macro_rules! hal {
                         self.regs.cr.modify(|_, w| unsafe { w.advregen().bits(0b00)});
                         self.regs.cr.modify(|_, w| unsafe { w.advregen().bits(0b01)});
                     } else {
-                        // L443 RM, 16.4.6:
-                        // By default, the ADC is in Deep-power-down mode where its supply is internally switched off
+                        // L443 RM, 16.4.6; G4 RM, section 21.4.6: Deep-power-down mode (DEEPPWD) and ADC voltage
+                        // regulator (ADVREGEN)
+                        //
+                        // "By default, the ADC is in Deep-power-down mode where its supply is internally switched off
                         // to reduce the leakage currents (the reset state of bit DEEPPWD is 1 in the ADC_CR
                         // register).
                         // To start ADC operations, it is first needed to exit Deep-power-down mode by setting bit
-                        // DEEPPWD=0.
+                        // DEEPPWD=0.""
                         self.regs.cr.modify(|_, w| w.deeppwd().clear_bit());  // Exit deep sleep mode.
                         self.regs.cr.modify(|_, w| w.advregen().set_bit());  // Enable voltage regulator.
                     }
@@ -612,13 +614,40 @@ macro_rules! hal {
                     self.disable();
                 }
 
-                // Note that we don't use the `difsel` PAC accessor here; not required,
-                // and would require some feature gating due to differences in field names among some
-                // variants. Would also requires shifting `channel` by 1 more.
-                let val = self.regs.difsel.read().bits();
-                self.regs.difsel.write(|w| unsafe { w.bits(
-                    val | ((input_type as u32) << channel)
-                )});
+                // // Note that we don't use the `difsel` PAC accessor here; not required,
+                // // and would require some feature gating due to differences in field names among some
+                // // variants. Would also requires shifting `channel` by 1 more.
+                // let val = self.regs.difsel.read().bits();
+                // self.regs.difsel.write(|w| unsafe { w.bits(
+                //     val | ((input_type as u32) << channel)
+                // )});
+
+                let v = input_type as u8 != 0;
+                self.regs.difsel.modify(|_, w| {
+                    match channel {
+                        // todo: Do these need to be offset by 1??
+                        0 => w.difsel_0().bit(v),
+                        1 => w.difsel_1().bit(v),
+                        2 => w.difsel_2().bit(v),
+                        3 => w.difsel_3().bit(v),
+                        4 => w.difsel_4().bit(v),
+                        5 => w.difsel_5().bit(v),
+                        6 => w.difsel_6().bit(v),
+                        7 => w.difsel_7().bit(v),
+                        8 => w.difsel_8().bit(v),
+                        9 => w.difsel_9().bit(v),
+                        10 => w.difsel_10().bit(v),
+                        11 => w.difsel_11().bit(v),
+                        12 => w.difsel_12().bit(v),
+                        13 => w.difsel_13().bit(v),
+                        14 => w.difsel_14().bit(v),
+                        15 => w.difsel_15().bit(v),
+                        16 => w.difsel_16().bit(v),
+                        17 => w.difsel_17().bit(v),
+                        18 => w.difsel_18().bit(v),
+                        _ => panic!(),
+                    }
+                });
 
                 if was_enabled {
                     self.enable();
@@ -718,21 +747,19 @@ macro_rules! hal {
                         return
                     }
 
-                    3.0
-
-                    // todo: Put back!
-                    //
-                    // let adc1 = Adc::new_adc1(
-                    //     dp_adc,
-                    //     AdcDevice::One,
-                    //     // We use self cfg, in case ADC1 is on the same common regs as this; we don't
-                    //     // want it overwriting prescaler and clock cfg.
-                    //     self.cfg.clone(),
-                    //     clock_cfg,
-                    // );
-                    //
-                    // // This fn will be called for ADC1, generating the vdda value we need.
-                    // adc1.vdda_calibrated
+                    // 3.0
+                
+                    let adc1 = Adc::new_adc1(
+                        dp_adc,
+                        AdcDevice::One,
+                        // We use self cfg, in case ADC1 is on the same common regs as this; we don't
+                        // want it overwriting prescaler and clock cfg.
+                        self.cfg.clone(),
+                        clock_cfg,
+                    );
+                    
+                    // This fn will be called for ADC1, generating the vdda value we need.
+                    adc1.vdda_calibrated
                 } else {
                     // "Table 24. Embedded internal voltage reference" states that the sample time needs to be
                     // at a minimum 4 us. With 640.5 ADC cycles we have a minimum of 8 us at 80 MHz, leaving
@@ -830,13 +857,11 @@ macro_rules! hal {
                 return self.regs.dr.read().rdata().bits() as u16;
             }
 
-            /// Take a single reading, in OneShot mode
+            /// Take a single reading.
             pub fn read(&mut self, channel: u8) -> u16 {
                 self.start_conversion(&[channel]);
                 self.read_result()
             }
-
-            // todo: fn read_voltage, using vrefint and L4xx-hal style calibration?
 
             #[cfg(not(any(feature = "f4", feature = "l552")))]
             /// Take a reading, using DMA. Sets conversion sequence; no need to set it directly.
