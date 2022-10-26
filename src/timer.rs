@@ -52,13 +52,12 @@ mod instant {
 
     /// A time instant, from the start of a timer, for use with `rtic-monotonic`. Currently only
     /// has microsecond precision.
-    #[derive(Eq, PartialEq, PartialOrd, Copy, Clone)]
+    #[derive(Eq, PartialEq, PartialOrd, Copy, Clone, Default)]
     pub struct Instant {
         /// Total count, in microseconds.
         /// todo: Do you need ns resolution?
         pub count_us: i64 // todo: u64 or i64
     }
-
 
     impl Ord for Instant {
         fn cmp(&self, other: &Self) -> Ordering {
@@ -421,7 +420,9 @@ pub struct Timer<TIM> {
     #[cfg(feature = "monotonic")]
     freq: f32,
     #[cfg(feature = "monotonic")]
-    compare_latch: bool, // todo?
+    compare_inst: instant::Instant,
+    #[cfg(feature = "monotonic")]
+    compare_latched: bool, // todo?
 }
 
 macro_rules! make_timer {
@@ -465,7 +466,9 @@ macro_rules! make_timer {
                         #[cfg(feature = "monotonic")]
                         freq: 0., // set below
                         #[cfg(feature = "monotonic")]
-                        compare_latch: false,
+                        compare_inst: instant::Instant::default(),
+                        #[cfg(feature = "monotonic")]
+                        compare_latched: false,
                     };
 
                     result.set_freq(freq).ok();
@@ -833,14 +836,15 @@ macro_rules! make_timer {
 
             fn set_compare(&mut self, instant: Self::Instant) {
                 // todo
+                self.compare_inst = instant;
             }
 
             fn clear_compare_flag(&mut self) {
-                // todo
+                self.compare_latched = false;
             }
 
             fn zero() -> Self::Instant {
-                instant::Instant { count_us: 0 }
+                instant::Instant::default()
             }
 
             unsafe fn reset(&mut self) {
@@ -849,6 +853,7 @@ macro_rules! make_timer {
 
             fn on_interrupt(&mut self) {
                 // todo
+                self.wrap_count += 1; // todo??
             }
             fn enable_timer(&mut self) {
                 self.enable();
