@@ -22,9 +22,9 @@ use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
 use crate::{
     clocks::Clocks,
+    instant::Instant,
     pac::{self, RCC},
     util::{rcc_en_reset, RccPeriph},
-    instant::Instant,
 };
 
 cfg_if! {
@@ -371,9 +371,13 @@ pub struct Timer<TIM> {
     /// Associated timer clock speed in Hz.
     clock_speed: u32,
     // #[cfg(feature = "monotonic")]
-    wrap_count: u32,
+    /// Used to indicate the timer has expired, and running time counts (eg `now()` fn) properly
+    /// increment.
+    pub wrap_count: u32,
     // #[cfg(feature = "monotonic")]
-    us_per_tick: f32,
+    /// Updated in the constructor and `set_freq` fns. Used for mapping timer ticks to time (eg in
+    /// seconds, us etc)
+    pub us_per_tick: f32,
 }
 
 macro_rules! make_timer {
@@ -531,16 +535,13 @@ macro_rules! make_timer {
                 self.regs.arr.write(|w| unsafe { w.bits(arr.into()) });
                 self.regs.psc.write(|w| unsafe { w.bits(psc.into()) });
 
-                // cfg_if! {
-                //     if #[cfg(feature = "monotonic")] {
-                        // (PSC+1)*(ARR+1) = TIMclk/Updatefrequency = TIMclk * period
-                        // period = (PSC+1)*(ARR+1) / TIMclk
-                        // Calculate this based on our actual ARR and PSC values; don't use
-                        // the requested frequency or period.
-                        let period_secs = (psc as f32 + 1.) * ( arr as f32 + 1.) / self.clock_speed as f32;
-                        self.us_per_tick = period_secs * 1_000_000.;
-                    // }
-                // }
+                // (PSC+1)*(ARR+1) = TIMclk/Updatefrequency = TIMclk * period
+                // period = (PSC+1)*(ARR+1) / TIMclk
+                // Calculate this based on our actual ARR and PSC values; don't use
+                // the requested frequency or period.
+                let arr_f32 = arr as f32;
+                let period_secs = (psc as f32 + 1.) * ( arr_f32 + 1.) / self.clock_speed as f32;
+                self.us_per_tick = period_secs  / (arr_f32) * 1_000_000.;
 
                 Ok(())
             }
@@ -763,17 +764,17 @@ macro_rules! make_timer {
                 );
             }
 
-            /// Get the current time on the timer, not accounting for overruns/wraps.
+            /// Get the current time on the timer.
             /// Used by `Monotonic` if enabled using the `monotonic` feature, but usable
             /// on its own.
-            /// Important: the stored us/tick used here will only be correct if
-            /// set using the constructor, or the `set_freq`, or `set_period` methods.
+            /// Important: the value returned here will only be correct if the ARR and PSC are set
+            /// only using the constructor, `set_freq`, or `set_period` methods; if the timer
+            /// doesn't expire prior to calling this, rel to the time being measured (or if it expires,
+            /// the ISR manually updates the wrap count), if system clock time is changed, if the timer
+            /// is stopped, started etc, or if low power modes are entered.
             pub fn now(&mut self) -> Instant {
-                // todo: Floating point logic to avoid rounding errors?
-                // #[cfg(not(feature = "monotonic"))]
-                // let count_us = (self.read_count() as f32 * self.us_per_tick) as i64;
-                // #[cfg(feature = "monotonic")]
-                let count_us = ((self.read_count() as f32 + self.wrap_count as f32 * self.get_max_duty() as f32) * self.us_per_tick) as i64;
+                let count_us = ((self.read_count() as f32 + self.wrap_count as f32 *
+                    self.get_max_duty() as f32) * self.us_per_tick) as i64;
 
                 Instant { count_us }
             }

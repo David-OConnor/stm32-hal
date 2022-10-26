@@ -16,6 +16,23 @@ pub struct Instant {
     pub count_us: i64, // todo: u64 or i64
 }
 
+impl Instant {
+    /// The time, in seconds.
+    pub fn as_seconds(&self) -> f32 {
+        self.count_us as f32 / 1_000_000.
+    }
+
+    /// The time, in milliseconds.
+    pub fn as_ms(&self) -> f32 {
+        self.count_us as f32 / 1_000.
+    }
+
+    /// The time, in microseconds
+    pub fn as_us(&self) -> f32 {
+        self.count_us as f32
+    }
+}
+
 impl Ord for Instant {
     fn cmp(&self, other: &Self) -> Ordering {
         self.count_us.cmp(&other.count_us)
