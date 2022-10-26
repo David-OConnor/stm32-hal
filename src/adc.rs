@@ -625,7 +625,7 @@ macro_rules! hal {
                 };
                 self.regs.difsel.write(|w| unsafe { w.bits(val_new)});
 
-                // The commented code below is for some PAC variants taht support a method to 
+                // The commented code below is for some PAC variants taht support a method to
                 // choose the diffsel field.
 
                 // let v = input_type as u8 != 0;
@@ -754,7 +754,7 @@ macro_rules! hal {
                     }
 
                     // 3.0
-                
+
                     let adc1 = Adc::new_adc1(
                         dp_adc,
                         AdcDevice::One,
@@ -763,7 +763,7 @@ macro_rules! hal {
                         self.cfg.clone(),
                         clock_cfg,
                     );
-                    
+
                     // This fn will be called for ADC1, generating the vdda value we need.
                     adc1.vdda_calibrated
                 } else {

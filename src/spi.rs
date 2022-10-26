@@ -819,11 +819,15 @@ where
 
     /// Stop a DMA transfer. Stops the channel, and disables the `txdmaen` and `rxdmaen` bits.
     /// Run this after each transfer completes - you may wish to do this in an interrupt
-    /// (eg DMA transfer complete) instead of blocking. `channel` is an optional second channel 
+    /// (eg DMA transfer complete) instead of blocking. `channel` is an optional second channel
     /// to stop; eg if you have both a tx and rx channel.
     #[cfg(not(any(feature = "f4", feature = "l552")))]
-    pub fn stop_dma<D>(&mut self, channel: DmaChannel, channel2: Option<DmaChannel>, dma: &mut Dma<D>)
-    where
+    pub fn stop_dma<D>(
+        &mut self,
+        channel: DmaChannel,
+        channel2: Option<DmaChannel>,
+        dma: &mut Dma<D>,
+    ) where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         // (RM:) To close communication it is mandatory to follow these steps in order:

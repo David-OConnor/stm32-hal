@@ -7,14 +7,14 @@
 //! For G0 series, USB is only available on G0B0, G0B1, G0C1, which the PAC doesn't yet differentiate,
 //! and this library doesn't yet support.
 
-/* 
+/*
  Small caveat, the pac for the l4x5 exposes a USB peripheral instead
  of a OTG peripheral, even though this chart
  https://www.st.com/en/microcontrollers-microprocessors/stm32l4-series.html
  shows that the stm32l475 has OTG.
 
  Further inspection shows that the generated pac for the l4x5 has a USB peripheral
- while the l4r5 has an OTG, but this crate doesn't currently seem to support the 
+ while the l4r5 has an OTG, but this crate doesn't currently seem to support the
  l4r5 variant.
 
  Strangely, the register modification commands for the l4x5 have OTG in their names

@@ -16,7 +16,7 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     clocks::Clocks,
-    dma::{self, Dma, DmaPeriph, DmaChannel, DmaInterrupt, DmaWriteBuf},
+    dma::{self, Dma, DmaChannel, DmaInterrupt, DmaPeriph, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
     i2c::{I2c, I2cConfig, I2cSpeed, NoiseFilter},
     low_power, pac,
@@ -131,13 +131,7 @@ fn DMA1_CH7() {
     // todo: Need a way to access the `I2c` and `Dma` structs from this ISR context.
     // See other examples for info on how to do this.
     unsafe {
-        i2c.read_dma(
-            ADDR,
-            &mut READ_BUF,
-            DmaChannel::C7,
-            Default::default(),
-            dma,
-        );
+        i2c.read_dma(ADDR, &mut READ_BUF, DmaChannel::C7, Default::default(), dma);
     }
 }
 

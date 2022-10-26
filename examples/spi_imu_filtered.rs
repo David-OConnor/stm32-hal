@@ -9,7 +9,7 @@ use cortex_m::{self, asm, delay::Delay};
 
 use stm32_hal2::{
     clocks::{self, Clocks},
-    dma::{self, DmaPeriph, ChannelCfg, Dma, DmaChannel, DmaInterrupt},
+    dma::{self, ChannelCfg, Dma, DmaChannel, DmaInterrupt, DmaPeriph},
     gpio::{self, Edge, OutputSpeed, OutputType, Pin, PinMode, Port, Pull},
     pac::{self, DMA1, SPI1},
     spi::{BaudRate, Spi, SpiConfig, SpiMode},
@@ -39,8 +39,10 @@ unsafe impl Send for IirInstWrapper {}
 mod imu {
     ///! Module for TDK ICM-426xx IMUs. Stripped down in this example to include only what we need.
     use stm32_hal2::{
-        gpio::Pin, pac::{DMA1, SPI1}, spi::Spi,
         dma::{Dma, DmaChannel},
+        gpio::Pin,
+        pac::{DMA1, SPI1},
+        spi::Spi,
     };
 
     use cortex_m::delay::Delay;
@@ -139,7 +141,9 @@ mod imu {
         // First byte is the first data reg, per this IMU's. Remaining bytes are empty, while
         // the MISO line transmits readings.
         // Note that we use a static buffer to ensure it lives throughout the DMA xfer.
-        unsafe { WRITE_BUF[0] = starting_addr; }
+        unsafe {
+            WRITE_BUF[0] = starting_addr;
+        }
 
         cs.set_low();
 
@@ -399,7 +403,12 @@ mod app {
         // Assign appropriate DMA channels to SPI transmit and receive. (Required on DMAMUX-supporting
         // MCUs only; channels are hard-coded on older ones).
         dma::mux(DmaPeriph::Dma1, ::C1, DmaInput::Spi1Tx, &dp.DMAMUX);
-        dma::mux(DmaPeriph::Dma1, DmaChannel::C2, DmaInput::Spi1Rx, &dp.DMAMUX);
+        dma::mux(
+            DmaPeriph::Dma1,
+            DmaChannel::C2,
+            DmaInput::Spi1Rx,
+            &dp.DMAMUX,
+        );
 
         // We use Spi transfer complete to know when our readings are ready.
         dma.enable_interrupt(DmaChannel::C2, DmaInterrupt::TransferComplete);

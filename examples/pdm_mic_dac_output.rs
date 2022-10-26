@@ -42,7 +42,7 @@ use stm32_hal2::{
     dac::{Dac, DacBits, DacChannel, Trigger},
     debug_workaround,
     dfsdm::{self, Dfsdm, DfsdmChannel, DfsdmConfig, Filter},
-    dma::{self, DmaPeriph, Dma, DmaChannel, DmaInterrupt},
+    dma::{self, Dma, DmaChannel, DmaInterrupt, DmaPeriph},
     gpio::{OutputType, Pin, PinMode, Port, Pull},
     pac::{self, interrupt, DAC, DFSDM, DMA1, SAI1},
     prelude::*,

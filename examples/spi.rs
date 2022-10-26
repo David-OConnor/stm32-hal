@@ -16,7 +16,7 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     clocks::Clocks,
-    dma::{self, Dma, DmaPeriph, DmaChannel, DmaInput, DmaInterrupt, DmaWriteBuf},
+    dma::{self, Dma, DmaChannel, DmaInput, DmaInterrupt, DmaPeriph, DmaWriteBuf},
     gpio::{self, Pin, PinMode, Port},
     low_power,
     pac::{self, interrupt},
@@ -75,7 +75,7 @@ fn main() -> ! {
     // Note that mux is not used on F3, F4, and most L4s: DMA channels are hard-coded
     // to peripherals on those platforms.
     dma::mux(DmaPeriph::Dma1, DmaChannel::C1, DmaInput::Spi1Tx);
-    dma::mux((DmaPeriph::Dma1, DmaChannel::C2, DmaInput::Spi1Rx);
+    dma::mux(DmaPeriph::Dma1, DmaChannel::C2, DmaInput::Spi1Rx);
 
     cs.set_low();
 

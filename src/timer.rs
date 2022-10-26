@@ -26,6 +26,9 @@ use crate::{
     util::{rcc_en_reset, RccPeriph},
 };
 
+#[cfg(feature = "monotonic")]
+use crate::instant::Instant;
+
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
         use crate::pac::dma as dma_p;
@@ -44,52 +47,6 @@ use cfg_if::cfg_if;
 use paste::paste;
 
 // todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
-
-// todo: Put this module in its own file
-#[cfg(feature = "monotonic")]
-mod instant {
-    use core::{self, time::Duration, ops::{Add, Sub}, cmp::{Ord, PartialOrd, Ordering}};
-
-    /// A time instant, from the start of a timer, for use with `rtic-monotonic`. Currently only
-    /// has microsecond precision.
-    #[derive(Eq, PartialEq, PartialOrd, Copy, Clone, Default)]
-    pub struct Instant {
-        /// Total count, in microseconds.
-        /// todo: Do you need ns resolution?
-        pub count_us: i64 // todo: u64 or i64
-    }
-
-    impl Ord for Instant {
-        fn cmp(&self, other: &Self) -> Ordering {
-            self.count_us.cmp(&other.count_us)
-        }
-    }
-
-    impl Add<Duration> for Instant {
-        type Output = Self;
-
-        fn add(self, rhs: Duration) -> Self::Output {
-            Self { count_us: self.count_us + rhs.as_micros() as i64 }
-        }
-    }
-
-    impl Sub<Duration> for Instant {
-        type Output = Self;
-
-        fn sub(self, rhs: Duration) -> Self::Output {
-            Self { count_us: self.count_us - rhs.as_micros() as i64 }
-        }
-    }
-
-    impl Sub<Self> for Instant {
-        type Output = Duration;
-
-        fn sub(self, rhs: Self) -> Self::Output {
-            // todo: Handle negative overflow!
-            Duration::from_micros((self.count_us - rhs.count_us) as u64)
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug)]
 /// Used for when attempting to set a timer period that is out of range.
@@ -418,11 +375,12 @@ pub struct Timer<TIM> {
     #[cfg(feature = "monotonic")]
     wrap_count: u32,
     #[cfg(feature = "monotonic")]
-    freq: f32,
-    #[cfg(feature = "monotonic")]
-    compare_inst: instant::Instant,
-    #[cfg(feature = "monotonic")]
-    compare_latched: bool, // todo?
+    // freq: f32,
+    us_per_tick: f32,
+    // #[cfg(feature = "monotonic")]
+    // compare_inst: instant::Instant,
+    // #[cfg(feature = "monotonic")]
+    // compare_latched: bool, // todo?
 }
 
 macro_rules! make_timer {
@@ -464,11 +422,12 @@ macro_rules! make_timer {
                         #[cfg(feature = "monotonic")]
                         wrap_count: 0,
                         #[cfg(feature = "monotonic")]
-                        freq: 0., // set below
-                        #[cfg(feature = "monotonic")]
-                        compare_inst: instant::Instant::default(),
-                        #[cfg(feature = "monotonic")]
-                        compare_latched: false,
+                        us_per_tick: 0., // set below
+                        // freq: 0., // set below
+                        // #[cfg(feature = "monotonic")]
+                        // compare_inst: instant::Instant::default(),
+                        // #[cfg(feature = "monotonic")]
+                        // compare_latched: false,
                     };
 
                     result.set_freq(freq).ok();
@@ -586,8 +545,12 @@ macro_rules! make_timer {
 
                 cfg_if! {
                     if #[cfg(feature = "monotonic")] {
-                        // Calculate the freq we determined; not the one requested.
-                        self.freq = self.clock_speed as f32 / ((psc as f32 + 1.) * (arr as f32 + 1.))
+                        // (PSC+1)*(ARR+1) = TIMclk/Updatefrequency = TIMclk * period
+                        // period = (PSC+1)*(ARR+1) / TIMclk
+                        // Calculate this based on our actual ARR and PSC values; don't use
+                        // the requested frequency or period.
+                        let period_secs = (psc as f32 + 1.) * ( arr as f32 + 1.) / self.clock_speed as f32;
+                        self.us_per_tick = period_secs * 1_000_000.;
                     }
                 }
 
@@ -815,7 +778,7 @@ macro_rules! make_timer {
 
         #[cfg(feature = "monotonic")]
         impl Monotonic for Timer<pac::$TIMX> {
-            type Instant = instant::Instant;
+            type Instant = Instant;
             type Duration = core::time::Duration;
 
             const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = false;
@@ -823,37 +786,39 @@ macro_rules! make_timer {
             // todo: How do we increment wrap count?
 
             fn now(&mut self) -> Self::Instant {
-                let arr = self.get_max_duty();
-                let count = self.read_count();
-
-                // Important: the stored frequency used here will only be correct if
+                // Important: the stored us/tick used here will only be correct if
                 // set using the constructor, or the `set_freq`, or `set_period` methods.
-                instant::Instant {
+                Instant {
                     // todo: Floating point logic to avoid rounding errors?
-                    count_us: ((count as f32 / arr as f32) * self.freq * (self.wrap_count as f32)) as i64
+                    count_us: (self.read_count() as f32 * self.us_per_tick) as i64
                 }
             }
 
+            /// We use the compare 1 channel for this.
+            /// todo: Support wrapping?
             fn set_compare(&mut self, instant: Self::Instant) {
-                // todo
-                self.compare_inst = instant;
+                self.regs
+                    .ccr1()
+                    .write(|w| unsafe { w.ccr().bits((instant.count_us as f32 / self.us_per_tick) as u32) });
             }
 
+            /// We use the compare 1 channel for this.
+            /// todo: Support wrapping?
             fn clear_compare_flag(&mut self) {
-                self.compare_latched = false;
+                self.regs.sr.modify(|_, w| w.cc1if().clear_bit());
             }
 
             fn zero() -> Self::Instant {
-                instant::Instant::default()
+                Instant::default()
             }
 
             unsafe fn reset(&mut self) {
                 self.reset_count();
+                self.wrap_count = 0;
             }
 
             fn on_interrupt(&mut self) {
-                // todo
-                self.wrap_count += 1; // todo??
+                self.wrap_count += 1;
             }
             fn enable_timer(&mut self) {
                 self.enable();

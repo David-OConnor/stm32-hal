@@ -15,7 +15,7 @@
 //!
 //! The [blinky example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/blinky) provides a detailed example and instructions for how to set up a blinking
 //! light (ie hello world) using an STM32F411 "blackpill" board. Its readme provides instructions for how to get
-//! started from scratch, and its code contains detailed comments explaining each part. The 
+//! started from scratch, and its code contains detailed comments explaining each part. The
 //! [blinky with timer interrupt example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/blinky_timer_interrupt)
 //! demonstrates how to accomplish the same in a non-blocking way, using a hardware timer. It uses RTIC.
 //!
@@ -524,6 +524,8 @@ cfg_if::cfg_if! {
     }
 }
 
+#[cfg(feature = "monotonic")]
+mod instant;
 mod util;
 
 // todo: should these helper macros be removed from this library? It has nothing to do with STM32.

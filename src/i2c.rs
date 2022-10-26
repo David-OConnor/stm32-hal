@@ -696,7 +696,7 @@ where
     //     while self.regs.cr1.read().txdmaen().bit_is_clear() {}
     //     self.regs.cr1.modify(|_, w| w.rxdmaen().set_bit());
     //     while self.regs.cr1.read().rxdmaen().bit_is_clear() {}
-       
+
     //     let periph_addr_write = &self.regs.txdr as *const _ as u32;
     //     let periph_addr_read = &self.regs.rxdr as *const _ as u32;
 

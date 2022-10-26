@@ -19,7 +19,7 @@ use stm32_hal2::{
         SampleTime,
     },
     clocks::Clocks,
-    dma::{self, DmaPeriph, Dma, DmaChannel, DmaInterrupt, DmaWriteBuf},
+    dma::{self, Dma, DmaChannel, DmaInterrupt, DmaPeriph, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
     low_power, pac,
 };
