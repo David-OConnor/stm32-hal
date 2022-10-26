@@ -24,10 +24,8 @@ use crate::{
     clocks::Clocks,
     pac::{self, RCC},
     util::{rcc_en_reset, RccPeriph},
+    instant::Instant,
 };
-
-#[cfg(feature = "monotonic")]
-use crate::instant::Instant;
 
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
@@ -372,15 +370,10 @@ pub struct Timer<TIM> {
     pub cfg: TimerConfig,
     /// Associated timer clock speed in Hz.
     clock_speed: u32,
-    #[cfg(feature = "monotonic")]
+    // #[cfg(feature = "monotonic")]
     wrap_count: u32,
-    #[cfg(feature = "monotonic")]
-    // freq: f32,
+    // #[cfg(feature = "monotonic")]
     us_per_tick: f32,
-    // #[cfg(feature = "monotonic")]
-    // compare_inst: instant::Instant,
-    // #[cfg(feature = "monotonic")]
-    // compare_latched: bool, // todo?
 }
 
 macro_rules! make_timer {
@@ -419,15 +412,10 @@ macro_rules! make_timer {
                         clock_speed,
                         cfg,
                         regs,
-                        #[cfg(feature = "monotonic")]
+                        // #[cfg(feature = "monotonic")]
                         wrap_count: 0,
-                        #[cfg(feature = "monotonic")]
+                        // #[cfg(feature = "monotonic")]
                         us_per_tick: 0., // set below
-                        // freq: 0., // set below
-                        // #[cfg(feature = "monotonic")]
-                        // compare_inst: instant::Instant::default(),
-                        // #[cfg(feature = "monotonic")]
-                        // compare_latched: false,
                     };
 
                     result.set_freq(freq).ok();
@@ -543,16 +531,16 @@ macro_rules! make_timer {
                 self.regs.arr.write(|w| unsafe { w.bits(arr.into()) });
                 self.regs.psc.write(|w| unsafe { w.bits(psc.into()) });
 
-                cfg_if! {
-                    if #[cfg(feature = "monotonic")] {
+                // cfg_if! {
+                //     if #[cfg(feature = "monotonic")] {
                         // (PSC+1)*(ARR+1) = TIMclk/Updatefrequency = TIMclk * period
                         // period = (PSC+1)*(ARR+1) / TIMclk
                         // Calculate this based on our actual ARR and PSC values; don't use
                         // the requested frequency or period.
                         let period_secs = (psc as f32 + 1.) * ( arr as f32 + 1.) / self.clock_speed as f32;
                         self.us_per_tick = period_secs * 1_000_000.;
-                    }
-                }
+                    // }
+                // }
 
                 Ok(())
             }
@@ -774,6 +762,21 @@ macro_rules! make_timer {
                     channel_cfg,
                 );
             }
+
+            /// Get the current time on the timer, not accounting for overruns/wraps.
+            /// Used by `Monotonic` if enabled using the `monotonic` feature, but usable
+            /// on its own.
+            /// Important: the stored us/tick used here will only be correct if
+            /// set using the constructor, or the `set_freq`, or `set_period` methods.
+            pub fn now(&mut self) -> Instant {
+                // todo: Floating point logic to avoid rounding errors?
+                // #[cfg(not(feature = "monotonic"))]
+                // let count_us = (self.read_count() as f32 * self.us_per_tick) as i64;
+                // #[cfg(feature = "monotonic")]
+                let count_us = ((self.read_count() as f32 + self.wrap_count as f32 * self.get_max_duty() as f32) * self.us_per_tick) as i64;
+
+                Instant { count_us }
+            }
         }
 
         #[cfg(feature = "monotonic")]
@@ -783,15 +786,8 @@ macro_rules! make_timer {
 
             const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = false;
 
-            // todo: How do we increment wrap count?
-
             fn now(&mut self) -> Self::Instant {
-                // Important: the stored us/tick used here will only be correct if
-                // set using the constructor, or the `set_freq`, or `set_period` methods.
-                Instant {
-                    // todo: Floating point logic to avoid rounding errors?
-                    count_us: (self.read_count() as f32 * self.us_per_tick) as i64
-                }
+                self.now()
             }
 
             /// We use the compare 1 channel for this.

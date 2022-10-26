@@ -1,3 +1,5 @@
+//! This module fits the requirement of `rtic-monotonic`, but has uses beyond that.
+
 use core::{
     self,
     cmp::{Ord, Ordering, PartialOrd},

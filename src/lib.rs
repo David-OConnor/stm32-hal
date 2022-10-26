@@ -524,7 +524,7 @@ cfg_if::cfg_if! {
     }
 }
 
-#[cfg(feature = "monotonic")]
+// For use with timers; converting ticks to real time.
 mod instant;
 mod util;
 
