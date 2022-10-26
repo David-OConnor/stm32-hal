@@ -523,10 +523,11 @@ where
                     // Set the character to detect
                     cfg_if! {
                         if #[cfg(any(feature = "l5", feature = "g4", feature = "wb"))] {
-                            w.add0_3().bits(char) // PAC error. Should be just like above. (?)
+                            w.add0_3().bits(char); // PAC error. Should be just like above. (?)
+                            w.add4_7().bits(char >> 4)
                         } else {
                             w.add().bits(char)
-                        // } else { // note: G4 should be like above, but use below due to PAC error. (Should be equiv)
+                        // } else {
                         //     w.add().bits(char);
                         //     w.add4_7().bits(char >> 4)
                         }
@@ -574,9 +575,6 @@ where
                 self.regs.cr1.modify(|_, w| w.txeie().set_bit());
             }
         }
-
-        // todo: Why?
-        // self.regs.cr1.modify(|_, w| w.ue().set_bit());
     }
 
     #[cfg(not(feature = "f4"))]

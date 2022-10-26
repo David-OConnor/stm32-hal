@@ -614,40 +614,46 @@ macro_rules! hal {
                     self.disable();
                 }
 
-                // // Note that we don't use the `difsel` PAC accessor here; not required,
-                // // and would require some feature gating due to differences in field names among some
-                // // variants. Would also requires shifting `channel` by 1 more.
-                // let val = self.regs.difsel.read().bits();
-                // self.regs.difsel.write(|w| unsafe { w.bits(
-                //     val | ((input_type as u32) << channel)
-                // )});
+                // Note that we don't use the `difsel` PAC accessor here, due to its varying
+                // implementations across different PACs.
+                // todo: 1 offset? Experiment in firmware.
+                let val = self.regs.difsel.read().bits();
 
-                let v = input_type as u8 != 0;
-                self.regs.difsel.modify(|_, w| {
-                    match channel {
-                        // todo: Do these need to be offset by 1??
-                        0 => w.difsel_0().bit(v),
-                        1 => w.difsel_1().bit(v),
-                        2 => w.difsel_2().bit(v),
-                        3 => w.difsel_3().bit(v),
-                        4 => w.difsel_4().bit(v),
-                        5 => w.difsel_5().bit(v),
-                        6 => w.difsel_6().bit(v),
-                        7 => w.difsel_7().bit(v),
-                        8 => w.difsel_8().bit(v),
-                        9 => w.difsel_9().bit(v),
-                        10 => w.difsel_10().bit(v),
-                        11 => w.difsel_11().bit(v),
-                        12 => w.difsel_12().bit(v),
-                        13 => w.difsel_13().bit(v),
-                        14 => w.difsel_14().bit(v),
-                        15 => w.difsel_15().bit(v),
-                        16 => w.difsel_16().bit(v),
-                        17 => w.difsel_17().bit(v),
-                        18 => w.difsel_18().bit(v),
-                        _ => panic!(),
-                    }
-                });
+                let val_new = match input_type {
+                    InputType::SingleEnded => val & !(1 << channel),
+                    InputType::Differential => val | (1 << channel),
+                };
+                self.regs.difsel.write(|w| unsafe { w.bits(val_new)});
+
+                // The commented code below is for some PAC variants taht support a method to 
+                // choose the diffsel field.
+
+                // let v = input_type as u8 != 0;
+                // self.regs.difsel.modify(|_, w| {
+                //     match channel {
+                //         // todo: Do these need to be offset by 1??
+                //         0 => w.difsel_0().bit(v),
+                //         1 => w.difsel_1().bit(v),
+                //         2 => w.difsel_2().bit(v),
+                //         3 => w.difsel_3().bit(v),
+                //         4 => w.difsel_4().bit(v),
+                //         5 => w.difsel_5().bit(v),
+                //         6 => w.difsel_6().bit(v),
+                //         7 => w.difsel_7().bit(v),
+                //         8 => w.difsel_8().bit(v),
+                //         9 => w.difsel_9().bit(v),
+                //         10 => w.difsel_10().bit(v),
+                //         11 => w.difsel_11().bit(v),
+                //         12 => w.difsel_12().bit(v),
+                //         13 => w.difsel_13().bit(v),
+                //         14 => w.difsel_14().bit(v),
+                //         15 => w.difsel_15().bit(v),
+                //         16 => w.difsel_16().bit(v),
+                //         17 => w.difsel_17().bit(v),
+                //         18 => w.difsel_18().bit(v),
+                //         _ => panic!(),
+                //     }
+                // });
 
                 if was_enabled {
                     self.enable();

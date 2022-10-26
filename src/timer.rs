@@ -9,6 +9,12 @@ use core::ops::Deref;
 
 use cortex_m::interrupt::free;
 
+#[cfg(feature = "monotonic")]
+use rtic_monotonic::Monotonic;
+
+#[cfg(feature = "monotonic")]
+use core;
+
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
@@ -38,6 +44,53 @@ use cfg_if::cfg_if;
 use paste::paste;
 
 // todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
+
+// todo: Put this module in its own file
+#[cfg(feature = "monotonic")]
+mod instant {
+    use core::{self, time::Duration, ops::{Add, Sub}, cmp::{Ord, PartialOrd, Ordering}};
+
+    /// A time instant, from the start of a timer, for use with `rtic-monotonic`. Currently only
+    /// has microsecond precision.
+    #[derive(Eq, PartialEq, PartialOrd, Copy, Clone)]
+    pub struct Instant {
+        /// Total count, in microseconds.
+        /// todo: Do you need ns resolution?
+        pub count_us: i64 // todo: u64 or i64
+    }
+
+
+    impl Ord for Instant {
+        fn cmp(&self, other: &Self) -> Ordering {
+            self.count_us.cmp(&other.count_us)
+        }
+    }
+
+    impl Add<Duration> for Instant {
+        type Output = Self;
+
+        fn add(self, rhs: Duration) -> Self::Output {
+            Self { count_us: self.count_us + rhs.as_micros() as i64 }
+        }
+    }
+
+    impl Sub<Duration> for Instant {
+        type Output = Self;
+
+        fn sub(self, rhs: Duration) -> Self::Output {
+            Self { count_us: self.count_us - rhs.as_micros() as i64 }
+        }
+    }
+
+    impl Sub<Self> for Instant {
+        type Output = Duration;
+
+        fn sub(self, rhs: Self) -> Self::Output {
+            // todo: Handle negative overflow!
+            Duration::from_micros((self.count_us - rhs.count_us) as u64)
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 /// Used for when attempting to set a timer period that is out of range.
@@ -356,9 +409,19 @@ impl Default for TimerConfig {
 
 /// Represents a General Purpose or Advanced Control timer.
 pub struct Timer<TIM> {
-    pub regs: TIM, // Register block for the specific timer.
+    /// Register block for the specific timer.
+    pub regs: TIM,
+    /// Our config stucture, for configuration that is written to the timer hardware on initialization
+    /// via the constructor.
     pub cfg: TimerConfig,
-    clock_speed: u32, // Associated timer clock speed in Hz.
+    /// Associated timer clock speed in Hz.
+    clock_speed: u32,
+    #[cfg(feature = "monotonic")]
+    wrap_count: u32,
+    #[cfg(feature = "monotonic")]
+    freq: f32,
+    #[cfg(feature = "monotonic")]
+    compare_latch: bool, // todo?
 }
 
 macro_rules! make_timer {
@@ -393,7 +456,17 @@ macro_rules! make_timer {
                         w.ccds().bit(cfg.capture_compare_dma as u8 != 0)
                     });
 
-                    let mut result = Timer { clock_speed, cfg, regs };
+                    let mut result = Timer {
+                        clock_speed,
+                        cfg,
+                        regs,
+                        #[cfg(feature = "monotonic")]
+                        wrap_count: 0,
+                        #[cfg(feature = "monotonic")]
+                        freq: 0., // set below
+                        #[cfg(feature = "monotonic")]
+                        compare_latch: false,
+                    };
 
                     result.set_freq(freq).ok();
                     result.set_dir();
@@ -507,6 +580,13 @@ macro_rules! make_timer {
 
                 self.regs.arr.write(|w| unsafe { w.bits(arr.into()) });
                 self.regs.psc.write(|w| unsafe { w.bits(psc.into()) });
+
+                cfg_if! {
+                    if #[cfg(feature = "monotonic")] {
+                        // Calculate the freq we determined; not the one requested.
+                        self.freq = self.clock_speed as f32 / ((psc as f32 + 1.) * (arr as f32 + 1.))
+                    }
+                }
 
                 Ok(())
             }
@@ -727,6 +807,54 @@ macro_rules! make_timer {
                     dma::DataSize::S16,
                     channel_cfg,
                 );
+            }
+        }
+
+        #[cfg(feature = "monotonic")]
+        impl Monotonic for Timer<pac::$TIMX> {
+            type Instant = instant::Instant;
+            type Duration = core::time::Duration;
+
+            const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = false;
+
+            // todo: How do we increment wrap count?
+
+            fn now(&mut self) -> Self::Instant {
+                let arr = self.get_max_duty();
+                let count = self.read_count();
+
+                // Important: the stored frequency used here will only be correct if
+                // set using the constructor, or the `set_freq`, or `set_period` methods.
+                instant::Instant {
+                    // todo: Floating point logic to avoid rounding errors?
+                    count_us: ((count as f32 / arr as f32) * self.freq * (self.wrap_count as f32)) as i64
+                }
+            }
+
+            fn set_compare(&mut self, instant: Self::Instant) {
+                // todo
+            }
+
+            fn clear_compare_flag(&mut self) {
+                // todo
+            }
+
+            fn zero() -> Self::Instant {
+                instant::Instant { count_us: 0 }
+            }
+
+            unsafe fn reset(&mut self) {
+                self.reset_count();
+            }
+
+            fn on_interrupt(&mut self) {
+                // todo
+            }
+            fn enable_timer(&mut self) {
+                self.enable();
+            }
+            fn disable_timer(&mut self) {
+                self.disable();
             }
         }
 
@@ -1740,6 +1868,10 @@ cfg_if! {
        feature = "l4x6",
        // feature = "l562", // todo: PAC bug?
        feature = "h7",
+       feature = "g473",
+       feature = "g474",
+       feature = "g483",
+       feature = "g484",
        all(feature = "f4", not(feature = "f410")),
    ))] {
         make_timer!(TIM5, tim5, 1, u32);
@@ -1818,6 +1950,7 @@ cfg_if! {
     }
 }
 
+// todo: G4 (maybe not all variants?) have TIM20.
 #[cfg(any(feature = "f303"))]
 make_timer!(TIM20, tim20, 2, u16);
 #[cfg(any(feature = "f303"))]
