@@ -804,8 +804,7 @@ macro_rules! make_timer {
             fn set_compare(&mut self, instant: Self::Instant) {
                 self.regs
                     .ccr1()
-                    // .write(|w| unsafe { w.ccr().bits((instant.count_us as f32 / self.us_per_tick) as u32) });
-                    .write(|w| unsafe { w.ccr().bits((instant.count_ns as f32 / self.ns_per_tick) as u32) });
+                    .write(|w| unsafe { w.ccr().bits(((instant.count_ns as f32 / self.ns_per_tick) as u16).into()) });
             }
 
             /// We use the compare 1 channel for this.
