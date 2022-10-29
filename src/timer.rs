@@ -377,7 +377,8 @@ pub struct Timer<TIM> {
     // #[cfg(feature = "monotonic")]
     /// Updated in the constructor and `set_freq` fns. Used for mapping timer ticks to time (eg in
     /// seconds, us etc)
-    pub us_per_tick: f32,
+    // pub us_per_tick: f32,
+    pub ns_per_tick: f32,
 }
 
 macro_rules! make_timer {
@@ -419,7 +420,8 @@ macro_rules! make_timer {
                         // #[cfg(feature = "monotonic")]
                         wrap_count: 0,
                         // #[cfg(feature = "monotonic")]
-                        us_per_tick: 0., // set below
+                        // us_per_tick: 0., // set below
+                        ns_per_tick: 0., // set below
                     };
 
                     result.set_freq(freq).ok();
@@ -541,7 +543,8 @@ macro_rules! make_timer {
                 // the requested frequency or period.
                 let arr_f32 = arr as f32;
                 let period_secs = (psc as f32 + 1.) * ( arr_f32 + 1.) / self.clock_speed as f32;
-                self.us_per_tick = period_secs  / (arr_f32) * 1_000_000.;
+                // self.us_per_tick = period_secs  / (arr_f32) * 1_000_000.;
+                self.ns_per_tick = period_secs  / (arr_f32) * 1_000_000_000.;
 
                 Ok(())
             }
@@ -764,7 +767,7 @@ macro_rules! make_timer {
                 );
             }
 
-            /// Get the current time on the timer.
+            /// Get the time elapsed since the start of the timer.
             /// Used by `Monotonic` if enabled using the `monotonic` feature, but usable
             /// on its own.
             /// Important: the value returned here will only be correct if the ARR and PSC are set
@@ -772,11 +775,16 @@ macro_rules! make_timer {
             /// doesn't expire prior to calling this, rel to the time being measured (or if it expires,
             /// the ISR manually updates the wrap count), if system clock time is changed, if the timer
             /// is stopped, started etc, or if low power modes are entered.
-            pub fn now(&mut self) -> Instant {
-                let count_us = ((self.read_count() as f32 + self.wrap_count as f32 *
-                    self.get_max_duty() as f32) * self.us_per_tick) as i64;
+            pub fn time_elapsed(&mut self) -> Instant {
+                // let count_us = ((self.read_count() as f32 + self.wrap_count as f32 *
+                //     self.get_max_duty() as f32) * self.us_per_tick) as i64;
+                //
+                // Instant { count_us }
 
-                Instant { count_us }
+                let count_ns = ((self.read_count() as f32 + self.wrap_count as f32 *
+                    self.get_max_duty() as f32) * self.ns_per_tick) as i64;
+
+                Instant { count_ns }
             }
         }
 
@@ -788,7 +796,7 @@ macro_rules! make_timer {
             const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = false;
 
             fn now(&mut self) -> Self::Instant {
-                self.now()
+                self.time_elapsed()
             }
 
             /// We use the compare 1 channel for this.
@@ -796,7 +804,8 @@ macro_rules! make_timer {
             fn set_compare(&mut self, instant: Self::Instant) {
                 self.regs
                     .ccr1()
-                    .write(|w| unsafe { w.ccr().bits((instant.count_us as f32 / self.us_per_tick) as u32) });
+                    // .write(|w| unsafe { w.ccr().bits((instant.count_us as f32 / self.us_per_tick) as u32) });
+                    .write(|w| unsafe { w.ccr().bits((instant.count_ns as f32 / self.ns_per_tick) as u32) });
             }
 
             /// We use the compare 1 channel for this.

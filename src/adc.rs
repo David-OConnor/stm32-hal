@@ -833,6 +833,7 @@ macro_rules! hal {
             }
 
             /// Start a conversion: Either a single measurement, or continuous conversions.
+            /// Blocks until the conversion is complete.
             /// See L4 RM 16.4.15 for details.
             pub fn start_conversion(&mut self, sequence: &[u8]) {
                 // todo: You should call this elsewhere, once, to prevent unneded reg writes.

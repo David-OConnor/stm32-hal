@@ -506,7 +506,7 @@ where
     }
 
     #[cfg(not(feature = "f4"))]
-    /// Enable a specific type of interrupt.
+    /// Enable a specific type of interrupt. See G4 RM, Table 349: USART interrupt requests.
     pub fn enable_interrupt(&mut self, interrupt: UsartInterrupt) {
         match interrupt {
             UsartInterrupt::CharDetect(char) => {
@@ -578,7 +578,7 @@ where
     }
 
     #[cfg(not(feature = "f4"))]
-    /// Disable a specific type of interrupt.
+    /// Disable a specific type of interrupt. See G4 RM, Table 349: USART interrupt requests.
     pub fn disable_interrupt(&mut self, interrupt: UsartInterrupt) {
         match interrupt {
             UsartInterrupt::CharDetect(_) => {
@@ -626,7 +626,8 @@ where
     }
 
     #[cfg(not(feature = "f4"))]
-    /// Clears the interrupt pending flag for a specific type of interrupt.
+    /// Clears the interrupt pending flag for a specific type of interrupt. See G4 RM,
+    /// Table 349: USART interrupt requests.
     pub fn clear_interrupt(&mut self, interrupt: UsartInterrupt) {
         match interrupt {
             UsartInterrupt::CharDetect(_) => self.regs.icr.write(|w| w.cmcf().set_bit()),

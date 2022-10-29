@@ -92,6 +92,8 @@
 //!}
 //! ```
 //!
+//! Supports the RTIC `Monotonic` trait. To enable, use the `monotonic` feature.
+//!
 //! [This article](https://www.anyleaf.org/blog/writing-embedded-firmware-using-rust) provides some information
 //! on using this library, as well as background information on Rust embedded in general.
 //!
@@ -525,7 +527,7 @@ cfg_if::cfg_if! {
 }
 
 // For use with timers; converting ticks to real time.
-mod instant;
+pub mod instant;
 mod util;
 
 // todo: should these helper macros be removed from this library? It has nothing to do with STM32.

@@ -1183,7 +1183,7 @@ pub fn clear_exti_interrupt(line: u8) {
                         _ => panic!(),
                     }
                 });
-            } else {
+            } else { // eg G4
                 (*EXTI::ptr()).pr1.modify(|_, w| {
                     match line {
                         0 => w.pif0().set_bit(),

@@ -40,7 +40,7 @@ Tested on the following devices:
 - STM32L476, L433, L443, L412, L432
 - STM32L552
 - STM32WB5MMG
-- STM32G431, G491
+- STM32G431, G491, G473
 - STM32H743(V), H745 (both cores)
 
 
@@ -153,6 +153,8 @@ fn main() -> ! {
 a light-weight framework that manages safely sharing state between contexts. Eg between ISRs and the main loop.
 Some examples use global `Mutex`es, `RefCell`s, and `Cell`s; others use macros to simplify syntax; 
 some use RTIC.
+
+Supports the RTIC `Monotonic` trait. To enable, use the `monotonic` feature.
 
 ## Why this is different from `stm32yxx-hal` libraries
 - Works with multiple STM32 families, with identical syntax when able
