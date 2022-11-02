@@ -490,11 +490,23 @@ macro_rules! set_ccr {
 #[cfg(not(feature = "h7"))]
 macro_rules! enable_interrupt {
     ($ccr:expr, $interrupt_type:expr) => {
+        // "It must not be written when the channel is enabled (EN = 1)."
+        let originally_enabled = $ccr.read().en().bit_is_set();
+        if originally_enabled {
+            $ccr.modify(|_, w| w.en().clear_bit());
+            while $ccr.read().en().bit_is_set() {}
+        }
+
         $ccr.modify(|_, w| match $interrupt_type {
             DmaInterrupt::TransferError => w.teie().set_bit(),
             DmaInterrupt::HalfTransfer => w.htie().set_bit(),
             DmaInterrupt::TransferComplete => w.tcie().set_bit(),
         });
+
+        if originally_enabled {
+            $ccr.modify(|_, w| w.en().set_bit());
+            while $ccr.read().en().bit_is_clear() {}
+        }
     };
 }
 
