@@ -448,8 +448,11 @@ macro_rules! set_ccr {
     ($ccr:expr, $priority:expr, $direction:expr, $circular:expr, $periph_incr:expr, $mem_incr:expr, $periph_size:expr, $mem_size:expr) => {
         // "The register fields/bits MEM2MEM, PL[1:0], MSIZE[1:0], PSIZE[1:0], MINC, PINC, and DIR
         // are read-only when EN = 1"
-        $ccr.modify(|_, w| w.en().clear_bit());
-        while $ccr.read().en().bit_is_set() {}
+        let originally_enabled = $ccr.read().en().bit_is_set();
+        if originally_enabled {
+            $ccr.modify(|_, w| w.en().clear_bit());
+            while $ccr.read().en().bit_is_set() {}
+        }
 
         if let Circular::Enabled = $circular {
             $ccr.modify(|_, w| w.mem2mem().clear_bit());
@@ -475,6 +478,11 @@ macro_rules! set_ccr {
             // (See `Step 5` above.)
             w.en().set_bit()
         });
+
+        if originally_enabled {
+            $ccr.modify(|_, w| w.en().set_bit());
+            while $ccr.read().en().bit_is_clear() {}
+        }
     }
 }
 
@@ -482,26 +490,17 @@ macro_rules! set_ccr {
 #[cfg(not(feature = "h7"))]
 macro_rules! enable_interrupt {
     ($ccr:expr, $interrupt_type:expr) => {
-        let originally_enabled = $ccr.read().en().bit_is_set();
-        if originally_enabled {
-            $ccr.modify(|_, w| w.en().clear_bit());
-            while $ccr.read().en().bit_is_set() {}
-        }
         $ccr.modify(|_, w| match $interrupt_type {
             DmaInterrupt::TransferError => w.teie().set_bit(),
             DmaInterrupt::HalfTransfer => w.htie().set_bit(),
             DmaInterrupt::TransferComplete => w.tcie().set_bit(),
         });
-
-        if originally_enabled {
-            $ccr.modify(|_, w| w.en().set_bit());
-            while $ccr.read().en().bit_is_clear() {}
-        }
     };
 }
 
 /// This struct is used to pass common (non-peripheral and non-use-specific) data when configuring
 /// a channel.
+#[derive(Clone)]
 pub struct ChannelCfg {
     /// Channel priority compared to other channels; can be low, medium, high, or very high. Defaults
     /// to medium.
@@ -1079,8 +1078,12 @@ where
         // after [starting DMA], which performs a volatile write."
 
         let cr = &self.regs.st[channel as usize].cr;
-        cr.modify(|_, w| w.en().clear_bit());
-        while cr.read().en().bit_is_set() {}
+
+        let originally_enabled = cr.read().en().bit_is_set();
+        if originally_enabled {
+            cr.modify(|_, w| w.en().clear_bit());
+            while cr.read().en().bit_is_set() {}
+        }
 
         cr.modify(|_, w| unsafe {
             // – the channel priority
@@ -1102,6 +1105,11 @@ where
             // (See `Step 5` above.)
             w.en().set_bit()
         });
+
+        if originally_enabled {
+            cr.modify(|_, w| w.en().set_bit());
+            while cr.read().en().bit_is_clear() {}
+        }
     }
 
     /// Stop DMA.
@@ -1387,13 +1395,6 @@ where
         // Can only be set when the channel is disabled.
         let cr = &self.regs.st[channel as usize].cr;
 
-        let originally_enabled = cr.read().en().bit_is_set();
-
-        if originally_enabled {
-            cr.modify(|_, w| w.en().clear_bit());
-            while cr.read().en().bit_is_set() {}
-        }
-
         match interrupt {
             DmaInterrupt::TransferError => cr.modify(|_, w| w.teie().set_bit()),
             DmaInterrupt::HalfTransfer => cr.modify(|_, w| w.htie().set_bit()),
@@ -1402,11 +1403,6 @@ where
             DmaInterrupt::FifoError => self.regs.st[channel as usize]
                 .fcr
                 .modify(|_, w| w.feie().set_bit()),
-        }
-
-        if originally_enabled {
-            cr.modify(|_, w| w.en().set_bit());
-            while cr.read().en().bit_is_clear() {}
         }
     }
 

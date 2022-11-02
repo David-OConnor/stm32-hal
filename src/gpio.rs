@@ -88,8 +88,8 @@ pub enum OutputSpeed {
     Low = 0b00,
     Medium = 0b01,
     #[cfg(not(feature = "f3"))]
-    Fast = 0b10, // Called "High speed" on some families.
-    High = 0b11, // Called "Very high speed" on some families.
+    High = 0b10, // Called "Fast" on some families.
+    VeryHigh = 0b11, // Called "High" on some families.
 }
 
 #[derive(Copy, Clone)]
