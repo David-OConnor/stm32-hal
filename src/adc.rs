@@ -872,7 +872,8 @@ macro_rules! hal {
 
             #[cfg(not(any(feature = "f4", feature = "l552")))]
             /// Take a reading, using DMA. Sets conversion sequence; no need to set it directly.
-            /// Note that the `channel` argument is only used on F3 and L4.
+            /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
+            /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
             pub unsafe fn read_dma<D>(
                 &mut self, buf: &mut [u16],
                 adc_channels: &[u8],

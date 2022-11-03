@@ -365,7 +365,8 @@ where
 
     #[cfg(not(any(feature = "f4", feature = "l552")))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
-    /// Note that the `channel` argument is only used on F3 and L4.
+    /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
+    /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
     pub unsafe fn write_dma<D>(
         &mut self,
         buf: &[u8],
@@ -439,7 +440,8 @@ where
 
     #[cfg(not(any(feature = "f4", feature = "l552")))]
     /// Receive data using DMA. (L44 RM, section 38.5.15; G4 RM section 37.5.19.
-    /// Note that the `channel` argument is only used on F3 and L4.
+    /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
+    /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
     pub unsafe fn read_dma<D>(
         &mut self,
         buf: &mut [u8],
@@ -626,7 +628,8 @@ where
     }
 
     #[cfg(not(feature = "f4"))]
-    /// Clears the interrupt pending flag for a specific type of interrupt. See G4 RM,
+    /// Clears the interrupt pending flag for a specific type of interrupt. Note that
+    /// it can also clear error flags, like Overrun and framing errors. See G4 RM,
     /// Table 349: USART interrupt requests.
     pub fn clear_interrupt(&mut self, interrupt: UsartInterrupt) {
         match interrupt {

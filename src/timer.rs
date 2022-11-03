@@ -371,7 +371,7 @@ pub struct Timer<TIM> {
     /// Associated timer clock speed in Hz.
     clock_speed: u32,
     // #[cfg(feature = "monotonic")]
-    /// Used to indicate the timer has expired, and running time counts (eg `now()` fn) properly
+    /// Used to indicate the timer has expired, and running time counts (eg the `time_elapsed()` method) properly
     /// increment.
     pub wrap_count: u32,
     // #[cfg(feature = "monotonic")]

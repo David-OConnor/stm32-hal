@@ -334,6 +334,8 @@ where
     /// Send values to the DAC using DMA. Each trigger (Eg using a timer; the basic timers Tim6
     /// and Tim7 are designed for DAC triggering) sends one word from the buffer to the DAC's
     /// output.
+    /// Note that the `dma_channel` argument is unused on F3 and L4, since it is hard-coded,
+    /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
     #[cfg(not(any(feature = "f4", feature = "l552")))]
     pub unsafe fn write_dma<D>(
         &mut self,

@@ -608,7 +608,8 @@ where
     }
 
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
-    /// Note that the `channel` argument has no effect on F3 and L4.
+    /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
+    /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
     #[cfg(not(any(feature = "f4", feature = "l552")))]
     pub unsafe fn write_dma<D>(
         &mut self,
@@ -677,7 +678,8 @@ where
     }
 
     /// Receive data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
-    /// Note thay the `channel` argument has no effect on F3 and L4.
+    /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
+    /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
     #[cfg(not(any(feature = "f4", feature = "l552")))]
     pub unsafe fn read_dma<D>(
         &mut self,
@@ -819,7 +821,7 @@ where
 
     /// Stop a DMA transfer. Stops the channel, and disables the `txdmaen` and `rxdmaen` bits.
     /// Run this after each transfer completes - you may wish to do this in an interrupt
-    /// (eg DMA transfer complete) instead of blocking. `channel` is an optional second channel
+    /// (eg DMA transfer complete) instead of blocking. `channel2` is an optional second channel
     /// to stop; eg if you have both a tx and rx channel.
     #[cfg(not(any(feature = "f4", feature = "l552")))]
     pub fn stop_dma<D>(

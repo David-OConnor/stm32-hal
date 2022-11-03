@@ -539,7 +539,8 @@ where
 
     #[cfg(not(feature = "g0"))]
     /// Read data, using DMA. See L44 RM, 37.4.16: "Transmission using DMA"
-    /// Note that the `channel` argument is only used on F3 and L4.
+    /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
+    /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
     /// For a single write, set `autoend` to `true`. For a write_read and other use cases,
     /// set it to `false`.
     #[cfg(not(feature = "l552"))]
@@ -609,7 +610,8 @@ where
     }
 
     /// Read data, using DMA. See L44 RM, 37.4.16: "Reception using DMA"
-    /// Note that the `channel` argument is only used on F3 and L4.
+    /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
+    /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
     #[cfg(not(feature = "l552"))]
     pub unsafe fn read_dma<D>(
         &mut self,
@@ -669,7 +671,8 @@ where
 
     // /// Write, and read data, using DMA. This is the primary read api.
     // /// See L44 RM, 37.4.16: "Reception using DMA"
-    // /// Note that the `channel` argument is only used on F3 and L4.
+    // /// Note that the `channel` argument is only used on F3 and L4; on other platforms,
+    // it is ignored, and the channel is configured using the DMAMUX peripheral. (`dma::mux()` fn).
     // // todo: WIP. Is this the way to do it?
     // #[cfg(not(feature = "l552"))]
     // pub unsafe fn write_read_dma<D>(
