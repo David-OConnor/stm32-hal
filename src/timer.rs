@@ -602,10 +602,11 @@ macro_rules! make_timer {
                 &mut self,
                 channel: TimChannel,
                 compare: OutputCompare,
-                duty: f32,
-            ) {
                 // todo: duty as an f32 is good from an API perspective, but forces the
                 // todo use of software floats on non-FPU MCUs. How should we handle this?
+                duty: f32,
+            ) {
+                self.set_capture_compare(channel, CaptureCompare::Output);
                 self.set_preload(channel, true);
                 self.set_output_compare(channel, compare);
                 self.set_duty(channel, (self.get_max_duty() as f32 * duty) as $res);
