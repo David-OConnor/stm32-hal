@@ -606,7 +606,7 @@ macro_rules! make_timer {
                 // todo use of software floats on non-FPU MCUs. How should we handle this?
                 duty: f32,
             ) {
-                self.set_capture_compare(channel, CaptureCompare::Output);
+                self.set_capture_compare_output(channel, CaptureCompare::Output);
                 self.set_preload(channel, true);
                 self.set_output_compare(channel, compare);
                 self.set_duty(channel, (self.get_max_duty() as f32 * duty) as $res);
@@ -913,72 +913,61 @@ macro_rules! cc_4_channels {
                 ccp: Polarity,
                 ccnp: Polarity,
             ) {
-                // (H7) 1. Select the proper TI1x source (internal or external) with the TI1SEL[3:0] bits in the
+                // (H7 and G4) 1. Select the proper TI1x source (internal or external) with the TI1SEL[3:0] bits in the
                 // TIMx_TISEL register.
-                // todo: Support this within the API.
-                // self.regs.tisel.modify(|_, w| unsafe { w.ti1sel().bits(0b00) });
+                // todo: What?
+                self.regs.tisel.modify(|_, w| unsafe { w.ti1sel().bits(0b0000) });
 
-                // todo: These instruction sare specifically for TI1, on L4. Steps incorporate H7 steps as well.
-                // 1. Select the active input for TIMx_CCR1: write the CC1S bits to 01 in the TIMx_CCMR1
-                // register (TI1 selected).
+                // 2. Select the active input for TIMx_CCR1: write the CC1S bits to 01 in the TIMx_CCMR1
+                // register.
+                self.set_capture_compare_input(channel, mode);
+
                 match channel {
                     TimChannel::C1 => {
-                        self.regs.ccmr1_input().modify(|_, w| unsafe { w.cc1s().bits(mode as u8) });
-
-                        // 2. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
+                        // 3. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
                         // clear): write the CC1P and CC1NP bits to ‘0’ (active on rising edge).
+                        // (Note: We could use the `set_polarity` and `set_complementary_polarity` methods, but
+                        // this allows us to combine them in a single reg write.)
                         self.regs.ccer.modify(|_, w| {
                             w.cc1p().bit(ccp.bit());
-                            w.cc1np().bit(ccnp.bit());
-                            w.cc1e().set_bit();
-                            w.cc2e().set_bit()
+                            w.cc1np().bit(ccnp.bit())
 
                         });
                     }
                     TimChannel::C2 => {
-                        self.regs.ccmr1_input().modify(|_, w| unsafe { w.cc2s().bits(mode as u8) });
-
                         self.regs.ccer.modify(|_, w| {
                             w.cc2p().bit(ccp.bit());
-                            w.cc2np().bit(ccnp.bit());
-                            w.cc1e().set_bit();
-                            w.cc2e().set_bit()
+                            w.cc2np().bit(ccnp.bit())
 
                         });
                     }
                     TimChannel::C3 => {
-                        self.regs.ccmr2_input().modify(|_, w| unsafe { w.cc3s().bits(mode as u8) });
-
                         self.regs.ccer.modify(|_, w| {
                             w.cc3p().bit(ccp.bit());
-                            w.cc3np().bit(ccnp.bit());
-                            w.cc1e().set_bit();
-                            w.cc2e().set_bit()
+                            w.cc3np().bit(ccnp.bit())
                         });
                     }
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
-                        self.regs.ccmr2_input().modify(|_, w| unsafe { w.cc4s().bits(mode as u8) });
-
                         self.regs.ccer.modify(|_, w| {
                             #[cfg(not(any(feature = "f4", feature = "l4")))]
                             w.cc4np().bit(ccnp.bit());
                             w.cc4p().bit(ccp.bit())
-
-                            // cc1e().set_bit(); // todo: Missing? PAC error or not a feature?
-                            // cc2e().set_bit()
                         });
                     }
                 }
 
-                // 5. Select the valid trigger input: write the TS bits to 101 in the TIMx_SMCR register
+                // 6. Select the valid trigger input: write the TS bits to 101 in the TIMx_SMCR register
                 // (TI1FP1 selected).
                 self.regs.smcr.modify(|_, w| unsafe {
                     w.ts().bits(trigger as u8);
-                    // 6. Configure the slave mode controller in reset mode: write the SMS bits to 0100 in the
+                    // 7. Configure the slave mode controller in reset mode: write the SMS bits to 0100 in the
                     // TIMx_SMCR register.
                     w.sms().bits(slave_mode as u8)
                 });
+
+                // 8. Enable the captures: write the CC1E and CC2E bits to ‘1 in the TIMx_CCER register.
+                self.enable_capture_compare(channel);
             }
 
             // todo: more advanced PWM modes. Asymmetric, combined, center-aligned etc.
@@ -1152,10 +1141,12 @@ macro_rules! cc_4_channels {
                 }
             }
 
-            /// Set Capture Compare Mode. See docs on the `CaptureCompare` enum.
-            pub fn set_capture_compare(&mut self, channel: TimChannel, mode: CaptureCompare) {
+            /// Set Capture Compare mode in output mode. See docs on the `CaptureCompare` enum.
+            pub fn set_capture_compare_output(&mut self, channel: TimChannel, mode: CaptureCompare) {
+                // Note: CC1S bits are writable only when the channel is OFF (CC1E = 0 in TIMx_CCER)
+                self.disable_capture_compare(channel);
+
                 match channel {
-                    // Note: CC1S bits are writable only when the channel is OFF (CC1E = 0 in TIMx_CCER)
                     TimChannel::C1 => self
                         .regs
                         .ccmr1_output()
@@ -1172,6 +1163,32 @@ macro_rules! cc_4_channels {
                     TimChannel::C4 => self
                         .regs
                         .ccmr2_output()
+                        .modify(unsafe { |_, w| w.cc4s().bits(mode as u8) }),
+                }
+            }
+
+            /// Set Capture Compare mode in input mode. See docs on the `CaptureCompare` enum.
+            pub fn set_capture_compare_input(&mut self, channel: TimChannel, mode: CaptureCompare) {
+                // Note: CC1S bits are writable only when the channel is OFF (CC1E = 0 in TIMx_CCER)
+                self.disable_capture_compare(channel);
+
+                match channel {
+                    TimChannel::C1 => self
+                        .regs
+                        .ccmr1_input()
+                        .modify(unsafe { |_, w| w.cc1s().bits(mode as u8) }),
+                    TimChannel::C2 => self
+                        .regs
+                        .ccmr1_input()
+                        .modify(unsafe { |_, w| w.cc2s().bits(mode as u8) }),
+                    TimChannel::C3 => self
+                        .regs
+                        .ccmr2_input()
+                        .modify(unsafe { |_, w| w.cc3s().bits(mode as u8) }),
+                    #[cfg(not(feature = "wl"))]
+                    TimChannel::C4 => self
+                        .regs
+                        .ccmr2_input()
                         .modify(unsafe { |_, w| w.cc4s().bits(mode as u8) }),
                 }
             }
@@ -1231,26 +1248,19 @@ macro_rules! cc_2_channels {
                 ccp: Polarity,
                 ccnp: Polarity,
             ) {
+                self.set_capture_compare_input(channel, mode);
+
                 match channel {
                     TimChannel::C1 => {
-                        self.regs.ccmr1_input().modify(|_, w| unsafe { w.cc1s().bits(mode as u8) });
                         self.regs.ccer.modify(|_, w| {
                             w.cc1p().bit(ccp.bit());
-                            w.cc1np().bit(ccnp.bit());
-                            w.cc1e().set_bit();
-                            w.cc2e().set_bit()
-
+                            w.cc1np().bit(ccnp.bit())
                         });
                     }
                     TimChannel::C2 => {
-                        self.regs.ccmr1_input().modify(|_, w| unsafe { w.cc2s().bits(mode as u8) });
-
                         self.regs.ccer.modify(|_, w| {
                             w.cc2p().bit(ccp.bit());
-                            w.cc2np().bit(ccnp.bit());
-                            w.cc1e().set_bit();
-                            w.cc2e().set_bit()
-
+                            w.cc2np().bit(ccnp.bit())
                         });
                     }
                     _ => panic!()
@@ -1260,6 +1270,8 @@ macro_rules! cc_2_channels {
                     w.ts().bits(trigger as u8);
                     w.sms().bits(slave_mode as u8)
                 });
+
+                self.enable_capture_compare(channel);
             }
 
             /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
@@ -1376,10 +1388,11 @@ macro_rules! cc_2_channels {
                 }
             }
 
-            /// Set Capture Compare Mode. See docs on the `CaptureCompare` enum.
-            pub fn set_capture_compare(&mut self, channel: TimChannel, mode: CaptureCompare) {
+            /// Set Capture Compare mode in output mode. See docs on the `CaptureCompare` enum.
+            pub fn set_capture_compare_output(&mut self, channel: TimChannel, mode: CaptureCompare) {
+                self.disable_capture_compare(channel);
+
                 match channel {
-                    // Note: CC1S bits are writable only when the channel is OFF (CC1E = 0 in TIMx_CCER)
                     TimChannel::C1 => self
                         .regs
                         .ccmr1_output()
@@ -1389,6 +1402,25 @@ macro_rules! cc_2_channels {
                         .ccmr1_output()
                         .modify(unsafe { |_, w| w.cc2s().bits(mode as u8) }),
                     _ => panic!()
+                }
+            }
+
+            /// Set Capture Compare mode in input mode. See docs on the `CaptureCompare` enum.
+            pub fn set_capture_compare_input(&mut self, channel: TimChannel, mode: CaptureCompare) {
+                self.disable_capture_compare(channel);
+
+                match channel {
+                    // Note: CC1S bits are writable only when the channel is OFF (CC1E = 0 in TIMx_CCER)
+                    TimChannel::C1 => self
+                        .regs
+                        .ccmr1_input()
+                        .modify(unsafe { |_, w| w.cc1s().bits(mode as u8) }),
+
+                    TimChannel::C2 => self
+                        .regs
+                        .ccmr1_input()
+                        .modify(unsafe { |_, w| w.cc2s().bits(mode as u8) }),
+                        _ => panic!()
                 }
             }
 
@@ -1443,14 +1475,13 @@ macro_rules! cc_1_channel {
                 ccp: Polarity,
                 ccnp: Polarity,
             ) {
+                self.set_capture_compare_input(channel, mode);
+
                 match channel {
                     TimChannel::C1 => {
-                        self.regs.ccmr1_input().modify(|_, w| unsafe { w.cc1s().bits(mode as u8) });
                         self.regs.ccer.modify(|_, w| {
                             w.cc1p().bit(ccp.bit());
-                            w.cc1np().bit(ccnp.bit());
-                            w.cc1e().set_bit()
-
+                            w.cc1np().bit(ccnp.bit())
                         });
                     }
                     _ => panic!()
@@ -1461,6 +1492,8 @@ macro_rules! cc_1_channel {
                 //     w.ts().bits(trigger as u8);
                 //     w.sms().bits(slave_mode as u8)
                 // });
+
+                self.enable_capture_compare(channel);
             }
 
             /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
@@ -1564,13 +1597,27 @@ macro_rules! cc_1_channel {
                 }
             }
 
-            /// Set Capture Compare Mode. See docs on the `CaptureCompare` enum.
-            pub fn set_capture_compare(&mut self, channel: TimChannel, mode: CaptureCompare) {
+            /// Set Capture Compare mode in output mode. See docs on the `CaptureCompare` enum.
+            pub fn set_capture_compare_output(&mut self, channel: TimChannel, mode: CaptureCompare) {
+                self.disable_capture_compare(channel);
+
                 match channel {
-                    // Note: CC1S bits are writable only when the channel is OFF (CC1E = 0 in TIMx_CCER)
                     TimChannel::C1 => self
                         .regs
                         .ccmr1_output()
+                        .modify(unsafe { |_, w| w.cc1s().bits(mode as u8) }),
+                    _ => panic!()
+                }
+            }
+
+           /// Set Capture Compare mode in input mode. See docs on the `CaptureCompare` enum.
+            pub fn set_capture_compare_input(&mut self, channel: TimChannel, mode: CaptureCompare) {
+                self.disable_capture_compare(channel);
+
+                match channel {
+                    TimChannel::C1 => self
+                        .regs
+                        .ccmr1_input()
                         .modify(unsafe { |_, w| w.cc1s().bits(mode as u8) }),
                     _ => panic!()
                 }
