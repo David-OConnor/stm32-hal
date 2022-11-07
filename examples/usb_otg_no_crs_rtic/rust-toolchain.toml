@@ -1,0 +1,4 @@
+[toolchain]
+channel = "nightly-2022-10-09"
+components = [ "rust-src", "llvm-tools-preview", "rust-std"]
+targets = [ "thumbv7em-none-eabihf", "x86_64-unknown-linux-gnu" ]
