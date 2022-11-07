@@ -1,0 +1,41 @@
+[package]
+authors = ["Sean Link <sean.link@netally.com>"]
+name = "usb_otg_no_crs_rtic"
+edition = "2018"
+version = "0.1.0"
+
+[dependencies]
+cortex-m = "0.7.3"
+cortex-m-rt = "0.7.0"
+cortex-m-rtic = "1.1.3"
+defmt = "0.3.0"
+defmt-rtt = "0.3.0"
+panic-probe = { version = "0.3.0", features = ["print-defmt"] }
+stm32-hal2 = {path = "../../", features = ["l4x6", "usbotg_fs"]}
+stm32-usbd = "0.6.0"
+usb-device = "0.2.9"
+usbd-serial = "0.1.1"
+fugit = "0.3.6"
+
+# cargo build/run
+[profile.dev]
+codegen-units = 1
+debug = 2
+debug-assertions = true # <-
+incremental = false
+opt-level = 3 # <-
+overflow-checks = true # <-
+
+# cargo build/run --release
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false # <-
+incremental = false
+# NOTE disabled to work around issue rust-lang/rust#90357
+# the bug results in log messages not having location information
+# (the line printed below the log message that contains the file-line location)
+# lto = 'fat'
+opt-level = 3 # <-
+overflow-checks = false # <-
+
