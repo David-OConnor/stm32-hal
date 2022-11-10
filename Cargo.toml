@@ -17,7 +17,7 @@ exclude = [".gitignore"]
 edition = "2021"
 
 [dependencies]
-cortex-m = "0.7.3"
+cortex-m = "0.7.6"
 
 # Peripheral Access Crates
 stm32f3 = { version = "0.15.1", optional = true }

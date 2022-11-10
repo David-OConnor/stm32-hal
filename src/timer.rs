@@ -213,7 +213,9 @@ pub enum CountDir {
 
 /// Capture/Compare selection.
 /// This field defines the direction of the channel (input/output) as well as the used input.
-/// It affects the TIMx_CCMR1 register, CCxS fields.
+/// It affects the TIMx_CCMR1 register, CCxS fields. Note that the signifiders of the input sources
+/// varies depending on the channel. For example, the one labeled `InputTi1` here is always the associated
+/// channel, while `InputTi2` is 2 for ch1, 1 for ch2, 4 for ch3, and 3 for ch4.
 #[repr(u8)]
 #[derive(Clone, Copy)]
 pub enum CaptureCompare {
@@ -919,7 +921,7 @@ macro_rules! cc_4_channels {
 
                 // 1. Select the proper TI1x source (internal or external) with the TI1SEL[3:0] bits in the
                 // TIMx_TISEL register.
-                // todo: Figure how what this should be, adn apply it to 2 and 1 ch timers.
+                // todo: Figure how what this should be, and apply it to 2 and 1 ch timers.
                 let tisel = 0b01;
 
                 // 3.
@@ -930,7 +932,7 @@ macro_rules! cc_4_channels {
                 // validate a transition on tim_ti1 when 8 consecutive samples with the new level have
                 // been detected (sampled at fDTS frequency). Then write IC1F bits to 0011 in the
                 // TIMx_CCMR1 register.
-                let filter = 0b00; // todo temp
+                let filter = 0b0011; // todo experimenting.
 
                 match channel {
                     TimChannel::C1 => {
@@ -945,7 +947,7 @@ macro_rules! cc_4_channels {
                             w.cc1np().bit(ccnp.bit())
                         });
 
-                        // 5.           
+                        // 5.
                         // Program the input prescaler. In our example, we wish the capture to be performed at
                         // each valid transition, so the prescaler is disabled (write IC1PS bits to 00 in the
                         // TIMx_CCMR1 register).

@@ -335,9 +335,6 @@ macro_rules! hal {
                     result.calibrate(InputType::SingleEnded, clock_cfg);
                     result.calibrate(InputType::Differential, clock_cfg);
 
-                    // result.calibrate(InputType::SingleEnded, clock_cfg);
-                    // result.calibrate(InputType::Differential, clock_cfg);
-
                     // Reference Manual: "ADEN bit cannot be set during ADCAL=1
                     // and 4 ADC clock cycle after the ADCAL
                     // bit is cleared by hardware."
@@ -349,14 +346,14 @@ macro_rules! hal {
                     };
                     asm::delay(adc_per_cpu_cycles * 4 * 2); // additional x2 is a pad;
 
-                    result.set_sequence_len(1);  // as a default
-
-                    result.regs.cfgr.modify(|_, w| w.cont().bit(result.cfg.operation_mode as u8 != 0));
-
                     result.enable();
 
                     // Set up VDDA only after the ADC is otherwise enabled.
-                    result.setup_vdda(clock_cfg);
+                    // result.setup_vdda(clock_cfg);
+
+                    // Don't set continuous mode until after configuring VDDA, since it needs
+                    // to take a oneshot reading.
+                    result.regs.cfgr.modify(|_, w| w.cont().bit(result.cfg.operation_mode as u8 != 0));
 
                     result
                 }
@@ -750,22 +747,24 @@ macro_rules! hal {
                     // and all readings using voltage conversion will be wrong.
                     // todo: Take an ADC1 reading if this is the case, or let the user pass in VDDA from there.
                     if dp_adc.cr.read().aden().bit_is_set() {
+                        self.vdda_calibrated = 3.3; // A guess.
                         return
                     }
 
-                    // 3.0
+                    // todo: Get this working.
+                    // let mut adc1 = Adc::new_adc1(
+                    //     dp_adc,
+                    //     AdcDevice::One,
+                    //     // We use self cfg, in case ADC1 is on the same common regs as this; we don't
+                    //     // want it overwriting prescaler and clock cfg.
+                    //     self.cfg.clone(),
+                    //     clock_cfg,
+                    // );
+                    // adc1.disable();
 
-                    let adc1 = Adc::new_adc1(
-                        dp_adc,
-                        AdcDevice::One,
-                        // We use self cfg, in case ADC1 is on the same common regs as this; we don't
-                        // want it overwriting prescaler and clock cfg.
-                        self.cfg.clone(),
-                        clock_cfg,
-                    );
-
-                    // This fn will be called for ADC1, generating the vdda value we need.
-                    adc1.vdda_calibrated
+                    // This fn will be called recursively for ADC1, generating the vdda value we need.
+                    // adc1.vdda_calibrated
+                    3.3
                 } else {
                     // "Table 24. Embedded internal voltage reference" states that the sample time needs to be
                     // at a minimum 4 us. With 640.5 ADC cycles we have a minimum of 8 us at 80 MHz, leaving
@@ -786,6 +785,7 @@ macro_rules! hal {
                     // ADC for something other than reading vref later.
                     self.set_sample_time(VREFINT_CH, SampleTime::T601);
                     let reading = self.read(VREFINT_CH);
+                    self.stop_conversions();
 
                     common_regs.ccr.modify(|_, w| w.vrefen().clear_bit());
 

@@ -641,101 +641,116 @@ impl Clocks {
 
         cfg_if! {
             if #[cfg(feature = "l4")] {  // RM section 3.3.3
-                flash.acr.modify(|_, w| unsafe {
-                    if hclk <= 16_000_000 {
-                        w.latency().bits(WaitState::W0 as u8)
-                    } else if hclk <= 32_000_000 {
-                        w.latency().bits(WaitState::W1 as u8)
-                    } else if hclk <= 48_000_000 {
-                        w.latency().bits(WaitState::W2 as u8)
-                    } else if hclk <= 64_000_000 {
-                        w.latency().bits(WaitState::W3 as u8)
-                    } else {
-                        w.latency().bits(WaitState::W4 as u8)
-                    }
-                });
+                let wait_state = if hclk <= 16_000_000 {
+                    WaitState::W0
+                } else if hclk <= 32_000_000 {
+                    WaitState::W1
+                } else if hclk <= 48_000_000 {
+                    WaitState::W2
+                } else if hclk <= 64_000_000 {
+                    WaitState::W3
+                } else {
+                    WaitState::W4
+                };
             } else if #[cfg(feature = "l5")] {  // RM section 6.3.3
-                flash.acr.modify(|_, w| unsafe {
-                    if hclk <= 20_000_000 {
-                        w.latency().bits(WaitState::W0 as u8)
-                    } else if hclk <= 40_000_000 {
-                        w.latency().bits(WaitState::W1 as u8)
-                    } else if hclk <= 60_000_000 {
-                        w.latency().bits(WaitState::W2 as u8)
-                    } else if hclk <= 80_000_000 {
-                        w.latency().bits(WaitState::W3 as u8)
-                    } else if hclk <= 100_000_000 {
-                        w.latency().bits(WaitState::W4 as u8)
-                    } else {
-                        w.latency().bits(WaitState::W5 as u8)
-                    }
-                });
+                let wait_state = if hclk <= 20_000_000 {
+                    WaitState::W0
+                } else if hclk <= 40_000_000 {
+                    WaitState::W1
+                } else if hclk <= 60_000_000 {
+                    WaitState::W2
+                } else if hclk <= 80_000_000 {
+                    WaitState::W3
+                } else if hclk <= 100_000_000 {
+                    WaitState::W4
+                } else {
+                    WaitState::W5
+                };
             } else if #[cfg(feature = "g0")] {  // G0. RM section 3.3.4
-                flash.acr.modify(|_, w| unsafe {
-                    if hclk <= 24_000_000 {
-                        w.latency().bits(WaitState::W0 as u8)
-                    } else if hclk <= 48_000_000 {
-                        w.latency().bits(WaitState::W1 as u8)
-                    } else {
-                        w.latency().bits(WaitState::W2 as u8)
-                    }
-                });
+                let wait_state = if hclk <= 24_000_000 {
+                    WaitState::W0
+                } else if hclk <= 48_000_000 {
+                    WaitState::W1
+                } else {
+                    WaitState::W2
+                };
             } else if #[cfg(feature = "wb")] {  // WB. RM section 3.3.4, Table 4.
-            // Note: This applies to HCLK4 HCLK. (See HCLK4 used above for hclk var.)
-                flash.acr.modify(|_, w| unsafe {
-                    if hclk <= 18_000_000 {
-                        w.latency().bits(WaitState::W0 as u8)
-                    } else if hclk <= 36_000_000 {
-                        w.latency().bits(WaitState::W1 as u8)
-                    } else if hclk <= 54_000_000 {
-                        w.latency().bits(WaitState::W2 as u8)
-                    } else {
-                        w.latency().bits(WaitState::W3 as u8)
-                    }
-                });
+                // Note: This applies to HCLK4 HCLK. (See HCLK4 used above for hclk var.)
+                let wait_state = if hclk <= 18_000_000 {
+                    WaitState::W0
+                } else if hclk <= 36_000_000 {
+                    WaitState::W1
+                } else if hclk <= 54_000_000 {
+                    WaitState::W2
+                } else {
+                    WaitState::W3
+                }
             } else if #[cfg(any(feature = "wb", feature = "wl"))] {  // WL. RM section 3.3.4, Table 5.
-            // Note: This applies to HCLK3 HCLK. (See HCLK3 used above for hclk var.)
-                flash.acr.modify(|_, w| unsafe {
-                    if hclk <= 18_000_000 {
-                        w.latency().bits(WaitState::W0 as u8)
-                    } else if hclk <= 36_000_000 {
-                        w.latency().bits(WaitState::W1 as u8)
-                    } else {
-                        w.latency().bits(WaitState::W2 as u8)
-                    }
-                });
+                // Note: This applies to HCLK3 HCLK. (See HCLK3 used above for hclk var.)
+                let wait_state = if hclk <= 18_000_000 {
+                    WaitState::W0
+                } else if hclk <= 36_000_000 {
+                    WaitState::W1
+                } else {
+                    WaitState::W2
+                }
             } else {  // G4. RM section 3.3.3
-                flash.acr.modify(|_, w| unsafe {
-                    if self.boost_mode {
-                        // Vcore Range 1 boost mode
-                        if hclk <= 34_000_000 {
-                            w.latency().bits(WaitState::W0 as u8)
-                        } else if hclk <= 68_000_000 {
-                            w.latency().bits(WaitState::W1 as u8)
-                        } else if hclk <= 102_000_000 {
-                            w.latency().bits(WaitState::W2 as u8)
-                        } else if hclk <= 136_000_000 {
-                            w.latency().bits(WaitState::W3 as u8)
-                        } else {
-                            w.latency().bits(WaitState::W4 as u8)
-                        }
+                let wait_state = if self.boost_mode {
+                    // Vcore Range 1 boost mode
+                    if hclk <= 34_000_000 {
+                        WaitState::W0
+                    } else if hclk <= 68_000_000 {
+                        WaitState::W1
+                    } else if hclk <= 102_000_000 {
+                        WaitState::W2
+                    } else if hclk <= 136_000_000 {
+                        WaitState::W3
                     } else {
-                        // Vcore Range 1 normal mode.
-                        if hclk <= 30_000_000 {
-                            w.latency().bits(WaitState::W0 as u8)
-                        } else if hclk <= 60_000_000 {
-                            w.latency().bits(WaitState::W1 as u8)
-                        } else if hclk <= 90_000_000 {
-                            w.latency().bits(WaitState::W2 as u8)
-                        } else if hclk <= 120_000_000 {
-                            w.latency().bits(WaitState::W3 as u8)
-                        } else {
-                            w.latency().bits(WaitState::W4 as u8)
-                        }
+                        WaitState::W4
                     }
-                });
+                } else {
+                    // Vcore Range 1 normal mode.
+                    if hclk <= 30_000_000 {
+                        WaitState::W0
+                    } else if hclk <= 60_000_000 {
+                        WaitState::W1
+                    } else if hclk <= 90_000_000 {
+                        WaitState::W2
+                    } else if hclk <= 120_000_000 {
+                        WaitState::W3
+                    } else {
+                        WaitState::W4
+                    }
+                };
             }
         }
+
+        // Enable instruction and data caches, for a potential performance increase.
+        // Note that this can make a significant performance impact for some CPU-bound tasks.
+        // Note: This can increase power use.
+        // todo: Is there an equivalent for H7?
+        // todo: How do these interact with the cortex-m register caches?
+
+        #[cfg(not(feature = "l5"))]
+        flash.acr.modify(|_, w| unsafe {
+            // G0: Instruction cache, but no data cache.
+            w.latency().bits(wait_state as u8);
+            #[cfg(not(feature = "g0"))]
+            w.dcen().set_bit();
+            w.icen().set_bit();
+            // Prefetch on the ICode bus can be used to read the next sequential instruction line from the
+            // Flash memory while the current instruction line is being requested by the CPU
+            // Prefetch is enabled by setting the PRFTEN bit in the Flash access control register
+            // (FLASH_ACR). This feature is useful if at least one wait state is needed to access the Flash
+            // memory
+            w.prften().set_bit()
+        });
+
+        // As sevearl of these settings are Cortex-M4 features, the L5 doesn't have them.
+        #[cfg(feature = "l5")]
+        flash
+            .acr
+            .modify(|_, w| unsafe { w.latency().bits(wait_state as u8) });
 
         // Reference Manual, 6.2.5:
         // The device embeds 3 PLLs: PLL, PLLSAI1, PLLSAI2. Each PLL provides up to three
