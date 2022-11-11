@@ -19,8 +19,10 @@ use cfg_if::cfg_if;
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
         use crate::pac::dma as dma_p;
+        use crate::pac::DMA as DMA1;
     } else {
         use crate::pac::dma1 as dma_p;
+        use crate::pac::DMA1;
     }
 }
 
@@ -719,7 +721,7 @@ where
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
-                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                let mut regs = unsafe { &(*DMA1::ptr()) };
                 dma::cfg_channel(
                     &mut regs,
                     channel,
@@ -732,6 +734,7 @@ where
                     channel_cfg,
                 );
             }
+            #[cfg(not(feature = "g0"))]
             dma::DmaPeriph::Dma2 => {
                 let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                 dma::cfg_channel(
@@ -815,7 +818,7 @@ where
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
-                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                let mut regs = unsafe { &(*DMA1::ptr()) };
                 dma::cfg_channel(
                     &mut regs,
                     channel_write,
@@ -840,6 +843,7 @@ where
                     channel_cfg_read,
                 );
             }
+            #[cfg(not(feature = "g0"))]
             dma::DmaPeriph::Dma2 => {
                 let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                 dma::cfg_channel(

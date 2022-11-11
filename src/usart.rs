@@ -23,6 +23,11 @@ use crate::dma::{self, ChannelCfg, DmaChannel};
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 
+#[cfg(feature = "g0")]
+use crate::pac::DMA as DMA1;
+#[cfg(not(feature = "g0"))]
+use crate::pac::DMA1;
+
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::{
     blocking,
@@ -393,7 +398,7 @@ where
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
-                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                let mut regs = unsafe { &(*DMA1::ptr()) };
                 dma::cfg_channel(
                     &mut regs,
                     channel,
@@ -415,6 +420,7 @@ where
                     channel_cfg,
                 );
             }
+            #[cfg(not(feature = "g0"))]
             dma::DmaPeriph::Dma2 => {
                 let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                 dma::cfg_channel(
@@ -484,7 +490,7 @@ where
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
-                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                let mut regs = unsafe { &(*DMA1::ptr()) };
                 dma::cfg_channel(
                     &mut regs,
                     channel,
@@ -504,6 +510,7 @@ where
                     channel_cfg,
                 );
             }
+            #[cfg(not(feature = "g0"))]
             dma::DmaPeriph::Dma2 => {
                 let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                 dma::cfg_channel(

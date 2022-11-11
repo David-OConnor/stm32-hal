@@ -86,7 +86,7 @@ fn main() -> ! {
             false,
             DmaChannel::C6,
             Default::default(),
-            DmaPeriph::Dma1
+            DmaPeriph::Dma1,
         );
     }
 
@@ -131,7 +131,13 @@ fn DMA1_CH7() {
     // todo: Need a way to access the `I2c` struct from this ISR context.
     // See other examples for info on how to do this.
     unsafe {
-        i2c.read_dma(ADDR, &mut READ_BUF, DmaChannel::C7, Default::default(), DmaPeriph::Dma1);
+        i2c.read_dma(
+            ADDR,
+            &mut READ_BUF,
+            DmaChannel::C7,
+            Default::default(),
+            DmaPeriph::Dma1,
+        );
     }
 }
 

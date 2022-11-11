@@ -1273,15 +1273,18 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
 #[cfg(not(any(feature = "f4", feature = "l5", feature = "f3", feature = "l4")))]
 /// Write a series of words to the BSRR (atomic output) register. Note that these are direct writes
 /// to the full, 2-sided register - not a series of low/high values.
-pub unsafe fn write_dma<D>(
+pub unsafe fn write_dma(
     buf: &[u32],
     port: Port,
     dma_channel: DmaChannel,
     channel_cfg: ChannelCfg,
-    dma: &mut Dma<D>,
-) where
-    D: Deref<Target = dma_p::RegisterBlock>,
-{
+    dma_periph: dma::DmaPeriph,
+    // dma: &mut Dma<D>,
+) {
+
+// where
+    // D: Deref<Target = dma_p::RegisterBlock>,
+// {
     let (ptr, len) = (buf.as_ptr(), buf.len());
 
     // todo: DMA2 support.
@@ -1293,14 +1296,35 @@ pub unsafe fn write_dma<D>(
     #[cfg(not(feature = "h7"))]
     let num_data = len as u16;
 
-    dma.cfg_channel(
-        dma_channel,
-        periph_addr,
-        ptr as u32,
-        num_data,
-        dma::Direction::ReadFromMem,
-        dma::DataSize::S32,
-        dma::DataSize::S32,
-        channel_cfg,
-    );
+ match dma_periph {
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*DMA1::ptr()) };
+                  dma::cfg_channel(
+                    &mut regs,
+                    dma_channel,
+                    periph_addr,
+                    ptr as u32,
+                    num_data,
+                    dma::Direction::ReadFromMem,
+                    dma::DataSize::S32,
+                    dma::DataSize::S32,
+                    channel_cfg,
+                );
+            }
+            #[cfg(not(feature = "g0"))]
+            dma::DmaPeriph::Dma2 => {
+                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                  dma::cfg_channel(
+                    &mut regs,
+                    dma_channel,
+                    periph_addr,
+                    ptr as u32,
+                    num_data,
+                    dma::Direction::ReadFromMem,
+                    dma::DataSize::S32,
+                    dma::DataSize::S32,
+                    channel_cfg,
+                );
+            }
+        }
 }

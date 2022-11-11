@@ -19,8 +19,10 @@ use crate::{
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
         use crate::pac::dma as dma1;
+        use crate::pac::DMA as DMA1;
     } else {
         use crate::pac::dma1;
+        use crate::pac::DMA1;
     }
 }
 
@@ -1684,14 +1686,14 @@ where
     feature = "wb",
     feature = "wl",
 ))]
-
 /// Stop a DMA transfer, if in progress.
 pub fn stop(periph: DmaPeriph, channel: DmaChannel) {
     match periph {
         DmaPeriph::Dma1 => {
-            let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+            let mut regs = unsafe { &(*DMA1::ptr()) };
             stop_internal(&mut regs, channel);
         }
+        #[cfg(not(feature = "g0"))]
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             stop_internal(&mut regs, channel);

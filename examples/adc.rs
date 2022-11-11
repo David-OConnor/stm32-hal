@@ -19,7 +19,7 @@ use stm32_hal2::{
         SampleTime,
     },
     clocks::Clocks,
-    dma::{self, Dma, DmaChannel, DmaInterrupt, DmaPeriph, DmaInput, DmaWriteBuf},
+    dma::{self, Dma, DmaChannel, DmaInput, DmaInterrupt, DmaPeriph, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
     low_power, pac,
 };
@@ -82,7 +82,7 @@ fn main() -> ! {
             &[chan_num],
             DmaChannel::C1,
             Default::default(),
-            DmaPeriph::Dma1
+            DmaPeriph::Dma1,
         )
     };
 

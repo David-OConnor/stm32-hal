@@ -33,6 +33,11 @@ use crate::dma::{self, ChannelCfg, DmaChannel};
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 
+#[cfg(feature = "g0")]
+use crate::pac::DMA as DMA1;
+#[cfg(not(feature = "g0"))]
+use crate::pac::DMA1;
+
 use cfg_if::cfg_if;
 use paste::paste;
 
@@ -708,7 +713,7 @@ macro_rules! make_timer {
                 // 5. Enable the DMA channel
                 match dma_periph {
                     dma::DmaPeriph::Dma1 => {
-                        let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                        let mut regs = unsafe { &(*DMA1::ptr()) };
                         dma::cfg_channel(
                             &mut regs,
                             dma_channel,
@@ -723,6 +728,7 @@ macro_rules! make_timer {
                             channel_cfg,
                         );
                     }
+                    #[cfg(not(feature = "g0"))]
                     dma::DmaPeriph::Dma2 => {
                         let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                         dma::cfg_channel(
@@ -792,6 +798,7 @@ macro_rules! make_timer {
                             channel_cfg,
                         );
                     }
+                    #[cfg(not(feature = "g0"))]
                     dma::DmaPeriph::Dma2 => {
                         let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                         dma::cfg_channel(
@@ -947,6 +954,7 @@ macro_rules! cc_4_channels {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
+             #[cfg(not(feature = "g0"))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1330,6 +1338,7 @@ macro_rules! cc_2_channels {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
+            #[cfg(not(feature = "g0"))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1569,6 +1578,7 @@ macro_rules! cc_1_channel {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
+             #[cfg(not(feature = "g0"))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
