@@ -507,7 +507,7 @@ macro_rules! make_timer {
 
             /// Enable the timer.
             pub fn enable(&mut self) {
-                self.regs.cr1.write(|w| w.cen().set_bit());
+                self.regs.cr1.modify(|_,w| w.cen().set_bit());
             }
 
             /// Disable the timer.
@@ -570,6 +570,20 @@ macro_rules! make_timer {
             /// Reset the countdown; set the counter to 0.
             pub fn reset_count(&mut self) {
                 self.regs.cnt.write(|w| unsafe { w.bits(0) });
+            }
+
+            /// UIF Flag in SR register is set when CNT reg is overflow / underflow
+            ///
+            pub fn get_uif(&self ) -> bool {
+                self.regs.sr.read().uif().bit_is_set()
+            }
+
+            pub fn clear_uif(&mut self) {
+                unsafe {
+                    self.regs
+                        .sr
+                        .write(|w| w.bits(0xffff_ffff).uif().clear_bit());
+                }
             }
 
             /// Re-initialize the counter and generates an update of the registers. Note that the prescaler
@@ -880,7 +894,13 @@ macro_rules! make_timer {
         // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayMs<u32> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u32) {
-                self.delay_us(ms as u32 * 1_000);
+                let ms_to_s = ms as f32 / 1_000.;
+                self.set_freq(1. / (ms_to_s)).ok();
+                self.reset_count();
+                self.enable();
+                while self.get_uif() == false {}
+                self.clear_uif();
+                self.disable();
             }
         }
 
@@ -888,7 +908,7 @@ macro_rules! make_timer {
         // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayMs<u16> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u16) {
-                self.delay_us(ms as u32 * 1_000);
+                self.delay_ms(ms as u32)
             }
         }
 
@@ -896,7 +916,7 @@ macro_rules! make_timer {
         // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayMs<u8> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u8) {
-                self.delay_us(ms as u32 * 1_000);
+                self.delay_ms(ms as u32)
             }
         }
 
@@ -904,10 +924,12 @@ macro_rules! make_timer {
         // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
         impl DelayUs<u32> for Timer<pac::$TIMX> {
             fn delay_us(&mut self, us: u32) {
-                self.set_freq(1. / (us as f32 * 1_000.)).ok();
+                let us_to_s = us as f32 / 1_000_000.;
+                self.set_freq(1. / (us_to_s)).ok();
                 self.reset_count();
                 self.enable();
-                while self.read_count() != 0 {}
+                while self.get_uif() == false {}
+                self.clear_uif();
                 self.disable();
             }
         }
