@@ -630,18 +630,20 @@ macro_rules! make_timer {
              /// intervals." This may be used to create arbitrary waveforms by modifying the CCR register
              /// (base address = 13-16, for CCR1-4), or for implementing duty-cycle based digital protocols.
             #[cfg(not(any(feature = "g0", feature = "f4", feature = "l552", feature = "f3", feature = "l4")))]
-            pub unsafe fn write_dma_burst<D>(
+            pub unsafe fn write_dma_burst(
                 &mut self,
                 buf: &[u16],
                 base_address: u8,
                 burst_len: u8,
                 dma_channel: DmaChannel,
                 channel_cfg: ChannelCfg,
-                dma: &mut Dma<D>,
+                // dma: &mut Dma<D>,
                 ds_32_bits: bool,
-            ) where
-                D: Deref<Target = dma_p::RegisterBlock>,
-            {
+                dma_periph: dma::DmaPeriph,
+            ) {
+            // where
+                // D: Deref<Target = dma_p::RegisterBlock>,
+            // {
                 // Note: F3 and L4 are unsupported here, since I'm not sure how to select teh
                 // correct Timer channel.
 
@@ -712,22 +714,45 @@ macro_rules! make_timer {
                 self.enable();
 
                 // 5. Enable the DMA channel
-                dma.cfg_channel(
-                    dma_channel,
-                    periph_addr,
-                    ptr as u32,
-                    num_data,
-                    dma::Direction::ReadFromMem,
-                    // Note: This may only be relevant if modifying a reg that changes for 32-bit
-                    // timers, like AAR and CCRx
-                    if ds_32_bits { dma::DataSize::S32} else { dma::DataSize::S16 },
-                    dma::DataSize::S16,
-                    channel_cfg,
-                );
+                match dma_periph {
+                    dma::DmaPeriph::Dma1 => {
+                        let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                        dma::cfg_channel(
+                            &mut regs,
+                            dma_channel,
+                            periph_addr,
+                            ptr as u32,
+                            num_data,
+                            dma::Direction::ReadFromMem,
+                            // Note: This may only be relevant if modifying a reg that changes for 32-bit
+                            // timers, like AAR and CCRx
+                            if ds_32_bits { dma::DataSize::S32} else { dma::DataSize::S16 },
+                            dma::DataSize::S16,
+                            channel_cfg,
+                        );
+                    }
+                    dma::DmaPeriph::Dma2 => {
+                        let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                        dma::cfg_channel(
+                            &mut regs,
+                            dma_channel,
+                            periph_addr,
+                            ptr as u32,
+                            num_data,
+                            dma::Direction::ReadFromMem,
+                            // Note: This may only be relevant if modifying a reg that changes for 32-bit
+                            // timers, like AAR and CCRx
+                            if ds_32_bits { dma::DataSize::S32} else { dma::DataSize::S16 },
+                            dma::DataSize::S16,
+                            channel_cfg,
+                        );
+                    }
+                }
+
             }
 
             #[cfg(not(any(feature = "g0", feature = "f4", feature = "l552", feature = "f3", feature = "l4")))]
-            pub unsafe fn read_dma_burst<D>(
+            pub unsafe fn read_dma_burst(
                 // todo: Experimenting with input capture.
                 &mut self,
                 buf: &[u16],
@@ -735,11 +760,13 @@ macro_rules! make_timer {
                 burst_len: u8,
                 dma_channel: DmaChannel,
                 channel_cfg: ChannelCfg,
-                dma: &mut Dma<D>,
                 ds_32_bits: bool,
-            ) where
-                D: Deref<Target = dma_p::RegisterBlock>,
-            {
+                dma_periph: dma::DmaPeriph,
+            ) {
+
+            // where
+                // D: Deref<Target = dma_p::RegisterBlock>,
+            // {
                 let (ptr, len) = (buf.as_ptr(), buf.len());
 
                 let periph_addr = &self.regs.dmar as *const _ as u32;
@@ -756,18 +783,40 @@ macro_rules! make_timer {
 
                 self.enable();
 
-                dma.cfg_channel(
-                    dma_channel,
-                    periph_addr,
-                    ptr as u32,
-                    num_data,
-                    dma::Direction::ReadFromPeriph,
-                    // Note: This may only be relevant if modifying a reg that changes for 32-bit
-                    // timers, like AAR and CCRx
-                    if ds_32_bits { dma::DataSize::S32} else { dma::DataSize::S16 },
-                    dma::DataSize::S16,
-                    channel_cfg,
-                );
+                match dma_periph {
+                    dma::DmaPeriph::Dma1 => {
+                        let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                        dma::cfg_channel(
+                            &mut regs,
+                            dma_channel,
+                            periph_addr,
+                            ptr as u32,
+                            num_data,
+                            dma::Direction::ReadFromPeriph,
+                            // Note: This may only be relevant if modifying a reg that changes for 32-bit
+                            // timers, like AAR and CCRx
+                            if ds_32_bits { dma::DataSize::S32} else { dma::DataSize::S16 },
+                            dma::DataSize::S16,
+                            channel_cfg,
+                        );
+                    }
+                    dma::DmaPeriph::Dma2 => {
+                        let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                        dma::cfg_channel(
+                            &mut regs,
+                            dma_channel,
+                            periph_addr,
+                            ptr as u32,
+                            num_data,
+                            dma::Direction::ReadFromPeriph,
+                            // Note: This may only be relevant if modifying a reg that changes for 32-bit
+                            // timers, like AAR and CCRx
+                            if ds_32_bits { dma::DataSize::S32} else { dma::DataSize::S16 },
+                            dma::DataSize::S16,
+                            channel_cfg,
+                        );
+                    }
+                }
             }
 
             /// Get the time elapsed since the start of the timer.

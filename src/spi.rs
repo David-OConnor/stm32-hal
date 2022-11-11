@@ -894,22 +894,10 @@ where
         // (RM:) To close communication it is mandatory to follow these steps in order:
         // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
 
-        match dma_periph {
-            dma::DmaPeriph::Dma1 => {
-                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
-                dma::stop(&mut regs, channel);
-                if let Some(ch2) = channel2 {
-                    dma::stop(&mut regs, ch2);
-                };
-            }
-            dma::DmaPeriph::Dma2 => {
-                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
-                dma::stop(&mut regs, channel);
-                if let Some(ch2) = channel2 {
-                    dma::stop(&mut regs, ch2);
-                };
-            }
-        }
+        dma::stop(dma_periph, channel);
+        if let Some(ch2) = channel2 {
+            dma::stop(dma_periph, ch2);
+        };
 
         // 2. Disable the SPI by following the SPI disable procedure:
         // self.disable();

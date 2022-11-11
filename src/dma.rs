@@ -631,7 +631,7 @@ where
 
     /// Stop a DMA transfer, if in progress.
     pub fn stop(&mut self, channel: DmaChannel) {
-        stop(&mut self.regs, channel);
+        stop_internal(&mut self.regs, channel);
     }
 
     // todo: G0 removed from this fn due to a bug introduced in PAC 0.13
@@ -1532,7 +1532,7 @@ pub fn cfg_channel<D>(
 
 /// Stop a DMA transfer, if in progress.
 #[cfg(not(feature = "h7"))]
-pub fn stop<D>(regs: &mut D, channel: DmaChannel)
+fn stop_internal<D>(regs: &mut D, channel: DmaChannel)
 where
     D: Deref<Target = dma1::RegisterBlock>,
 {
@@ -1647,7 +1647,7 @@ where
 
 /// Stop a DMA transfer, if in progress.
 #[cfg(feature = "h7")]
-pub fn stop<D>(regs: &mut D, channel: DmaChannel)
+fn stop_internal<D>(regs: &mut D, channel: DmaChannel)
 where
     D: Deref<Target = dma1::RegisterBlock>,
 {
@@ -1684,6 +1684,21 @@ where
     feature = "wb",
     feature = "wl",
 ))]
+
+/// Stop a DMA transfer, if in progress.
+pub fn stop(periph: DmaPeriph, channel: DmaChannel) {
+    match periph {
+        DmaPeriph::Dma1 => {
+            let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+            stop_internal(&mut regs, channel);
+        }
+        DmaPeriph::Dma2 => {
+            let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+            stop_internal(&mut regs, channel);
+        }
+    }
+}
+
 /// Configure a specific DMA channel to work with a specific peripheral.
 pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
     // Note: This is similar in API and purpose to `channel_select` above,
