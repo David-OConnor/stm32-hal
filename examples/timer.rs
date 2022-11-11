@@ -103,7 +103,27 @@ fn main() -> ! {
     // master timer can then be used as a prescaler for a slave timer.
     dac_timer.set_mastermode(MasterModeSelection::Update);
 
-    // todo: Burst DMA example, realistic examples of various uses of timers etc.
+    // We can use burst DMA to set the contents of any timer register repeatedly on timeout, based
+    // on a buffer. For example, you can uses this to dynamically alter a PWM duty cycle, creating
+    // arbitrary waveforms.
+
+    let mut dma = Dma::new(dp.DMA1);
+    dma::mux(DmaPeriph::Dma1, DmaChannel::C1, DmaInput::Tim3Up);
+    timer.enable_interrupt(TimerInterrupt::UpdateDma);
+
+    timer.rotors.write_dma_burst(
+        &PAYLOAD,
+        /// Calculate the offset by taking the Adddress Offset for the associated CCR channel in the
+        /// RM register table, and dividing by 4.
+        13,
+        4, // Burst le. Eg if updating 4 channels.
+        DmaChannel::C1,
+        Default::default(),
+        true, // true if a 32-bit timer.
+        DmaPeriph::Dma1,
+    );
+
+    // todo: realistic examples of various uses of timers etc.
 
     // Unmask the interrupt line.
     unsafe {

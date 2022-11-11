@@ -141,7 +141,7 @@ fn main() -> ! {
     loop {
         i2c.write(0x50, &[1, 2, 3]);
         // Or:       
-        i2c.write_dma(0x50, &BUF, DmaChannel::C1, Default::default(), &mut dma);
+        i2c.write_dma(0x50, &BUF, DmaChannel::C1, Default::default(), DmaPeriph::Dma1);
       
         low_power::sleep_now();
     }

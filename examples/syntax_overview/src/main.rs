@@ -27,7 +27,7 @@ use stm32_hal2::{
     adc::{self, Adc, AdcChannel},
     clocks::Clocks,
     dac::{Dac, DacChannel, DacBits},
-    dma::{Dma, DmaPeriph, DmaChannel, DmaInterrupt, DmaReadBuf, DmaWriteBuf},
+    dma::{Dma, DmaPeriph, DmaChannel, DmaInput, DmaInterrupt, DmaReadBuf, DmaWriteBuf},
     flash::Flash,
     gpio::{Edge, Pin, Port, PinMode, OutputType, Pull},
     i2c::I2c,
@@ -111,6 +111,8 @@ fn main() -> ! {
     // Configure DMA, to be used by peripherals.
     let mut dma = Dma::new(&mut dp.DMA1);
 
+    dma::mux(DmaPeriph::Dma1, DmaChannel::C2, DmaInput::Adc2);
+
     let spi_cfg = SpiConfig {
         mode: SpiMode::mode3(), // SpiConfig::default() uses mode 0.
         ..Default::default()
@@ -157,8 +159,8 @@ fn main() -> ! {
     uart.read(&mut uart_buffer, &mut dma);
 
     // Or, read and write using DMA:
-    uart.write_dma(&[1, 2, 3, 4]);
-    uart.read_dma(&mut uart_buffer, &mut dma);
+    uart.write_dma(&[1, 2, 3, 4], DmaChannel::C2, Default::default(), DmaPeriph::Dma1);
+    uart.read_dma(&mut uart_buffer, DmaChannel::C3, Default::default(), DmaPeriph::Dma1);
 
     // Set up the Analog-to-digital converter
     let _adc_pin = Pin::new(Port::B, 5, PinMode::Analog);

@@ -29,7 +29,7 @@ use stm32_hal2::{
 static mut SPI_READ_BUF: [u8; 4] = [0; 4];
 static mut SPI_WRITE_BUF: [u8; 4] = [0x69, 0, 0, 0];
 
-make_globals!((SPI, Spi<SPI1>), (DMA, Dma<DMA1>),);
+make_globals!((SPI, Spi<SPI1>));
 
 #[entry]
 fn main() -> ! {
@@ -74,14 +74,14 @@ fn main() -> ! {
     // Associate a pair of DMA channels with SPI1: One for transmit; one for receive.
     // Note that mux is not used on F3, F4, and most L4s: DMA channels are hard-coded
     // to peripherals on those platforms.
-    dma::mux(DmaPeriph::Dma1, DmaChannel::C1, DmaInput::Spi1Tx);
-    dma::mux(DmaPeriph::Dma1, DmaChannel::C2, DmaInput::Spi1Rx);
+    dma::mux(DmaPeriph::Dma2, DmaChannel::C1, DmaInput::Spi1Tx);
+    dma::mux(DmaPeriph::Dma2, DmaChannel::C2, DmaInput::Spi1Rx);
 
     cs.set_low();
 
     unsafe {
         // Write to SPI, using DMA.
-        // spi.write_dma(&write_buf, DmaChannel::C1, Default::default(), &mut dma);
+        // spi.write_dma(&write_buf, DmaChannel::C1, Default::default(), DmaPeriph::Dma2);
 
         // Read (transfer) from SPI, using DMA.
         spi.transfer_dma(
@@ -93,7 +93,7 @@ fn main() -> ! {
             DmaChannel::C2,     // Read channel
             Default::default(), // Write channel config
             Default::default(), // Read channel config
-            &mut dma,
+            DmaPeriph::Dma2,
         );
     }
 
@@ -131,11 +131,10 @@ fn main() -> ! {
 fn DMA1_CH2() {
     free(|cs| {
         defmt::println!("SPI DMA read complete");
-        access_global!(DMA, dma, cs);
         access_global!(SPI, spi, cs);
 
         dma.clear_interrupt(DmaChannel::C2, DmaInterrupt::TransferComplete);
-        spi.stop_dma(DmaChannel::C2, dma);
+        spi.stop_dma(DmaChannel::C2, DmaPeriph::Dma2);
 
         unsafe {
             // Ignore byte 0, which is the reg we passed during the write.

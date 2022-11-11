@@ -18,16 +18,8 @@ use crate::{
 
 use cfg_if::cfg_if;
 
-cfg_if! {
-    if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
-        use crate::pac::dma as dma_p;
-    } else if #[cfg(feature = "f4")] {} else {
-        use crate::pac::dma1 as dma_p;
-    }
-}
-
 #[cfg(not(feature = "l552"))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+use crate::dma::{self, ChannelCfg, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;

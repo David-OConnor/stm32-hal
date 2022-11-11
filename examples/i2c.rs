@@ -75,8 +75,8 @@ fn main() -> ! {
     // Associate DMA channels with I2C1: One for transmit; one for receive.
     // Note that mux is not used on F3, F4, and most L4s: DMA channels are hard-coded
     // to peripherals on those platforms.
-    dma::mux(DmaPeriaph::Dma1, DmaChannel::C6, DmaInput::I2c1Tx);
-    dma::mux(DmaPeriaph::Dma2, DmaChannel::C7, DmaInput::I2c1Rx);
+    dma::mux(DmaPeriph::Dma1, DmaChannel::C6, DmaInput::I2c1Tx);
+    dma::mux(DmaPeriph::Dma1, DmaChannel::C7, DmaInput::I2c1Rx);
 
     // Write to DMA, requesting readings
     unsafe {
@@ -86,7 +86,7 @@ fn main() -> ! {
             false,
             DmaChannel::C6,
             Default::default(),
-            dma2,
+            DmaPeriph::Dma1
         );
     }
 
@@ -128,10 +128,10 @@ fn DMA1_CH7() {
     free(|cs| unsafe { (*pac::DMA1::ptr()).ifcr.write(|w| w.tcif7().set_bit()) });
 
     // Once the write is complete, command a transfer to receive the readings.
-    // todo: Need a way to access the `I2c` and `Dma` structs from this ISR context.
+    // todo: Need a way to access the `I2c` struct from this ISR context.
     // See other examples for info on how to do this.
     unsafe {
-        i2c.read_dma(ADDR, &mut READ_BUF, DmaChannel::C7, Default::default(), dma);
+        i2c.read_dma(ADDR, &mut READ_BUF, DmaChannel::C7, Default::default(), DmaPeriph::Dma1);
     }
 }
 
