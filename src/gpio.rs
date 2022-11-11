@@ -31,8 +31,10 @@ use core::ops::Deref;
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
         use crate::pac::dma as dma_p;
+        use crate::pac::DMA as DMA1;
     } else if #[cfg(feature = "f4")] {} else {
         use crate::pac::dma1 as dma_p;
+        use crate::pac::DMA1;
     }
 }
 
@@ -1281,10 +1283,9 @@ pub unsafe fn write_dma(
     dma_periph: dma::DmaPeriph,
     // dma: &mut Dma<D>,
 ) {
-
-// where
+    // where
     // D: Deref<Target = dma_p::RegisterBlock>,
-// {
+    // {
     let (ptr, len) = (buf.as_ptr(), buf.len());
 
     // todo: DMA2 support.
@@ -1296,35 +1297,35 @@ pub unsafe fn write_dma(
     #[cfg(not(feature = "h7"))]
     let num_data = len as u16;
 
- match dma_periph {
-            dma::DmaPeriph::Dma1 => {
-                let mut regs = unsafe { &(*DMA1::ptr()) };
-                  dma::cfg_channel(
-                    &mut regs,
-                    dma_channel,
-                    periph_addr,
-                    ptr as u32,
-                    num_data,
-                    dma::Direction::ReadFromMem,
-                    dma::DataSize::S32,
-                    dma::DataSize::S32,
-                    channel_cfg,
-                );
-            }
-            #[cfg(not(feature = "g0"))]
-            dma::DmaPeriph::Dma2 => {
-                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
-                  dma::cfg_channel(
-                    &mut regs,
-                    dma_channel,
-                    periph_addr,
-                    ptr as u32,
-                    num_data,
-                    dma::Direction::ReadFromMem,
-                    dma::DataSize::S32,
-                    dma::DataSize::S32,
-                    channel_cfg,
-                );
-            }
+    match dma_periph {
+        dma::DmaPeriph::Dma1 => {
+            let mut regs = unsafe { &(*DMA1::ptr()) };
+            dma::cfg_channel(
+                &mut regs,
+                dma_channel,
+                periph_addr,
+                ptr as u32,
+                num_data,
+                dma::Direction::ReadFromMem,
+                dma::DataSize::S32,
+                dma::DataSize::S32,
+                channel_cfg,
+            );
         }
+        #[cfg(not(feature = "g0"))]
+        dma::DmaPeriph::Dma2 => {
+            let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+            dma::cfg_channel(
+                &mut regs,
+                dma_channel,
+                periph_addr,
+                ptr as u32,
+                num_data,
+                dma::Direction::ReadFromMem,
+                dma::DataSize::S32,
+                dma::DataSize::S32,
+                channel_cfg,
+            );
+        }
+    }
 }
