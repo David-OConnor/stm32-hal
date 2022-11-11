@@ -544,17 +544,19 @@ where
     /// For a single write, set `autoend` to `true`. For a write_read and other use cases,
     /// set it to `false`.
     #[cfg(not(feature = "l552"))]
-    pub unsafe fn write_dma<D>(
+    pub unsafe fn write_dma(
         &mut self,
         addr: u8,
         buf: &[u8],
         autoend: bool,
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
-        dma: &mut Dma<D>,
-    ) where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
+        // dma: &mut Dma<D>,
+        dma_periph: dma::DmaPeriph,
+    ) {
+        // where
+        // D: Deref<Target = dma_p::RegisterBlock>,
+        // {
         while self.regs.cr2.read().start().bit_is_set() {}
 
         let (ptr, len) = (buf.as_ptr(), buf.len());
@@ -597,32 +599,54 @@ where
         #[cfg(not(feature = "h7"))]
         let num_data = len as u16;
 
-        dma.cfg_channel(
-            channel,
-            &self.regs.txdr as *const _ as u32,
-            ptr as u32,
-            num_data,
-            dma::Direction::ReadFromMem,
-            dma::DataSize::S8,
-            dma::DataSize::S8,
-            channel_cfg,
-        );
+        match dma_periph {
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel,
+                    &self.regs.txdr as *const _ as u32,
+                    ptr as u32,
+                    num_data,
+                    dma::Direction::ReadFromMem,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg,
+                );
+            }
+            dma::DmaPeriph::Dma2 => {
+                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel,
+                    &self.regs.txdr as *const _ as u32,
+                    ptr as u32,
+                    num_data,
+                    dma::Direction::ReadFromMem,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg,
+                );
+            }
+        }
     }
 
     /// Read data, using DMA. See L44 RM, 37.4.16: "Reception using DMA"
     /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
     /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
     #[cfg(not(feature = "l552"))]
-    pub unsafe fn read_dma<D>(
+    pub unsafe fn read_dma(
         &mut self,
         addr: u8,
         buf: &mut [u8],
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
-        dma: &mut Dma<D>,
-    ) where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
+        // dma: &mut Dma<D>,
+        dma_periph: dma::DmaPeriph,
+    ) {
+        // where
+        // D: Deref<Target = dma_p::RegisterBlock>,
+        // {
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
@@ -657,16 +681,36 @@ where
         #[cfg(not(feature = "h7"))]
         let num_data = len as u16;
 
-        dma.cfg_channel(
-            channel,
-            &self.regs.rxdr as *const _ as u32,
-            ptr as u32,
-            num_data,
-            dma::Direction::ReadFromPeriph,
-            dma::DataSize::S8,
-            dma::DataSize::S8,
-            channel_cfg,
-        );
+        match dma_periph {
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel,
+                    &self.regs.rxdr as *const _ as u32,
+                    ptr as u32,
+                    num_data,
+                    dma::Direction::ReadFromPeriph,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg,
+                );
+            }
+            dma::DmaPeriph::Dma2 => {
+                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel,
+                    &self.regs.rxdr as *const _ as u32,
+                    ptr as u32,
+                    num_data,
+                    dma::Direction::ReadFromPeriph,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg,
+                );
+            }
+        }
     }
 
     // /// Write, and read data, using DMA. This is the primary read api.

@@ -367,15 +367,17 @@ where
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
     /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
-    pub unsafe fn write_dma<D>(
+    pub unsafe fn write_dma(
         &mut self,
         buf: &[u8],
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
-        dma: &mut Dma<D>,
-    ) where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
+        // dma: &mut Dma<D>,
+        dma_periph: dma::DmaPeriph,
+    ) {
+        // where
+        // D: Deref<Target = dma_p::RegisterBlock>,
+        // {
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
         // To map a DMA channel for USART transmission, use
@@ -397,25 +399,45 @@ where
         // register whenever the TXE bit is set."
         self.regs.cr3.modify(|_, w| w.dmat().set_bit());
 
-        dma.cfg_channel(
-            channel,
-            // 1. Write the USART_TDR register address in the DMA control register to configure it as
-            // the destination of the transfer. The data is moved to this address from memory after
-            // each TXE event.
-            &self.regs.tdr as *const _ as u32,
-            // 2. Write the memory address in the DMA control register to configure it as the source of
-            // the transfer. The data is loaded into the USART_TDR register from this memory area
-            // after each TXE event.
-            ptr as u32,
-            // 3. Configure the total number of bytes to be transferred to the DMA control register.
-            num_data,
-            dma::Direction::ReadFromMem,
-            // 4. Configure the channel priority in the DMA control register
-            // (Handled by `ChannelCfg::default())`
-            dma::DataSize::S8,
-            dma::DataSize::S8,
-            channel_cfg,
-        );
+        match dma_periph {
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel,
+                    // 1. Write the USART_TDR register address in the DMA control register to configure it as
+                    // the destination of the transfer. The data is moved to this address from memory after
+                    // each TXE event.
+                    &self.regs.tdr as *const _ as u32,
+                    // 2. Write the memory address in the DMA control register to configure it as the source of
+                    // the transfer. The data is loaded into the USART_TDR register from this memory area
+                    // after each TXE event.
+                    ptr as u32,
+                    // 3. Configure the total number of bytes to be transferred to the DMA control register.
+                    num_data,
+                    dma::Direction::ReadFromMem,
+                    // 4. Configure the channel priority in the DMA control register
+                    // (Handled by `ChannelCfg::default())`
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg,
+                );
+            }
+            dma::DmaPeriph::Dma2 => {
+                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel,
+                    &self.regs.tdr as *const _ as u32,
+                    ptr as u32,
+                    num_data,
+                    dma::Direction::ReadFromMem,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg,
+                );
+            }
+        }
 
         // 5. Configure DMA interrupt generation after half/ full transfer as required by the
         // application.
@@ -442,15 +464,17 @@ where
     /// Receive data using DMA. (L44 RM, section 38.5.15; G4 RM section 37.5.19.
     /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
     /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
-    pub unsafe fn read_dma<D>(
+    pub unsafe fn read_dma(
         &mut self,
         buf: &mut [u8],
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
-        dma: &mut Dma<D>,
-    ) where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
+        dma_periph: dma::DmaPeriph,
+        // dma: &mut Dma<D>,
+    ) {
+        // where
+        // D: Deref<Target = dma_p::RegisterBlock>,
+        // {
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
@@ -466,23 +490,43 @@ where
         // DMA mode can be enabled for reception by setting the DMAR bit in USART_CR3 register.
         self.regs.cr3.modify(|_, w| w.dmar().set_bit());
 
-        dma.cfg_channel(
-            channel,
-            // 1. Write the USART_RDR register address in the DMA control register to configure it as
-            // the source of the transfer. The data is moved from this address to the memory after
-            // each RXNE event.
-            &self.regs.rdr as *const _ as u32,
-            // 2. Write the memory address in the DMA control register to configure it as the destination
-            // of the transfer. The data is loaded from USART_RDR to this memory area after each
-            // RXNE event.
-            ptr as u32,
-            // 3. Configure the total number of bytes to be transferred to the DMA control register.
-            num_data,
-            dma::Direction::ReadFromPeriph,
-            dma::DataSize::S8,
-            dma::DataSize::S8,
-            channel_cfg,
-        );
+        match dma_periph {
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel,
+                    // 1. Write the USART_RDR register address in the DMA control register to configure it as
+                    // the source of the transfer. The data is moved from this address to the memory after
+                    // each RXNE event.
+                    &self.regs.rdr as *const _ as u32,
+                    // 2. Write the memory address in the DMA control register to configure it as the destination
+                    // of the transfer. The data is loaded from USART_RDR to this memory area after each
+                    // RXNE event.
+                    ptr as u32,
+                    // 3. Configure the total number of bytes to be transferred to the DMA control register.
+                    num_data,
+                    dma::Direction::ReadFromPeriph,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg,
+                );
+            }
+            dma::DmaPeriph::Dma2 => {
+                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel,
+                    &self.regs.rdr as *const _ as u32,
+                    ptr as u32,
+                    num_data,
+                    dma::Direction::ReadFromPeriph,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg,
+                );
+            }
+        }
 
         // 4. Configure the channel priority in the DMA control register
         // (Handled in cfg)
