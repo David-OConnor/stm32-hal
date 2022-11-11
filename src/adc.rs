@@ -874,15 +874,17 @@ macro_rules! hal {
             /// Take a reading, using DMA. Sets conversion sequence; no need to set it directly.
             /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
             /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
-            pub unsafe fn read_dma<D>(
+            pub unsafe fn read_dma(
                 &mut self, buf: &mut [u16],
                 adc_channels: &[u8],
                 dma_channel: DmaChannel,
                 channel_cfg: ChannelCfg,
-                dma: &mut Dma<D>
-            ) where
-                D: Deref<Target = dma_p::RegisterBlock>,
-            {
+                dma_periph: dma::DmaPeriph,
+                // dma: &mut Dma<D>
+            ) {
+            // where
+            //     D: Deref<Target = dma_p::RegisterBlock>,
+            // {
                 let (ptr, len) = (buf.as_mut_ptr(), buf.len());
                 // The software is allowed to write (dmaen and dmacfg) only when ADSTART=0 and JADSTART=0 (which
                 // ensures that no conversion is ongoing)
@@ -968,16 +970,36 @@ macro_rules! hal {
                 #[cfg(not(feature = "h7"))]
                 let num_data = len as u16;
 
-                dma.cfg_channel(
-                    dma_channel,
-                    &self.regs.dr as *const _ as u32,
-                    ptr as u32,
-                    num_data,
-                    dma::Direction::ReadFromPeriph,
-                    dma::DataSize::S16,
-                    dma::DataSize::S16,
-                    channel_cfg,
-                );
+                match dma_periph {
+                    dma::DmaPeriph::Dma1 => {
+                        let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                        dma::cfg_channel(
+                            &mut regs,
+                            dma_channel,
+                            &self.regs.dr as *const _ as u32,
+                            ptr as u32,
+                            num_data,
+                            dma::Direction::ReadFromPeriph,
+                            dma::DataSize::S16,
+                            dma::DataSize::S16,
+                            channel_cfg,
+                        );
+                    }
+                    dma::DmaPeriph::Dma2 => {
+                        let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                        dma::cfg_channel(
+                            &mut regs,
+                            dma_channel,
+                            &self.regs.dr as *const _ as u32,
+                            ptr as u32,
+                            num_data,
+                            dma::Direction::ReadFromPeriph,
+                            dma::DataSize::S16,
+                            dma::DataSize::S16,
+                            channel_cfg,
+                        );
+                    }
+                }
             }
 
             /// Enable a specific type of ADC interrupt.

@@ -597,6 +597,8 @@ impl Clocks {
 
         let rcc = unsafe { &(*RCC::ptr()) };
         let flash = unsafe { &(*FLASH::ptr()) };
+        #[cfg(feature = "l5")]
+        let icache = unsafe { &(*ICACHE::ptr()) };
 
         // Enable and reset System Configuration Controller, ie for interrupts.
         // todo: Is this the right module to do this in?
@@ -728,9 +730,15 @@ impl Clocks {
         // Enable instruction and data caches, for a potential performance increase.
         // Note that this can make a significant performance impact for some CPU-bound tasks.
         // Note: This can increase power use.
-        // todo: Is there an equivalent for H7?
-        // todo: How do these interact with the cortex-m register caches?
 
+        #[cfg(not(feature = "l5"))]
+        flash.acr.modify(|_, w| unsafe {
+            #[cfg(not(feature = "g0"))]
+            w.dcrst().set_bit();
+            w.icrst().set_bit()
+        });
+
+        // Note: At least on G4, Dcache and ICache are enabled by default in hardware. Although Prefetch isn't.
         #[cfg(not(feature = "l5"))]
         flash.acr.modify(|_, w| unsafe {
             // G0: Instruction cache, but no data cache.
@@ -746,11 +754,12 @@ impl Clocks {
             w.prften().set_bit()
         });
 
-        // As sevearl of these settings are Cortex-M4 features, the L5 doesn't have them.
         #[cfg(feature = "l5")]
         flash
             .acr
             .modify(|_, w| unsafe { w.latency().bits(wait_state as u8) });
+        #[cfg(feature = "l5")] // todo: u5 too.
+        icache.cr.modify(|_, w| w.en().set_bit());
 
         // Reference Manual, 6.2.5:
         // The device embeds 3 PLLs: PLL, PLLSAI1, PLLSAI2. Each PLL provides up to three

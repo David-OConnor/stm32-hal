@@ -337,16 +337,18 @@ where
     /// Note that the `dma_channel` argument is unused on F3 and L4, since it is hard-coded,
     /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
     #[cfg(not(any(feature = "f4", feature = "l552")))]
-    pub unsafe fn write_dma<D>(
+    pub unsafe fn write_dma(
         &mut self,
         buf: &[u16],
         dac_channel: DacChannel,
         dma_channel: DmaChannel,
         channel_cfg: ChannelCfg,
-        dma: &mut Dma<D>,
-    ) where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
+        dma_periph: dma::DmaPeriph,
+        // dma: &mut Dma<D>,
+    ) {
+        // where
+        // D: Deref<Target = dma_p::RegisterBlock>,
+        // {
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
@@ -440,16 +442,36 @@ where
         #[cfg(not(feature = "h7"))]
         let len = len as u16;
 
-        dma.cfg_channel(
-            dma_channel,
-            periph_addr,
-            ptr as u32,
-            len,
-            dma::Direction::ReadFromMem,
-            dma::DataSize::S16,
-            dma::DataSize::S16,
-            channel_cfg,
-        );
+        match dma_periph {
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    dma_channel,
+                    periph_addr,
+                    ptr as u32,
+                    len,
+                    dma::Direction::ReadFromMem,
+                    dma::DataSize::S16,
+                    dma::DataSize::S16,
+                    channel_cfg,
+                );
+            }
+            dma::DmaPeriph::Dma2 => {
+                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    dma_channel,
+                    periph_addr,
+                    ptr as u32,
+                    len,
+                    dma::Direction::ReadFromMem,
+                    dma::DataSize::S16,
+                    dma::DataSize::S16,
+                    channel_cfg,
+                );
+            }
+        }
     }
 
     /// Set the DAC output voltage.

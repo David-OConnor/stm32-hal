@@ -9,7 +9,11 @@ use cortex_m::interrupt::free;
 
 use num_traits::Float; // Float rounding.
 
-use crate::{clocks::Clocks, pac::RCC, util::rcc_en_reset};
+use crate::{
+    clocks::Clocks,
+    pac::{self, RCC},
+    util::rcc_en_reset,
+};
 
 use cfg_if::cfg_if;
 
@@ -1170,19 +1174,19 @@ where
     /// to discard the other fields. (The integer signing is unchanged, since the 24-bit integer data
     /// is aligned to the left of the 32-bit register, which maps to an `i32` here.)
     #[cfg(not(any(feature = "f4", feature = "l552")))]
-    pub unsafe fn read_dma<D>(
+    pub unsafe fn read_dma(
         &mut self,
         buf: &mut [i32],
         filter: Filter,
         dma_channel: DmaChannel,
         channel_cfg: ChannelCfg,
-        dma: &mut Dma<D>,
-    ) where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
+        dma_periph: dma::DmaPeriph,
+        // dma: &mut Dma<D>,
+    ) {
+        // where
+        //     D: Deref<Target = dma_p::RegisterBlock>,
+        // {
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
-
-        // todo: DMA2 support.
 
         #[cfg(feature = "f3")]
         let dma_channel = match filter {
@@ -1320,16 +1324,36 @@ where
         #[cfg(not(feature = "h7"))]
         let len = len as u16;
 
-        dma.cfg_channel(
-            dma_channel,
-            periph_addr,
-            ptr as u32,
-            len,
-            dma::Direction::ReadFromPeriph,
-            dma::DataSize::S32, // For 24 bits
-            dma::DataSize::S32,
-            channel_cfg,
-        );
+        match dma_periph {
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    dma_channel,
+                    periph_addr,
+                    ptr as u32,
+                    len,
+                    dma::Direction::ReadFromPeriph,
+                    dma::DataSize::S32, // For 24 bits
+                    dma::DataSize::S32,
+                    channel_cfg,
+                );
+            }
+            dma::DmaPeriph::Dma2 => {
+                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    dma_channel,
+                    periph_addr,
+                    ptr as u32,
+                    len,
+                    dma::Direction::ReadFromPeriph,
+                    dma::DataSize::S32, // For 24 bits
+                    dma::DataSize::S32,
+                    channel_cfg,
+                );
+            }
+        }
     }
 
     /// Enable a specific type of interrupt. See H743 RM, section 30.5: DFSDM interrupts
@@ -1425,7 +1449,7 @@ where
         }
     }
 
-    // todo: read_dma
+    // todo: write_dma
 
     /// Clears the interrupt pending flag for a specific type of interrupt. Note that to clear
     /// EndofInjectedConversion, or EndOfConversion interrupt,s read the FLTxJDATAR or FLTxRDATAR

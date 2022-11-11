@@ -681,15 +681,17 @@ where
     /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
     /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
     #[cfg(not(any(feature = "f4", feature = "l552")))]
-    pub unsafe fn read_dma<D>(
+    pub unsafe fn read_dma(
         &mut self,
         buf: &mut [u8],
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
-        dma: &mut Dma<D>,
-    ) where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
+        // dma: &mut Dma<D>,
+        dma_periph: dma::DmaPeriph,
+    ) {
+        // where
+        // D: Deref<Target = dma_p::RegisterBlock>,
+        // {
         // todo: Accept u16 words too.
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
@@ -715,16 +717,36 @@ where
         #[cfg(not(feature = "h7"))]
         let num_data = len as u16;
 
-        dma.cfg_channel(
-            channel,
-            periph_addr,
-            ptr as u32,
-            num_data,
-            dma::Direction::ReadFromPeriph,
-            dma::DataSize::S8,
-            dma::DataSize::S8,
-            channel_cfg,
-        );
+        match dma_periph {
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel,
+                    periph_addr,
+                    ptr as u32,
+                    num_data,
+                    dma::Direction::ReadFromPeriph,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg,
+                );
+            }
+            dma::DmaPeriph::Dma2 => {
+                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel,
+                    periph_addr,
+                    ptr as u32,
+                    num_data,
+                    dma::Direction::ReadFromPeriph,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg,
+                );
+            }
+        }
 
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
     }
@@ -732,7 +754,7 @@ where
     /// Transfer data from DMA; this is the basic reading API, using both write and read transfers:
     /// It performs a write with register data, and reads to a buffer.
     #[cfg(not(any(feature = "f4", feature = "l552")))]
-    pub unsafe fn transfer_dma<D>(
+    pub unsafe fn transfer_dma(
         &mut self,
         buf_write: &[u8],
         buf_read: &mut [u8],
@@ -740,10 +762,12 @@ where
         channel_read: DmaChannel,
         channel_cfg_write: ChannelCfg,
         channel_cfg_read: ChannelCfg,
-        dma: &mut Dma<D>,
-    ) where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
+        dma_periph: dma::DmaPeriph,
+        // dma: &mut Dma<D>,
+    ) {
+        // where
+        // D: Deref<Target = dma_p::RegisterBlock>,
+        // {
         // todo: Accept u16 words too.
         let (ptr_write, len_write) = (buf_write.as_ptr(), buf_write.len());
         let (ptr_read, len_read) = (buf_read.as_mut_ptr(), buf_read.len());
@@ -784,32 +808,65 @@ where
         #[cfg(feature = "l4")]
         R::write_sel(dma);
 
-        dma.cfg_channel(
-            channel_write,
-            periph_addr_write,
-            ptr_write as u32,
-            num_data_write,
-            dma::Direction::ReadFromMem,
-            dma::DataSize::S8,
-            dma::DataSize::S8,
-            channel_cfg_write,
-        );
-
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel_read = R::read_chan();
         #[cfg(feature = "l4")]
         R::read_sel(dma);
 
-        dma.cfg_channel(
-            channel_read,
-            periph_addr_read,
-            ptr_read as u32,
-            num_data_read,
-            dma::Direction::ReadFromPeriph,
-            dma::DataSize::S8,
-            dma::DataSize::S8,
-            channel_cfg_read,
-        );
+        match dma_periph {
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel_write,
+                    periph_addr_write,
+                    ptr_write as u32,
+                    num_data_write,
+                    dma::Direction::ReadFromMem,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg_write,
+                );
+
+                dma::cfg_channel(
+                    &mut regs,
+                    channel_read,
+                    periph_addr_read,
+                    ptr_read as u32,
+                    num_data_read,
+                    dma::Direction::ReadFromPeriph,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg_read,
+                );
+            }
+            dma::DmaPeriph::Dma2 => {
+                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel_write,
+                    periph_addr_write,
+                    ptr_write as u32,
+                    num_data_write,
+                    dma::Direction::ReadFromMem,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg_write,
+                );
+
+                dma::cfg_channel(
+                    &mut regs,
+                    channel_read,
+                    periph_addr_read,
+                    ptr_read as u32,
+                    num_data_read,
+                    dma::Direction::ReadFromPeriph,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg_read,
+                );
+            }
+        }
 
         #[cfg(not(feature = "h7"))]
         self.regs.cr2.modify(|_, w| w.txdmaen().set_bit());
@@ -824,20 +881,35 @@ where
     /// (eg DMA transfer complete) instead of blocking. `channel2` is an optional second channel
     /// to stop; eg if you have both a tx and rx channel.
     #[cfg(not(any(feature = "f4", feature = "l552")))]
-    pub fn stop_dma<D>(
+    pub fn stop_dma(
         &mut self,
         channel: DmaChannel,
         channel2: Option<DmaChannel>,
-        dma: &mut Dma<D>,
-    ) where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
+        // dma: &mut Dma<D>,
+        dma_periph: dma::DmaPeriph,
+    ) {
+        // where
+        // D: Deref<Target = dma_p::RegisterBlock>,
+        // {
         // (RM:) To close communication it is mandatory to follow these steps in order:
         // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
-        dma.stop(channel);
-        if let Some(ch2) = channel2 {
-            dma.stop(ch2);
-        };
+
+        match dma_periph {
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                dma::stop(&mut regs, channel);
+                if let Some(ch2) = channel2 {
+                    dma::stop(&mut regs, ch2);
+                };
+            }
+            dma::DmaPeriph::Dma2 => {
+                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                dma::stop(&mut regs, channel);
+                if let Some(ch2) = channel2 {
+                    dma::stop(&mut regs, ch2);
+                };
+            }
+        }
 
         // 2. Disable the SPI by following the SPI disable procedure:
         // self.disable();
