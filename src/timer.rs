@@ -634,13 +634,9 @@ macro_rules! make_timer {
                 burst_len: u8,
                 dma_channel: DmaChannel,
                 channel_cfg: ChannelCfg,
-                // dma: &mut Dma<D>,
                 ds_32_bits: bool,
                 dma_periph: dma::DmaPeriph,
             ) {
-            // where
-                // D: Deref<Target = dma_p::RegisterBlock>,
-            // {
                 // Note: F3 and L4 are unsupported here, since I'm not sure how to select teh
                 // correct Timer channel.
 
@@ -761,10 +757,6 @@ macro_rules! make_timer {
                 ds_32_bits: bool,
                 dma_periph: dma::DmaPeriph,
             ) {
-
-            // where
-                // D: Deref<Target = dma_p::RegisterBlock>,
-            // {
                 let (ptr, len) = (buf.as_ptr(), buf.len());
 
                 let periph_addr = &self.regs.dmar as *const _ as u32;
@@ -954,7 +946,7 @@ macro_rules! cc_4_channels {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
-             #[cfg(not(feature = "g0"))]
+            #[cfg(not(any(feature = "f3", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1338,7 +1330,7 @@ macro_rules! cc_2_channels {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
-            #[cfg(not(feature = "g0"))]
+            #[cfg(not(any(feature = "f3", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1578,7 +1570,7 @@ macro_rules! cc_1_channel {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
-             #[cfg(not(feature = "g0"))]
+            #[cfg(not(any(feature = "f3", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,

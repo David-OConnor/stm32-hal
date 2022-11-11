@@ -598,7 +598,7 @@ impl Clocks {
         let rcc = unsafe { &(*RCC::ptr()) };
         let flash = unsafe { &(*FLASH::ptr()) };
         #[cfg(feature = "l5")]
-        let icache = unsafe { &(*ICACHE::ptr()) };
+        let icache = unsafe { &(*pac::ICACHE::ptr()) };
 
         // Enable and reset System Configuration Controller, ie for interrupts.
         // todo: Is this the right module to do this in?
@@ -759,7 +759,7 @@ impl Clocks {
             .acr
             .modify(|_, w| unsafe { w.latency().bits(wait_state as u8) });
         #[cfg(feature = "l5")] // todo: u5 too.
-        icache.cr.modify(|_, w| w.en().set_bit());
+        icache.icache_cr.modify(|_, w| w.en().set_bit());
 
         // Reference Manual, 6.2.5:
         // The device embeds 3 PLLs: PLL, PLLSAI1, PLLSAI2. Each PLL provides up to three
