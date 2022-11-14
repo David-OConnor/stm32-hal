@@ -129,8 +129,8 @@ fn main() -> ! {
     // reference voltage
     let voltage = adc.reading_to_voltage(reading);
 
-    // Or, read convert multiple channels in a sequence. You can read the results once the transfer
-    // complete interrupt fires.
+    // Or, read convert multiple channels in a sequence. You can read the results once the end-
+    //-of-sequence interrupt fires.
     adc.enable_interrupt(AdcInterrupt::EndOfSequence);
     adc.start_conversion(&[1, 2, 3]);
 
@@ -142,11 +142,13 @@ fn main() -> ! {
 #[interrupt]
 /// This interrupt fires when the ADC transfer is complete.
 fn DMA1_CH1() {
-    free(|cs| {
-        unsafe { (*pac::DMA1::ptr()).ifcr.write(|w| w.tcif1().set_bit()) }
-        // Or, if you have access to the Dma peripheral struct:
-        // dma.clear_interrupt(DmaChannel::C1);
-    });
+    dma::clear_interrupt(
+        DmaPeriph::Dma1,
+        DmaChannel::C1,
+        DmaInterrupt::TransferComplete,
+    );
+
+    // (Handle the readings as required here. Perhaps filter them, or use them.)
 }
 
 // same panicking *behavior* as `panic-probe` but doesn't print a panic message

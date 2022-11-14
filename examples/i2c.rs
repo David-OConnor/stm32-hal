@@ -113,19 +113,23 @@ fn main() -> ! {
 #[interrupt]
 /// This interrupt fires when a DMA transmission is complete
 fn DMA1_CH6() {
-    free(|cs| {
-        // Clear the interrupt flag, to prevent continual running of this ISR.
-        unsafe { (*pac::DMA1::ptr()).ifcr.write(|w| w.tcif6().set_bit()) }
-        // Or, if you have access to the Dma peripheral struct:
-        // dma.clear_interrupt(DmaChannel::C6);
-        // dma.stop(DmaChannel::C6);
-    });
+    dma::clear_interrupt(
+        DmaPeriph::Dma1,
+        DmaChannel::C6,
+        DmaInterrupt::TransferComplete,
+    );
+
+    // todo: Do something here as appropriate.
 }
 
 #[interrupt]
 /// This interrupt fires when a DMA read is complete
 fn DMA1_CH7() {
-    free(|cs| unsafe { (*pac::DMA1::ptr()).ifcr.write(|w| w.tcif7().set_bit()) });
+    dma::clear_interrupt(
+        DmaPeriph::Dma1,
+        DmaChannel::C7,
+        DmaInterrupt::TransferComplete,
+    );
 
     // Once the write is complete, command a transfer to receive the readings.
     // todo: Need a way to access the `I2c` struct from this ISR context.

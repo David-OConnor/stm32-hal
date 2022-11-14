@@ -39,7 +39,7 @@ unsafe impl Send for IirInstWrapper {}
 mod imu {
     ///! Module for TDK ICM-426xx IMUs. Stripped down in this example to include only what we need.
     use stm32_hal2::{
-        dma::{Dma, DmaChannel},
+        dma::{Dma, DmaChannel, DmaPeriph},
         gpio::Pin,
         pac::{DMA1, SPI1},
         spi::Spi,
@@ -137,7 +137,7 @@ mod imu {
 
     /// Read all 3 measurements, by commanding a DMA transfer. The transfer is closed, and readings
     /// are processed in the Transfer Complete ISR.
-    pub fn read_imu_dma(starting_addr: u8, spi: &mut Spi<SPI1>, cs: &mut Pin, dma: &mut Dma<DMA1>) {
+    pub fn read_imu_dma(starting_addr: u8, spi: &mut Spi<SPI1>, cs: &mut Pin) {
         // First byte is the first data reg, per this IMU's. Remaining bytes are empty, while
         // the MISO line transmits readings.
         // Note that we use a static buffer to ensure it lives throughout the DMA xfer.
@@ -155,7 +155,7 @@ mod imu {
                 DmaChannel::C2,
                 Default::default(),
                 Default::default(),
-                dma,
+                DmaPeriph::Dma1,
             );
         }
     }
@@ -357,7 +357,6 @@ mod app {
 
     #[shared]
     struct Shared {
-        dma: Dma<DMA1>,
         spi1: Spi<SPI1>,
         cs_imu: Pin,
         imu_filters: filter::ImuFilters,
@@ -402,13 +401,8 @@ mod app {
 
         // Assign appropriate DMA channels to SPI transmit and receive. (Required on DMAMUX-supporting
         // MCUs only; channels are hard-coded on older ones).
-        dma::mux(DmaPeriph::Dma1, ::C1, DmaInput::Spi1Tx, &dp.DMAMUX);
-        dma::mux(
-            DmaPeriph::Dma1,
-            DmaChannel::C2,
-            DmaInput::Spi1Rx,
-            &dp.DMAMUX,
-        );
+        dma::mux(DmaPeriph::Dma1, DmaChannel::C1, DmaInput::Spi1Tx);
+        dma::mux(DmaPeriph::Dma1, DmaChannel::C2, DmaInput::Spi1Rx);
 
         // We use Spi transfer complete to know when our readings are ready.
         dma.enable_interrupt(DmaChannel::C2, DmaInterrupt::TransferComplete);
@@ -416,7 +410,6 @@ mod app {
         (
             // todo: Make these local as able.
             Shared {
-                dma,
                 spi1,
                 cs_imu,
                 imu_filters: filter::ImuFilters::new(),
@@ -438,20 +431,24 @@ mod app {
     fn imu_data_isr(cx: imu_data_isr::Context) {
         gpio::clear_exti_interrupt(4);
 
-        (cx.shared.dma, cx.shared.cs_imu, cx.shared.spi1).lock(|dma, cs_imu, spi| {
-            imu::read_imu_dma(imu::READINGS_START_ADDR, spi, cs_imu, dma);
+        (cx.shared.cs_imu, cx.shared.spi1).lock(|cs_imu, spi| {
+            imu::read_imu_dma(imu::READINGS_START_ADDR, spi, cs_imu);
         });
     }
 
-    #[task(binds = DMA1_CH2, shared = [dma, spi1, cs_imu, imu_filters], priority = 2)]
+    #[task(binds = DMA1_CH2, shared = [spi1, cs_imu, imu_filters], priority = 2)]
     /// This ISR Handles received data from the IMU, after DMA transfer is complete. This occurs whenever
     /// we receive IMU data; it triggers the inner PID loop.
     fn imu_tc_isr(mut cx: imu_tc_isr::Context) {
-        (cx.shared.dma, cx.shared.spi).lock(|dma, spi| {
-            dma.clear_interrupt(DmaChannel::C2, DmaInterrupt::TransferComplete);
+        dma::clear_interrupt(
+            DmaPeriph::Dma1,
+            DmaChannel::C1,
+            DmaInterrupt::TransferComplete,
+        );
 
+        (cx.shared.spi).lock(|dma, spi| {
             // Note that this step is mandatory, per STM32 RM.
-            spi.stop_dma(DmaChannel::C1, Some(DmaChannel::C2), dma);
+            spi.stop_dma(DmaChannel::C1, Some(DmaChannel::C2), DmaPeriph::Dma1);
         });
 
         cx.shared.cs_imu.lock(|cs| {

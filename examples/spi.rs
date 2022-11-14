@@ -129,11 +129,14 @@ fn main() -> ! {
 #[interrupt]
 /// This interrupt fires when a DMA read is complete
 fn DMA1_CH2() {
+    dma::clear_interrupt(
+        DmaPeriph::Dma2,
+        DmaChannel::C2,
+        DmaInterrupt::TransferComplete,
+    );
     free(|cs| {
         defmt::println!("SPI DMA read complete");
         access_global!(SPI, spi, cs);
-
-        dma.clear_interrupt(DmaChannel::C2, DmaInterrupt::TransferComplete);
         spi.stop_dma(DmaChannel::C2, DmaPeriph::Dma2);
 
         unsafe {

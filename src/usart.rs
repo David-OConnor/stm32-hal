@@ -100,7 +100,10 @@ pub enum IrdaMode {
 #[derive(Clone, Copy)]
 /// The type of USART interrupt to configure. Reference the USART_ISR register.
 pub enum UsartInterrupt {
-    CharDetect(u8),
+    /// If the inner value of this is `Some`, its inner value will set
+    /// the character to match on `enable_interrupt`. The option's value doesn't
+    /// affect anything when stopping or clearing interrupts.
+    CharDetect(Option<u8>),
     Cts,
     EndOfBlock,
     Idle,
@@ -128,6 +131,12 @@ pub struct UsartConfig {
     pub parity: Parity,
     /// IrDA mode: Enables this protocol, which is used to communicate with IR devices.
     pub irda_mode: IrdaMode,
+    #[cfg(any(feature = "g4", feature = "h7"))] // todo: Which others have FIFO?
+    /// The first-in, first-out buffer is enabled. Defaults to false,
+    pub fifo_enabled: bool,
+    #[cfg(not(feature = "f4"))]
+    /// Optionally, disable the overrun functionality. Defaults to `false`.
+    pub overrun_disabled: bool,
 }
 
 impl Default for UsartConfig {
@@ -138,6 +147,10 @@ impl Default for UsartConfig {
             oversampling: OverSampling::O16,
             parity: Parity::Disabled,
             irda_mode: IrdaMode::None,
+            #[cfg(any(feature = "g4", feature = "h7"))]
+            fifo_enabled: false,
+            #[cfg(not(feature = "f4"))]
+            overrun_disabled: false,
         }
     }
 }
@@ -165,8 +178,8 @@ where
 
         // This should already be disabled on power up, but disable here just in case;
         // some bits can't be set with USART enabled.
-        result.regs.cr1.modify(|_, w| w.ue().clear_bit());
-        while result.regs.cr1.read().ue().bit_is_set() {}
+
+        result.disable();
 
         // Set up transmission. See L44 RM, section 38.5.2: "Character Transmission Procedures".
         // 1. Program the M bits in USART_CR1 to define the word length.
@@ -196,6 +209,19 @@ where
             )
         });
 
+        #[cfg(not(feature = "f4"))]
+        result
+            .regs
+            .cr3
+            .modify(|_, w| w.ovrdis().bit(result.config.overrun_disabled));
+
+        // Must be done before enabling.
+        #[cfg(any(feature = "g4", feature = "h7"))]
+        result
+            .regs
+            .cr1
+            .modify(|_, w| w.fifoen().bit(result.config.fifo_enabled));
+
         // 2. Select the desired baud rate using the USART_BRR register.
         result.set_baud(baud, clock_cfg);
         // 3. Program the number of stop bits in USART_CR2.
@@ -204,7 +230,8 @@ where
             .cr2
             .modify(|_, w| unsafe { w.stop().bits(result.config.stop_bits as u8) });
         // 4. Enable the USART by writing the UE bit in USART_CR1 register to 1.
-        result.regs.cr1.modify(|_, w| w.ue().set_bit());
+        result.enable();
+
         // 5. Select DMA enable (DMAT[R]] in USART_CR3 if multibuffer communication is to take
         // place. Configure the DMA register as explained in multibuffer communication.
         // (Handled in `read_dma()` and `write_dma()`)
@@ -241,6 +268,18 @@ where
         }
 
         result
+    }
+
+    /// Enable this U[s]ART peripheral.
+    pub fn enable(&mut self) {
+        self.regs.cr1.modify(|_, w| w.ue().set_bit());
+        while self.regs.cr1.read().ue().bit_is_clear() {}
+    }
+
+    /// Disable this U[s]ART peripheral.
+    pub fn disable(&mut self) {
+        self.regs.cr1.modify(|_, w| w.ue().clear_bit());
+        while self.regs.cr1.read().ue().bit_is_set() {}
     }
 
     /// Set the BAUD rate. Called during init, and can be called later to change BAUD
@@ -552,32 +591,36 @@ where
 
     #[cfg(not(feature = "f4"))]
     /// Enable a specific type of interrupt. See G4 RM, Table 349: USART interrupt requests.
+    /// If `Some`, the inner value of `CharDetect` sets the address of the char to match.
+    /// If `None`, the interrupt is enabled without changing the char to match.
     pub fn enable_interrupt(&mut self, interrupt: UsartInterrupt) {
         match interrupt {
-            UsartInterrupt::CharDetect(char) => {
-                // Disable the UART to allow writing the `add` and `addm7` bits
-                self.regs.cr1.modify(|_, w| w.ue().clear_bit());
-                while self.regs.cr1.read().ue().bit_is_set() {}
+            UsartInterrupt::CharDetect(char_wrapper) => {
+                if let Some(char) = char_wrapper {
+                    // Disable the UART to allow writing the `add` and `addm7` bits
+                    self.regs.cr1.modify(|_, w| w.ue().clear_bit());
+                    while self.regs.cr1.read().ue().bit_is_set() {}
 
-                // Enable character-detecting UART interrupt
-                self.regs.cr1.modify(|_, w| w.cmie().set_bit());
+                    // Enable character-detecting UART interrupt
+                    self.regs.cr1.modify(|_, w| w.cmie().set_bit());
 
-                // Allow an 8-bit address to be set in `add`.
-                self.regs.cr2.modify(|_, w| unsafe {
-                    w.addm7().set_bit();
-                    // Set the character to detect
-                    cfg_if! {
-                        if #[cfg(any(feature = "l5", feature = "g4", feature = "wb"))] {
-                            w.add0_3().bits(char); // PAC error. Should be just like above. (?)
-                            w.add4_7().bits(char >> 4)
-                        } else {
-                            w.add().bits(char)
-                        // } else {
-                        //     w.add().bits(char);
-                        //     w.add4_7().bits(char >> 4)
+                    // Allow an 8-bit address to be set in `add`.
+                    self.regs.cr2.modify(|_, w| unsafe {
+                        w.addm7().set_bit();
+                        // Set the character to detect
+                        cfg_if! {
+                            if #[cfg(any(feature = "l5", feature = "g4", feature = "wb"))] {
+                                w.add0_3().bits(char); // PAC error. Should be just like above. (?)
+                                w.add4_7().bits(char >> 4)
+                            } else {
+                                w.add().bits(char)
+                            // } else {
+                            //     w.add().bits(char);
+                            //     w.add4_7().bits(char >> 4)
+                            }
                         }
-                    }
-                });
+                    });
+                }
 
                 self.regs.cr1.modify(|_, w| w.ue().set_bit());
             }
@@ -624,6 +667,7 @@ where
 
     #[cfg(not(feature = "f4"))]
     /// Disable a specific type of interrupt. See G4 RM, Table 349: USART interrupt requests.
+    /// Note that the inner value of `CharDetect` doesn't do anything here.
     pub fn disable_interrupt(&mut self, interrupt: UsartInterrupt) {
         match interrupt {
             UsartInterrupt::CharDetect(_) => {
@@ -674,6 +718,7 @@ where
     /// Clears the interrupt pending flag for a specific type of interrupt. Note that
     /// it can also clear error flags, like Overrun and framing errors. See G4 RM,
     /// Table 349: USART interrupt requests.
+    /// Note that the inner value of `CharDetect` doesn't do anything here.
     pub fn clear_interrupt(&mut self, interrupt: UsartInterrupt) {
         match interrupt {
             UsartInterrupt::CharDetect(_) => self.regs.icr.write(|w| w.cmcf().set_bit()),

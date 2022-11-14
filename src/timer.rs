@@ -968,7 +968,7 @@ macro_rules! cc_4_channels {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
-            #[cfg(not(any(feature = "f3", feature = "l5", feature = "g0")))]
+            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1352,7 +1352,7 @@ macro_rules! cc_2_channels {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
-            #[cfg(not(any(feature = "f3", feature = "l5", feature = "g0")))]
+            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1592,7 +1592,7 @@ macro_rules! cc_1_channel {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
-            #[cfg(not(any(feature = "f3", feature = "l5", feature = "g0")))]
+            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,

@@ -1730,6 +1730,31 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
     // for different families. We're keeping it as a separate function instead
     // of feature-gating within the same function so the name can be recognizable
     // from the RM etc.
+
+    // G4 example:
+    // "The mapping of resources to DMAMUX is hardwired.
+    // DMAMUX is used with DMA1 and DMA2:
+    // For category 3 and category 4 devices:
+    // •
+    // DMAMUX channels 0 to 7 are connected to DMA1 channels 1 to 8
+    // •
+    // DMAMUX channels 8 to 15 are connected to DMA2 channels 1 to 8
+    // For category 2 devices:
+    // •
+    // DMAMUX channels 0 to 5 are connected to DMA1 channels 1 to 6
+    // •
+    // DMAMUX channels 6 to 11 are connected to DMA2 channels 1 to 6"
+    //
+    // H723/25/33/35"
+    // DMAMUX1 is used with DMA1 and DMA2 in D2 domain
+    // •
+    // DMAMUX1 channels 0 to 7 are connected to DMA1 channels 0 to 7
+    // •
+    // DMAMUX1 channels 8 to 15 are connected to DMA2 channels 0 to 7
+    // (Note: The H7 and G4 cat 3/4 mappings are the same, except for H7's use of 0-7, and G4's use of 1-8.)
+
+    // todo: With this in mind, some of the mappings below are not correct on some G4 variants.
+
     unsafe {
         let mux = unsafe { &(*DMAMUX::ptr()) };
 
