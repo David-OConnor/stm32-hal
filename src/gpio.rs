@@ -39,7 +39,7 @@ cfg_if! {
 }
 
 #[cfg(not(any(feature = "f4", feature = "l552")))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+use crate::dma::{self, ChannelCfg, DmaChannel};
 
 use cfg_if::cfg_if;
 use paste::paste;
@@ -1281,11 +1281,7 @@ pub unsafe fn write_dma(
     dma_channel: DmaChannel,
     channel_cfg: ChannelCfg,
     dma_periph: dma::DmaPeriph,
-    // dma: &mut Dma<D>,
 ) {
-    // where
-    // D: Deref<Target = dma_p::RegisterBlock>,
-    // {
     let (ptr, len) = (buf.as_ptr(), buf.len());
 
     // todo: DMA2 support.

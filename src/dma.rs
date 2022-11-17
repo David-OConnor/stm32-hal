@@ -631,6 +631,11 @@ where
         )
     }
 
+    #[cfg(feature = "l4")]
+    pub(crate) fn channel_select(&mut self, input: DmaInput) {
+        channel_select(&mut self.regs, input);
+    }
+
     /// Stop a DMA transfer, if in progress.
     pub fn stop(&mut self, channel: DmaChannel) {
         stop_internal(&mut self.regs, channel);
@@ -672,23 +677,6 @@ where
             DmaChannel::C6 => self.regs.hisr.read().tcif6().bit_is_set(),
             DmaChannel::C7 => self.regs.hisr.read().tcif7().bit_is_set(),
         }
-    }
-
-    #[cfg(feature = "l4")] // Only required on L4
-    /// Select which peripheral on a given channel we're using.
-    /// See L44 RM, Table 41.
-    pub fn channel_select(&mut self, input: DmaInput) {
-        // todo: Allow selecting channels in pairs to save a write.
-        let val = input.dma1_channel_select();
-        self.regs.cselr.modify(|_, w| match input.dma1_channel() {
-            DmaChannel::C1 => w.c1s().bits(val),
-            DmaChannel::C2 => w.c2s().bits(val),
-            DmaChannel::C3 => w.c3s().bits(val),
-            DmaChannel::C4 => w.c4s().bits(val),
-            DmaChannel::C5 => w.c5s().bits(val),
-            DmaChannel::C6 => w.c6s().bits(val),
-            DmaChannel::C7 => w.c7s().bits(val),
-        });
     }
 
     /// Enable a specific type of interrupt. Note that the `TransferComplete` interrupt
@@ -1830,5 +1818,25 @@ pub fn enable_mux1() {
                 rcc_en_reset!(ahb1, dmamux, rcc);
             }
         }
+    });
+}
+
+#[cfg(feature = "l4")] // Only required on L4
+/// Select which peripheral on a given channel we're using.
+/// See L44 RM, Table 41.
+pub(crate) fn channel_select<D>(regs: &mut D, input: DmaInput)
+where
+    D: Deref<Target = dma1::RegisterBlock>,
+{
+    // todo: Allow selecting channels in pairs to save a write.
+    let val = input.dma1_channel_select();
+    self.regs.cselr.modify(|_, w| match input.dma1_channel() {
+        DmaChannel::C1 => w.c1s().bits(val),
+        DmaChannel::C2 => w.c2s().bits(val),
+        DmaChannel::C3 => w.c3s().bits(val),
+        DmaChannel::C4 => w.c4s().bits(val),
+        DmaChannel::C5 => w.c5s().bits(val),
+        DmaChannel::C6 => w.c6s().bits(val),
+        DmaChannel::C7 => w.c7s().bits(val),
     });
 }

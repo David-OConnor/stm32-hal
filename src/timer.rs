@@ -18,6 +18,8 @@ use core;
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
+use num_traits::float::FloatCore; // To round floats.
+
 // todo: LPTIM (low-power timers) and HRTIM (high-resolution timers). And Advanced control functionality
 
 use crate::{
@@ -505,12 +507,12 @@ macro_rules! make_timer {
                 }
             }
 
-            /// Enable the timer.
+            /// Enable (start) the timer.
             pub fn enable(&mut self) {
                 self.regs.cr1.modify(|_,w| w.cen().set_bit());
             }
 
-            /// Disable the timer.
+            /// Disable (stop) the timer.
             pub fn disable(&mut self) {
                 self.regs.cr1.modify(|_, w| w.cen().clear_bit());
             }
@@ -968,7 +970,7 @@ macro_rules! cc_4_channels {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
-            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "g0")))]
+            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l4x5", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -984,8 +986,9 @@ macro_rules! cc_4_channels {
 
                 // 1. Select the proper TI1x source (internal or external) with the TI1SEL[3:0] bits in the
                 // TIMx_TISEL register.
-                // todo: Figure how what this should be, and apply it to 2 and 1 ch timers.
-                let tisel = 0b01;
+                // Leaving it at its default value of 0 selects the timer input, which we'll hard-code
+                // for now.
+                // let tisel = 0b0000;
 
                 // 3.
                 // Program the needed input filter duration in relation with the signal connected to the
@@ -999,7 +1002,7 @@ macro_rules! cc_4_channels {
 
                 match channel {
                     TimChannel::C1 => {
-                        self.regs.tisel.modify(|_, w| unsafe { w.ti1sel().bits(tisel) });
+                        // self.regs.tisel.modify(|_, w| unsafe { w.ti1sel().bits(tisel) });
 
                         // 3. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
                         // clear): write the CC1P and CC1NP bits to ‘0’ (active on rising edge).
@@ -1021,7 +1024,7 @@ macro_rules! cc_4_channels {
                         });
                     }
                     TimChannel::C2 => {
-                        self.regs.tisel.modify(|_, w| unsafe { w.ti2sel().bits(tisel) });
+                        // self.regs.tisel.modify(|_, w| unsafe { w.ti2sel().bits(tisel) });
 
                         self.regs.ccer.modify(|_, w| {
                             w.cc2p().bit(ccp.bit());
@@ -1034,7 +1037,7 @@ macro_rules! cc_4_channels {
                         });
                     }
                     TimChannel::C3 => {
-                        self.regs.tisel.modify(|_, w| unsafe { w.ti3sel().bits(tisel) });
+                        // self.regs.tisel.modify(|_, w| unsafe { w.ti3sel().bits(tisel) });
 
                         self.regs.ccer.modify(|_, w| {
                             w.cc3p().bit(ccp.bit());
@@ -1048,7 +1051,7 @@ macro_rules! cc_4_channels {
                     }
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
-                        self.regs.tisel.modify(|_, w| unsafe { w.ti4sel().bits(tisel) });
+                        // self.regs.tisel.modify(|_, w| unsafe { w.ti4sel().bits(tisel) });
 
                         self.regs.ccer.modify(|_, w| {
                             #[cfg(not(any(feature = "f4", feature = "l4")))]
@@ -1352,7 +1355,7 @@ macro_rules! cc_2_channels {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
-            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "g0")))]
+            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l4x5", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1592,7 +1595,7 @@ macro_rules! cc_1_channel {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
-            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "g0")))]
+            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l4x5", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1812,7 +1815,7 @@ fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16), ValueError>
     let max_val = 65_535.;
     let rhs = clock_speed as f32 / freq;
 
-    let psc = (rhs - 1.) / (1 << 16) as f32;
+    let psc = ((rhs - 1.) / (1 << 16) as f32).round();
     let arr = rhs / (psc + 1.) - 1.;
 
     if arr > max_val || psc > max_val {
@@ -2050,6 +2053,14 @@ cfg_if! {
         cc_4_channels!(TIM8, u16);
         #[cfg(feature = "l5")] // PAC bug.
         cc_1_channel!(TIM8, u16);
+    }
+}
+
+// todo: G4 should be 16-bits for TIM8. Why does the PAC use 32?
+cfg_if! {
+    if #[cfg(feature = "g4")] {
+        make_timer!(TIM8, tim8, 2, u32);
+        cc_4_channels!(TIM8, u32);
     }
 }
 

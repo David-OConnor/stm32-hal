@@ -906,10 +906,23 @@ macro_rules! hal {
                 };
 
                 #[cfg(feature = "l4")]
-                match self.device {
-                    AdcDevice::One => dma.channel_select(DmaInput::Adc1),
-                    AdcDevice::Two => dma.channel_select(DmaInput::Adc2),
-                    _ => unimplemented!(),
+                match dma_periph {
+                    dma::DmaPeriph::Dma1 => {
+                        let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                        match self.device {
+                            AdcDevice::One => dma::channel_select(&mut regs, DmaInput::Adc1),
+                            AdcDevice::Two => dma::channel_select(&mut regs, DmaInput::Adc2),
+                            _ => unimplemented!(),
+                        }
+                    }
+                    dma::DmaPeriph::Dma2 => {
+                        let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                        match self.device {
+                            AdcDevice::One => dma::channel_select(&mut regs, DmaInput::Adc1),
+                            AdcDevice::Two => dma::channel_select(&mut regs, DmaInput::Adc2),
+                            _ => unimplemented!(),
+                        }
+                    }
                 }
 
                 let mut seq_len = 0;

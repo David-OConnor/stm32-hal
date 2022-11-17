@@ -355,10 +355,22 @@ where
         };
 
         #[cfg(feature = "l4")]
-        match dac_channel {
-            DacChannel::C1 => dma.channel_select(DmaInput::Dac1Ch1),
-            DacChannel::C2 => dma.channel_select(DmaInput::Dac1Ch2),
-        };
+        match dma_periph {
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*DMA1::ptr()) };
+                match dac_channel {
+                    DacChannel::C1 => dma::channel_select(&mut regs, DmaInput::Dac1Ch1),
+                    DacChannel::C2 => dma::channel_select(&mut regs, DmaInput::Dac1Ch2),
+                }
+            }
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*DMA2::ptr()) };
+                match dac_channel {
+                    DacChannel::C1 => dma::channel_select(&mut regs, DmaInput::Dac1Ch1),
+                    DacChannel::C2 => dma::channel_select(&mut regs, DmaInput::Dac1Ch2),
+                };
+            }
+        }
 
         // H743 RM, section 26.4.8: DMA requests
         // Each DAC channel has a DMA capability. Two DMA channels are used to service DAC
