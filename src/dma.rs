@@ -39,6 +39,7 @@ use pac::DMAMUX2;
 // use embedded_dma::{ReadBuffer, WriteBuffer};
 
 use cfg_if::cfg_if;
+use paste::paste;
 
 // todo: Several sections of this are only correct for DMA1.
 
@@ -1840,3 +1841,134 @@ where
         DmaChannel::C7 => w.c7s().bits(val),
     });
 }
+
+// todo: Code below is for experimental struct-per-channel API
+macro_rules! make_chan_struct {
+    ($periph:expr, $ch:expr) => {
+        paste! {
+            /// Experimental/WIP channel-based struct.
+            pub struct [<Dma $periph Ch $ch>] {
+                // #[cfg(feature = "h7")]
+                // regs: dma1::st // todo?
+            }
+
+            impl [<Dma $periph Ch $ch>] {
+                fn get_regs(&self) -> &[<DMA $periph] {
+                    unsafe { &(*pac::DMA1::ptr())}
+                }
+
+                #[cfg(feature = "h7")]
+                fn get_ccr(&self) -> &[<DMA::cr $periph] {
+                    &self.regs.st[$ch].cr
+                }
+
+                #[cfg(not(feature = "h7"))]
+                fn get_ccr(&self) -> &[<DMA $periph ccr>] {
+                    cfg_if! {
+                        if #[cfg(any(feature = "f3", feature = "g0"))] {
+                            &self.regs.[<ch $ch>].cr
+                        } else {
+                            &self.regs.[<ccr $ch>]
+                        }
+                    }
+                }
+
+                // #[cfg(not(feature = "h7"))] // due to num_data size diff
+                // /// Configure a DMA channel. See L4 RM 0394, section 11.4.4. Sets the Transfer Complete
+                // /// interrupt. Note that this fn has been (perhaps) depreciated by the standalone fn.
+                // pub fn cfg_channel(
+                //     &mut self,
+                //     periph_addr: u32,
+                //     mem_addr: u32,
+                //     num_data: u16,
+                //     direction: Direction,
+                //     periph_size: DataSize,
+                //     mem_size: DataSize,
+                //     cfg: ChannelCfg,
+                // ) {
+                //     cfg_channel(
+                //         &mut self.regs(),
+                //         channel,
+                //         periph_addr,
+                //         mem_addr,
+                //         num_data,
+                //         direction,
+                //         periph_size,
+                //         mem_size,
+                //         cfg,
+                //     )
+                // }
+
+                // #[cfg(feature = "h7")]
+                // /// Configure a DMA channel. See L4 RM 0394, section 11.4.4. Sets the Transfer Complete
+                // /// interrupt. Note that this fn has been (perhaps) depreciated by the standalone fn.
+                // pub fn cfg_channel(
+                //     &mut self,
+                //     periph_addr: u32,
+                //     mem_addr: u32,
+                //     num_data: u32,
+                //     direction: Direction,
+                //     periph_size: DataSize,
+                //     mem_size: DataSize,
+                //     cfg: ChannelCfg,
+                // ) {
+                //     cfg_channel(
+                //         &mut self.regs(),
+                //         channel,
+                //         periph_addr,
+                //         mem_addr,
+                //         num_data,
+                //         direction,
+                //         periph_size,
+                //         mem_size,
+                //         cfg,
+                //     )
+                // }
+
+                /// Stop a DMA transfer, if in progress.
+                pub fn stop(&mut self, channel: DmaChannel) {
+                    let ccr = self.get_ccr();
+
+                    ccr.modify(|_, w| w.en().clear_bit());
+                    while ccr.read().en().bit_is_set() {}
+                }
+
+                // /// Clear an interrupt flag.
+                // pub fn clear_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
+                //     clear_interrupt_internal(&mut self.regs, channel, interrupt);
+                // }
+                // todo: Other methods, including constructor
+            }
+        }
+    };
+}
+
+// todo: As above, you may need more feature-gating, esp on
+// todo DMA2.
+// #[cfg(feature = "h7")]
+// make_chan_struct!(1, 0);
+// make_chan_struct!(1, 1);
+// make_chan_struct!(1, 2);
+// make_chan_struct!(1, 3);
+// make_chan_struct!(1, 4);
+// make_chan_struct!(1, 5);
+// #[cfg(not(feature = "g0"))]
+// make_chan_struct!(1, 6);
+// #[cfg(not(feature = "g0"))]
+// make_chan_struct!(1, 7);
+// #[cfg(any(feature = "l5", feature = "g4"))]
+// make_chan_struct!(1, 8);
+
+// #[cfg(feature = "h7")]
+// make_chan_struct!(2, 0);
+// make_chan_struct!(2, 1);
+// make_chan_struct!(2, 2);
+// make_chan_struct!(2, 3);
+// make_chan_struct!(2, 4);
+// make_chan_struct!(2, 5);
+// #[cfg(not(feature = "g0"))]
+// make_chan_struct!(2, 6);
+// #[cfg(not(feature = "g0"))]
+// make_chan_struct!(2, 7);
+// #[cfg(any(feature = "l5", feature = "g4"))]
+// make_chan_struct!(2, 8);

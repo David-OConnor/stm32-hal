@@ -18,7 +18,7 @@ use core;
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::blocking::delay::{DelayMs, DelayUs};
 
-use num_traits::float::FloatCore; // To round floats.
+use num_traits::float::FloatCore; // To round
 
 // todo: LPTIM (low-power timers) and HRTIM (high-resolution timers). And Advanced control functionality
 
