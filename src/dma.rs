@@ -1758,9 +1758,7 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
                     DmaChannel::C3 => mux.c2cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
                     DmaChannel::C4 => mux.c3cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
                     DmaChannel::C5 => mux.c4cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                    #[cfg(not(feature = "g0"))]
                     DmaChannel::C6 => mux.c5cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
-                    #[cfg(not(feature = "g0"))]
                     DmaChannel::C7 => mux.c6cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
                     #[cfg(any(feature = "l5", feature = "g4"))]
                     DmaChannel::C8 => mux.c7cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
@@ -1777,6 +1775,7 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
                     DmaChannel::C2 => mux.c9cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
                     DmaChannel::C3 => mux.c10cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
                     DmaChannel::C4 => mux.c11cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
+                    #[cfg(not(feature = "g0"))]
                     DmaChannel::C5 => mux.c12cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
                     #[cfg(not(feature = "g0"))]
                     DmaChannel::C6 => mux.c13cr.modify(|_, w| w.dmareq_id().bits(input as u8)),
