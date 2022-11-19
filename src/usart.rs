@@ -23,10 +23,15 @@ use crate::dma::{self, ChannelCfg, DmaChannel};
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 
-#[cfg(feature = "g0")]
-use crate::pac::DMA as DMA1;
-#[cfg(not(feature = "g0"))]
-use crate::pac::DMA1;
+use cfg_if::cfg_if;
+
+cfg_if! {
+    if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
+        use crate::pac::DMA as DMA1;
+    } else {
+        use crate::pac::DMA1;
+    }
+}
 
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::{
@@ -35,8 +40,6 @@ use embedded_hal::{
 };
 #[cfg(feature = "embedded-hal")]
 use nb;
-
-use cfg_if::cfg_if;
 
 // todo: Prescaler (USART_PRESC) register on v3 (L5, G, H etc)
 
