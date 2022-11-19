@@ -261,7 +261,7 @@ pub enum Edge {
 
 // These macros are used to interate over pin number, for use with PAC fields.
 macro_rules! set_field {
-    ($regs: expr, $pin:expr, $reg:ident, $field:ident, $bit:ident, $val:expr, [$($num:expr),+]) => {
+    ($regs:expr, $pin:expr, $reg:ident,$field:ident, $bit:ident, $val:expr, [$($num:expr),+]) => {
         paste! {
             unsafe {
                 match $pin {
@@ -1284,8 +1284,6 @@ pub unsafe fn write_dma(
 ) {
     let (ptr, len) = (buf.as_ptr(), buf.len());
 
-    // todo: DMA2 support.
-
     let periph_addr = &(*(regs(port))).bsrr as *const _ as u32;
 
     #[cfg(feature = "h7")]
@@ -1318,6 +1316,57 @@ pub unsafe fn write_dma(
                 ptr as u32,
                 num_data,
                 dma::Direction::ReadFromMem,
+                dma::DataSize::S32,
+                dma::DataSize::S32,
+                channel_cfg,
+            );
+        }
+    }
+}
+
+#[cfg(not(any(feature = "f4", feature = "l5", feature = "f3", feature = "l4")))]
+/// Read a series of words from the IDR register.
+pub unsafe fn read_dma(
+    buf: &[u32],
+    port: Port,
+    dma_channel: DmaChannel,
+    channel_cfg: ChannelCfg,
+    dma_periph: dma::DmaPeriph,
+) {
+    let (ptr, len) = (buf.as_ptr(), buf.len());
+
+    let periph_addr = &(*(regs(port))).idr as *const _ as u32;
+
+    #[cfg(feature = "h7")]
+    let num_data = len as u32;
+    #[cfg(not(feature = "h7"))]
+    let num_data = len as u16;
+
+    match dma_periph {
+        dma::DmaPeriph::Dma1 => {
+            let mut regs = unsafe { &(*DMA1::ptr()) };
+            dma::cfg_channel(
+                &mut regs,
+                dma_channel,
+                periph_addr,
+                ptr as u32,
+                num_data,
+                dma::Direction::ReadFromPeriph,
+                dma::DataSize::S32,
+                dma::DataSize::S32,
+                channel_cfg,
+            );
+        }
+        #[cfg(not(feature = "g0"))]
+        dma::DmaPeriph::Dma2 => {
+            let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+            dma::cfg_channel(
+                &mut regs,
+                dma_channel,
+                periph_addr,
+                ptr as u32,
+                num_data,
+                dma::Direction::ReadFromPeriph,
                 dma::DataSize::S32,
                 dma::DataSize::S32,
                 channel_cfg,
