@@ -434,19 +434,39 @@ macro_rules! set_exti_g0 {
         let exti = unsafe { &(*pac::EXTI::ptr()) };
 
         paste! {
-            match $pin {
-                $(
-                    $num => {
-                        exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());  // unmask
-                        exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($rising));  // Rising trigger
-                        // This field name is probably a PAC error.
-                        exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit($falling));   // Falling trigger
-                        exti
-                            .[<exticr $crnum>]
-                            .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
+            cfg_if! {
+                // Probably could be solved more elegantly, but no idea how yet
+                if #[cfg(not(any(feature = "g0b1", feature = "g0c1")))] {
+                    match $pin {
+                        $(
+                            $num => {
+                                exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());  // unmask
+                                exti.rtsr1.modify(|_, w| w.[<tr $num>]().bit($rising));  // Rising trigger
+                                // This field name is probably a PAC error.
+                                exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit($falling));   // Falling trigger
+                                exti
+                                    .[<exticr $crnum>]
+                                    .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
+                            }
+                        )+
+                        _ => panic!("GPIO pins must be 0 - 15."),
                     }
-                )+
-                _ => panic!("GPIO pins must be 0 - 15."),
+                // Fields are correctly named RT and FT instead of TR on B1 and C1
+                } else {
+                    match $pin {
+                        $(
+                            $num => {
+                                exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());  // unmask
+                                exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($rising));  // Rising trigger
+                                exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit($falling));   // Falling trigger
+                                exti
+                                    .[<exticr $crnum>]
+                                    .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
+                            }
+                        )+
+                        _ => panic!("GPIO pins must be 0 - 15."),
+                    }
+                }
             }
         }
     }
