@@ -689,7 +689,7 @@ where
             DmaChannel::C1 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let ccr = &self.regs.ch1().cr;
+                        let ccr = &self.regs.ch1.cr;
                     } else {
                         let ccr = &self.regs.ccr1;
                     }
@@ -699,7 +699,7 @@ where
             DmaChannel::C2 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let ccr = &self.regs.ch2().cr;
+                        let ccr = &self.regs.ch2.cr;
                     } else {
                         let ccr = &self.regs.ccr2;
                     }
@@ -709,7 +709,7 @@ where
             DmaChannel::C3 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let ccr = &self.regs.ch3().cr;
+                        let ccr = &self.regs.ch3.cr;
                     } else {
                         let ccr = &self.regs.ccr3;
                     }
@@ -719,7 +719,7 @@ where
             DmaChannel::C4 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let ccr = &self.regs.ch4().cr;
+                        let ccr = &self.regs.ch4.cr;
                     } else {
                         let ccr = &self.regs.ccr4;
                     }
@@ -729,7 +729,7 @@ where
             DmaChannel::C5 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let ccr = &self.regs.ch5().cr;
+                        let ccr = &self.regs.ch5.cr;
                     } else {
                         let ccr = &self.regs.ccr5;
                     }
@@ -740,7 +740,7 @@ where
             DmaChannel::C6 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let ccr = &self.regs.ch6().cr;
+                        let ccr = &self.regs.ch6.cr;
                     } else {
                         let ccr = &self.regs.ccr6;
                     }
@@ -751,7 +751,7 @@ where
             DmaChannel::C7 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let ccr = &self.regs.ch7().cr;
+                        let ccr = &self.regs.ch7.cr;
                     } else {
                         let ccr = &self.regs.ccr7;
                     }
@@ -840,7 +840,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C1 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cpar = &regs.ch1().par;
+                        let cpar = &regs.ch1.par;
                     } else {
                         let cpar = &regs.cpar1;
                     }
@@ -850,7 +850,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C2 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cpar = &regs.ch2().par;
+                        let cpar = &regs.ch2.par;
                     } else {
                         let cpar = &regs.cpar2;
                     }
@@ -860,7 +860,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C3 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cpar = &regs.ch3().par;
+                        let cpar = &regs.ch3.par;
                     } else {
                         let cpar = &regs.cpar3;
                     }
@@ -870,7 +870,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C4 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cpar = &regs.ch4().par;
+                        let cpar = &regs.ch4.par;
                     } else {
                         let cpar = &regs.cpar4;
                     }
@@ -880,7 +880,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C5 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cpar = &regs.ch5().par;
+                        let cpar = &regs.ch5.par;
                     } else {
                         let cpar = &regs.cpar5;
                     }
@@ -891,7 +891,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C6 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cpar = &regs.ch6().par;
+                        let cpar = &regs.ch6.par;
                     } else {
                         let cpar = &regs.cpar6;
                     }
@@ -902,7 +902,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C7 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cpar = &regs.ch7().par;
+                        let cpar = &regs.ch7.par;
                     } else {
                         let cpar = &regs.cpar7;
                     }
@@ -923,7 +923,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C1 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cmar = &regs.ch1().mar;
+                        let cmar = &regs.ch1.mar;
                     } else if #[cfg(feature = "l5")] {
                         let cmar = &regs.cm0ar1;
                     } else {
@@ -935,7 +935,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C2 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cmar = &regs.ch2().mar;
+                        let cmar = &regs.ch2.mar;
                     } else if #[cfg(feature = "l5")] {
                         let cmar = &regs.cm0ar2;
                     } else {
@@ -947,7 +947,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C3 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cmar = &regs.ch3().mar;
+                        let cmar = &regs.ch3.mar;
                     } else if #[cfg(feature = "l5")] {
                         let cmar = &regs.cm0ar3;
                     } else {
@@ -959,7 +959,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C4 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cmar = &regs.ch4().mar;
+                        let cmar = &regs.ch4.mar;
                     } else if #[cfg(feature = "l5")] {
                         let cmar = &regs.cm0ar4;
                     } else {
@@ -971,7 +971,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C5 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cmar = &regs.ch5().mar;
+                        let cmar = &regs.ch5.mar;
                     } else if #[cfg(feature = "l5")] {
                         let cmar = &regs.cm0ar5;
                     } else {
@@ -984,7 +984,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C6 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cmar = &regs.ch6().mar;
+                        let cmar = &regs.ch6.mar;
                     } else if #[cfg(feature = "l5")] {
                         let cmar = &regs.cm0ar6;
                     } else {
@@ -997,7 +997,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C7 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cmar = &regs.ch7().mar;
+                        let cmar = &regs.ch7.mar;
                     } else if #[cfg(feature = "l5")] {
                         let cmar = &regs.cm0ar7;
                     } else {
@@ -1026,7 +1026,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C1 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cndtr = &regs.ch1().ndtr;
+                        let cndtr = &regs.ch1.ndtr;
                     } else {
                         let cndtr = &regs.cndtr1;
                     }
@@ -1036,7 +1036,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C2 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cndtr = &regs.ch2().ndtr;
+                        let cndtr = &regs.ch2.ndtr;
                     } else {
                         let cndtr = &regs.cndtr2;
                     }
@@ -1046,7 +1046,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C3 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cndtr = &regs.ch3().ndtr;
+                        let cndtr = &regs.ch3.ndtr;
                     } else {
                         let cndtr = &regs.cndtr3;
                     }
@@ -1056,7 +1056,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C4 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cndtr = &regs.ch4().ndtr;
+                        let cndtr = &regs.ch4.ndtr;
                     } else {
                         let cndtr = &regs.cndtr4;
                     }
@@ -1066,7 +1066,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C5 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cndtr = &regs.ch5().ndtr;
+                        let cndtr = &regs.ch5.ndtr;
                     } else {
                         let cndtr = &regs.cndtr5;
                     }
@@ -1077,7 +1077,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C6 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cndtr = &regs.ch6().ndtr;
+                        let cndtr = &regs.ch6.ndtr;
                     } else {
                         let cndtr = &regs.cndtr6;
                     }
@@ -1088,7 +1088,7 @@ pub fn cfg_channel<D>(
             DmaChannel::C7 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        let cndtr = &regs.ch7().ndtr;
+                        let cndtr = &regs.ch7.ndtr;
                     } else {
                         let cndtr = &regs.cndtr7;
                     }
@@ -1107,7 +1107,7 @@ pub fn cfg_channel<D>(
         DmaChannel::C1 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    let ccr = &regs.ch1().cr;
+                    let ccr = &regs.ch1.cr;
                 } else {
                     let ccr = &regs.ccr1;
                 }
@@ -1126,7 +1126,7 @@ pub fn cfg_channel<D>(
         DmaChannel::C2 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    let ccr = &regs.ch2().cr;
+                    let ccr = &regs.ch2.cr;
                 } else {
                     let ccr = &regs.ccr2;
                 }
@@ -1145,7 +1145,7 @@ pub fn cfg_channel<D>(
         DmaChannel::C3 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    let ccr = &regs.ch3().cr;
+                    let ccr = &regs.ch3.cr;
                 } else {
                     let ccr = &regs.ccr3;
                 }
@@ -1164,7 +1164,7 @@ pub fn cfg_channel<D>(
         DmaChannel::C4 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    let ccr = &regs.ch4().cr;
+                    let ccr = &regs.ch4.cr;
                 } else {
                     let ccr = &regs.ccr4;
                 }
@@ -1183,7 +1183,7 @@ pub fn cfg_channel<D>(
         DmaChannel::C5 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    let ccr = &regs.ch5().cr;
+                    let ccr = &regs.ch5.cr;
                 } else {
                     let ccr = &regs.ccr5;
                 }
@@ -1203,7 +1203,7 @@ pub fn cfg_channel<D>(
         DmaChannel::C6 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    let ccr = &regs.ch6().cr;
+                    let ccr = &regs.ch6.cr;
                 } else {
                     let ccr = &regs.ccr6;
                 }
@@ -1223,7 +1223,7 @@ pub fn cfg_channel<D>(
         DmaChannel::C7 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    let ccr = &regs.ch7().cr;
+                    let ccr = &regs.ch7.cr;
                 } else {
                     let ccr = &regs.ccr7;
                 }
@@ -1387,7 +1387,7 @@ where
         DmaChannel::C1 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    let ccr = &regs.ch1().cr;
+                    let ccr = &regs.ch1.cr;
                 } else {
                     let ccr = &regs.ccr1;
                 }
@@ -1398,7 +1398,7 @@ where
         DmaChannel::C2 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    let ccr = &regs.ch2().cr;
+                    let ccr = &regs.ch2.cr;
                 } else {
                     let ccr = &regs.ccr2;
                 }
@@ -1409,7 +1409,7 @@ where
         DmaChannel::C3 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    let ccr = &regs.ch3().cr;
+                    let ccr = &regs.ch3.cr;
                 } else {
                     let ccr = &regs.ccr3;
                 }
@@ -1420,7 +1420,7 @@ where
         DmaChannel::C4 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    let ccr = &regs.ch4().cr;
+                    let ccr = &regs.ch4.cr;
                 } else {
                     let ccr = &regs.ccr4;
                 }
@@ -1431,7 +1431,7 @@ where
         DmaChannel::C5 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    let ccr = &regs.ch5().cr;
+                    let ccr = &regs.ch5.cr;
                 } else {
                     let ccr = &regs.ccr5;
                 }
