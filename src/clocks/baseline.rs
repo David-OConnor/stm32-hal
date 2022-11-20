@@ -686,7 +686,7 @@ impl Clocks {
                     WaitState::W2
                 } else {
                     WaitState::W3
-                }
+                };
             } else if #[cfg(any(feature = "wb", feature = "wl"))] {  // WL. RM section 3.3.4, Table 5.
                 // Note: This applies to HCLK3 HCLK. (See HCLK3 used above for hclk var.)
                 let wait_state = if hclk <= 18_000_000 {
@@ -695,7 +695,7 @@ impl Clocks {
                     WaitState::W1
                 } else {
                     WaitState::W2
-                }
+                };
             } else {  // G4. RM section 3.3.3
                 let wait_state = if self.boost_mode {
                     // Vcore Range 1 boost mode

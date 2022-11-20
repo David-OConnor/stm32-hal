@@ -616,7 +616,7 @@ where
                     channel_cfg,
                 );
             }
-            #[cfg(not(feature = "g0"))]
+            #[cfg(not(any(feature = "f3x4", feature = "g0")))]
             dma::DmaPeriph::Dma2 => {
                 let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                 dma::cfg_channel(
@@ -701,7 +701,7 @@ where
                     channel_cfg,
                 );
             }
-            #[cfg(not(feature = "g0"))]
+            #[cfg(not(any(feature = "f3x4", feature = "g0")))]
             dma::DmaPeriph::Dma2 => {
                 let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                 dma::cfg_channel(

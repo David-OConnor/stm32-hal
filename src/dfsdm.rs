@@ -25,6 +25,8 @@ cfg_if! {
     }
 }
 
+use crate::pac::DMA1;
+
 #[cfg(not(any(feature = "f4", feature = "l552")))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
 
@@ -1187,12 +1189,26 @@ where
         };
 
         #[cfg(feature = "l4")]
-        match filter {
-            Filter::F0 => dma.channel_select(DmaInput::Dfsdm1F0),
-            Filter::F1 => dma.channel_select(DmaInput::Dfsdm1F1),
-            Filter::F2 => dma.channel_select(DmaInput::Dfsdm1F2),
-            Filter::F3 => dma.channel_select(DmaInput::Dfsdm1F3),
-        };
+        match dma_periph {
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*DMA1::ptr()) };
+                match filter {
+                    Filter::F0 => dma::channel_select(&mut regs, DmaInput::Dfsdm1F0),
+                    Filter::F1 => dma::channel_select(&mut regs, DmaInput::Dfsdm1F1),
+                    Filter::F2 => dma::channel_select(&mut regs, DmaInput::Dfsdm1F2),
+                    Filter::F3 => dma::channel_select(&mut regs, DmaInput::Dfsdm1F3),
+                };
+            }
+            dma::DmaPeriph::Dma2 => {
+                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                match filter {
+                    Filter::F0 => dma::channel_select(&mut regs, DmaInput::Dfsdm1F0),
+                    Filter::F1 => dma::channel_select(&mut regs, DmaInput::Dfsdm1F1),
+                    Filter::F2 => dma::channel_select(&mut regs, DmaInput::Dfsdm1F2),
+                    Filter::F3 => dma::channel_select(&mut regs, DmaInput::Dfsdm1F3),
+                };
+            }
+        }
 
         match filter {
             Filter::F0 => {
@@ -1318,7 +1334,7 @@ where
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
-                let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                let mut regs = unsafe { &(*DMA1::ptr()) };
                 dma::cfg_channel(
                     &mut regs,
                     dma_channel,
