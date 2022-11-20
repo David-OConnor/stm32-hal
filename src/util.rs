@@ -309,12 +309,12 @@ impl RccPeriph for pac::TIM6 {
     }
 
     #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {
+    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
         unimplemented!()
     }
 
     #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {
+    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
         unimplemented!()
     }
 }
@@ -348,12 +348,12 @@ impl RccPeriph for pac::TIM7 {
     }
 
     #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {
+    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
         unimplemented!()
     }
 
     #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {
+    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
         unimplemented!()
     }
 }
@@ -554,12 +554,12 @@ impl RccPeriph for pac::SAI1 {
     }
 
     #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {
+    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
         unimplemented!()
     }
 
     #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {
+    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
         unimplemented!()
     }
 }
@@ -581,12 +581,12 @@ impl RccPeriph for pac::SAI2 {
     }
 
     #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {
+    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
         unimplemented!()
     }
 
     #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {
+    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
         unimplemented!()
     }
 }
@@ -608,12 +608,12 @@ impl RccPeriph for pac::SAI3 {
     }
 
     #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {
+    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
         unimplemented!()
     }
 
     #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {
+    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
         unimplemented!()
     }
 }
@@ -635,12 +635,12 @@ impl RccPeriph for pac::SAI4 {
     }
 
     #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {
+    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
         unimplemented!()
     }
 
     #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {
+    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
         unimplemented!()
     }
 }
@@ -924,10 +924,10 @@ cfg_if! {
             fn write_chan() -> DmaChannel {unimplemented!()}
 
             #[cfg(feature = "l4")]
-            fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {unimplemented!()}
+            fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {unimplemented!()}
 
             #[cfg(feature = "l4")]
-            fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_dma: &mut Dma<D>) {unimplemented!()}
+            fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {unimplemented!()}
         }
     }
 }

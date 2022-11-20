@@ -425,7 +425,9 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = R::write_chan();
         #[cfg(feature = "l4")]
-        R::write_sel(dma);
+        let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
+        #[cfg(feature = "l4")]
+        R::write_sel(&mut dma_regs);
 
         #[cfg(feature = "h7")]
         let num_data = len as u32;
@@ -520,7 +522,9 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = R::read_chan();
         #[cfg(feature = "l4")]
-        R::read_sel(dma);
+        let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
+        #[cfg(feature = "l4")]
+        R::write_sel(&mut dma_regs);
 
         #[cfg(feature = "h7")]
         let num_data = len as u32;
