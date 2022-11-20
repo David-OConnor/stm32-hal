@@ -649,7 +649,10 @@ where
                 self.regs.cr1.modify(|_, w| w.peie().set_bit());
             }
             UsartInterrupt::ReadNotEmpty => {
-                self.regs.cr1.modify(|_, w| w.rxneie().set_bit());
+                #[cfg(not(any(feature = "g0b1", feature = "g0c1")))]
+                self.regs.cr1.modify(|_, w| w.rxneie().clear_bit());
+                #[cfg(any(feature = "g0b1", feature = "g0c1"))]
+                self.regs.cr1.modify(|_, w| w.rxfneie().clear_bit());
             }
             UsartInterrupt::ReceiverTimeout => {
                 self.regs.cr1.modify(|_, w| w.rtoie().set_bit());
@@ -663,7 +666,10 @@ where
                 self.regs.cr1.modify(|_, w| w.tcie().set_bit());
             }
             UsartInterrupt::TransmitEmpty => {
-                self.regs.cr1.modify(|_, w| w.txeie().set_bit());
+                #[cfg(not(any(feature = "g0b1", feature = "g0c1")))]
+                self.regs.cr1.modify(|_, w| w.txeie().clear_bit());
+                #[cfg(any(feature = "g0b1", feature = "g0c1"))]
+                self.regs.cr1.modify(|_, w| w.txfeie().clear_bit());
             }
         }
     }
@@ -698,7 +704,10 @@ where
                 self.regs.cr1.modify(|_, w| w.peie().clear_bit());
             }
             UsartInterrupt::ReadNotEmpty => {
+                #[cfg(not(any(feature = "g0b1", feature = "g0c1")))]
                 self.regs.cr1.modify(|_, w| w.rxneie().clear_bit());
+                #[cfg(any(feature = "g0b1", feature = "g0c1"))]
+                self.regs.cr1.modify(|_, w| w.rxfneie().clear_bit());
             }
             UsartInterrupt::ReceiverTimeout => {
                 self.regs.cr1.modify(|_, w| w.rtoie().clear_bit());
@@ -712,7 +721,10 @@ where
                 self.regs.cr1.modify(|_, w| w.tcie().clear_bit());
             }
             UsartInterrupt::TransmitEmpty => {
+                #[cfg(not(any(feature = "g0b1", feature = "g0c1")))]
                 self.regs.cr1.modify(|_, w| w.txeie().clear_bit());
+                #[cfg(any(feature = "g0b1", feature = "g0c1"))]
+                self.regs.cr1.modify(|_, w| w.txfeie().clear_bit());
             }
         }
     }
