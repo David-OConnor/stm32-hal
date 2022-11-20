@@ -561,7 +561,9 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = R::write_chan();
         #[cfg(feature = "l4")]
-        R::write_sel(dma);
+        let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
+        #[cfg(feature = "l4")]
+        R::write_sel(&mut dma_regs);
 
         // DMA (Direct Memory Access) can be enabled for transmission by setting the TXDMAEN bit
         // in the I2C_CR1 register. Data is loaded from an SRAM area configured using the DMA
@@ -650,7 +652,9 @@ where
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = R::read_chan();
         #[cfg(feature = "l4")]
-        R::read_sel(dma);
+        let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
+        #[cfg(feature = "l4")]
+        R::write_sel(&mut dma_regs);
 
         // DMA (Direct Memory Access) can be enabled for reception by setting the RXDMAEN bit in
         // the I2C_CR1 register. Data is loaded from the I2C_RXDR register to an SRAM area

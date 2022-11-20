@@ -363,8 +363,8 @@ where
                     DacChannel::C2 => dma::channel_select(&mut regs, DmaInput::Dac1Ch2),
                 }
             }
-            dma::DmaPeriph::Dma1 => {
-                let mut regs = unsafe { &(*DMA2::ptr()) };
+            dma::DmaPeriph::Dma2 => {
+                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                 match dac_channel {
                     DacChannel::C1 => dma::channel_select(&mut regs, DmaInput::Dac1Ch1),
                     DacChannel::C2 => dma::channel_select(&mut regs, DmaInput::Dac1Ch2),

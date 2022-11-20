@@ -1831,7 +1831,7 @@ where
 {
     // todo: Allow selecting channels in pairs to save a write.
     let val = input.dma1_channel_select();
-    self.regs.cselr.modify(|_, w| match input.dma1_channel() {
+    regs.cselr.modify(|_, w| match input.dma1_channel() {
         DmaChannel::C1 => w.c1s().bits(val),
         DmaChannel::C2 => w.c2s().bits(val),
         DmaChannel::C3 => w.c3s().bits(val),
