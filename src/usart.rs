@@ -655,8 +655,6 @@ where
             UsartInterrupt::ReadNotEmpty => {
                 #[cfg(not(any(feature = "g0b1", feature = "g0c1")))]
                 self.regs.cr1.modify(|_, w| w.rxneie().clear_bit());
-                #[cfg(any(feature = "g0b1", feature = "g0c1"))]
-                self.regs.cr1.modify(|_, w| w.rxfneie().clear_bit());
             }
             UsartInterrupt::ReceiverTimeout => {
                 self.regs.cr1.modify(|_, w| w.rtoie().set_bit());
@@ -672,8 +670,6 @@ where
             UsartInterrupt::TransmitEmpty => {
                 #[cfg(not(any(feature = "g0b1", feature = "g0c1")))]
                 self.regs.cr1.modify(|_, w| w.txeie().clear_bit());
-                #[cfg(any(feature = "g0b1", feature = "g0c1"))]
-                self.regs.cr1.modify(|_, w| w.txfeie().clear_bit());
             }
         }
     }
@@ -710,8 +706,6 @@ where
             UsartInterrupt::ReadNotEmpty => {
                 #[cfg(not(any(feature = "g0b1", feature = "g0c1")))]
                 self.regs.cr1.modify(|_, w| w.rxneie().clear_bit());
-                #[cfg(any(feature = "g0b1", feature = "g0c1"))]
-                self.regs.cr1.modify(|_, w| w.rxfneie().clear_bit());
             }
             UsartInterrupt::ReceiverTimeout => {
                 self.regs.cr1.modify(|_, w| w.rtoie().clear_bit());
@@ -727,8 +721,6 @@ where
             UsartInterrupt::TransmitEmpty => {
                 #[cfg(not(any(feature = "g0b1", feature = "g0c1")))]
                 self.regs.cr1.modify(|_, w| w.txeie().clear_bit());
-                #[cfg(any(feature = "g0b1", feature = "g0c1"))]
-                self.regs.cr1.modify(|_, w| w.txfeie().clear_bit());
             }
         }
     }
