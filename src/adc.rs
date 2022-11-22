@@ -53,6 +53,48 @@ pub enum AdcDevice {
     Five,
 }
 
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// Select a trigger. Sets CFGR reg, EXTSEL field. See G4 RM, table 163: ADC1/2 - External
+/// triggers for regular channels.
+pub enum Trigger {
+    // todo: Injected.
+    Tim1Cc1 = 0b00000,
+    Tim1Cc2 = 0b00001,
+    Tim1Cc3 = 0b00010,
+    Tim2Cc2 = 0b00011,
+    Tim3Trgo = 0b00100,
+    Tim4Cc4 = 0b00101,
+    Exti11 = 0b00110,
+    Tim8Trgo = 0b00111,
+    Tim8Trgo2 = 0b01000,
+    Tim1Trgo = 0b01001,
+    Tim1Trgo2 = 0b01010,
+    Tim2Trgo = 0b01011,
+    Tim4Trgo = 0b01100,
+    Tim6Trgo = 0b01101,
+    Tim15Trgo = 0b01110,
+    Tim3Cc4 = 0b01111,
+    // todo: Fill in remaining ones.
+    Tim7Trgo = 0b11110,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+/// Select a trigger. Sets CFGR reg, EXTEN field. See G4 RM, table 161: 
+/// Configuring the trigger polarity for regular external triggers
+/// (Also applies for injected)
+pub enum TriggerEdge {
+    /// Hardware Trigger detection disabled, software trigger detection enabled
+    Software = 0b00,
+    /// Hardware Trigger with detection on the rising edge
+    HardwareRising = 0b01,
+    /// Hardware Trigger with detection on the falling edge
+    HardwareFalling = 0b10,
+    /// Hardware Trigger with detection on both the rising and falling edges
+    HardwareBoth = 0b11,
+}
+
 #[derive(Copy, Clone)]
 #[repr(u8)]
 /// ADC interrupts. See L44 RM, section 16.5: ADC interrupts. Set in the IER register, and cleared
@@ -860,6 +902,16 @@ macro_rules! hal {
             pub fn read(&mut self, channel: u8) -> u16 {
                 self.start_conversion(&[channel]);
                 self.read_result()
+            }
+
+
+            /// Select and activate a trigger. See G4 RM, section 21.4.18:
+            /// Conversion on external trigger and trigger polarit
+            pub fn set_trigger(&mut self, trigger: Trigger, edge: TriggerEdge) {
+                self.regs.cfgr.modify(|_, w| unsafe {
+                    w.exten().bits(edge as u8);
+                    w.extsel().bits(trigger as u8)
+                });
             }
 
             #[cfg(not(any(feature = "f4", feature = "l552")))]

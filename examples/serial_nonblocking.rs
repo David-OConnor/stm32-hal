@@ -45,13 +45,15 @@ fn main() -> ! {
     let _uart_rx = Pin::new(Port::A, 10, PinMode::Alt(7));
 
     // Set up the USART1 peripheral.
-    let uart = Usart::new(
+    let mut uart = Usart::new(
         dp.USART1,
         UsartDevice::One,
         9_600,
         UsartConfig::default(),
         &clock_cfg,
     );
+
+    uart.enable_interrupt(UsartInterrupt::ReadNotEmpty);
 
     unsafe {
         // Unmask interrupt lines associated with the USART1.

@@ -21,6 +21,7 @@ use stm32_hal2::{
     clocks::Clocks,
     dma::{self, Dma, DmaChannel, DmaInput, DmaInterrupt, DmaPeriph, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
+    timer::{BasicTimer, MasterModeSelection},
     low_power, pac,
 };
 
@@ -65,6 +66,23 @@ fn main() -> ! {
     adc.set_align(Align::Left);
 
     adc.enable_interrupt(AdcInterrupt::EndOfSequence);
+
+    // If you wish to sample at a fixed rate, consider using a basic timer (TIM6 or TIM7)
+    let mut adc_timer = BasicTimer::new(
+        dp.TIM6,
+        100., // Frequency in Hz.
+        &clock_cfg,
+   );
+   
+    // The update event is selected as a trigger output (TRGO). For instance a
+    // master timer can then be used as a prescaler for a slave timer.
+    adc_timer.set_mastermode(MasterModeSelection::Update);
+    adc_timer.enable();
+
+    // todo: Which should it be?
+    adc.set_trigger(adc::Trigger::Tim6Trgo, adc::TriggerEdge::HardwareRising);
+
+    adc.set_trigger(DacChannel::C1, Trigger::Tim6);
 
     // 2: Set up DMA, for non-blocking transfers:
     let mut dma = Dma::new(&mut dp.DMA1, &dp.RCC);
