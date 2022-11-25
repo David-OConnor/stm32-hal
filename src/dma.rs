@@ -46,10 +46,7 @@ use paste::paste;
 #[derive(Clone, Copy)]
 pub enum DmaPeriph {
     Dma1,
-    #[cfg(not(any(
-        feature = "f3x4",
-        all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1")))
-    )))] // todo: f3x4 too
+    #[cfg(not(any(feature = "f3x4", feature = "g0")))] // todo: f3x4 too
     Dma2,
 }
 
@@ -1832,7 +1829,7 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
                 #[cfg(feature = "h7")]
                 mux.ccr[channel as usize].modify(|_, w| w.dmareq_id().bits(input as u8));
             }
-            #[cfg(not(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1")))))]
+            #[cfg(not(feature = "g0"))]
             DmaPeriph::Dma2 => {
                 #[cfg(not(feature = "h7"))]
                 match channel {

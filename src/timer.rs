@@ -1966,7 +1966,7 @@ cfg_if! {
 
 // Advanced: 1/8/20
 
-#[cfg(not(any(feature = "f373")))]
+#[cfg(not(feature = "f373"))]
 make_timer!(TIM1, tim1, 2, u16);
 
 #[cfg(not(any(feature = "f373", feature = "g0", feature = "g4")))]
