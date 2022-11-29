@@ -21,8 +21,7 @@ cfg_if! {
         use crate::pac::dma as dma1;
         use crate::pac::DMA as DMA1;
     } else {
-        use crate::pac::dma1;
-        use crate::pac::DMA1;
+        use crate::pac::{dma1, dma2, DMA1, DMA2};
     }
 }
 
@@ -552,11 +551,6 @@ pub struct Dma<D> {
     pub regs: D,
 }
 
-// We use this macro to differentiate DMA1 and DMA2.
-// macro_rules! setup {
-// ($regs: expr, $pin:expr, $field_af:ident, $val:expr, [$(($num:expr, $lh:ident)),+]) => {
-//paste! {
-
 impl<D> Dma<D>
 where
     D: Deref<Target = dma1::RegisterBlock>,
@@ -683,8 +677,7 @@ where
         }
     }
 
-    /// Enable a specific type of interrupt. Note that the `TransferComplete` interrupt
-    /// is enabled automatically, by the `cfg_channel` method.
+    /// Enable a specific type of interrupt.
     #[cfg(not(feature = "h7"))]
     pub fn enable_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
         // Can only be set when the channel is disabled.
@@ -769,8 +762,7 @@ where
         };
     }
 
-    /// Enable a specific type of interrupt. Note that the `TransferComplete` interrupt
-    /// is enabled automatically, by the `cfg_channel` method.
+    /// Enable a specific type of interrupt.
     #[cfg(feature = "h7")]
     pub fn enable_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
         // Can only be set when the channel is disabled.
@@ -787,8 +779,7 @@ where
         }
     }
 
-    /// Disable a specific type of interrupt. Note that the `TransferComplete` interrupt
-    /// is enabled automatically, by the `cfg_channel` method.
+    /// Disable a specific type of interrupt.
     /// todo: Non-H7 version too!
     #[cfg(feature = "h7")]
     pub fn disable_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
@@ -1847,100 +1838,129 @@ where
 
 // todo: Code below is for experimental struct-per-channel API
 macro_rules! make_chan_struct {
-    ($periph:expr, $ch:expr) => {
+    // ($Periph:ident, $PERIPH:ident, $periph:ident, $ch:expr) => {
+    ($periph: expr, $ch:expr) => {
         paste! {
-            /// Experimental/WIP channel-based struct.
-            pub struct [<Dma $periph Ch $ch>] {
+            /// Experimental/WIP channel-based DMA struct.
+            pub struct [<Dma $periph Ch $ch>] { 
                 // #[cfg(feature = "h7")]
                 // regs: dma1::st // todo?
             }
 
             impl [<Dma $periph Ch $ch>] {
-                fn get_regs(&self) -> &[<DMA $periph] {
-                    unsafe { &(*pac::DMA1::ptr())}
+                /// Initialize a DMA peripheral, including enabling and resetting
+                /// its RCC peripheral clock.
+                /// Note that the clock may have already been enabled by a different channel's
+                /// constructor.
+                pub fn new() -> Self {
+                    // todo: Enable RCC for DMA 2 etc!
+                    free(|_| {
+                        let rcc = unsafe { &(*RCC::ptr()) };
+                        cfg_if! {
+                            if #[cfg(feature = "f3")] {
+                                rcc.ahbenr.modify(|_, w| w.dma1en().set_bit()); // no dmarst on F3.
+                            } else if #[cfg(feature = "g0")] {
+                                rcc_en_reset!(ahb1, dma, rcc);
+                            } else {
+                                rcc_en_reset!(ahb1, [<dma $periph>], rcc);
+                            }
+                        }
+                    });
+
+                    Self { }
+                }
+
+                fn regs(&self) -> &[<dma $periph>]::RegisterBlock {
+                    unsafe { &(*pac::[<DMA $periph>]::ptr())}
                 }
 
                 #[cfg(feature = "h7")]
-                fn get_ccr(&self) -> &[<DMA::cr $periph] {
+                fn ccr(&self) -> &[<dma $periph>]::cc {
                     &self.regs.st[$ch].cr
                 }
 
                 #[cfg(not(feature = "h7"))]
-                fn get_ccr(&self) -> &[<DMA $periph ccr>] {
+                fn ccr(&self) -> &[<dma $periph>]::[<CCR $ch>] {
                     cfg_if! {
                         if #[cfg(any(feature = "f3", feature = "g0"))] {
-                            &self.regs.[<ch $ch>].cr
+                            &self.regs().[<ch $ch>].cr
                         } else {
-                            &self.regs.[<ccr $ch>]
+                            &self.regs().[<ccr $ch>]
                         }
                     }
                 }
 
-                // #[cfg(not(feature = "h7"))] // due to num_data size diff
-                // /// Configure a DMA channel. See L4 RM 0394, section 11.4.4. Sets the Transfer Complete
-                // /// interrupt. Note that this fn has been (perhaps) depreciated by the standalone fn.
-                // pub fn cfg_channel(
-                //     &mut self,
-                //     periph_addr: u32,
-                //     mem_addr: u32,
-                //     num_data: u16,
-                //     direction: Direction,
-                //     periph_size: DataSize,
-                //     mem_size: DataSize,
-                //     cfg: ChannelCfg,
-                // ) {
-                //     cfg_channel(
-                //         &mut self.regs(),
-                //         channel,
-                //         periph_addr,
-                //         mem_addr,
-                //         num_data,
-                //         direction,
-                //         periph_size,
-                //         mem_size,
-                //         cfg,
-                //     )
-                // }
+                #[cfg(not(feature = "h7"))] // due to num_data size diff
+                /// Configure a DMA channel. See L4 RM 0394, section 11.4.4. Sets the Transfer Complete
+                /// interrupt. Note that this fn has been (perhaps) depreciated by the standalone fn.
+                pub fn cfg_channel(
+                    &mut self,
+                    periph_addr: u32,
+                    mem_addr: u32,
+                    num_data: u16,
+                    direction: Direction,
+                    periph_size: DataSize,
+                    mem_size: DataSize,
+                    cfg: ChannelCfg,
+                ) {
+                    cfg_channel(
+                        &mut self.regs(),
+                        DmaChannel::[<C $ch>],
+                        periph_addr,
+                        mem_addr,
+                        num_data,
+                        direction,
+                        periph_size,
+                        mem_size,
+                        cfg,
+                    )
+                }
 
-                // #[cfg(feature = "h7")]
-                // /// Configure a DMA channel. See L4 RM 0394, section 11.4.4. Sets the Transfer Complete
-                // /// interrupt. Note that this fn has been (perhaps) depreciated by the standalone fn.
-                // pub fn cfg_channel(
-                //     &mut self,
-                //     periph_addr: u32,
-                //     mem_addr: u32,
-                //     num_data: u32,
-                //     direction: Direction,
-                //     periph_size: DataSize,
-                //     mem_size: DataSize,
-                //     cfg: ChannelCfg,
-                // ) {
-                //     cfg_channel(
-                //         &mut self.regs(),
-                //         channel,
-                //         periph_addr,
-                //         mem_addr,
-                //         num_data,
-                //         direction,
-                //         periph_size,
-                //         mem_size,
-                //         cfg,
-                //     )
-                // }
+                #[cfg(feature = "h7")]
+                /// Configure a DMA channel. See L4 RM 0394, section 11.4.4. Sets the Transfer Complete
+                /// interrupt. Note that this fn has been (perhaps) depreciated by the standalone fn.
+                pub fn cfg_channel(
+                    &mut self,
+                    periph_addr: u32,
+                    mem_addr: u32,
+                    num_data: u32,
+                    direction: Direction,
+                    periph_size: DataSize,
+                    mem_size: DataSize,
+                    cfg: ChannelCfg,
+                ) {
+                    cfg_channel(
+                        &mut self.regs(),
+                        channel,
+                        periph_addr,
+                        mem_addr,
+                        num_data,
+                        direction,
+                        periph_size,
+                        mem_size,
+                        cfg,
+                    )
+                }
 
                 /// Stop a DMA transfer, if in progress.
                 pub fn stop(&mut self, channel: DmaChannel) {
-                    let ccr = self.get_ccr();
+                    let ccr = self.ccr();
 
                     ccr.modify(|_, w| w.en().clear_bit());
                     while ccr.read().en().bit_is_set() {}
                 }
 
-                // /// Clear an interrupt flag.
-                // pub fn clear_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
-                //     clear_interrupt_internal(&mut self.regs, channel, interrupt);
-                // }
-                // todo: Other methods, including constructor
+                /// Enable a specific type of interrupt.
+                #[cfg(not(feature = "h7"))]
+                pub fn enable_interrupt(&mut self, interrupt: DmaInterrupt) {
+                    // enable_interrupt_internal(DmaPeriph::[<Dma $periph>], DmaChannel::[<C $ch>], interrupt);
+                }
+
+                /// Clear an interrupt flag.
+                pub fn clear_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
+                    clear_interrupt_internal(&mut self.regs(), channel, interrupt);
+                }
+                // todo: Other methods.
             }
         }
     };
@@ -1948,30 +1968,30 @@ macro_rules! make_chan_struct {
 
 // todo: As above, you may need more feature-gating, esp on
 // todo DMA2.
-// #[cfg(feature = "h7")]
-// make_chan_struct!(1, 0);
-// make_chan_struct!(1, 1);
-// make_chan_struct!(1, 2);
-// make_chan_struct!(1, 3);
-// make_chan_struct!(1, 4);
-// make_chan_struct!(1, 5);
-// #[cfg(not(feature = "g0"))]
-// make_chan_struct!(1, 6);
-// #[cfg(not(feature = "g0"))]
-// make_chan_struct!(1, 7);
-// #[cfg(any(feature = "l5", feature = "g4"))]
-// make_chan_struct!(1, 8);
+#[cfg(feature = "h7")]
+make_chan_struct!(1, 0);
+make_chan_struct!(1, 1);
+make_chan_struct!(1, 2);
+make_chan_struct!(1, 3);
+make_chan_struct!(1, 4);
+make_chan_struct!(1, 5);
+#[cfg(not(feature = "g0"))]
+make_chan_struct!(1, 6);
+#[cfg(not(feature = "g0"))]
+make_chan_struct!(1, 7);
+#[cfg(any(feature = "l5", feature = "g4"))]
+make_chan_struct!(1, 8);
 
-// #[cfg(feature = "h7")]
-// make_chan_struct!(2, 0);
-// make_chan_struct!(2, 1);
-// make_chan_struct!(2, 2);
-// make_chan_struct!(2, 3);
-// make_chan_struct!(2, 4);
-// make_chan_struct!(2, 5);
-// #[cfg(not(feature = "g0"))]
-// make_chan_struct!(2, 6);
-// #[cfg(not(feature = "g0"))]
-// make_chan_struct!(2, 7);
-// #[cfg(any(feature = "l5", feature = "g4"))]
-// make_chan_struct!(2, 8);
+#[cfg(feature = "h7")]
+make_chan_struct!(2, 0);
+make_chan_struct!(2, 1);
+make_chan_struct!(2, 2);
+make_chan_struct!(2, 3);
+make_chan_struct!(2, 4);
+make_chan_struct!(2, 5);
+#[cfg(not(feature = "g0"))]
+make_chan_struct!(2, 6);
+#[cfg(not(feature = "g0"))]
+make_chan_struct!(2, 7);
+#[cfg(any(feature = "l5", feature = "g4"))]
+make_chan_struct!(2, 8);

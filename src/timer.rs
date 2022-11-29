@@ -765,7 +765,7 @@ macro_rules! make_timer {
             pub unsafe fn read_dma_burst(
                 // todo: Experimenting with input capture.
                 &mut self,
-                buf: &[u16],
+                buf: &mut [u16],
                 base_address: u8,
                 burst_len: u8,
                 dma_channel: DmaChannel,
@@ -773,7 +773,7 @@ macro_rules! make_timer {
                 ds_32_bits: bool,
                 dma_periph: dma::DmaPeriph,
             ) {
-                let (ptr, len) = (buf.as_ptr(), buf.len());
+                let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
                 let periph_addr = &self.regs.dmar as *const _ as u32;
 
