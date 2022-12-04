@@ -35,12 +35,16 @@ use crate::dma::{self, ChannelCfg, DmaChannel};
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 
-#[cfg(feature = "g0")]
-use crate::pac::DMA as DMA1;
-#[cfg(not(feature = "g0"))]
-use crate::pac::DMA1;
-
 use cfg_if::cfg_if;
+
+cfg_if! {
+    if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
+        use crate::pac::DMA as DMA1;
+    } else {
+        use crate::pac::DMA1;
+    }
+}
+
 use paste::paste;
 
 // todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
@@ -1962,7 +1966,7 @@ cfg_if! {
 
 // Advanced: 1/8/20
 
-#[cfg(not(any(feature = "f373")))]
+#[cfg(not(feature = "f373"))]
 make_timer!(TIM1, tim1, 2, u16);
 
 #[cfg(not(any(feature = "f373", feature = "g0", feature = "g4")))]

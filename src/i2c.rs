@@ -24,10 +24,13 @@ use crate::dma::{self, ChannelCfg, DmaChannel};
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 
-#[cfg(feature = "g0")]
-use crate::pac::DMA as DMA1;
-#[cfg(not(feature = "g0"))]
-use crate::pac::DMA1;
+cfg_if! {
+    if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
+        use crate::pac::DMA as DMA1;
+    } else {
+        use crate::pac::DMA1;
+    }
+}
 
 // todo: Get rid of this macro.
 macro_rules! busy_wait {
