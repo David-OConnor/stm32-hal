@@ -81,7 +81,7 @@ pub enum Trigger {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// Select a trigger. Sets CFGR reg, EXTEN field. See G4 RM, table 161: 
+/// Select a trigger. Sets CFGR reg, EXTEN field. See G4 RM, table 161:
 /// Configuring the trigger polarity for regular external triggers
 /// (Also applies for injected)
 pub enum TriggerEdge {

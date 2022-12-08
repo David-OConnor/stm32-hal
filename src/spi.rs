@@ -234,6 +234,7 @@ cfg_if! {
 
         impl SpiMode {
             /// Set Spi Mode 0: Idle low, capture on first transition.
+            /// Data sampled on rising edge and shifted out on the falling edge
             pub fn mode0() -> Self {
                 Self {
                     polarity: SpiPolarity::IdleLow,
@@ -242,6 +243,7 @@ cfg_if! {
             }
 
             /// Set Spi Mode 1: Idle low, capture on second transition.
+            /// Data sampled on the falling edge and shifted out on the rising edge
             pub fn mode1() -> Self {
                 Self {
                     polarity: SpiPolarity::IdleLow,
@@ -250,6 +252,7 @@ cfg_if! {
             }
 
             /// Set Spi Mode 2: Idle high, capture on first transition.
+            /// Data sampled on the rising edge and shifted out on the falling edge
             pub fn mode2() -> Self {
                 Self {
                     polarity: SpiPolarity::IdleHigh,
@@ -258,6 +261,7 @@ cfg_if! {
             }
 
             /// Set Spi Mode 3: Idle high, capture on second transition.
+            /// Data sampled on the falling edge and shifted out on the rising edge
             pub fn mode3() -> Self {
                 Self {
                     polarity: SpiPolarity::IdleHigh,
@@ -454,7 +458,7 @@ where
             // todo: This lets you use hardware CS management, and seems to be teh way the RM
             // todo steers you towards regardless.
         }
-        Spi { regs, cfg }
+        Self { regs, cfg }
     }
 
     /// Change the SPI baud rate.

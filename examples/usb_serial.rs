@@ -51,7 +51,8 @@ fn main() -> ! {
     // Enable USB power, on applicable MCUs like L4.
     usb::enable_usb_pwr(&mut dp.PWR, &mut dp.RCC);
 
-    // Set up USB pins.
+    // Set up USB pins. Note: This only applies to some MCUs; others don't require this,
+    // nor have the appropriate alt functions.
     let _usb_dm = gpioa.new_pin(11, PinMode::Alt(14));
     let _usb_dp = gpioa.new_pin(12, PinMode::Alt(14));
 
@@ -104,6 +105,8 @@ fn main() -> ! {
 
 #[interrupt]
 /// Interrupt handler for USB (serial)
+/// Note that the name of this handler depends on the variant assigned in the associated PAC.
+/// Other examples include `USB_LP` (G4), and `USB_HS` (H7)
 fn USB_FS() {
     free(|cs| {
         access_global!(USB_SERIAL, usb_serial, cs);

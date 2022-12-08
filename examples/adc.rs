@@ -21,8 +21,8 @@ use stm32_hal2::{
     clocks::Clocks,
     dma::{self, Dma, DmaChannel, DmaInput, DmaInterrupt, DmaPeriph, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
-    timer::{BasicTimer, MasterModeSelection},
     low_power, pac,
+    timer::{BasicTimer, MasterModeSelection},
 };
 
 static mut ADC_READ_BUF: [u16; 2] = [0; 2];
@@ -69,11 +69,10 @@ fn main() -> ! {
 
     // If you wish to sample at a fixed rate, consider using a basic timer (TIM6 or TIM7)
     let mut adc_timer = BasicTimer::new(
-        dp.TIM6,
-        100., // Frequency in Hz.
+        dp.TIM6, 100., // Frequency in Hz.
         &clock_cfg,
-   );
-   
+    );
+
     // The update event is selected as a trigger output (TRGO). For instance a
     // master timer can then be used as a prescaler for a slave timer.
     adc_timer.set_mastermode(MasterModeSelection::Update);
