@@ -1977,9 +1977,8 @@ macro_rules! make_chan_struct {
                 }
 
                 /// Enable a specific type of interrupt.
-                #[cfg(not(feature = "h7"))]
-                pub fn enable_interrupt(&mut self, interrupt: DmaInterrupt) {
-                    // enable_interrupt_internal(DmaPeriph::[<Dma $periph>], DmaChannel::[<C $ch>], interrupt);
+                pub fn enable_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
+                    enable_interrupt_internal(&mut self.regs(), channel, interrupt);
                 }
 
                 /// Clear an interrupt flag.

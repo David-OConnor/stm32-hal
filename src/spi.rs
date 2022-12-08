@@ -697,9 +697,6 @@ where
         // dma: &mut Dma<D>,
         dma_periph: dma::DmaPeriph,
     ) {
-        // where
-        // D: Deref<Target = dma_p::RegisterBlock>,
-        // {
         // todo: Accept u16 words too.
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 

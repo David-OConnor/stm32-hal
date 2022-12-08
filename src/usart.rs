@@ -408,12 +408,8 @@ where
         buf: &[u8],
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
-        // dma: &mut Dma<D>,
         dma_periph: dma::DmaPeriph,
     ) {
-        // where
-        // D: Deref<Target = dma_p::RegisterBlock>,
-        // {
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
         // To map a DMA channel for USART transmission, use
@@ -509,11 +505,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-        // dma: &mut Dma<D>,
     ) {
-        // where
-        // D: Deref<Target = dma_p::RegisterBlock>,
-        // {
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
