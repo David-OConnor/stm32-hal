@@ -1098,24 +1098,24 @@ pub fn clear_exti_interrupt(line: u8) {
                     }
                 });
             } else if #[cfg(feature = "h7")] {
-                (*EXTI::ptr()).d3pmr1.modify(|_, w| {
+                (*EXTI::ptr()).cpupr1.modify(|_, w| {
                     match line {
-                        0 => w.mr0().set_bit(),
-                        1 => w.mr1().set_bit(),
-                        2 => w.mr2().set_bit(),
-                        3 => w.mr3().set_bit(),
-                        4 => w.mr4().set_bit(),
-                        5 => w.mr5().set_bit(),
-                        6 => w.mr6().set_bit(),
-                        7 => w.mr7().set_bit(),
-                        8 => w.mr8().set_bit(),
-                        9 => w.mr9().set_bit(),
-                        10 => w.mr10().set_bit(),
-                        11 => w.mr11().set_bit(),
-                        12 => w.mr12().set_bit(),
-                        13 => w.mr13().set_bit(),
-                        14 => w.mr14().set_bit(),
-                        15 => w.mr15().set_bit(),
+                        0 => w.pr0().set_bit(),
+                        1 => w.pr1().set_bit(),
+                        2 => w.pr2().set_bit(),
+                        3 => w.pr3().set_bit(),
+                        4 => w.pr4().set_bit(),
+                        5 => w.pr5().set_bit(),
+                        6 => w.pr6().set_bit(),
+                        7 => w.pr7().set_bit(),
+                        8 => w.pr8().set_bit(),
+                        9 => w.pr9().set_bit(),
+                        10 => w.pr10().set_bit(),
+                        11 => w.pr11().set_bit(),
+                        12 => w.pr12().set_bit(),
+                        13 => w.pr13().set_bit(),
+                        14 => w.pr14().set_bit(),
+                        15 => w.pr15().set_bit(),
                         _ => panic!(),
                     }
                 });

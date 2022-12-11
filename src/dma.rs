@@ -18,8 +18,7 @@ use crate::{
 
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
-        use crate::pac::dma as dma1;
-        use crate::pac::DMA as DMA1;
+        use crate::pac::{dma as dma1, DMA as DMA1};
     } else {
         use crate::pac::{dma1, dma2, DMA1, DMA2};
     }
@@ -1689,7 +1688,7 @@ where
         DmaInterrupt::HalfTransfer => cr.modify(|_, w| w.htie().set_bit()),
         DmaInterrupt::TransferComplete => cr.modify(|_, w| w.tcie().set_bit()),
         DmaInterrupt::DirectModeError => cr.modify(|_, w| w.dmeie().set_bit()),
-        DmaInterrupt::FifoError => self.regs.st[channel as usize]
+        DmaInterrupt::FifoError => regs.st[channel as usize]
             .fcr
             .modify(|_, w| w.feie().set_bit()),
     }
@@ -1897,23 +1896,24 @@ macro_rules! make_chan_struct {
                 }
 
                 fn regs(&self) -> &[<dma $periph>]::RegisterBlock {
-                    unsafe { &(*pac::[<DMA $periph>]::ptr())}
+                    unsafe { &(*[<DMA $periph>]::ptr())}
                 }
 
                 #[cfg(feature = "h7")]
-                fn ccr(&self) -> &[<dma $periph>]::cc {
-                    &self.regs.st[$ch].cr
+                fn ccr(&self) -> &[<dma $periph>]::st::CR {
+                // fn ccr(&self) -> &u8 {
+                    &self.regs().st[$ch].cr
                 }
 
-                #[cfg(not(feature = "h7"))]
+                #[cfg(not(any(feature = "h7", feature = "f3", feature = "g0")))]
                 fn ccr(&self) -> &[<dma $periph>]::[<CCR $ch>] {
-                    cfg_if! {
-                        if #[cfg(any(feature = "f3", feature = "g0"))] {
-                            &self.regs().[<ch $ch>].cr
-                        } else {
-                            &self.regs().[<ccr $ch>]
-                        }
-                    }
+                    &self.regs().[<ccr $ch>]
+                }
+
+                #[cfg(any(feature = "f3", feature = "g0"))]
+                // fn ccr(&self) -> &[<dma $periph>]::ch::cr {
+                 fn ccr(&self) ->i8 {
+                    &self.regs().[<ch $ch>].cr
                 }
 
                 #[cfg(not(feature = "h7"))] // due to num_data size diff
@@ -1957,7 +1957,7 @@ macro_rules! make_chan_struct {
                 ) {
                     cfg_channel(
                         &mut self.regs(),
-                        channel,
+                        DmaChannel::[<C $ch>],
                         periph_addr,
                         mem_addr,
                         num_data,
@@ -2009,10 +2009,15 @@ make_chan_struct!(1, 8);
 
 #[cfg(feature = "h7")]
 make_chan_struct!(2, 0);
+#[cfg(not(feature = "g0"))]
 make_chan_struct!(2, 1);
+#[cfg(not(feature = "g0"))]
 make_chan_struct!(2, 2);
+#[cfg(not(feature = "g0"))]
 make_chan_struct!(2, 3);
+#[cfg(not(feature = "g0"))]
 make_chan_struct!(2, 4);
+#[cfg(not(feature = "g0"))]
 make_chan_struct!(2, 5);
 #[cfg(not(feature = "g0"))]
 make_chan_struct!(2, 6);
