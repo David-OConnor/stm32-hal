@@ -1040,7 +1040,6 @@ impl Clocks {
                 // let flash_regs = unsafe { &(*pac::FLASH::ptr()) };
 
                 // To modify user option bytes, follow the sequence below:
-                // unsafe {
                 // 1.Unlock FLASH_OPTCR register as described in Section 4.5.1: FLASH configuration
                 // protection, unless the register is already unlocked.
                 // 2. Write the desired new option byte values in the corresponding option registers

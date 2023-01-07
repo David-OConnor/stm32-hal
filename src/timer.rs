@@ -15,16 +15,21 @@ use rtic_monotonic::Monotonic;
 #[cfg(feature = "monotonic")]
 use core;
 
-#[cfg(feature = "embedded-hal")]
-use embedded_hal::blocking::delay::{DelayMs, DelayUs};
-use embedded_time::rate::Hertz;
-use embedded_time::duration;
-use embedded_hal::timer::CountDown;
+use cfg_if::cfg_if;
+use paste::paste;
 
+cfg_if! {
+    if #[cfg(feature = "embedded-hal")] {
+        use embedded_hal::{
+            blocking::delay::{DelayMs, DelayUs},
+            timer::CountDown,
+        };
+        use embedded_time::{rate::Hertz, duration};
+        use void::Void;
+    }
+}
 
-use void::Void;
-
-use num_traits::float::FloatCore; // To round
+use num_traits::float::FloatCore; // To round floats.
 
 // todo: LPTIM (low-power timers) and HRTIM (high-resolution timers). And Advanced control functionality
 
@@ -45,9 +50,6 @@ use crate::dma::DmaInput;
 use crate::pac::DMA as DMA1;
 #[cfg(not(feature = "g0"))]
 use crate::pac::DMA1;
-
-use cfg_if::cfg_if;
-use paste::paste;
 
 // todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
 
@@ -958,14 +960,14 @@ macro_rules! make_timer {
             }
         }
 
-        /// Implementation of CountDown for timer
+        /// Implementation of the embedded-hal CountDown trait
         /// To use Countdown it is prefered to configure new timer in Oneshot mode :
         ///
         ///     Example :
         ///     llet tim16_conf = TimerConfig {
-        //             one_pulse_mode: true,
-        //             ..Default::default()
-        //         };
+        ///             one_pulse_mode: true,
+        ///             ..Default::default()
+        ///         };
         ///
         ///     Creation of timer. Here the freq arg value is not important, the freq
         ///         will be changed for each CountDown start timer depends on delay wanted.
