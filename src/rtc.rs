@@ -236,17 +236,17 @@ impl Rtc {
 
     /// Sets calendar clock to 24 hr format
     pub fn set_24h_fmt(&mut self) {
-        self.edit_regs(true, |regs| regs.cr.modify(|_, w| w.fmt().set_bit()));
+        self.edit_regs(true, |regs| regs.cr.modify(|_, w| w.fmt().clear_bit()));
     }
 
     /// Sets calendar clock to 12 hr format
     pub fn set_12h_fmt(&mut self) {
-        self.edit_regs(true, |regs| regs.cr.modify(|_, w| w.fmt().clear_bit()));
+        self.edit_regs(true, |regs| regs.cr.modify(|_, w| w.fmt().set_bit()));
     }
 
     /// Reads current hour format selection
     pub fn is_24h_fmt(&self) -> bool {
-        self.regs.cr.read().fmt().bit()
+        !self.regs.cr.read().fmt().bit()
     }
 
     // /// Setup the alarm. See AN4759, section 2.3.1.
