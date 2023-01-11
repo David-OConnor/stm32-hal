@@ -828,7 +828,7 @@ impl Rtc {
     /// Get the year component of the current date.
     pub fn get_year(&mut self) -> u16 {
         let dr = self.regs.dr.read();
-        bcd2_decode(dr.yt().bits(), dr.yu().bits()) as u16
+        (bcd2_decode(dr.yt().bits(), dr.yu().bits()) + 2000) as u16
     }
 
     /// Get the current date.
