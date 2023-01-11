@@ -799,11 +799,11 @@ impl Rtc {
 
     /// Get the current time.
     pub fn get_time(&mut self) -> NaiveTime {
-        NaiveTime::from_hms(
+        NaiveTime::from_hms_opt(
             self.get_hours().into(),
             self.get_minutes().into(),
             self.get_seconds().into(),
-        )
+        ).unwrap()
     }
 
     /// Get the weekday component of the current date.
@@ -833,25 +833,25 @@ impl Rtc {
 
     /// Get the current date.
     pub fn get_date(&mut self) -> NaiveDate {
-        NaiveDate::from_ymd(
+        NaiveDate::from_ymd_opt(
             self.get_year().into(),
             self.get_month().into(),
             self.get_day().into(),
-        )
+        ).unwrap()
     }
 
     /// Get the current datetime.
     pub fn get_datetime(&mut self) -> NaiveDateTime {
-        NaiveDate::from_ymd(
+        NaiveDate::from_ymd_opt(
             self.get_year().into(),
             self.get_month().into(),
             self.get_day().into(),
-        )
-        .and_hms(
+        ).unwrap()
+        .and_hms_opt(
             self.get_hours().into(),
             self.get_minutes().into(),
             self.get_seconds().into(),
-        )
+        ).unwrap()
     }
 }
 

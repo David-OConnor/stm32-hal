@@ -6,8 +6,11 @@
 
 use crate::{
     clocks::SpeedError,
-    pac::{CRS, FLASH, PWR, RCC, SYSCFG},
+    pac::{CRS, FLASH, PWR, RCC},
 };
+
+#[cfg(not(any(feature = "h7b3", feature = "h735")))]
+use crate::pac::SYSCFG;
 
 use cfg_if::cfg_if;
 

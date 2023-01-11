@@ -19,14 +19,14 @@ use crate::util::rcc_en_reset;
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
 
-#[cfg(not(any(
-    // feature = "g0",
-    feature = "f4",
-    // feature = "l5",
-    feature = "f3",
-    feature = "l4"
-)))]
-use core::ops::Deref;
+// #[cfg(not(any(
+//     // feature = "g0",
+//     feature = "f4",
+//     // feature = "l5",
+//     feature = "f3",
+//     feature = "l4"
+// )))]
+// use core::ops::Deref;
 
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
