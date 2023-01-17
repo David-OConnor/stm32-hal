@@ -401,7 +401,7 @@ impl Pllr {
 #[cfg(not(any(feature = "g0", feature = "wb")))]
 #[derive(Clone, Copy)]
 #[repr(u8)]
-// Main PLL division factor for PLLCLK (system clock). G4 RM 7.4.4. Also used to set PLLQ.
+/// Main PLL division factor for PLLCLK (system clock). G4 RM 7.4.4. Also used to set PLLQ.
 pub enum Pllr {
     Div2 = 0b00,
     Div4 = 0b01,
