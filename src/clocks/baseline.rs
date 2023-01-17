@@ -374,10 +374,10 @@ impl Pllm {
 /// Main PLL division factor for PLLCLK (system clock). Also usd for PllQ.
 /// Sets `PLLCFGR` reg.
 pub enum Pllr {
-    Div2 = 0b000,
-    Div3 = 0b001,
-    Div4 = 0b010,
-    Div5 = 0b011,
+    Div2 = 0b001,
+    Div3 = 0b010,
+    Div4 = 0b011,
+    Div5 = 0b100,
     Div6 = 0b101,
     Div7 = 0b110,
     Div8 = 0b111,
