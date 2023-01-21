@@ -980,6 +980,15 @@ impl Pin {
     pub fn set_low(&mut self) {
         self.set_state(PinState::Low);
     }
+
+    /// Toggle output voltage between low and high. Sets the `BSRR` register. Atomic.
+    pub fn toggle(&mut self) {
+        if self.is_high() {
+            self.set_low();
+        } else {
+            self.set_high();
+        }
+    }
 }
 
 #[cfg(feature = "embedded-hal")]
@@ -1015,11 +1024,7 @@ impl ToggleableOutputPin for Pin {
     type Error = Infallible;
 
     fn toggle(&mut self) -> Result<(), Self::Error> {
-        if self.is_high() {
-            Pin::set_low(self);
-        } else {
-            Pin::set_high(self);
-        }
+        Pin::toggle(self);
         Ok(())
     }
 }
