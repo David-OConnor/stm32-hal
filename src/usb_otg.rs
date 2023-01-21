@@ -109,21 +109,20 @@ macro_rules! usb_peripheral {
                 let pwr = unsafe { &*PWR::ptr() };
                 let rcc = unsafe { &*RCC::ptr() };
 
-                cortex_m::interrupt::free(|_| {
-                    // USB Regulator in BYPASS mode
-                    #[cfg(feature = "h7")]
-                    pwr.cr3.modify(|_, w| w.usb33den().set_bit());
-                    #[cfg(feature = "l4x6")] // this was present in the usb module
-                    pwr.cr2.modify(|_, w| w.usv().set_bit());
-                    // The f4 doesn't seem to have anything similar
+                // USB Regulator in BYPASS mode
+                #[cfg(feature = "h7")]
+                // pwr.cr3.modify(|_, w| w.usbregen().set_bit()); // todo ?
+                pwr.cr3.modify(|_, w| w.usb33den().set_bit());
+                #[cfg(feature = "l4x6")] // this was present in the usb module
+                pwr.cr2.modify(|_, w| w.usv().set_bit());
+                // The f4 doesn't seem to have anything similar
 
-                    // Enable USB peripheral
-                    rcc.$clock_enable_reg.modify(|_, w| w.$en().set_bit());
+                // Enable USB peripheral
+                rcc.$clock_enable_reg.modify(|_, w| w.$en().set_bit());
 
-                    // Reset USB peripheral
-                    rcc.$reset_reg.modify(|_, w| w.$rst().set_bit());
-                    rcc.$reset_reg.modify(|_, w| w.$rst().clear_bit());
-                });
+                // Reset USB peripheral
+                rcc.$reset_reg.modify(|_, w| w.$rst().set_bit());
+                rcc.$reset_reg.modify(|_, w| w.$rst().clear_bit());
             }
 
             fn ahb_frequency_hz(&self) -> u32 {

@@ -694,7 +694,6 @@ where
         buf: &mut [u8],
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
-        // dma: &mut Dma<D>,
         dma_periph: dma::DmaPeriph,
     ) {
         // todo: Accept u16 words too.

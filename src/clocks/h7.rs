@@ -46,7 +46,7 @@ pub enum StopWuck {
 
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
-/// Selects USB clock source. Sets R2CCIPR2R reg, USBSEL field.
+/// Selects USB clock source. Sets D2CCIP2R reg, USBSEL field.
 pub enum UsbSrc {
     Disabled = 0b00,
     Pll1Q = 0b01,
@@ -1015,6 +1015,8 @@ impl Default for Clocks {
             hsi48_on: false,
             /// Select the input source to use after waking up from `stop` mode. Eg HSI or MSI.
             stop_wuck: StopWuck::Hsi,
+            /// Note that to get full speed, we need to use VOS0. These are configured
+            /// in the `full_speed` method.
             vos_range: VosRange::VOS1,
             sai1_src: SaiSrc::Pll1Q,
             #[cfg(not(feature = "h735"))]
@@ -1032,6 +1034,8 @@ impl Clocks {
     /// (520Mhz core speed on H723-35) Note that special consideration needs to be taken
     /// when using low power modes (ie anything with wfe or wfi) in this mode; may need to manually
     /// disable and re-enable it.
+    ///
+    /// Note that this overwrites some fields of the pll1 config.
     pub fn full_speed() -> Self {
         // todo: 550Mhz on on H723 etc instead of 520Mhz. Need to set CPU_FREQ_BOOST as well for that.
         // todo: "The CPU frequency boost can be enabled through the CPUFREQ_BOOST option byte in

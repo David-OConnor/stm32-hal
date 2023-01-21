@@ -1912,7 +1912,7 @@ macro_rules! make_chan_struct {
 
                 #[cfg(any(feature = "f3", feature = "g0"))]
                 // fn ccr(&self) -> &[<dma $periph>]::ch::cr {
-                 fn ccr(&self) ->i8 {
+                 fn ccr(&self) -> i8 {
                     &self.regs().[<ch $ch>].cr
                 }
 
