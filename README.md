@@ -91,9 +91,9 @@ When specifying this crate as a dependency in `Cargo.toml`, you need to specify 
 representing your MCU. If this is for code that runs on an MCU directly (ie not a library), also
 include a run-time feature, following the template `l4rt`. For example:
 ```toml
-cortex-m = "0.7.3"
-cortex-m-rt = "0.6.13"
-stm32-hal2 = { version = "^1.4.5", features = ["l4x3", "l4rt"]}
+cortex-m = { version = "^0.7.7", features = ["critical-section-single-core"] }
+cortex-m-rt = "0.7.2"
+stm32-hal2 = { version = "^1.5.5", features = ["l4x3", "l4rt"]}
 ```
 
 If you need `embedded-hal` traits, include the `embedded_hal` feature.

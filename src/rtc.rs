@@ -803,7 +803,8 @@ impl Rtc {
             self.get_hours().into(),
             self.get_minutes().into(),
             self.get_seconds().into(),
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     /// Get the weekday component of the current date.
@@ -837,7 +838,8 @@ impl Rtc {
             self.get_year().into(),
             self.get_month().into(),
             self.get_day().into(),
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     /// Get the current datetime.
@@ -846,12 +848,14 @@ impl Rtc {
             self.get_year().into(),
             self.get_month().into(),
             self.get_day().into(),
-        ).unwrap()
+        )
+        .unwrap()
         .and_hms_opt(
             self.get_hours().into(),
             self.get_minutes().into(),
             self.get_seconds().into(),
-        ).unwrap()
+        )
+        .unwrap()
     }
 }
 
