@@ -30,10 +30,8 @@ use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
 
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
-        use crate::pac::dma as dma_p;
         use crate::pac::DMA as DMA1;
     } else if #[cfg(feature = "f4")] {} else {
-        use crate::pac::dma1 as dma_p;
         use crate::pac::DMA1;
     }
 }

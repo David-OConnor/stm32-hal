@@ -40,6 +40,7 @@ use cfg_if::cfg_if;
 
 // todo: Prescaler (USART_PRESC) register on v3 (L5, G, H etc)
 
+
 #[derive(Clone, Copy)]
 #[repr(u8)]
 /// The number of stop bits. (USART_CR2, STOP)
@@ -69,7 +70,7 @@ pub enum WordLen {
 impl WordLen {
     /// We use this function due to the M field being split into 2 separate bits.
     /// Returns M1 val, M0 val
-    fn bits(&self) -> (u8, u8) {
+    pub fn bits(&self) -> (u8, u8) {
         match self {
             Self::W8 => (0, 0),
             Self::W9 => (0, 1),

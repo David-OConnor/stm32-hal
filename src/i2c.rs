@@ -16,8 +16,6 @@ use crate::{
     util::RccPeriph,
 };
 
-use cfg_if::cfg_if;
-
 #[cfg(not(feature = "l552"))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
 

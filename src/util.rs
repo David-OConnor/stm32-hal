@@ -753,7 +753,7 @@ impl RccPeriph for pac::USART3 {
 }
 
 cfg_if! {
-    if #[cfg(any(feature = "l4x6", feature = "h7"))] {
+    if #[cfg(any(feature = "l4x6", feature = "g4", feature = "h7"))] {
         impl RccPeriph for pac::UART4 {
             fn en_reset(rcc: &RegisterBlock) {
                 rcc_en_reset!(apb1, uart4, rcc);
