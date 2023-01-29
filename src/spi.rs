@@ -86,6 +86,7 @@ pub enum SpiInterrupt {
 }
 
 /// Set the factor to divide the APB clock by to set baud rate. Sets `SPI_CR1` register, `BR` field.
+/// On H7, sets CFG1 register, `MBR` field.
 #[derive(Copy, Clone)]
 #[repr(u8)]
 pub enum BaudRate {
@@ -179,6 +180,7 @@ pub enum SpiCommMode {
 
 #[derive(Clone, Copy, PartialEq)]
 /// Used for managing NSS / CS pin. Sets CR1 register, SSM field.
+/// On H7, sets CFG2 register, `SSOE` field.
 pub enum SlaveSelect {
     ///  In this configuration, slave select information
     /// is driven internally by the SSI bit value in register SPIx_CR1. The external NSS pin is
@@ -324,73 +326,78 @@ where
     /// Initialize an SPI peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock.
     pub fn new(regs: R, cfg: SpiConfig, baud_rate: BaudRate) -> Self {
-        free(|_| {
-            let rcc = unsafe { &(*RCC::ptr()) };
-            R::en_reset(rcc);
-        });
+        let rcc = unsafe { &(*RCC::ptr()) };
+        R::en_reset(rcc);
 
         cfg_if! {
             if #[cfg(feature = "h7")] {
-                  // Disable SS output
-                regs.cfg2.write(|w| w.ssoe().disabled());
+                // H743 RM, section 50.4.8: Configuration of SPI.
+                // 1. Write the proper GPIO registers: Configure GPIO for MOSI, MISO and SCK pins.
+                // ( Handled in application code)
+
+                // 2. Write to the SPI_CFG1 and SPI_CFG2 registers to set up proper values of all not
+                // reserved bits and bit fields included there with next exceptions:
+                // a) SSOM, SSOE, MBR[2:0], MIDI[3:0] and MSSI[3:0] are required at master mode
+                // only, the MSSI bits take effect when SSOE is set, MBR setting is required for slave
+                // at TI mode, too
+                // b) UDRDET[1:0] and UDRCFG[1:0] are required at slave mode only,
+                // c) CRCSIZE[4:0] is required if CRCEN is set,
+                // d) CPOL, CPHA, LSBFRST, SSOM, SSOE, SSIOP and SSM are not required at TI
+                // mode.
+                // e) Once the AFCNTR bit is set at SPI_CFG2 register, all the SPI outputs start to be
+                // propagated onto the associated GPIO pins regardless the peripheral enable so
+                // any later configurations changes of the SPI_CFG1 and SPI_CFG2 registers can
+                // affect level of signals at these pins.
+                // f) The I2SMOD bit at SPI_I2SCFGR register has to be kept cleared to prevent any
+                // unexpected influence of occasional I2S configuration.
+
+                // [St forum thread on how to set up SPI in master mode avoiding mode faults:
+                // https://community.st.com/s/question/0D50X0000AFrHS6SQN/stm32h7-what-is-the-proper-
+                // way-to-make-spi-work-in-master-mode
+                regs.cr1.modify(|_, w| {
+                    w.ssi().bit(cfg.slave_select == SlaveSelect::Software)
+                });
 
                 regs.cfg1.modify(|_, w| {
                     w.mbr().bits(baud_rate as u8);
-                    w.dsize().bits(cfg.data_size as u8)
-
+                    w.dsize().bits(cfg.data_size as u8);
+                    w.crcen().clear_bit()
                 });
 
-                // ssi: select slave = master mode
-                regs.cr1.write(|w| w.ssi().slave_not_selected());
-
-                // todo: Data size on H7.
-
-                // todo: Come back to this.
-                // Calculate the CS->transaction cycle delay bits.
-                // let (start_cycle_delay, interdata_cycle_delay) = {
-                //     let mut delay: u32 = (config.cs_delay * spi_freq as f32) as u32;
-                //
-                //     // If the cs-delay is specified as non-zero, add 1 to the delay cycles
-                //     // before truncation to an integer to ensure that we have at least as
-                //     // many cycles as required.
-                //     if config.cs_delay > 0.0_f32 {
-                //         delay += 1;
-                //     }
-                //
-                //     if delay > 0xF {
-                //         delay = 0xF;
-                //     }
-                //
-                //     // If CS suspends while data is inactive, we also require an
-                //     // "inter-data" delay.
-                //     if cfg.suspend_when_inactive {
-                //         (delay as u8, delay as u8)
-                //     } else {
-                //         (delay as u8, 0_u8)
-                //     }
-                // };
-
-
-                // mstr: master configuration
-                // lsbfrst: MSB first
-                // comm: full-duplex
-                // todo: Flesh this out.
-                regs.cfg2.write(|w| {
+                regs.cfg2.modify(|_, w| {
                     w.cpha().bit(cfg.mode.phase as u8 != 0);
-                        w.cpol().bit(cfg.mode.polarity as u8 != 0);
-                        w.master().master();
-                        w.lsbfrst().msbfirst()
-                        // w.ssom().bit(config.suspend_when_inactive);
-                        // w.ssm().bit(config.managed_cs == false);
-                        // w.ssoe().bit(config.managed_cs == true);
-                        // w.mssi().bits(start_cycle_delay);
-                        // w.midi().bits(interdata_cycle_delay);
-                        // w.ioswp().bit(config.swap_miso_mosi == true)
-                        // w.comm().variant(communication_mode);
+                    w.cpol().bit(cfg.mode.polarity as u8 != 0);
+                    w.master().set_bit();
+                    w.ssm().bit(cfg.slave_select == SlaveSelect::Software);
+                    w.ssoe().clear_bit()
+                    // w.ssoe().bit(cfg.slave_select != SlaveSelect::Software)
+                    // w.ssi().clear_bit()
                 });
 
-                // spe: enable the SPI bus
-                regs.cr1.write(|w| w.ssi().slave_not_selected().spe().enabled());
+                // todo: You may not need this master line separate. TSing SS config issues.
+                // regs.cfg2.modify(|_, w| w.master().set_bit());
+
+                // todo: CR2.tsize should be > 0.
+
+
+                // 3. Write to the SPI_CR2 register to select length of the transfer, if it is not known TSIZE
+                // has to be programmed to zero.
+                regs.cr2.modify(|_, w| {
+                    w.tsize().bits(1) // todo
+                });
+
+                // 4. Write to SPI_CRCPOLY and into TCRCINI, RCRCINI and CRC33_17 bits at
+                // SPI2S_CR1 register to configure the CRC polynomial and CRC calculation if needed.
+
+                // 5. Configure DMA streams dedicated for the SPI Tx and Rx in DMA registers if the DMA
+                // streams are used (see chapter Communication using DMA).
+
+                // 6. Program the IOLOCK bit in the SPI_CFG1 register if the configuration protection is
+                // required (for safety).
+
+                regs.cr1.modify(|_, w| {
+                    w.spe().set_bit()
+                });
             } else {
                 // L44 RM, section 40.4.7: Configuration of SPI
                 // The configuration procedure is almost the same for master and slave. For specific mode
@@ -421,7 +428,7 @@ where
                     w.crcen().clear_bit();
                     // f) Configure SSM and SSI (Notes: 2 & 3).
                     w.ssm().bit(cfg.slave_select == SlaveSelect::Software);
-                    w.ssi().set_bit(); // todo?
+                    w.ssi().clear_bit(); // todo: Some back to this if IMU stops working on G4 etc.. Modified 28 Jan 2023
                     // g) Configure the MSTR bit (in multimaster NSS configuration, avoid conflict state on
                     // NSS if master is configured to prevent MODF error).
                     w.mstr().set_bit();
@@ -580,7 +587,7 @@ where
                 // todo: note: H7 can support words beyond u8. (Can others too?)
                 unsafe { ptr::write_volatile(&self.regs.txdr as *const _ as *mut u8, byte) };
                 // write CSTART to start a transaction in master mode
-                self.regs.cr1.modify(|_, w| w.cstart().started());
+                self.regs.cr1.modify(|_, w| w.cstart().set_bit());
             }
              else {
                 while !self.regs.sr.read().txe().bit_is_set() {}

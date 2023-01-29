@@ -40,7 +40,6 @@ use cfg_if::cfg_if;
 
 // todo: Prescaler (USART_PRESC) register on v3 (L5, G, H etc)
 
-
 #[derive(Clone, Copy)]
 #[repr(u8)]
 /// The number of stop bits. (USART_CR2, STOP)
