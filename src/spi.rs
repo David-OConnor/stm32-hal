@@ -744,7 +744,7 @@ where
     }
 
     #[cfg(feature = "h7")]
-    pub fn write<'w>(&mut self, write_words: &'w mut [u8]) -> Result<(), SpiError> {
+    pub fn write<'w>(&mut self, write_words: &'w [u8]) -> Result<(), SpiError> {
         // Depth of FIFO to use. All current SPI implementations
         // have a FIFO depth of at least 8 (see RM0433 Rev 7
         // Table 409.) but pick 4 as a conservative value.

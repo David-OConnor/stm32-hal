@@ -1993,35 +1993,39 @@ macro_rules! make_chan_struct {
 
 // todo: As above, you may need more feature-gating, esp on
 // todo DMA2.
-#[cfg(feature = "h7")]
-make_chan_struct!(1, 0);
-make_chan_struct!(1, 1);
-make_chan_struct!(1, 2);
-make_chan_struct!(1, 3);
-make_chan_struct!(1, 4);
-make_chan_struct!(1, 5);
-#[cfg(not(feature = "g0"))]
-make_chan_struct!(1, 6);
-#[cfg(not(feature = "g0"))]
-make_chan_struct!(1, 7);
-#[cfg(any(feature = "l5", feature = "g4"))]
-make_chan_struct!(1, 8);
+cfg_if! {
+    if #[cfg(not(any(feature = "f3", feature = "g0")))] {
+        #[cfg(feature = "h7")]
+        make_chan_struct!(1, 0);
+        make_chan_struct!(1, 1);
+        make_chan_struct!(1, 2);
+        make_chan_struct!(1, 3);
+        make_chan_struct!(1, 4);
+        make_chan_struct!(1, 5);
+        #[cfg(not(feature = "g0"))]
+        make_chan_struct!(1, 6);
+        #[cfg(not(feature = "g0"))]
+        make_chan_struct!(1, 7);
+        #[cfg(any(feature = "l5", feature = "g4"))]
+        make_chan_struct!(1, 8);
 
-#[cfg(feature = "h7")]
-make_chan_struct!(2, 0);
-#[cfg(not(feature = "g0"))]
-make_chan_struct!(2, 1);
-#[cfg(not(feature = "g0"))]
-make_chan_struct!(2, 2);
-#[cfg(not(feature = "g0"))]
-make_chan_struct!(2, 3);
-#[cfg(not(feature = "g0"))]
-make_chan_struct!(2, 4);
-#[cfg(not(feature = "g0"))]
-make_chan_struct!(2, 5);
-#[cfg(not(feature = "g0"))]
-make_chan_struct!(2, 6);
-#[cfg(not(feature = "g0"))]
-make_chan_struct!(2, 7);
-#[cfg(any(feature = "l5", feature = "g4"))]
-make_chan_struct!(2, 8);
+        #[cfg(feature = "h7")]
+        make_chan_struct!(2, 0);
+        #[cfg(not(feature = "g0"))]
+        make_chan_struct!(2, 1);
+        #[cfg(not(feature = "g0"))]
+        make_chan_struct!(2, 2);
+        #[cfg(not(feature = "g0"))]
+        make_chan_struct!(2, 3);
+        #[cfg(not(feature = "g0"))]
+        make_chan_struct!(2, 4);
+        #[cfg(not(feature = "g0"))]
+        make_chan_struct!(2, 5);
+        #[cfg(not(feature = "g0"))]
+        make_chan_struct!(2, 6);
+        #[cfg(not(feature = "g0"))]
+        make_chan_struct!(2, 7);
+        #[cfg(any(feature = "l5", feature = "g4"))]
+        make_chan_struct!(2, 8);
+    }
+}
