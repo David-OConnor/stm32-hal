@@ -123,9 +123,11 @@ impl Default for PllCfg {
             divn: 280,
             #[cfg(not(feature = "h7b3"))]
             divn: 400,
+            // We override DIVP1 to be 1, and lower DIVN1 to achieve full speed on H723 etc
+            // variants.
             divp: 2,
-            // DivQ = 2 Allows <150Mhz SAI clock, if it's configured for PLL1Q (which is its default).
-            // DivQ = Allows <200Mhz SPI1 clock, if it's configured for PLL1Q (which is its default).
+            // Div1Q = 2 Allows <150Mhz SAI clock, if it's configured for PLL1Q (which is its default).
+            // Div1Q = 8 Allows <200Mhz SPI1 clock, if it's configured for PLL1Q (which is its default).
             // At 400Mhz, Sets SAI clock to 100Mhz. At 480Mhz, sets it to 120Mhz.
             divq: 8,
             divr: 2,
@@ -212,15 +214,26 @@ pub enum SaiSrc {
 
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
-/// SPI clock input source. Sets RCC_D2CCIP1R register, SPI123SEL and SPI45SEL fields.
-pub enum SpiSrc {
+/// SPI clock input source. Sets RCC_D2CCIP1R register, SPI123SEL field..
+pub enum Spi123Src {
     //note: This is the same as SaiSrc.
-    Pll1Q = 0b000,
+    Pll1Q = 0b000, // This is PLL2
     Pll2P = 0b001,
     Pll3P = 0b010,
     I2sCkin = 0b011,
-    PerClk = 0100, // This is CSI on SPI4 and 5, PER on SPI123.
-    HseCk = 0b101, // Only for SPI4 and 5.
+    PerClk = 0100,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// SPI clock input source. Sets RCC_D2CCIP1R register, SPI45SEL field.
+pub enum Spi45Src {
+    Apb = 0b000,
+    Pll2Q = 0b001,
+    Pll3Q = 0b010,
+    Hsi = 0b011,
+    Csi = 0100,
+    HseCk = 0b101,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -390,8 +403,8 @@ pub struct Clocks {
     pub sai23_src: SaiSrc,
     pub sai4a_src: SaiSrc,
     pub sai4b_src: SaiSrc,
-    pub spi123_src: SpiSrc,
-    pub spi45_src: SpiSrc,
+    pub spi123_src: Spi123Src,
+    pub spi45_src: Spi45Src,
     /// DFSDM1 kernel clock source selection
     pub dfsdm1_src: DfsdmSrc,
 }
@@ -1043,8 +1056,8 @@ impl Default for Clocks {
             sai23_src: SaiSrc::Pll1Q,
             sai4a_src: SaiSrc::Pll1Q,
             sai4b_src: SaiSrc::Pll1Q,
-            spi123_src: SpiSrc::Pll1Q,
-            spi45_src: SpiSrc::Pll1Q,
+            spi123_src: Spi123Src::Pll1Q,
+            spi45_src: Spi45Src::Apb,
             dfsdm1_src: DfsdmSrc::Pclk2,
         }
     }

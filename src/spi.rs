@@ -365,13 +365,14 @@ where
                 });
 
                 regs.cfg2.modify(|_, w| {
-                    w.cpha().bit(cfg.mode.phase as u8 != 0);
                     w.cpol().bit(cfg.mode.polarity as u8 != 0);
+                    w.cpha().bit(cfg.mode.phase as u8 != 0);
                     w.master().set_bit();
                     w.ssm().bit(cfg.slave_select == SlaveSelect::Software);
-                    w.ssoe().clear_bit()
+                    w.ssoe().bit(cfg.slave_select != SlaveSelect::Software);
+                    w.comm().bits(0b00) // Full-duplex mode
+                    // w.comm().lsbfrst().clear_bit() // MSB first
                     // w.ssoe().bit(cfg.slave_select != SlaveSelect::Software)
-                    // w.ssi().clear_bit()
                 });
 
                 // todo: You may not need this master line separate. TSing SS config issues.
@@ -383,7 +384,7 @@ where
                 // 3. Write to the SPI_CR2 register to select length of the transfer, if it is not known TSIZE
                 // has to be programmed to zero.
                 regs.cr2.modify(|_, w| {
-                    w.tsize().bits(0) // todo
+                    w.tsize().bits(0) // todo?
                 });
 
                 // 4. Write to SPI_CRCPOLY and into TCRCINI, RCRCINI and CRC33_17 bits at
@@ -529,6 +530,7 @@ where
 
     /// Read a single byte if available, or block until it's available.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
+    #[cfg(not(feature = "h7"))]
     pub fn read(&mut self) -> Result<u8, SpiError> {
         let sr = self.regs.sr.read();
 
@@ -562,6 +564,7 @@ where
 
     /// Write a single byte if available, or block until it's available.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
+    #[cfg(not(feature = "h7"))]
     pub fn write_one(&mut self, byte: u8) -> Result<(), SpiError> {
         let sr = self.regs.sr.read();
 
@@ -600,6 +603,7 @@ where
 
     /// Write multiple bytes on the SPI line, blocking until complete.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
+    #[cfg(not(feature = "h7"))]
     pub fn write(&mut self, words: &[u8]) -> Result<(), SpiError> {
         for word in words {
             self.write_one(*word)?;
@@ -611,6 +615,7 @@ where
 
     /// Read multiple bytes to a buffer, blocking until complete.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
+    #[cfg(not(feature = "h7"))]
     pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<(), SpiError> {
         for word in words.iter_mut() {
             self.write_one(*word)?;
@@ -619,6 +624,181 @@ where
 
         Ok(())
     }
+
+    // todo: Temp C+Ps from H7xx hal for H7. Modify as required for citations, code style etc.
+    //
+    // #[cfg(feature = "h7")]
+    // fn setup_transaction(&mut self, words: core::num::NonZeroU16) -> Result<(), SpiError> {
+    //     if !matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
+    //         return Err(SpiError::InvalidCall);
+    //     }
+    //
+    //     if self.regs.cr1.read().cstart().is_started() {
+    //         return Err(SpiError::TransactionAlreadyStarted);
+    //     }
+    //
+    //     // We can only set tsize when spi is disabled
+    //     self.regs.cr1.modify(|_, w| w.csusp().requested());
+    //     while self.regs.sr.read().eot().is_completed() {}
+    //     self.regs
+    //         .cr1
+    //         .write(|w| w.ssi().slave_not_selected().spe().disabled());
+    //
+    //     // Set the frame size
+    //     self.regs.cr2.write(|w| w.tsize().bits(words.get()));
+    //
+    //     // Re-enable
+    //     self.clear_modf(); // SPE cannot be set when MODF is set
+    //     self.regs
+    //         .cr1
+    //         .write(|w| w.ssi().slave_not_selected().spe().enabled());
+    //
+    //     Ok(())
+    // }
+    //
+    // #[cfg(feature = "h7")]
+    // fn end_transaction(&mut self) -> Result<(), SpiError> {
+    //     if !matches!(
+    //         self.hardware_cs_mode,
+    //         HardwareCSMode::FrameTransaction | HardwareCSMode::EndlessTransaction
+    //     ) {
+    //         return Err(SpiError::InvalidCall);
+    //     }
+    //
+    //     self.regs.cr1.modify(|_, w| w.csusp().requested());
+    //     while (self.regs.cr1.read().cstart().is_started()) {}
+    //
+    //     self.regs.ifcr.write(|w| w.txtfc().clear().eotc().clear());
+    //
+    //     Ok(())
+    // }
+
+    #[cfg(feature = "h7")]
+    fn read(&mut self) -> Result<u8, SpiError> {
+        // NOTE(read_volatile) read only 1 word
+        unsafe {
+            Ok(ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8))
+        }
+    }
+
+    #[cfg(feature = "h7")]
+    fn send(&mut self, word: u8) -> Result<(), SpiError> {
+        // NOTE(write_volatile) see note above
+        unsafe {
+            ptr::write_volatile(&self.regs.txdr as *const _ as *mut u8, word);
+        }
+        // write CSTART to start a transaction in
+        // master mode
+        self.regs.cr1.modify(|_, w| w.cstart().started());
+
+        Ok(())
+    }
+
+    #[cfg(feature = "h7")]
+    fn exchange_duplex_internal(&mut self, word: u8) -> Result<u8, SpiError> {
+        // NOTE(write_volatile/read_volatile) write/read only 1 word
+        unsafe {
+            ptr::write_volatile(&self.regs.txdr as *const _ as *mut _, word);
+            Ok(ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8))
+        }
+        //
+        // { // else if sr.txc().is_completed() {
+        //     txc, is_completed,
+        //     {
+        //         let sr = self.regs.sr.read(); // Read SR again on a subsequent PCLK cycle
+        //
+        //         if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
+        //             // The Tx FIFO completed, but no words were
+        //             // available in the Rx FIFO. This is a duplex failure
+        //             nb::Error::Other(Error::DuplexFailed)
+        //         } else {
+        //             nb::Error::WouldBlock
+        //         }
+        //     }
+        // }
+
+        // Ok(())
+    }
+
+    /// Internal implementation for reading a word
+    ///
+    /// * Assumes the transaction has started (CSTART handled externally)
+    /// * Assumes at least one word has already been written to the Tx FIFO
+    #[cfg(feature = "h7")]
+    fn read_duplex_internal(&mut self) -> Result<u8, SpiError> {
+        // NOTE(read_volatile) read only 1 word
+        unsafe { Ok(ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8)) }
+        // , { // else if sr.txc().is_completed()
+        //         txc, is_completed,
+        //         {
+        //             let sr = self.regs.sr.read(); // Read SR again on a subsequent PCLK cycle
+        //
+        //             if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
+        //                 // The Tx FIFO completed, but no words were
+        //                 // available in the Rx FIFO. This is a duplex failure
+        //                 nb::Error::Other(Error::DuplexFailed)
+        //             } else {
+        //                 nb::Error::WouldBlock
+        //             }
+        //         }
+    }
+
+    #[cfg(feature = "h7")]
+    pub fn write<'w>(&mut self, write_words: &'w mut [u8]) -> Result<(), SpiError> {
+        // Depth of FIFO to use. All current SPI implementations
+        // have a FIFO depth of at least 8 (see RM0433 Rev 7
+        // Table 409.) but pick 4 as a conservative value.
+        const FIFO_WORDS: usize = 4;
+
+        // Fill the first half of the write FIFO
+        let len = write_words.len();
+        let mut write = write_words.iter();
+        for _ in 0..core::cmp::min(FIFO_WORDS, len) {
+            self.send(*write.next().unwrap())?;
+        }
+
+        // Continue filling write FIFO and emptying read FIFO
+        for word in write {
+            let _ = self.exchange_duplex_internal(*word)?;
+        }
+
+        // Dummy read from the read FIFO
+        for _ in 0..core::cmp::min(FIFO_WORDS, len) {
+            let _ = self.read_duplex_internal()?;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "h7")]
+    pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<(), SpiError> {
+        // Depth of FIFO to use. All current SPI implementations
+        // have a FIFO depth of at least 8 (see RM0433 Rev 7
+        // Table 409.) but pick 4 as a conservative value.
+        const FIFO_WORDS: usize = 4;
+
+        // Fill the first half of the write FIFO
+        let len = words.len();
+        for i in 0..core::cmp::min(FIFO_WORDS, len) {
+            self.send(words[i])?;
+        }
+
+        for i in FIFO_WORDS..len + FIFO_WORDS {
+            if i < len {
+                // Continue filling write FIFO and emptying read FIFO
+                let read_value = self.exchange_duplex_internal(words[i])?;
+
+                words[i - FIFO_WORDS] = read_value;
+            } else {
+                // Finish emptying the read FIFO
+                words[i - FIFO_WORDS] = self.read_duplex_internal()?;
+            }
+        }
+
+        Ok(())
+    }
+
+    // todo: End H7xx HAL C+Ps
 
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
