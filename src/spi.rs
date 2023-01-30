@@ -676,9 +676,7 @@ where
     #[cfg(feature = "h7")]
     fn read(&mut self) -> Result<u8, SpiError> {
         // NOTE(read_volatile) read only 1 word
-        unsafe {
-            Ok(ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8))
-        }
+        unsafe { Ok(ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8)) }
     }
 
     #[cfg(feature = "h7")]

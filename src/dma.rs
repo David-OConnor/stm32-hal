@@ -19,7 +19,10 @@ use crate::{
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
         use crate::pac::{dma as dma1, DMA as DMA1};
-    } else {
+    } else if #[cfg(feature = "f3x4")] {
+        use crate::pac::{dma1, DMA1};
+    }
+    else {
         use crate::pac::{dma1, dma2, DMA1, DMA2};
     }
 }
@@ -1993,6 +1996,7 @@ macro_rules! make_chan_struct {
 
 // todo: As above, you may need more feature-gating, esp on
 // todo DMA2.
+// Note: G0 is limited, eg for some variants only up to DMA1, ch5.
 cfg_if! {
     if #[cfg(not(any(feature = "f3", feature = "g0")))] {
         #[cfg(feature = "h7")]
