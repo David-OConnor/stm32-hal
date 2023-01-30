@@ -35,7 +35,7 @@ use crate::dma::DmaInput;
 /// SPI error
 #[non_exhaustive]
 #[derive(Copy, Clone, Debug)]
-pub enum Error {
+pub enum SpiError {
     /// Overrun occurred
     Overrun,
     /// Mode fault occurred
@@ -383,7 +383,7 @@ where
                 // 3. Write to the SPI_CR2 register to select length of the transfer, if it is not known TSIZE
                 // has to be programmed to zero.
                 regs.cr2.modify(|_, w| {
-                    w.tsize().bits(1) // todo
+                    w.tsize().bits(0) // todo
                 });
 
                 // 4. Write to SPI_CRCPOLY and into TCRCINI, RCRCINI and CRC33_17 bits at
@@ -529,7 +529,7 @@ where
 
     /// Read a single byte if available, or block until it's available.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
-    pub fn read(&mut self) -> Result<u8, Error> {
+    pub fn read(&mut self) -> Result<u8, SpiError> {
         let sr = self.regs.sr.read();
 
         cfg_if! {
@@ -541,11 +541,11 @@ where
         }
 
         if sr.ovr().bit_is_set() {
-            return Err(Error::Overrun);
+            return Err(SpiError::Overrun);
         } else if sr.modf().bit_is_set() {
-            return Err(Error::ModeFault);
+            return Err(SpiError::ModeFault);
         } else if crce {
-            return Err(Error::Crc);
+            return Err(SpiError::Crc);
         }
 
         cfg_if! {
@@ -562,7 +562,7 @@ where
 
     /// Write a single byte if available, or block until it's available.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
-    pub fn write_one(&mut self, byte: u8) -> Result<(), Error> {
+    pub fn write_one(&mut self, byte: u8) -> Result<(), SpiError> {
         let sr = self.regs.sr.read();
 
         cfg_if! {
@@ -574,11 +574,11 @@ where
         }
 
         if sr.ovr().bit_is_set() {
-            return Err(Error::Overrun);
+            return Err(SpiError::Overrun);
         } else if sr.modf().bit_is_set() {
-            return Err(Error::ModeFault);
+            return Err(SpiError::ModeFault);
         } else if crce {
-            return Err(Error::Crc);
+            return Err(SpiError::Crc);
         }
 
         cfg_if! {
@@ -600,7 +600,7 @@ where
 
     /// Write multiple bytes on the SPI line, blocking until complete.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
-    pub fn write(&mut self, words: &[u8]) -> Result<(), Error> {
+    pub fn write(&mut self, words: &[u8]) -> Result<(), SpiError> {
         for word in words {
             self.write_one(*word)?;
             self.read()?;
@@ -611,7 +611,7 @@ where
 
     /// Read multiple bytes to a buffer, blocking until complete.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
-    pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<(), Error> {
+    pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<(), SpiError> {
         for word in words.iter_mut() {
             self.write_one(*word)?;
             *word = self.read()?;
@@ -991,16 +991,16 @@ impl<R> FullDuplex<u8> for Spi<R>
 where
     R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
 {
-    type Error = Error;
+    type Error = SpiError;
 
-    fn read(&mut self) -> nb::Result<u8, Error> {
+    fn read(&mut self) -> nb::Result<u8, SpiError> {
         match Spi::read(self) {
             Ok(r) => Ok(r),
             Err(e) => Err(nb::Error::Other(e)),
         }
     }
 
-    fn send(&mut self, byte: u8) -> nb::Result<(), Error> {
+    fn send(&mut self, byte: u8) -> nb::Result<(), SpiError> {
         match Spi::write_one(self, byte) {
             Ok(r) => Ok(r),
             Err(e) => Err(nb::Error::Other(e)),

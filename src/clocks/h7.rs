@@ -124,7 +124,10 @@ impl Default for PllCfg {
             #[cfg(not(feature = "h7b3"))]
             divn: 400,
             divp: 2,
-            divq: 2, // Allows <150Mhz SAI clock, if it's configureud for PLL1Q.
+            // DivQ = 2 Allows <150Mhz SAI clock, if it's configured for PLL1Q (which is its default).
+            // DivQ = Allows <200Mhz SPI1 clock, if it's configured for PLL1Q (which is its default).
+            // At 400Mhz, Sets SAI clock to 100Mhz. At 480Mhz, sets it to 120Mhz.
+            divq: 8,
             divr: 2,
         }
     }
@@ -205,6 +208,19 @@ pub enum SaiSrc {
     Pll3P = 0b010,
     I2sCkin = 0b011,
     PerClk = 0100,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// SPI clock input source. Sets RCC_D2CCIP1R register, SPI123SEL and SPI45SEL fields.
+pub enum SpiSrc {
+    //note: This is the same as SaiSrc.
+    Pll1Q = 0b000,
+    Pll2P = 0b001,
+    Pll3P = 0b010,
+    I2sCkin = 0b011,
+    PerClk = 0100, // This is CSI on SPI4 and 5, PER on SPI123.
+    HseCk = 0b101, // Only for SPI4 and 5.
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -374,6 +390,8 @@ pub struct Clocks {
     pub sai23_src: SaiSrc,
     pub sai4a_src: SaiSrc,
     pub sai4b_src: SaiSrc,
+    pub spi123_src: SpiSrc,
+    pub spi45_src: SpiSrc,
     /// DFSDM1 kernel clock source selection
     pub dfsdm1_src: DfsdmSrc,
 }
@@ -527,6 +545,8 @@ impl Clocks {
             w.sai1sel().bits(self.sai1_src as u8);
             #[cfg(not(feature = "h735"))]
             w.sai23sel().bits(self.sai23_src as u8);
+            w.spi123sel().bits(self.spi123_src as u8);
+            w.spi45sel().bits(self.spi45_src as u8);
             w.dfsdm1sel().bit(self.dfsdm1_src as u8 != 0)
         });
 
@@ -1023,6 +1043,8 @@ impl Default for Clocks {
             sai23_src: SaiSrc::Pll1Q,
             sai4a_src: SaiSrc::Pll1Q,
             sai4b_src: SaiSrc::Pll1Q,
+            spi123_src: SpiSrc::Pll1Q,
+            spi45_src: SpiSrc::Pll1Q,
             dfsdm1_src: DfsdmSrc::Pclk2,
         }
     }
