@@ -517,12 +517,14 @@ cfg_if::cfg_if! {
     ))] {
         pub mod usb;
     } else if #[cfg(all(
-    // todo: I think only H7 has hs (high-speed), while F4 and L4 have FS only.
+        // H7 has HS (high-speed), while F4 and L4 have FS. The names get confusing, starting
+        // on ST's side.
         any(feature = "usbotg_fs", feature = "usbotg_hs"),
         any(feature = "f4", feature = "l4x6", feature = "h7"),
         not(feature = "f410")
     ))] {
-        pub mod usb_otg; // todo: A way to export it as `usb`?
+        pub mod usb_otg;
+        pub use usb_otg as usb;
     }
 }
 

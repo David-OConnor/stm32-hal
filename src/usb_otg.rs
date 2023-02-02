@@ -22,12 +22,16 @@ use synopsys_usb_otg::UsbPeripheral;
 
 cfg_if! {
     if #[cfg(feature = "usbotg_hs")] {
-
+        // On older H7s (H743 etc), OTG1 maps to pisn PB14 and PB15.
         type Usb1GlobalRegType = pac::OTG1_HS_GLOBAL;
         type Usb1DeviceRegType = pac::OTG1_HS_DEVICE;
         type Usb1PwrclkRegType = pac::OTG1_HS_PWRCLK;
 
         cfg_if!{
+        // Note that on STM32H743 and related MCUs, OTG2 is known as "USB-FS", which
+        // can be a bit confusing. This refers to the USB periphral on pins PA11 and PA12
+        // for those MCUs. On newer ones like H723, use OTG1, which in that case, still
+        // maps to PA11 and PA12.
             if #[cfg(not(any(feature = "h735", feature = "h7b3")))] {
                 type Usb2RegGlobalType = pac::OTG2_HS_GLOBAL;
                 type Usb2RegDeviceType = pac::OTG2_HS_DEVICE;
@@ -35,6 +39,7 @@ cfg_if! {
             }
         }
     } else if #[cfg(feature = "usbotg_fs")] {
+        // Eg F4 and L4x6.
         type Usb1GlobalRegType = pac::OTG_FS_GLOBAL;
         type Usb1DeviceRegType = pac::OTG_FS_DEVICE;
         type Usb1PwrclkRegType = pac::OTG_FS_PWRCLK;
@@ -102,6 +107,7 @@ macro_rules! usb_peripheral {
             const HIGH_SPEED: bool = false;
             #[cfg(feature = "usbotg_hs")]
             const HIGH_SPEED: bool = true;
+
             const FIFO_DEPTH_WORDS: usize = 1024; // <-- do something here maybe?
             const ENDPOINT_COUNT: usize = 9; // <--
 

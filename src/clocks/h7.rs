@@ -563,7 +563,7 @@ impl Clocks {
             w.dfsdm1sel().bit(self.dfsdm1_src as u8 != 0)
         });
 
-        // Set USART2 to HSI, and USB to HSI48. Temp hardcoded.
+        // Set USART2 to HSI; temp hardcoded.
         // todo: Add config enums for these, and add them as Clocks fields.
         #[cfg(not(feature = "h7b3"))]
         rcc.d2ccip2r.modify(|_, w| unsafe {
