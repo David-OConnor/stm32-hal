@@ -1792,7 +1792,10 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
                 #[cfg(feature = "h7")]
                 mux.ccr[channel as usize].modify(|_, w| w.dmareq_id().bits(input as u8));
             }
-            #[cfg(not(any(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))), feature = "wb")))]
+            #[cfg(not(any(
+                all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))),
+                feature = "wb"
+            )))]
             DmaPeriph::Dma2 => {
                 #[cfg(not(feature = "h7"))]
                 match channel {
