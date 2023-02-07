@@ -1309,7 +1309,7 @@ pub unsafe fn write_dma(
                 channel_cfg,
             );
         }
-        #[cfg(not(feature = "g0"))]
+        #[cfg(not(any(feature = "g0", feature = "wb")))]
         dma::DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             dma::cfg_channel(
@@ -1360,7 +1360,7 @@ pub unsafe fn read_dma(
                 channel_cfg,
             );
         }
-        #[cfg(not(feature = "g0"))]
+        #[cfg(not(any(feature = "g0", feature = "wb")))]
         dma::DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             dma::cfg_channel(
