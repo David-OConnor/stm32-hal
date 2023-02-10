@@ -429,7 +429,7 @@ where
                     w.crcen().clear_bit();
                     // f) Configure SSM and SSI (Notes: 2 & 3).
                     w.ssm().bit(cfg.slave_select == SlaveSelect::Software);
-                    w.ssi().clear_bit(); // todo: Some back to this if IMU stops working on G4 etc.. Modified 28 Jan 2023
+                    w.ssi().bit(cfg.slave_select == SlaveSelect::Software);
                     // g) Configure the MSTR bit (in multimaster NSS configuration, avoid conflict state on
                     // NSS if master is configured to prevent MODF error).
                     w.mstr().set_bit();
