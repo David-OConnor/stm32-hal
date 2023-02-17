@@ -10,7 +10,7 @@ defmt-rtt = "0.4.0"
 panic-probe = { version = "0.3.0", features = ["print-defmt"] }
 
 cortex-m = { version = "^0.7.7", features = ["critical-section-single-core"] }
-cortex-m-rt = "0.7.0"
+cortex-m-rt = "0.7.3"
 # When importing this HAL, make sure to include a feature describing your MCU `eg l4x3`,
 # and if this program is meant to be run and flashed directly (ie it's not a library),
 # the runtime feature for that

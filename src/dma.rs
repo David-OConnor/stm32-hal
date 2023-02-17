@@ -1976,7 +1976,7 @@ macro_rules! make_chan_struct {
                 }
 
                 /// Stop a DMA transfer, if in progress.
-                pub fn stop(&mut self, channel: DmaChannel) {
+                pub fn stop(&mut self) {
                     let ccr = self.ccr();
 
                     ccr.modify(|_, w| w.en().clear_bit());
@@ -1984,13 +1984,13 @@ macro_rules! make_chan_struct {
                 }
 
                 /// Enable a specific type of interrupt.
-                pub fn enable_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
-                    enable_interrupt_internal(&mut self.regs(), channel, interrupt);
+                pub fn enable_interrupt(&mut self, interrupt: DmaInterrupt) {
+                    enable_interrupt_internal(&mut self.regs(), DmaChannel::[<C $ch>], interrupt);
                 }
 
                 /// Clear an interrupt flag.
-                pub fn clear_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
-                    clear_interrupt_internal(&mut self.regs(), channel, interrupt);
+                pub fn clear_interrupt(&mut self, interrupt: DmaInterrupt) {
+                    clear_interrupt_internal(&mut self.regs(), DmaChannel::[<C $ch>], interrupt);
                 }
                 // todo: Other methods.
             }
