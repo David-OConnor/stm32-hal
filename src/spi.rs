@@ -4,8 +4,6 @@
 
 use core::{ops::Deref, ptr};
 
-use cortex_m::interrupt::free;
-
 #[cfg(feature = "embedded-hal")]
 use embedded_hal::spi::FullDuplex;
 
