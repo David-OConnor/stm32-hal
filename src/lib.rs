@@ -487,7 +487,7 @@ pub mod rtc;
     feature = "f3",
     feature = "f4",
     feature = "g0",
-    feature = "g4", // todo: G4 PAC issue re getting channel-specific reg blocks.
+    // feature = "g4", // todo: G4 PAC issue re getting channel-specific reg blocks.
     feature = "h7b3",
     feature = "wl"
 )))]

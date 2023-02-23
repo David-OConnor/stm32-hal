@@ -7,8 +7,12 @@ use cortex_m::interrupt::free;
 
 use crate::{clocks::Clocks, pac::RCC, util::RccPeriph};
 
-#[cfg(not(feature = "h7"))]
+#[cfg(not(any(feature = "g4", feature = "h7")))]
 use crate::pac::sai1 as sai;
+
+#[cfg(feature = "g4")]
+use crate::pac::sai;
+
 #[cfg(feature = "h7")]
 use crate::pac::sai4 as sai;
 
@@ -666,7 +670,7 @@ where
         // second SAI audio block through SYNCEN[1:0] bits.
 
         // We use config A's settings here, and ignore config B. These must be set with SAI disabled.
-        #[cfg(not(any(feature = "l4", feature = "wb")))]
+        #[cfg(not(any(feature = "l4", feature = "wb", feature = "g4")))]
         regs.gcr.modify(|_, w| unsafe {
             w.syncout().bits(config_a.sync_out as u8);
             w.syncin().bits(config_a.sync_in as u8)
