@@ -357,6 +357,26 @@ where
         }
     }
 
+    /// Write a single word, without waiting until ready for the next. Compared to the `write()` function, this
+    /// does not block.
+    pub fn write_one(&mut self, word: u8) {
+        cfg_if! {
+            if #[cfg(not(feature = "f4"))] {
+            // todo: how does this work with a 9 bit words? Presumably you'd need to make `data`
+            // todo take `&u16`.
+            // while self.regs.isr.read().txe().bit_is_clear() {}
+            self.regs
+                .tdr
+                .modify(|_, w| unsafe { w.tdr().bits(word as u16) });
+            } else {
+            // while self.regs.sr.read().txe().bit_is_clear() {}
+                self.regs
+                    .dr
+                    .modify(|_, w| unsafe { w.dr().bits(word as u16) });
+            }
+        }
+    }
+
     /// Receive data into a u8 buffer. See L44 RM, section 38.5.3: "Character reception procedure"
     pub fn read(&mut self, buf: &mut [u8]) {
         for i in 0..buf.len() {
@@ -387,8 +407,8 @@ where
         // reception of the next character to avoid an overrun error
     }
 
-    /// Read a single word, without confirming if it's ready. This is useful in async concepts,
-    /// when you know word is ready to be read.
+    /// Read a single word, without waiting  until ready for the next. Compared to the `read()` function, this
+    /// does not block.
     pub fn read_one(&mut self) -> u8 {
         cfg_if! {
             if #[cfg(not(feature = "f4"))] {
@@ -737,8 +757,7 @@ where
     }
     
     #[cfg(not(feature = "f4"))]
-    /// Checks if a given status flag is set. The optional argument reduces extra register reads
-    /// if checking multiple flags. Returns `true` if the status flag is set. Note that this preforms
+    /// Checks if a given status flag is set. Returns `true` if the status flag is set. Note that this preforms
     /// a read each time called. If checking multiple flags, this isn't optimal.
     pub fn check_status_flag(&mut self, flag: UsartInterrupt) -> bool {
         let status = self.regs.isr.read();
