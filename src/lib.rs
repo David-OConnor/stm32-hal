@@ -381,6 +381,9 @@ pub mod adc;
 ))]
 pub mod can;
 
+// #[cfg(any(feature = "g0", feature = "g4", feature = "h7"))]
+// pub mod fd_can;
+
 pub mod clocks;
 // todo: You could get CRC working on most of these with some effort.
 #[cfg(not(any(
@@ -435,6 +438,7 @@ pub mod gpio;
 
 #[cfg(feature = "wb")]
 pub mod hsem;
+
 
 #[cfg(not(feature = "f4"))]
 pub mod i2c;

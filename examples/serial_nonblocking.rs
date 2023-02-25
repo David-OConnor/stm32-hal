@@ -2,6 +2,9 @@
 //! data. We take advantage of global static Mutexes as buffers that can be accessed
 //! from interrupt concept to read and write data as it's ready, allowing the CPU to
 //! perform other tasks while waiting.
+//!
+//! Note: For many cases when reading or writing multiple words, DMA should be the
+//! first choice, to minimize CPU use.
 
 #![no_main]
 #![no_std]
@@ -16,6 +19,7 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     clocks::Clocks,
+    dma::{self, Dma, DmaPeriph, DmaChannel, DmaConfig},
     gpio::{Pin, PinMode, Port},
     low_power,
     pac::{self, interrupt},
@@ -29,6 +33,10 @@ const BUF_SIZE: usize = 10;
 static UART: Mutex<RefCell<Option<Usart<pac::USART1>>>> = Mutex::new(RefCell::new(None));
 static READ_BUF: Mutex<RefCell<[u8; BUF_SIZE]>> = Mutex::new(RefCell::new([0; BUF_SIZE]));
 static READ_I: Mutex<Cell<usize>> = Mutex::new(Cell::new(0));
+
+// If using DMA, we use a static buffer to avoid lifetime problems.
+static mut RX_BUF: [u8; BUF_SIZE] = [0; BUF_SIZE];
+const DMA_CH: DmaChannel = DmaChannel::C1;
 
 #[entry]
 fn main() -> ! {
@@ -65,6 +73,24 @@ fn main() -> ! {
         UART.borrow(cs).replace(Some(uart));
     });
 
+    // Alternative approach using DMA. Note that the specifics of how you implement this
+    // will depend on the format of data you are reading and writing. Specifically, pay
+    // attention to how you know when a message starts and ends, if not of a fixed size.
+    let mut dma = Dma::new(dp.DMA1);
+    // This DMA MUX step isn't required on F3, F4, and most L4 variants.
+    dma::mux(DmaPeriph::Dma1, DMA_CH, DmaInput::Usart1Tx);
+    dma.enable_interrupt(DMA_CH, DmaInterrupt::TransferComplete);
+
+    // Example of how to start a DMA transfer:
+    unsafe {
+        uart.read_dma(
+            &mut RX_BUF,
+            DMA_CH,
+            ChannelCfg::default(),
+            DmaPeriph::Dma1,
+        );
+    }
+
     loop {
         low_power::sleep_now();
     }
@@ -91,6 +117,30 @@ fn USART1() {
 
         buf[i_val] = uart.read_one();
         i.set(i_val + 1);
+    });
+}
+
+#[interrupt]
+///
+fn DMA1_CH1() {
+    free(|cs| {
+        let mut u = UART.borrow(cs).borrow_mut();
+        let uart = u.as_mut().unwrap();
+
+        // Clear the interrupt flag, to prevent this ISR from repeatedly firing
+        dma::clear_interrupt(DmaPeriph::Dma1, DmaChannel::C1, DmaInterrupt::TransferComplete);
+
+        // (Handle the data, which is now populated in `RX_BUF`.)
+
+        // Start a  new transfer, if appropriate for the protocol you're using.
+        unsafe {
+            uart.read_dma(
+                &mut RX_BUF,
+                DMA_CH,
+                ChannelCfg::default(),
+                DmaPeriph::Dma1,
+            );
+        }
     });
 }
 

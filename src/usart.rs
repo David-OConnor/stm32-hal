@@ -735,6 +735,33 @@ where
             UsartInterrupt::TransmitEmpty => self.regs.rqr.write(|w| w.txfrq().set_bit()),
         }
     }
+    
+    #[cfg(not(feature = "f4"))]
+    /// Checks if a given status flag is set. The optional argument reduces extra register reads
+    /// if checking multiple flags. Returns `true` if the status flag is set. Note that this preforms
+    /// a read each time called. If checking multiple flags, this isn't optimal.
+    pub fn check_status_flag(&mut self, flag: UsartInterrupt) -> bool {
+        let status = self.regs.isr.read();
+
+        match flag {
+            UsartInterrupt::CharDetect(_) => status.cmf().bit_is_set(),
+            UsartInterrupt::Cts => status.cts().bit_is_set(),
+            UsartInterrupt::EndOfBlock => status.eobf().bit_is_set(),
+            UsartInterrupt::Idle => status.idle().bit_is_set(),
+            UsartInterrupt::FramingError => status.fe().bit_is_set(),
+            UsartInterrupt::LineBreak => status.lbdf().bit_is_set(),
+            UsartInterrupt::Overrun => status.ore().bit_is_set(),
+            UsartInterrupt::ParityError => status.pe().bit_is_set(),
+            UsartInterrupt::ReadNotEmpty => false, // Not applicable.
+            UsartInterrupt::ReceiverTimeout => status.rtof().bit_is_set(),
+            #[cfg(not(any(feature = "f3", feature = "l4", feature = "h7")))]
+            UsartInterrupt::Tcbgt => status.tcbgt().bit_is_set(),
+            #[cfg(feature = "h7")]
+            UsartInterrupt::Tcbgt => status.tcbgtc().bit_is_set(),
+            UsartInterrupt::TransmissionComplete => status.tc().bit_is_set(),
+            UsartInterrupt::TransmitEmpty => false, // Not applicable.
+        }
+    }
 }
 
 /// Serial error
