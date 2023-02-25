@@ -381,8 +381,8 @@ pub mod adc;
 ))]
 pub mod can;
 
-// #[cfg(any(feature = "g0", feature = "g4", feature = "h7"))]
-// pub mod fd_can;
+#[cfg(any(feature = "g0", feature = "g4", feature = "h7"))]
+pub mod fd_can;
 
 pub mod clocks;
 // todo: You could get CRC working on most of these with some effort.

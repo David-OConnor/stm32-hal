@@ -645,6 +645,33 @@ impl RccPeriph for pac::SAI4 {
     }
 }
 
+#[cfg(any(feature = "g0", feature = "g4", feature = "h7"))]
+impl RccPeriph for pac::FDCAN {
+    fn en_reset(rcc: &RegisterBlock) {
+        rcc_en_reset!(apb1, fdcan, rcc);
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {
+        unimplemented!()
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {
+        unimplemented!()
+    }
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
+        unimplemented!()
+    }
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(_regs: &mut D) {
+        unimplemented!()
+    }
+}
+
 impl RccPeriph for pac::USART1 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb2, usart1, rcc);

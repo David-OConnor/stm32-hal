@@ -36,6 +36,7 @@ static READ_I: Mutex<Cell<usize>> = Mutex::new(Cell::new(0));
 
 // If using DMA, we use a static buffer to avoid lifetime problems.
 static mut RX_BUF: [u8; BUF_SIZE] = [0; BUF_SIZE];
+const DMA_PERIPH: DmaPeriph = DmaPeriph::Dma1;
 const DMA_CH: DmaChannel = DmaChannel::C1;
 
 #[entry]
@@ -78,7 +79,7 @@ fn main() -> ! {
     // attention to how you know when a message starts and ends, if not of a fixed size.
     let mut dma = Dma::new(dp.DMA1);
     // This DMA MUX step isn't required on F3, F4, and most L4 variants.
-    dma::mux(DmaPeriph::Dma1, DMA_CH, DmaInput::Usart1Tx);
+    dma::mux(DMA_PERIPH, DMA_CH, DmaInput::Usart1Tx);
     dma.enable_interrupt(DMA_CH, DmaInterrupt::TransferComplete);
 
     // Example of how to start a DMA transfer:
@@ -87,7 +88,7 @@ fn main() -> ! {
             &mut RX_BUF,
             DMA_CH,
             ChannelCfg::default(),
-            DmaPeriph::Dma1,
+            DMA_PERIPH,
         );
     }
 
@@ -121,16 +122,20 @@ fn USART1() {
 }
 
 #[interrupt]
-///
+/// The transfer complete interrupt for our alternative, DMA-based approach. Note that even when
+/// using DMA, you may want to use a UART interrupt to end the transfer.
 fn DMA1_CH1() {
     free(|cs| {
         let mut u = UART.borrow(cs).borrow_mut();
         let uart = u.as_mut().unwrap();
 
         // Clear the interrupt flag, to prevent this ISR from repeatedly firing
-        dma::clear_interrupt(DmaPeriph::Dma1, DmaChannel::C1, DmaInterrupt::TransferComplete);
+        dma::clear_interrupt(DMA_PERIPH, DMA_CH, DmaInterrupt::TransferComplete);
 
         // (Handle the data, which is now populated in `RX_BUF`.)
+
+        // Depending on your control flow, you may need to explicitly stop the transfer.
+        dma::stop(DMA_PERIPH, DMA_CH);
 
         // Start a  new transfer, if appropriate for the protocol you're using.
         unsafe {
@@ -138,7 +143,7 @@ fn DMA1_CH1() {
                 &mut RX_BUF,
                 DMA_CH,
                 ChannelCfg::default(),
-                DmaPeriph::Dma1,
+                DMA_PERIPH,
             );
         }
     });
