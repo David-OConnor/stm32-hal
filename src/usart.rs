@@ -322,6 +322,9 @@ where
 
     /// Transmit data, as a sequence of u8. See L44 RM, section 38.5.2: "Character transmission procedure"
     pub fn write(&mut self, data: &[u8]) {
+        // todo: how does this work with a 9 bit words? Presumably you'd need to make `data`
+        // todo take `&u16`.
+
         // 7. Write the data to send in the USART_TDR register (this clears the TXE bit). Repeat this
         // for each data to be transmitted in case of single buffer.
 
@@ -329,8 +332,6 @@ where
             if #[cfg(not(feature = "f4"))] {
                 for word in data {
                     while self.regs.isr.read().txe().bit_is_clear() {}
-                    // todo: how does this work with a 9 bit words? Presumably you'd need to make `data`
-                    // todo take `&u16`.
                     self.regs
                         .tdr
                         .modify(|_, w| unsafe { w.tdr().bits(*word as u16) });
@@ -360,10 +361,10 @@ where
     /// Write a single word, without waiting until ready for the next. Compared to the `write()` function, this
     /// does not block.
     pub fn write_one(&mut self, word: u8) {
+        // todo: how does this work with a 9 bit words? Presumably you'd need to make `data`
+        // todo take `&u16`.
         cfg_if! {
             if #[cfg(not(feature = "f4"))] {
-            // todo: how does this work with a 9 bit words? Presumably you'd need to make `data`
-            // todo take `&u16`.
             // while self.regs.isr.read().txe().bit_is_clear() {}
             self.regs
                 .tdr
@@ -380,9 +381,9 @@ where
     /// Receive data into a u8 buffer. See L44 RM, section 38.5.3: "Character reception procedure"
     pub fn read(&mut self, buf: &mut [u8]) {
         for i in 0..buf.len() {
-            // Wait for the next bit
             cfg_if! {
                 if #[cfg(not(feature = "f4"))] {
+                    // Wait for the next bit
                     while self.regs.isr.read().rxne().bit_is_clear() {}
                     buf[i] = self.regs.rdr.read().rdr().bits() as u8;
                 } else {
@@ -414,7 +415,7 @@ where
             if #[cfg(not(feature = "f4"))] {
                 self.regs.rdr.read().rdr().bits() as u8
             } else {
-                 self.regs.dr.read().dr().bits() as u8
+                self.regs.dr.read().dr().bits() as u8
             }
         }
     }
@@ -771,14 +772,12 @@ where
             UsartInterrupt::LineBreak => status.lbdf().bit_is_set(),
             UsartInterrupt::Overrun => status.ore().bit_is_set(),
             UsartInterrupt::ParityError => status.pe().bit_is_set(),
-            UsartInterrupt::ReadNotEmpty => false, // Not applicable.
+            UsartInterrupt::ReadNotEmpty => status.rxne().bit_is_set(),
             UsartInterrupt::ReceiverTimeout => status.rtof().bit_is_set(),
-            #[cfg(not(any(feature = "f3", feature = "l4", feature = "h7")))]
+            #[cfg(not(any(feature = "f3", feature = "l4")))]
             UsartInterrupt::Tcbgt => status.tcbgt().bit_is_set(),
-            #[cfg(feature = "h7")]
-            UsartInterrupt::Tcbgt => status.tcbgtc().bit_is_set(),
             UsartInterrupt::TransmissionComplete => status.tc().bit_is_set(),
-            UsartInterrupt::TransmitEmpty => false, // Not applicable.
+            UsartInterrupt::TransmitEmpty => status.txe().bit_is_set(),
         }
     }
 }
