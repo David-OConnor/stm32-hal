@@ -376,13 +376,14 @@ pub mod adc;
 // H7 suppords fd and can_ccu. (What's that?)
 // WB and WL?
 #[cfg(all(
-    feature = "bx_can",
+    any(feature = "bx_can", feature = "fd_can"),
     not(any(feature = "f301", feature = "f401", feature = "f410", feature = "f411"))
 ))]
 pub mod can;
 
-#[cfg(any(feature = "g0", feature = "g4", feature = "h7"))]
-pub mod fd_can;
+// For now, we're using the `fdcan` crate
+// #[cfg(any(feature = "g0", feature = "g4", feature = "h7"))]
+// pub mod fd_can;
 
 pub mod clocks;
 // todo: You could get CRC working on most of these with some effort.
