@@ -2,7 +2,6 @@
 //! Provides APIs to configure, read, and write from
 //! I2C, with blocking, nonblocking, and DMA functionality.
 
-use cast::u16;
 use core::ops::Deref;
 
 use cortex_m::interrupt::free;
@@ -485,7 +484,7 @@ where
                 // Slave address to be sent: SADD[9:0]
                 // SADD0: "This bit is don’t care"
                 // SADD[7:1]: "These bits should be written with the 7-bit slave address to be sent"
-                w.sadd().bits(u16(addr << 1));
+                w.sadd().bits((addr << 1) as u16);
                 // Transfer direction: RD_WRN
                 w.rd_wrn().clear_bit(); // write
                                         // The number of bytes to be transferred: NBYTES[7:0]. If the number of bytes is equal to
@@ -517,7 +516,7 @@ where
         self.regs.cr2.write(|w| {
             unsafe {
                 w.add10().bit(self.cfg.address_bits as u8 != 0);
-                w.sadd().bits(u16(addr << 1));
+                w.sadd().bits((addr << 1) as u16);
                 w.rd_wrn().set_bit(); // read
                 w.nbytes().bits(len);
                 w.autoend().set_bit(); // automatic end mode

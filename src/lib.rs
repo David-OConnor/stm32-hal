@@ -376,8 +376,8 @@ pub mod adc;
 // H7 suppords fd and can_ccu. (What's that?)
 // WB and WL?
 #[cfg(all(
-    any(feature = "bx_can", feature = "fd_can"),
-    not(any(feature = "f301", feature = "f401", feature = "f410", feature = "f411"))
+    any(feature = "can_bx", feature = "can_fd"),
+    // not(any(feature = "f301", feature = "f401", feature = "f410", feature = "f411"))
 ))]
 pub mod can;
 

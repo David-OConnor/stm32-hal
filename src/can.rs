@@ -1,98 +1,82 @@
-//! Support for Controller Area Network (CAN) bus. Thinly wraps the [bxCAN library](https://docs.rs/bxcan/0.5.0/bxcan/).
-//! Note that this is currently for bxCAN only; different from the `fdCAN` used on newer families.
+//! Support for Controller Area Network (CAN) bus. Thinly wraps the [bxCAN library](https://docs.rs/bxcan/0.5.0/bxcan/)
+//! or [can-fd](https://crates.io/keywords/can-fd) libraries.
 //!
-//! Requires the `can` feature.
-
-// todo: Add fdCAN support.
-
-use bxcan;
-use core::ops::Deref;
+//! Requires the `can_bx` or `can_fd` features. F3, F4, and L4 use BX CAN. G0, G4, L5, and H7 use FD CAN.
 
 use crate::{
-    pac::{self, RCC},
-    rcc_en_reset,
+    pac::RCC,
+    util::rcc_en_reset,
 };
-
-#[cfg(feature = "f3")]
-use crate::pac::can;
-#[cfg(not(feature = "f3"))]
-use crate::pac::can1 as can;
 
 use cfg_if::cfg_if;
 
-/// Interface to the CAN peripheral.
-pub struct Can<R> {
-    pub regs: R,
-}
-
-impl<R> Can<R>
-where
-    R: Deref<Target = can::RegisterBlock>,
-{
-    #[cfg(not(feature = "f4"))]
-    /// Initialize a CAN peripheral, including  enabling and resetting
-    /// its RCC peripheral clock.
-    pub fn new(regs: R, rcc: &mut RCC) -> Self {
-        #[cfg(feature = "f3")]
-        rcc_en_reset!(apb1, can, rcc);
-        #[cfg(feature = "l4")]
-        rcc_en_reset!(apb1, can1, rcc);
-
-        Self { regs }
-    }
-
-    #[cfg(feature = "f4")]
-    /// Initialize a CAN peripheral, including  enabling and resetting
-    /// its RCC peripheral clock.
-    pub fn new(regs: R, rcc: &mut RCC) -> Self {
-        rcc_en_reset!(apb1, can1, rcc); // This assumes CAN1.
-
-        Self { regs }
-    }
-}
-
-// todo: F3 calls it "CAN", and F4 has 2 CANs.
-
 cfg_if! {
     if #[cfg(feature = "f3")] {
-        unsafe impl bxcan::Instance for Can<pac::CAN> {
-            const REGISTERS: *mut bxcan::RegisterBlock = pac::CAN::ptr() as *mut _;
+        use bxcan;
+        use crate::pac::{can, CAN};
+
+    } else if #[cfg(any(feature = "f4", feature = "l4"))] {
+        use bxcan;
+        // todo: F4 has CAN2 as well.
+        use crate::pac::{can1 as can, CAN1 as CAN};
+    } else if #[cfg(feature = "g4")]{
+        use fdcan;
+        use crate::pac::{fdcan as can, FDCAN as CAN};
+    } else { // eg G0, H7
+        use fdcan;
+        // todo: CAN2 on H7.
+        use crate::pac::{fdcan1 as can, FDCAN1 as CAN};
+    }
+}
+
+
+/// Interface to the CAN peripheral.
+pub struct Can {
+    pub regs: CAN,
+}
+
+
+impl Can {
+    /// Initialize a CAN peripheral, including  enabling and resetting
+    /// its RCC peripheral clock. This is not handled by the `bxcan` or `canfd` crates.
+    pub fn new(regs: CAN, rcc: &mut RCC) -> Self {
+        cfg_if! {
+            if #[cfg(feature = "f3")] {
+                rcc_en_reset!(apb1, can, rcc);
+            } else if #[cfg(any(feature = "f4", feature = "l4"))] {
+                rcc_en_reset!(apb1, can1, rcc);
+            } else {
+                rcc_en_reset!(apb1, canfd1, rcc);
+            }
         }
 
-        unsafe impl bxcan::FilterOwner for Can<pac::CAN> {
-            const NUM_FILTER_BANKS: u8 = 14; // QC
+        Self { regs }
+    }
+
+}
+
+// Implement the traits required for the `bxcan` or `fdcan` library.
+cfg_if! {
+    if #[cfg(feature = "bx_can")] {
+        unsafe impl bxcan::Instance for Can {
+            const REGISTERS: *mut bxcan::RegisterBlock = CAN::ptr() as *mut _;
         }
 
-        unsafe impl bxcan::MasterInstance for Can<pac::CAN> {}
-    } else if #[cfg(feature = "f4")] {
-        unsafe impl bxcan::Instance for Can<pac::CAN1> {
-            const REGISTERS: *mut bxcan::RegisterBlock = pac::CAN1::ptr() as *mut _;
-        }
-
-        unsafe impl bxcan::FilterOwner for Can<pac::CAN1> {
-            const NUM_FILTER_BANKS: u8 = 14;  // QC
-        }
-
-        unsafe impl bxcan::MasterInstance for Can<pac::CAN1> {}
-
-        unsafe impl bxcan::Instance for Can<pac::CAN2> {
-            const REGISTERS: *mut bxcan::RegisterBlock = pac::CAN2::ptr() as *mut _;
-        }
-
-        unsafe impl bxcan::FilterOwner for Can<pac::CAN2> {
-            const NUM_FILTER_BANKS: u8 = 14;  // QC
-        }
-
-        unsafe impl bxcan::MasterInstance for Can<pac::CAN2> {}
-    } else { // L4
-        unsafe impl bxcan::Instance for Can<pac::CAN1> {
-            const REGISTERS: *mut bxcan::RegisterBlock = pac::CAN1::ptr() as *mut _;
-        }
-
-        unsafe impl bxcan::FilterOwner for Can<pac::CAN1> {
+        unsafe impl bxcan::FilterOwner for Can {
+            #[cfg(any(feature = "f3", feature = "f4"))]
+            const NUM_FILTER_BANKS: u8 = 28;
+            #[cfg(any(feature = "f4", feature = "l4"))]
             const NUM_FILTER_BANKS: u8 = 14;
         }
 
-        unsafe impl bxcan::MasterInstance for Can<pac::CAN1> {}
+        unsafe impl bxcan::MasterInstance for Can {}
+    } else {
+        unsafe impl fdcan::Instance for Can<FDCAN1> {
+            const REGISTERS: *mut fdcan::RegisterBlock = FDCAN1::ptr() as *mut _;
+        }
+        unsafe impl fdcan::message_ram::Instance for Can<FDCAN1> {
+            const MSG_RAM: *mut fdcan::message_ram::RegisterBlock =
+                (0x4000_ac00 as *mut _); // todo: QC
+        }
     }
 }
