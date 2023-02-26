@@ -19,7 +19,7 @@ use cfg_if::cfg_if;
 use paste::paste;
 
 cfg_if! {
-    if #[cfg(feature = "embedded-hal")] {
+    if #[cfg(feature = "embedded_hal")] {
         use embedded_hal::{
             blocking::delay::{DelayMs, DelayUs},
             timer::CountDown,
@@ -900,8 +900,8 @@ macro_rules! make_timer {
             }
         }
 
-        #[cfg(feature = "embedded-hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        #[cfg(feature = "embedded_hal")]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
         impl DelayMs<u32> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u32) {
                 let ms_to_s = ms as f32 / 1_000.;
@@ -914,24 +914,24 @@ macro_rules! make_timer {
             }
         }
 
-        #[cfg(feature = "embedded-hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        #[cfg(feature = "embedded_hal")]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
         impl DelayMs<u16> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u16) {
                 self.delay_ms(ms as u32)
             }
         }
 
-        #[cfg(feature = "embedded-hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        #[cfg(feature = "embedded_hal")]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
         impl DelayMs<u8> for Timer<pac::$TIMX> {
             fn delay_ms(&mut self, ms: u8) {
                 self.delay_ms(ms as u32)
             }
         }
 
-        #[cfg(feature = "embedded-hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        #[cfg(feature = "embedded_hal")]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
         impl DelayUs<u32> for Timer<pac::$TIMX> {
             fn delay_us(&mut self, us: u32) {
                 let us_to_s = us as f32 / 1_000_000.;
@@ -944,16 +944,16 @@ macro_rules! make_timer {
             }
         }
 
-        #[cfg(feature = "embedded-hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        #[cfg(feature = "embedded_hal")]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
         impl DelayUs<u16> for Timer<pac::$TIMX> {
             fn delay_us(&mut self, us: u16) {
                 self.delay_us(us as u32);
             }
         }
 
-        #[cfg(feature = "embedded-hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+        #[cfg(feature = "embedded_hal")]
+        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
         impl DelayUs<u8> for Timer<pac::$TIMX> {
             fn delay_us(&mut self, us: u8) {
                 self.delay_us(us as u32);
@@ -975,7 +975,7 @@ macro_rules! make_timer {
         /// let mut tim16: Timer<TIM16> = Timer::new_tim16(dp.TIM16, 1000., tim16_conf, &clocks);
         ///
         ///
-        #[cfg(feature = "embedded-hal")]
+        #[cfg(feature = "embedded_hal")]
         impl CountDown for Timer<pac::$TIMX>
         {
             type Time = duration::Generic<u32>;
@@ -2019,7 +2019,7 @@ cfg_if! {
     }
 }
 
-// #[cfg(feature = "embedded-hal")]
+// #[cfg(feature = "embedded_hal")]
 // struct WaitError {}
 
 // todo: Non-macro refactor base timer reg blocks:

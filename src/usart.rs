@@ -28,12 +28,12 @@ use crate::pac::DMA as DMA1;
 #[cfg(not(feature = "g0"))]
 use crate::pac::DMA1;
 
-#[cfg(feature = "embedded-hal")]
+#[cfg(feature = "embedded_hal")]
 use embedded_hal::{
     blocking,
     serial::{Read, Write},
 };
-#[cfg(feature = "embedded-hal")]
+#[cfg(feature = "embedded_hal")]
 use nb;
 
 use cfg_if::cfg_if;
@@ -798,7 +798,7 @@ pub enum Error {
 
 // todo: Use those errors above.
 
-#[cfg(feature = "embedded-hal")]
+#[cfg(feature = "embedded_hal")]
 impl<R> Read<u8> for Usart<R>
 where
     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
@@ -818,7 +818,7 @@ where
     }
 }
 
-#[cfg(feature = "embedded-hal")]
+#[cfg(feature = "embedded_hal")]
 impl<R> Write<u8> for Usart<R>
 where
     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
@@ -857,8 +857,8 @@ where
     }
 }
 
-#[cfg(feature = "embedded-hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded-hal")))]
+#[cfg(feature = "embedded_hal")]
+// #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
 impl<R> blocking::serial::Write<u8> for Usart<R>
 where
     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,

@@ -4,7 +4,7 @@
 
 use core::{ops::Deref, ptr};
 
-#[cfg(feature = "embedded-hal")]
+#[cfg(feature = "embedded_hal")]
 use embedded_hal::spi::FullDuplex;
 
 use crate::{
@@ -1200,7 +1200,7 @@ where
     }
 }
 
-#[cfg(feature = "embedded-hal")]
+#[cfg(feature = "embedded_hal")]
 impl<R> FullDuplex<u8> for Spi<R>
 where
     R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
@@ -1222,13 +1222,13 @@ where
     }
 }
 
-#[cfg(feature = "embedded-hal")]
+#[cfg(feature = "embedded_hal")]
 impl<R> embedded_hal::blocking::spi::transfer::Default<u8> for Spi<R> where
     R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph
 {
 }
 
-#[cfg(feature = "embedded-hal")]
+#[cfg(feature = "embedded_hal")]
 impl<R> embedded_hal::blocking::spi::write::Default<u8> for Spi<R> where
     R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph
 {

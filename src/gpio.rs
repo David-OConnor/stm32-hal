@@ -6,7 +6,7 @@
 // todo to change with our current model. Note sure if PAC, or MCU limitation
 // todo: WL is also missing interrupt support.
 
-#[cfg(feature = "embedded-hal")]
+#[cfg(feature = "embedded_hal")]
 use core::convert::Infallible;
 
 use cortex_m::interrupt::free;
@@ -16,7 +16,7 @@ use crate::pac::{self, EXTI, RCC};
 #[cfg(not(feature = "h7"))]
 use crate::util::rcc_en_reset;
 
-#[cfg(feature = "embedded-hal")]
+#[cfg(feature = "embedded_hal")]
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
 
 // #[cfg(not(any(
@@ -1007,7 +1007,7 @@ impl Pin {
     }
 }
 
-#[cfg(feature = "embedded-hal")]
+#[cfg(feature = "embedded_hal")]
 impl InputPin for Pin {
     type Error = Infallible;
 
@@ -1020,7 +1020,7 @@ impl InputPin for Pin {
     }
 }
 
-#[cfg(feature = "embedded-hal")]
+#[cfg(feature = "embedded_hal")]
 impl OutputPin for Pin {
     type Error = Infallible;
 
@@ -1035,7 +1035,7 @@ impl OutputPin for Pin {
     }
 }
 
-#[cfg(feature = "embedded-hal")]
+#[cfg(feature = "embedded_hal")]
 impl ToggleableOutputPin for Pin {
     type Error = Infallible;
 
