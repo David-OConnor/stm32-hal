@@ -302,7 +302,6 @@ STM32WL radio support is WIP, and will be provided through interaction with newA
 - SDIO and ethernet unimplemented
 - DMA unimplemented on F4, and L552
 - H7 BDMA and MDMA unimplemented
-- Only bxCAN is implemented - the fdCAN used on newer families is unimplemented
 - USART interrupts unimplemented on F4
 - CRC unimplemented for L5, F4, G0, and G4
 - High-resolution timers (HRTIM), Low power timers (LPTIM), and low power usart (LPUSART) unimplemented
