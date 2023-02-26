@@ -645,8 +645,14 @@ impl RccPeriph for pac::SAI4 {
     }
 }
 
-#[cfg(any(feature = "g0", feature = "g4", feature = "h7"))]
+#[cfg(any(feature = "g0c1", feature = "g4", feature = "h7"))]
 impl RccPeriph for pac::FDCAN {
+    #[cfg(not(feature = "g0"))]
+    fn en_reset(rcc: &RegisterBlock) {
+        rcc_en_reset!(apb1, fdcan1, rcc);
+    }
+
+    #[cfg(feature = "g0")]
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb1, fdcan, rcc);
     }

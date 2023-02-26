@@ -382,7 +382,7 @@ pub mod adc;
 pub mod can;
 
 // For now, we're using the `fdcan` crate
-// #[cfg(any(feature = "g0", feature = "g4", feature = "h7"))]
+// #[cfg(any(feature = "g0c1", feature = "g4", feature = "h7"))]
 // pub mod fd_can;
 
 pub mod clocks;
