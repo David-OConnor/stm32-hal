@@ -376,7 +376,7 @@ pub mod adc;
 // H7 suppords fd and can_ccu. (What's that?)
 // WB and WL?
 #[cfg(all(
-    any(feature = "can_bx", feature = "can_fd"),
+    any(feature = "can_bx", feature = "can_fd_g", feature = "can_fd_h"),
     // not(any(feature = "f301", feature = "f401", feature = "f410", feature = "f411"))
 ))]
 pub mod can;
@@ -439,7 +439,6 @@ pub mod gpio;
 
 #[cfg(feature = "wb")]
 pub mod hsem;
-
 
 #[cfg(not(feature = "f4"))]
 pub mod i2c;

@@ -19,7 +19,7 @@ use cortex_m_rt::entry;
 
 use stm32_hal2::{
     clocks::Clocks,
-    dma::{self, Dma, DmaPeriph, DmaChannel, DmaConfig},
+    dma::{self, Dma, DmaChannel, DmaConfig, DmaPeriph},
     gpio::{Pin, PinMode, Port},
     low_power,
     pac::{self, interrupt},
@@ -84,12 +84,7 @@ fn main() -> ! {
 
     // Example of how to start a DMA transfer:
     unsafe {
-        uart.read_dma(
-            &mut RX_BUF,
-            DMA_CH,
-            ChannelCfg::default(),
-            DMA_PERIPH,
-        );
+        uart.read_dma(&mut RX_BUF, DMA_CH, ChannelCfg::default(), DMA_PERIPH);
     }
 
     loop {
@@ -139,12 +134,7 @@ fn DMA1_CH1() {
 
         // Start a  new transfer, if appropriate for the protocol you're using.
         unsafe {
-            uart.read_dma(
-                &mut RX_BUF,
-                DMA_CH,
-                ChannelCfg::default(),
-                DMA_PERIPH,
-            );
+            uart.read_dma(&mut RX_BUF, DMA_CH, ChannelCfg::default(), DMA_PERIPH);
         }
     });
 }

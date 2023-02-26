@@ -756,7 +756,7 @@ where
             UsartInterrupt::TransmitEmpty => self.regs.rqr.write(|w| w.txfrq().set_bit()),
         }
     }
-    
+
     #[cfg(not(feature = "f4"))]
     /// Checks if a given status flag is set. Returns `true` if the status flag is set. Note that this preforms
     /// a read each time called. If checking multiple flags, this isn't optimal.

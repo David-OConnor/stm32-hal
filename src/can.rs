@@ -1,12 +1,9 @@
 //! Support for Controller Area Network (CAN) bus. Thinly wraps the [bxCAN library](https://docs.rs/bxcan/0.5.0/bxcan/)
 //! or [can-fd](https://crates.io/keywords/can-fd) libraries.
 //!
-//! Requires the `can_bx` or `can_fd` features. F3, F4, and L4 use BX CAN. G0, G4, L5, and H7 use FD CAN.
+//! Requires the `can_bx` or `can_fd_g[h]` features. F3, F4, and L4 use BX CAN. G0, G4, L5, and H7 use FD CAN.
 
-use crate::{
-    pac::RCC,
-    util::rcc_en_reset,
-};
+use crate::{pac::RCC, util::rcc_en_reset};
 
 use cfg_if::cfg_if;
 
@@ -29,12 +26,10 @@ cfg_if! {
     }
 }
 
-
 /// Interface to the CAN peripheral.
 pub struct Can {
     pub regs: CAN,
 }
-
 
 impl Can {
     /// Initialize a CAN peripheral, including  enabling and resetting
@@ -45,14 +40,19 @@ impl Can {
                 rcc_en_reset!(apb1, can, rcc);
             } else if #[cfg(any(feature = "f4", feature = "l4"))] {
                 rcc_en_reset!(apb1, can1, rcc);
+            } else if #[cfg(feature = "h7")]{
+                // We don't yet have apb1h support in `rcc_en_reset`.
+                rcc.apb1henr.modify(|_, w| w.fdcanen().set_bit());
+                rcc.apb1hrstr.modify(|_, w| w.fdcanrst().set_bit());
+                rcc.apb1hrstr.modify(|_, w| w.fdcanrst().clear_bit());
+
             } else {
-                rcc_en_reset!(apb1, canfd1, rcc);
+                rcc_en_reset!(apb1, fdcan, rcc);
             }
         }
 
         Self { regs }
     }
-
 }
 
 // Implement the traits required for the `bxcan` or `fdcan` library.
@@ -71,10 +71,10 @@ cfg_if! {
 
         unsafe impl bxcan::MasterInstance for Can {}
     } else {
-        unsafe impl fdcan::Instance for Can<FDCAN1> {
-            const REGISTERS: *mut fdcan::RegisterBlock = FDCAN1::ptr() as *mut _;
+        unsafe impl fdcan::Instance for Can {
+            const REGISTERS: *mut fdcan::RegisterBlock = CAN::ptr() as *mut _;
         }
-        unsafe impl fdcan::message_ram::Instance for Can<FDCAN1> {
+        unsafe impl fdcan::message_ram::Instance for Can {
             const MSG_RAM: *mut fdcan::message_ram::RegisterBlock =
                 (0x4000_ac00 as *mut _); // todo: QC
         }
