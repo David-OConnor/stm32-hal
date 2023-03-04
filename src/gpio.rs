@@ -702,28 +702,28 @@ impl Pin {
                 Port::G => {
                     cfg_if! {
                         if #[cfg(feature = "f3")] {
-                            if rcc.ahbenr.read().iophen().bit_is_clear() {
+                            if rcc.ahbenr.read().iopgen().bit_is_clear() {
                                 rcc_en_reset!(ahb1, iopg, rcc);
                             }
                         } else if #[cfg(feature = "h7")] {
-                            if rcc.ahb4enr.read().gpiohen().bit_is_clear() {
-                                rcc.ahb4enr.modify(|_, w| w.gpiohen().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiohrst().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiohrst().clear_bit());
+                            if rcc.ahb4enr.read().gpiogen().bit_is_clear() {
+                                rcc.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiogrst().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpiogrst().clear_bit());
                             }
                         } else if #[cfg(feature = "f4")] {
-                            if rcc.ahb1enr.read().gpiohen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, gpioh, rcc);
+                            if rcc.ahb1enr.read().gpiogen().bit_is_clear() {
+                                rcc_en_reset!(ahb1, gpiog, rcc);
                             }
                         } else if #[cfg(feature = "g0")] {
-                            if rcc.iopenr.read().iophen().bit_is_clear() {
-                                rcc.iopenr.modify(|_, w| w.iophen().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iophrst().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iophrst().clear_bit());
+                            if rcc.iopenr.read().iopgen().bit_is_clear() {
+                                rcc.iopenr.modify(|_, w| w.iopgen().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iopgrst().set_bit());
+                                rcc.ioprstr.modify(|_, w| w.iopgrst().clear_bit());
                             }
                         } else { // L4, L5, G4
-                            if rcc.ahb2enr.read().gpiohen().bit_is_clear() {
-                                rcc_en_reset!(ahb2, gpioa, rcc);
+                            if rcc.ahb2enr.read().gpiogen().bit_is_clear() {
+                                rcc_en_reset!(ahb2, gpiog, rcc);
                             }
                         }
                     }
@@ -777,7 +777,7 @@ impl Pin {
                             }
                         } else { // L4, L5, G4
                             if rcc.ahb2enr.read().gpiohen().bit_is_clear() {
-                                rcc_en_reset!(ahb2, gpioa, rcc);
+                                rcc_en_reset!(ahb2, gpioh, rcc);
                             }
                         }
                     }

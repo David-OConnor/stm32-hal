@@ -110,7 +110,7 @@ pub enum FsPolarity {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// Set Where the signal is in the frame. Sets FRCR register, FDEF field.
+/// Set Where the signal is in the frame. Sets FRCR register, FSDEF field.
 pub enum FsSignal {
     /// Start of frame, like for instance the PCM/DSP, TDM, AC’97, audio protocols.
     /// Sets FRCR register, FSDEF field.

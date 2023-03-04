@@ -1,4 +1,4 @@
-//! Support for Controller Area Network (CAN) bus. Thinly wraps the [bxCAN library](https://docs.rs/bxcan/0.5.0/bxcan/)
+//! Support for Controller Area Network (CAN) bus. Thinly wraps the [bxCAN](https://docs.rs/bxcan/0.5.0/bxcan/)
 //! or [can-fd](https://crates.io/keywords/can-fd) libraries.
 //!
 //! Requires the `can_bx` or `can_fd_g[h]` features. F3, F4, and L4 use BX CAN. G0, G4, L5, and H7 use FD CAN.
@@ -75,8 +75,13 @@ cfg_if! {
             const REGISTERS: *mut fdcan::RegisterBlock = CAN::ptr() as *mut _;
         }
         unsafe impl fdcan::message_ram::Instance for Can {
-            const MSG_RAM: *mut fdcan::message_ram::RegisterBlock =
-                (0x4000_ac00 as *mut _); // todo: QC
+            #[cfg(feature = "g4")]
+            const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_ac00 as *mut _);
+            #[cfg(feature = "h7")]
+            const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_ac00 as *mut _);
+            // todo: (0x4000_ac00 + 0x1000) for H7, CAN2.
+            // todo: (0x4000_a750 as *mut _) for G4, CAN2
+            // todo: (0x4000_aaa0 as *mut _) fir G4m CAN3.
         }
     }
 }
