@@ -523,6 +523,9 @@ pub mod timer;
 #[cfg(not(feature = "h5"))] // todo temp. Needs CR1 and ISR added, among other things.
 pub mod usart;
 
+#[cfg(any(feature = "l4"))]
+pub mod comp;
+
 // See note at top of `usb` module for info on G0; not avail on modules the PAC has avail.
 cfg_if! {
     if #[cfg(all(
