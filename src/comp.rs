@@ -3,6 +3,7 @@ use crate::pac;
 // Config enums
 /// Comparator power mode
 pub enum PowerMode {
+    ///
     HighSpeed = 0x00000000,
     MediumSpeed = 0x00000004,
     LowSpeed = 0x0000000c,
@@ -26,10 +27,17 @@ pub enum InvertingInput {
     ThreeQuarterVref = 0x00c00020,
     /// Vref
     Vref = 0x00800030,
+    /// From DAC channel 1
     DacCh1 = 0x00000040,
-    // Adc Channel 2 support
+    /// From DAC channel 2
     DacCh2 = 0x00000050,
+    /// From the first GPIO pin connected to the comparator.
+    ///
+    /// The GPIO pin used depends on the MCU and comparator used.
     Io1 = 0x00000060,
+    /// From the second GPIO pin connected to the comparator.
+    ///
+    /// The GPIO pin used depends on the MCU and comparator used.
     Io2 = 0x00000070,
 }
 
