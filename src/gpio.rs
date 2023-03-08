@@ -729,6 +729,7 @@ impl Pin {
                                 {
                                     let pwr = unsafe { &(*pac::PWR::ptr()) };
                                     // RM0351: Setting this bit (IOSV) is mandatory to use PG[15:2].
+                                    rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
                                     pwr.cr2.modify(|_, w| w.iosv().set_bit());
                                 }
                             }
