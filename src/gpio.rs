@@ -724,6 +724,13 @@ impl Pin {
                         } else { // L4, L5, G4
                             if rcc.ahb2enr.read().gpiogen().bit_is_clear() {
                                 rcc_en_reset!(ahb2, gpiog, rcc);
+
+                                #[cfg(feature = "l4x6")]
+                                {
+                                    let pwr = unsafe { &(*pac::PWR::ptr()) };
+                                    // RM0351: Setting this bit (IOSV) is mandatory to use PG[15:2].
+                                    pwr.cr2.modify(|_, w| w.iosv().set_bit());
+                                }
                             }
                         }
                     }
