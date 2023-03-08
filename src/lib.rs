@@ -502,6 +502,9 @@ pub mod spi;
 pub mod timer;
 pub mod usart;
 
+#[cfg(any(feature = "l4"))]
+pub mod comp;
+
 // See note at top of `usb` module for info on G0; not avail on modules the PAC has avail.
 cfg_if::cfg_if! {
     if #[cfg(all(
