@@ -34,7 +34,9 @@ pub struct Can {
 impl Can {
     /// Initialize a CAN peripheral, including  enabling and resetting
     /// its RCC peripheral clock. This is not handled by the `bxcan` or `canfd` crates.
-    pub fn new(regs: CAN, rcc: &mut RCC) -> Self {
+    pub fn new(regs: CAN) -> Self {
+        let rcc = unsafe { &*RCC::ptr() };
+
         cfg_if! {
             if #[cfg(feature = "f3")] {
                 rcc_en_reset!(apb1, can, rcc);

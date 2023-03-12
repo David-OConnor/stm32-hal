@@ -274,6 +274,36 @@ impl Default for Align {
     }
 }
 
+// todo impl
+// /// Ratio options for oversampling.
+// #[derive(Clone, Copy)]
+// #[repr(u8)]
+// pub enum OversamplingRatio {
+//     Times2 = 0b000,
+//     Times4 = 0b001,
+//     Times8 = 0b010,
+//     Times16 = 0b011,
+//     Times32 = 0b100,
+//     Times64 = 0b101,
+//     Times128 = 0b110,
+//     Times256 = 0b111,
+// }
+//
+// /// Shift options for oversampling.
+// #[derive(Clone, Copy)]
+// #[repr(u8)]
+// pub enum OversamplingShift {
+//     None = 0b0000,
+//     Bits1 = 0b0001,
+//     Bits2 = 0b0010,
+//     Bits3 = 0b0011,
+//     Bits4 = 0b0100,
+//     Bits5 = 0b0101,
+//     Bits6 = 0b0110,
+//     Bits7 = 0b0111,
+//     Bits8 = 0b1000,
+// }
+
 /// Initial configuration data for the ADC peripheral.
 #[derive(Clone)]
 pub struct AdcConfig {
