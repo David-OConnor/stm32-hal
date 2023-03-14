@@ -248,6 +248,18 @@ pub enum DfsdmSrc {
 
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
+/// CAN clock input source. Sets RCC_D2CCIP1R register, FDCANSEL field.
+pub enum CanSrc {
+    /// hse_ck clock is selected as FDCAN kernel clock (default after reset)
+    Hse = 0b00,
+    /// PLL1Q
+    Pll1Q = 0b01,
+    /// PLL2Q
+    Pll2Q = 0b10,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
 /// Clock divider for the HSI. See RCC_CR register, HSIDIV field.
 pub enum HsiDiv {
     Div1 = 0b00,
@@ -407,6 +419,8 @@ pub struct Clocks {
     pub spi45_src: Spi45Src,
     /// DFSDM1 kernel clock source selection
     pub dfsdm1_src: DfsdmSrc,
+    /// FDCAN kernel clock selection. Defaults to PLL1Q.
+    pub can_src: CanSrc,
 }
 
 impl Clocks {
@@ -560,7 +574,8 @@ impl Clocks {
             w.sai23sel().bits(self.sai23_src as u8);
             w.spi123sel().bits(self.spi123_src as u8);
             w.spi45sel().bits(self.spi45_src as u8);
-            w.dfsdm1sel().bit(self.dfsdm1_src as u8 != 0)
+            w.dfsdm1sel().bit(self.dfsdm1_src as u8 != 0);
+            w.fdcansel().bits(self.can_src as u8)
         });
 
         // Set USART2 to HSI; temp hardcoded.
@@ -1059,6 +1074,7 @@ impl Default for Clocks {
             spi123_src: Spi123Src::Pll1Q,
             spi45_src: Spi45Src::Apb,
             dfsdm1_src: DfsdmSrc::Pclk2,
+            can_src: CanSrc::Pll1Q,
         }
     }
 }

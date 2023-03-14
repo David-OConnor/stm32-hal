@@ -527,6 +527,19 @@ pub enum SaiSrc {
     ExtClk = 0b11,
 }
 
+#[cfg(any(feature = "g0", feature = "g4"))]
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// CAN clock input source. Sets RCC_CCIPR register, FDCANSEL field.
+pub enum CanSrc {
+    /// hse_ck clock is selected as FDCAN kernel clock
+    Hse = 0b00,
+    /// PLL1Q
+    PllQ = 0b01,
+    /// PCLK1 (APB1) selected as FDCAN clock
+    Pclk = 0b10,
+}
+
 /// Settings used to configure clocks. Create this struct by using its `Default::default()`
 /// implementation, then modify as required, referencing your RM's clock tree,
 /// or Stm32Cube IDE's interactive clock manager. Apply settings by running `.setup()`.
@@ -581,6 +594,9 @@ pub struct Clocks {
     /// Range 1 boost mode: Used to increase regulator voltage to 1.28v, for when system
     /// clock frequency is up to 170Mhz. Defaults to true.
     pub boost_mode: bool,
+    #[cfg(any(feature = "g0", feature = "g4"))]
+    /// FDCAN kernel clock selection. Defaults to PLL1Q.
+    pub can_src: CanSrc,
 }
 
 // todo: On L4/5, add a way to enable the MSI for use as CLK48.
@@ -877,14 +893,6 @@ impl Clocks {
 
         rcc.cr.modify(|_, w| w.csson().bit(self.security_system));
 
-        #[cfg(any(feature = "l4", feature = "g4"))]
-        rcc.ccipr
-            .modify(|_, w| unsafe { w.clk48sel().bits(self.clk48_src as u8) });
-
-        #[cfg(feature = "l5")]
-        rcc.ccipr1
-            .modify(|_, w| unsafe { w.clk48msel().bits(self.clk48_src as u8) });
-
         // Note that with this code setup, PLLSAI won't work properly unless using
         // the input source is PLL.
         if let InputSrc::Pll(pll_src) = self.input_src {
@@ -1012,15 +1020,27 @@ impl Clocks {
             while rcc.crrcr.read().hsi48rdy().bit_is_clear() {}
         }
 
-        // This modification is separate from the easlier CCIPR writes due to awkward
+        // This modification is separate from the other CCIPR writes due to awkward
         // feature-gate code
         #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "l5")))]
         rcc.ccipr
             .modify(|_, w| unsafe { w.sai1sel().bits(self.sai1_src as u8) });
 
+        #[cfg(not(any(feature = "g0", feature = "g4")))]
+        rcc.ccipr
+            .modify(|_, w| unsafe { w.fdcansel().bits(self.can_src as u8) });
+
         #[cfg(feature = "l5")]
         rcc.ccipr2
             .modify(|_, w| unsafe { w.sai1sel().bits(self.sai1_src as u8) });
+
+        #[cfg(any(feature = "l4", feature = "g4"))]
+        rcc.ccipr
+            .modify(|_, w| unsafe { w.clk48sel().bits(self.clk48_src as u8) });
+
+        #[cfg(feature = "l5")]
+        rcc.ccipr1
+            .modify(|_, w| unsafe { w.clk48msel().bits(self.clk48_src as u8) });
 
         // If we're not using the default clock source as input source or for PLL, turn it off.
         cfg_if! {
@@ -1529,6 +1549,8 @@ impl Default for Clocks {
             sai1_src: SaiSrc::Pllp,
             #[cfg(feature = "g4")]
             boost_mode: true,
+            #[cfg(any(feature = "g0", feature = "g4"))]
+            can_src: CanSrc::Pclk,
         }
     }
 }

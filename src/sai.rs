@@ -589,14 +589,12 @@ pub struct Sai<R> {
 impl<R> Sai<R>
 where
     R: Deref<Target = sai::RegisterBlock> + RccPeriph,
-{
+{git
     /// Initialize a SAI peripheral, including  enabling and resetting
     /// its RCC peripheral clock.
     pub fn new(regs: R, config_a: SaiConfig, config_b: SaiConfig, clocks: &Clocks) -> Self {
-        free(|cs| {
-            let rcc = unsafe { &(*RCC::ptr()) };
-            R::en_reset(rcc);
-        });
+        let rcc = unsafe { &(*RCC::ptr()) };
+        R::en_reset(rcc);
 
         // todo: Do we always want to configure and enable both A and B?
 
