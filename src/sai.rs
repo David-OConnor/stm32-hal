@@ -589,7 +589,7 @@ pub struct Sai<R> {
 impl<R> Sai<R>
 where
     R: Deref<Target = sai::RegisterBlock> + RccPeriph,
-{git
+{
     /// Initialize a SAI peripheral, including  enabling and resetting
     /// its RCC peripheral clock.
     pub fn new(regs: R, config_a: SaiConfig, config_b: SaiConfig, clocks: &Clocks) -> Self {

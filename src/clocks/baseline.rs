@@ -1026,7 +1026,7 @@ impl Clocks {
         rcc.ccipr
             .modify(|_, w| unsafe { w.sai1sel().bits(self.sai1_src as u8) });
 
-        #[cfg(not(any(feature = "g0", feature = "g4")))]
+        #[cfg(any(feature = "g0", feature = "g4"))]
         rcc.ccipr
             .modify(|_, w| unsafe { w.fdcansel().bits(self.can_src as u8) });
 
@@ -1348,7 +1348,7 @@ impl Clocks {
         }
     }
 
-    /// Get the APB1 frequency, in hz
+    /// Get the APB1 peripheral clock frequency frequency, in hz
     pub fn apb1(&self) -> u32 {
         self.hclk() / self.apb1_prescaler.value() as u32
     }
@@ -1381,6 +1381,7 @@ impl Clocks {
                 }
             }
         } else {
+            /// Get the APB2 peipheral clock frequency, in hz.
             pub fn apb2(&self) -> u32 {
                 self.hclk() / self.apb2_prescaler.value() as u32
             }
