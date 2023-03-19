@@ -318,8 +318,8 @@ pub struct Spi<R> {
 }
 
 impl<R> Spi<R>
-where
-    R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
+    where
+        R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
 {
     /// Initialize an SPI peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock.
@@ -531,14 +531,7 @@ where
     #[cfg(not(feature = "h7"))]
     pub fn read(&mut self) -> Result<u8, SpiError> {
         let sr = self.regs.sr.read();
-
-        cfg_if! {
-            if #[cfg(feature = "h7")] {
-                let crce = sr.crce().bit_is_set();
-            } else {
-                let crce = sr.crcerr().bit_is_set();
-            }
-        }
+        let crce = sr.crcerr().bit_is_set();
 
         if sr.ovr().bit_is_set() {
             return Err(SpiError::Overrun);
@@ -548,16 +541,8 @@ where
             return Err(SpiError::Crc);
         }
 
-        cfg_if! {
-            if #[cfg(feature = "h7")] {
-                while !self.regs.sr.read().rxp().bit_is_set() {}
-                // todo: note: H7 can support words beyond u8. (Can others too?)
-                Ok(unsafe{ ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) })
-            } else {
-                while !self.regs.sr.read().rxne().bit_is_set() {}
-                Ok(unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) })
-            }
-        }
+        while !self.regs.sr.read().rxne().bit_is_set() {}
+        Ok(unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) })
     }
 
     /// Write a single byte if available, or block until it's available.
@@ -565,14 +550,7 @@ where
     #[cfg(not(feature = "h7"))]
     pub fn write_one(&mut self, byte: u8) -> Result<(), SpiError> {
         let sr = self.regs.sr.read();
-
-        cfg_if! {
-            if #[cfg(feature = "h7")] {
-                let crce = sr.crce().bit_is_set();
-            } else {
-                let crce = sr.crcerr().bit_is_set();
-            }
-        }
+        let crce = sr.crcerr().bit_is_set();
 
         if sr.ovr().bit_is_set() {
             return Err(SpiError::Overrun);
@@ -582,19 +560,8 @@ where
             return Err(SpiError::Crc);
         }
 
-        cfg_if! {
-            if #[cfg(feature = "h7")] {
-                while !self.regs.sr.read().txp().bit_is_set() {}
-                // todo: note: H7 can support words beyond u8. (Can others too?)
-                unsafe { ptr::write_volatile(&self.regs.txdr as *const _ as *mut u8, byte) };
-                // write CSTART to start a transaction in master mode
-                self.regs.cr1.modify(|_, w| w.cstart().set_bit());
-            }
-             else {
-                while !self.regs.sr.read().txe().bit_is_set() {}
-                unsafe { ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, byte) };
-            }
-        }
+        while !self.regs.sr.read().txe().bit_is_set() {}
+        unsafe { ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, byte) };
 
         Ok(())
     }
@@ -622,54 +589,6 @@ where
 
         Ok(())
     }
-
-    // todo: Temp C+Ps from H7xx hal for H7. Modify as required for citations, code style etc.
-    //
-    // #[cfg(feature = "h7")]
-    // fn setup_transaction(&mut self, words: core::num::NonZeroU16) -> Result<(), SpiError> {
-    //     if !matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
-    //         return Err(SpiError::InvalidCall);
-    //     }
-    //
-    //     if self.regs.cr1.read().cstart().is_started() {
-    //         return Err(SpiError::TransactionAlreadyStarted);
-    //     }
-    //
-    //     // We can only set tsize when spi is disabled
-    //     self.regs.cr1.modify(|_, w| w.csusp().requested());
-    //     while self.regs.sr.read().eot().is_completed() {}
-    //     self.regs
-    //         .cr1
-    //         .write(|w| w.ssi().slave_not_selected().spe().disabled());
-    //
-    //     // Set the frame size
-    //     self.regs.cr2.write(|w| w.tsize().bits(words.get()));
-    //
-    //     // Re-enable
-    //     self.clear_modf(); // SPE cannot be set when MODF is set
-    //     self.regs
-    //         .cr1
-    //         .write(|w| w.ssi().slave_not_selected().spe().enabled());
-    //
-    //     Ok(())
-    // }
-    //
-    // #[cfg(feature = "h7")]
-    // fn end_transaction(&mut self) -> Result<(), SpiError> {
-    //     if !matches!(
-    //         self.hardware_cs_mode,
-    //         HardwareCSMode::FrameTransaction | HardwareCSMode::EndlessTransaction
-    //     ) {
-    //         return Err(SpiError::InvalidCall);
-    //     }
-    //
-    //     self.regs.cr1.modify(|_, w| w.csusp().requested());
-    //     while (self.regs.cr1.read().cstart().is_started()) {}
-    //
-    //     self.regs.ifcr.write(|w| w.txtfc().clear().eotc().clear());
-    //
-    //     Ok(())
-    // }
 
     #[cfg(feature = "h7")]
     fn read_one(&mut self) -> Result<u8, SpiError> {
@@ -869,21 +788,21 @@ where
 
         // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel = R::write_chan();
+            let channel = R::write_chan();
         #[cfg(feature = "l4")]
-        let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
+            let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
         #[cfg(feature = "h7")]
-        let periph_addr = &self.regs.txdr as *const _ as u32;
+            let periph_addr = &self.regs.txdr as *const _ as u32;
         #[cfg(not(feature = "h7"))]
-        let periph_addr = &self.regs.dr as *const _ as u32;
+            let periph_addr = &self.regs.dr as *const _ as u32;
 
         #[cfg(feature = "h7")]
-        let num_data = len as u32;
+            let num_data = len as u32;
         #[cfg(not(feature = "h7"))]
-        let num_data = len as u16;
+            let num_data = len as u16;
 
         dma.cfg_channel(
             channel,
@@ -928,21 +847,21 @@ where
         self.regs.cfg1.modify(|_, w| w.rxdmaen().set_bit());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel = R::read_chan();
+            let channel = R::read_chan();
         #[cfg(feature = "l4")]
-        let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
+            let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
         #[cfg(feature = "h7")]
-        let periph_addr = &self.regs.rxdr as *const _ as u32;
+            let periph_addr = &self.regs.rxdr as *const _ as u32;
         #[cfg(not(feature = "h7"))]
-        let periph_addr = &self.regs.dr as *const _ as u32;
+            let periph_addr = &self.regs.dr as *const _ as u32;
 
         #[cfg(feature = "h7")]
-        let num_data = len as u32;
+            let num_data = len as u32;
         #[cfg(not(feature = "h7"))]
-        let num_data = len as u16;
+            let num_data = len as u16;
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
@@ -1005,24 +924,24 @@ where
         // todo: DRY here, with `write_dma`, and `read_dma`.
 
         #[cfg(feature = "h7")]
-        let periph_addr_write = &self.regs.txdr as *const _ as u32;
+            let periph_addr_write = &self.regs.txdr as *const _ as u32;
         #[cfg(not(feature = "h7"))]
-        let periph_addr_write = &self.regs.dr as *const _ as u32;
+            let periph_addr_write = &self.regs.dr as *const _ as u32;
 
         #[cfg(feature = "h7")]
-        let periph_addr_read = &self.regs.rxdr as *const _ as u32;
+            let periph_addr_read = &self.regs.rxdr as *const _ as u32;
         #[cfg(not(feature = "h7"))]
-        let periph_addr_read = &self.regs.dr as *const _ as u32;
+            let periph_addr_read = &self.regs.dr as *const _ as u32;
 
         #[cfg(feature = "h7")]
-        let num_data_write = len_write as u32;
+            let num_data_write = len_write as u32;
         #[cfg(not(feature = "h7"))]
-        let num_data_write = len_write as u16;
+            let num_data_write = len_write as u16;
 
         #[cfg(feature = "h7")]
-        let num_data_read = len_read as u32;
+            let num_data_read = len_read as u32;
         #[cfg(not(feature = "h7"))]
-        let num_data_read = len_read as u16;
+            let num_data_read = len_read as u16;
 
         // Be careful - order of enabling Rx and Tx may matter, along with other things like when we
         // enable the channels, and the SPI periph.
@@ -1032,16 +951,16 @@ where
         self.regs.cfg1.modify(|_, w| w.rxdmaen().set_bit());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel_write = R::write_chan();
+            let channel_write = R::write_chan();
         #[cfg(feature = "l4")]
-        let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
+            let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
         #[cfg(any(feature = "f3", feature = "l4"))]
-        let channel_read = R::read_chan();
+            let channel_read = R::read_chan();
         #[cfg(feature = "l4")]
-        let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
+            let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
         match dma_periph {
@@ -1202,8 +1121,8 @@ where
 
 #[cfg(feature = "embedded_hal")]
 impl<R> FullDuplex<u8> for Spi<R>
-where
-    R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
+    where
+        R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
 {
     type Error = SpiError;
 
