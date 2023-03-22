@@ -111,18 +111,30 @@ pub struct PllCfg {
 impl Default for PllCfg {
     // Note that this assumes VOS1. (Not full speed)
     fn default() -> Self {
+        cfg_if! {
+            if #[cfg(feature = "h5")] {
+                let divn = 250;
+            } else if #[cfg(feature = "h7b3")] {
+                let divn = 280;
+            } else {
+                let divn = 400;
+            }
+        }
+
         Self {
             enabled: true,
             // fractional: false,
             pllp_en: true,
             pllq_en: false,
             pllr_en: false,
+            // todo: Getting mixed messages on if HSI on H5 is 16Mhz or 32Mhz.
+            // todo: Great as 32Mhz for now, and see if speed is twice as slow
+            // todo as it should be.
+            #[cfg(feature = "h5")]
+            divm: 32, // todo 16?
+            #[cfg(feature = "h7")]
             divm: 32,
-            #[cfg(feature = "h7b3")]
-            // todo: QC that this is right, and you don't need other changes on 280Mhz variants.
-            divn: 280,
-            #[cfg(not(feature = "h7b3"))]
-            divn: 400,
+            divn,
             // We override DIVP1 to be 1, and lower DIVN1 to achieve full speed on H723 etc
             // variants.
             divp: 2,
@@ -821,6 +833,7 @@ impl Clocks {
     pub fn pll_input_speed(&self, pll_src: PllSrc, pll_num: u8) -> u32 {
         let input_freq = match pll_src {
             PllSrc::Csi => 4_000_000,
+            // todo: QC if H5 HSI is 64 or 32M.
             PllSrc::Hsi(div) => 64_000_000 / (div.value() as u32),
             PllSrc::Hse(freq) => freq,
             PllSrc::None => 0,
@@ -868,6 +881,7 @@ impl Clocks {
                     / self.pll1.divp as u32
             }
             InputSrc::Csi => 4_000_000,
+            // todo: QC if H5 is 32 or 64M.
             InputSrc::Hsi(div) => 64_000_000 / (div.value() as u32),
             InputSrc::Hse(freq) => freq,
         }
@@ -1050,9 +1064,21 @@ impl Default for Clocks {
             d1_core_prescaler: HclkPrescaler::Div1,
             d1_prescaler: ApbPrescaler::Div2,
             /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
+            #[cfg(feature = "h5")]
+            hclk_prescaler: HclkPrescaler::Div1,
+            #[cfg(feature = "h7")]
             hclk_prescaler: HclkPrescaler::Div2,
+            #[cfg(feature = "h5")]
+            d2_prescaler1: ApbPrescaler::Div1,
+            #[cfg(feature = "h7")]
             d2_prescaler1: ApbPrescaler::Div2,
+            #[cfg(feature = "h5")]
+            d2_prescaler2: ApbPrescaler::Div1,
+            #[cfg(feature = "h7")]
             d2_prescaler2: ApbPrescaler::Div2,
+            #[cfg(feature = "h5")]
+            d3_prescaler: ApbPrescaler::Div1,
+            #[cfg(feature = "h7")]
             d3_prescaler: ApbPrescaler::Div2,
             /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
             /// frees up the pin for use as GPIO.

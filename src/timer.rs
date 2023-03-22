@@ -2100,6 +2100,7 @@ cfg_if! {
        feature = "l4x5",
        feature = "l4x6",
        // feature = "l562", // todo: PAC bug?
+       feature = "h5",
        feature = "h7",
        feature = "g473",
        feature = "g474",
@@ -2118,6 +2119,7 @@ cfg_if! {
         feature = "l4x5",
         feature = "l4x6",
         feature = "l562",
+        feature = "h5",
         feature = "h7",
     ))] {
         make_timer!(TIM8, tim8, 2, u16);
@@ -2134,6 +2136,19 @@ cfg_if! {
     if #[cfg(feature = "g4")] {
         make_timer!(TIM8, tim8, 2, u32);
         cc_4_channels!(TIM8, u32);
+    }
+}
+
+cfg_if! {
+    if #[cfg(feature = "h5")] {
+        make_timer!(TIM12, tim12, 1, u32);
+        cc_2_channels!(TIM12, u32);
+
+        make_timer!(TIM13, tim13, 1, u32);
+        cc_2_channels!(TIM13, u32);
+
+        make_timer!(TIM14, tim14, 1, u32);
+        cc_2_channels!(TIM14, u32);
     }
 }
 

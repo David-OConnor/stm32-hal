@@ -176,6 +176,10 @@
     feature = "g484",
     feature = "g491",
     feature = "g4a1",
+    feature = "h503",
+    feature = "h562",
+    feature = "h563",
+    feature = "h573",
     feature = "h735",
     feature = "h743",
     feature = "h743v",
@@ -334,6 +338,19 @@ pub use stm32g4::stm32g491 as pac;
 
 #[cfg(feature = "g4a1")]
 pub use stm32g4::stm32g4a1 as pac;
+
+// H5 PAC
+#[cfg(feature = "h503")]
+pub use stm32h5::stm32h503 as pac;
+
+#[cfg(feature = "h562")]
+pub use stm32h5::stm32h562 as pac;
+
+#[cfg(feature = "h563")]
+pub use stm32h5::stm32h563 as pac;
+
+#[cfg(feature = "h573")]
+pub use stm32h5::stm32h573 as pac;
 
 // H7 PAC
 #[cfg(feature = "h735")]
@@ -499,6 +516,7 @@ pub mod sai;
 
 pub mod spi;
 
+#[cfg(not(feature = "h5"))] // todo temp
 pub mod timer;
 pub mod usart;
 

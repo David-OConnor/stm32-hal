@@ -31,7 +31,7 @@ This library provides high-level access to STM32 peripherals.
 
 
 ## Supported MCUs
-F3, F4, L4, L5, G0, G4, H7, WB, and WL. U5 is planned once its SVD files and PAC
+F3, F4, L4, L5, G0, G4, H5, H7, WB, and WL. U5 is planned once its SVD files and PAC
 become available.
 
 Tested on the following devices:
@@ -302,6 +302,7 @@ STM32WL radio support is WIP, and will be provided through interaction with newA
 - SDIO and ethernet unimplemented
 - DMA unimplemented on F4, and L552
 - H7 BDMA and MDMA unimplemented
+- H5 GPDMA unimplemented
 - USART interrupts unimplemented on F4
 - CRC unimplemented for L5, F4, G0, and G4
 - High-resolution timers (HRTIM), Low power timers (LPTIM), and low power usart (LPUSART) unimplemented

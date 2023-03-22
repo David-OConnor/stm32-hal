@@ -22,9 +22,9 @@ cfg_if::cfg_if! {
         pub use baseline::*;
     } else if #[cfg(feature = "u5")] {
         // todo once SVD is out
-    } else if #[cfg(feature = "h7")] {
-        mod h7;
-        pub use h7::*;
+    } else if #[cfg(any(feature = "h5", feature = "h7"))] {
+        mod h;
+        pub use h::*;
     }
 }
 
