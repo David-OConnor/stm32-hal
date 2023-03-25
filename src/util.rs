@@ -935,6 +935,13 @@ cfg_if! {
                 rcc_en_reset!(ahb2, dac4, rcc);
             }
         }
+    } else if #[cfg(feature = "h5")] {
+        impl RccPeriph for DAC1 {
+            fn en_reset(rcc: &RegisterBlock) {
+                // todo: Should be DAC1 PAC-side.
+                rcc_en_reset!(ahb2, dac12, rcc);
+            }
+        }
     } else if #[cfg(feature = "f4")] {
         // F4 only uses 1 enable, despite having 2 devices. (each with 1 channel)
         impl RccPeriph for DAC1 {

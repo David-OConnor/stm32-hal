@@ -385,6 +385,8 @@ pub use stm32wl::stm32wle5 as pac;
 
 // todo: U5 once SVD is out.
 
+use cfg_if::cfg_if;
+
 #[cfg(not(any(feature = "f301", feature = "f302")))]
 pub mod adc;
 
@@ -518,10 +520,11 @@ pub mod spi;
 
 #[cfg(not(feature = "h5"))] // todo temp
 pub mod timer;
+#[cfg(not(feature = "h5"))] // todo temp. Needs CR1 and ISR added, among other things.
 pub mod usart;
 
 // See note at top of `usb` module for info on G0; not avail on modules the PAC has avail.
-cfg_if::cfg_if! {
+cfg_if! {
     if #[cfg(all(
         feature = "usb",
         all(
@@ -611,39 +614,39 @@ use cortex_m::interrupt::free;
 /// use by the DMA clock.
 /// For why we enable the DMA clock, see STM32F446 errata, section 2.1.1.
 pub fn debug_workaround() {
-    free(|_| {
-        let dbgmcu = unsafe { &(*pac::DBGMCU::ptr()) };
+    let dbgmcu = unsafe { &(*pac::DBGMCU::ptr()) };
 
-        cfg_if::cfg_if! {
-            if #[cfg(all(feature = "h7", not(any(feature = "h747cm4", feature = "h747cm7"))))] {
-                dbgmcu.cr.modify(|_, w| w.dbgsleep_d1().set_bit());
-                dbgmcu.cr.modify(|_, w| w.dbgstop_d1().set_bit());
-                dbgmcu.cr.modify(|_, w| w.dbgstby_d1().set_bit());
-            } else if #[cfg(feature = "h7")] {
-                dbgmcu.cr.modify(|_, w| w.dbgslpd1().set_bit());
-                dbgmcu.cr.modify(|_, w| w.dbgstpd1().set_bit());
-                dbgmcu.cr.modify(|_, w| w.dbgstbd1().set_bit());
-            } else {
-                #[cfg(not(feature = "l5"))]
-                dbgmcu.cr.modify(|_, w| w.dbg_sleep().set_bit());
-                dbgmcu.cr.modify(|_, w| w.dbg_stop().set_bit());
-                dbgmcu.cr.modify(|_, w| w.dbg_standby().set_bit());
-            }
+    cfg_if! {
+        if #[cfg(all(feature = "h7", not(any(feature = "h747cm4", feature = "h747cm7"))))] {
+            dbgmcu.cr.modify(|_, w| w.dbgsleep_d1().set_bit());
+            dbgmcu.cr.modify(|_, w| w.dbgstop_d1().set_bit());
+            dbgmcu.cr.modify(|_, w| w.dbgstby_d1().set_bit());
+        } else if #[cfg(feature = "h7")] {
+            dbgmcu.cr.modify(|_, w| w.dbgslpd1().set_bit());
+            dbgmcu.cr.modify(|_, w| w.dbgstpd1().set_bit());
+            dbgmcu.cr.modify(|_, w| w.dbgstbd1().set_bit());
+        } else {
+            #[cfg(not(any(feature = "l5", feature = "h5")))]
+            dbgmcu.cr.modify(|_, w| w.dbg_sleep().set_bit());
+            dbgmcu.cr.modify(|_, w| w.dbg_stop().set_bit());
+            dbgmcu.cr.modify(|_, w| w.dbg_standby().set_bit());
         }
-    });
+    }
 
-    free(|_| {
-        let rcc = unsafe { &(*pac::RCC::ptr()) };
+    let rcc = unsafe { &(*pac::RCC::ptr()) };
 
-        // todo Some MCUs may need the dbgmcu lines, but not DMA enabled.
-        // todo: Remove this part on MCUs not affected. F4 and L4 are confirmed affected.
+    // todo Some MCUs may need the dbgmcu lines, but not DMA enabled.
+    // todo: Remove this part on MCUs not affected. F4 and L4 are confirmed affected.
 
-        #[cfg(feature = "f3")]
-        rcc.ahbenr.modify(|_, w| w.dma1en().set_bit());
-
-        #[cfg(not(feature = "f3"))]
-        rcc.ahb1enr.modify(|_, w| w.dma1en().set_bit());
-    })
+    cfg_if! {
+        if #[cfg(feature = "f3")] {
+            rcc.ahbenr.modify(|_, w| w.dma1en().set_bit());
+        } else if #[cfg(feature = "h5")] {
+            rcc.ahb1enr.modify(|_, w| w.gpdma1en().set_bit());
+        } else {
+            rcc.ahb1enr.modify(|_, w| w.dma1en().set_bit());
+        }
+    }
 }
 
 /// In the prelude, we export helper macros.

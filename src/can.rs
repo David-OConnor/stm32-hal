@@ -18,7 +18,7 @@ cfg_if! {
         use crate::pac::{can1 as can, CAN1 as CAN};
     } else if #[cfg(feature = "g4")]{
         use fdcan;
-        use crate::pac::{fdcan as can, FDCAN as CAN};
+        use crate::pac::{fdcan as can, FDCAN1 as CAN};
     } else { // eg G0, H7
         use fdcan;
         // todo: CAN2 on H7.
