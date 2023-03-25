@@ -145,17 +145,22 @@ macro_rules! modify_bit {
 
 /// Represents an Analog Comparator peripheral.
 pub struct Comp {
+    /// The comparator device.
     device: CompDevice,
+    /// The lock status of the comparator.
+    is_locked: bool,
 }
 
 impl Comp {
     /// Initialize the comparator peripheral. This will writes the configuration
     /// according to `cfg`.
     pub fn new(device: CompDevice, cfg: CompConfig) -> Self {
-        let result = Self { device };
+        let result = Self {
+            device,
+            is_locked: false,
+        };
 
-        let config = cfg.blanking as u32
-            | cfg.hyst as u32
+        let config = cfg.hyst as u32
             | cfg.inmsel as u32
             | cfg.inpsel as u32
             | cfg.polarity as u32
@@ -172,27 +177,42 @@ impl Comp {
             CompDevice::One => modify_bit!(comp1_csr, config),
             CompDevice::Two => modify_bit!(comp2_csr, config),
         }
-
         result
     }
 
     /// Writes bit/bits to the regiter.
-    fn set_bit(&mut self, value: u32) {
+    fn set_bit(&mut self, value: u32) -> Result<(), ()> {
+        if self.is_locked {
+            return Err(());
+        }
+
         match self.device {
             CompDevice::One => set_bit!(comp1_csr, value),
             CompDevice::Two => set_bit!(comp2_csr, value),
         }
+
+        Ok(())
     }
 
     /// Clears bit/bits in the register.
-    fn clear_bit(&mut self, value: u32) {
+    ///
+    /// This function will return an Error when the comparator is locked.
+    fn clear_bit(&mut self, value: u32) -> Result<(), ()> {
+        if self.is_locked {
+            return Err(());
+        }
+
         match self.device {
             CompDevice::One => clear_bit!(comp1_csr, value),
             CompDevice::Two => clear_bit!(comp2_csr, value),
         }
+
+        Ok(())
     }
 
     /// Read bit/bits in the register.
+    ///
+    /// This function will return an Error when the comparator is locked.
     fn read_bit(&self, value: u32) -> u32 {
         match self.device {
             CompDevice::One => read_bit!(comp1_csr, value),
@@ -216,17 +236,30 @@ impl Comp {
     }
 
     /// Starts the comparator.
-    pub fn start(&mut self) {
-        self.set_bit(0b1);
+    ///
+    /// This function will return an Error when the comparator is locked.
+    pub fn start(&mut self) -> Result<(), ()> {
+        self.set_bit(0b1)
     }
 
     /// Stops the comparator.
-    pub fn stop(&mut self) {
-        self.clear_bit(0b1);
+    ///
+    /// This function will return an Error when the comparator is locked.
+    pub fn stop(&mut self) -> Result<(), ()> {
+        self.clear_bit(0b1)
     }
 
     /// Locks the comparator.
-    pub fn lock(&mut self) {
-        todo!()
+    ///
+    /// This locks the comparator registers making it only read-only.
+    ///
+    /// **Note:** The lock also applies to the lock bit itself. Therefore,
+    /// the comparator register/configuration **cannot** be changed until
+    /// a hardware reset.
+    ///
+    /// This function will return an Error when the comparator is locked.
+    pub fn lock(&mut self) -> Result<(), ()> {
+        self.is_locked = true;
+        self.set_bit(0x80000000)
     }
 }
