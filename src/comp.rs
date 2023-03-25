@@ -1,19 +1,46 @@
+//! Comparator
+//!
+//! TODO:
+//! - Window Mode Configuration (COMP1 and COMP2 have different configs)
+//! - Blanking Source Configuration (COMP1 and COMP2 have different configs)
+//! - More Inputs For Inverting Input (STM32L41xxx/42xxx/43xxx/44xxx/45xxx/46xxx)
+//! - Moving Peripheral into Struct (pac needs to change)
+//! - Add Configuration Defaults
+//! - Interrupts?
 use crate::pac;
 
 // Config enums
 /// Comparator power mode
 pub enum PowerMode {
-    ///
+    /// High speed/full power (Lowest propagation delay).
     HighSpeed = 0x00000000,
+    /// Medium speed/medium power (Medium propagation delay).
     MediumSpeed = 0x00000004,
+    /// Low speed/ultra-low power (Highest propagation delay).
     LowSpeed = 0x0000000c,
 }
 
-// TODO Io pins based on MCU
 /// Comparator input plus (Non-inverting Input)
 pub enum NonInvertingInput {
+    /// From the first GPIO pin connected to the comparator.
+    ///
+    /// The GPIO pin used depends on the MCU and comparator used.
     Io1 = 0x00000000,
+    /// From the second GPIO pin connected to the comparator.
+    ///
+    /// The GPIO pin used depends on the MCU and comparator used.
     Io2 = 0x00000080,
+    // PA1/PA3 for STM32L41xxx/42xxx/43xxx/44xxx/45xxx/46xxx
+    // TODO: Include stm32l471
+    #[cfg(any(
+        feature = "stm32l4x1",
+        feature = "stm32l4x2",
+        feature = "stm32l4x3",
+    ))]
+    /// From the third GPIO pin connected to the comparator.
+    ///
+    /// The GPIO pin used depends on the MCU and comparator used.
+    Io3 = 0x00000100,
 }
 
 // TODO Values are based on SCALEN (0x800000) and BRGEN (0x400000) check for other MCU.
@@ -43,9 +70,13 @@ pub enum InvertingInput {
 
 /// Comparator hysterisis
 pub enum Hysterisis {
+    /// No Hysterisis.
     NoHysterisis = 0x00000000,
+    /// Low Hysterisis.
     LowHysteresis = 0x00010000,
+    /// Medium Hysterisis.
     MediumHysteresis = 0x00020000,
+    /// High Hysterisis.
     HighHysteresis = 0x00030000,
 }
 
@@ -69,16 +100,18 @@ pub enum OutputPolarity {
 
 /// Comparator blanking source
 pub enum BlankingSource {
+    /// No Blanking.
     None = 0x00000000,
-    Timloc5,
+    /// TIM1 OC5 as the blanking source.
+    Timloc5 = 0x400000,
 }
 
 /// Comparator devices avaiable.
 pub enum CompDevice {
     /// Comparator number 1 (COMP1).
     One,
-    #[cfg(not(any(feature = "l412")))]
     /// Comparator number 2 (COMP2).
+    #[cfg(not(any(feature = "l412")))]
     Two,
 }
 
@@ -95,8 +128,8 @@ pub struct CompConfig {
     pub hyst: Hysterisis,
     /// Comparator output polarity.
     pub polarity: OutputPolarity,
-    /// Comparator blanking source.
-    pub blanking: BlankingSource,
+    // Comparator blanking source.
+    // pub blanking: BlankingSource,
 }
 
 /// Macro to write bits to the register
@@ -104,9 +137,11 @@ macro_rules! set_bit {
     ($comp:ident, $value:expr) => {
         unsafe {
             let regs = &(*pac::COMP::ptr()).$comp;
-            let current_bits = regs.read().bits();
-            let output_bits = current_bits | $value;
-            regs.write(|w| w.bits(output_bits))
+            regs.modify(|r, w| {
+                let current_bits = r.bits();
+                let output_bits = current_bits | $value;
+                w.bits(output_bits)
+            })
         }
     };
 }
@@ -118,7 +153,7 @@ macro_rules! clear_bit {
             let regs = &(*pac::COMP::ptr()).$comp;
             let current_bits = regs.read().bits();
             let output_bits = current_bits & !$value;
-            regs.write(|w| w.bits(output_bits))
+            regs.modify(|_, w| w.bits(output_bits))
         }
     };
 }
