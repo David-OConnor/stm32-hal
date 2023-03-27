@@ -399,6 +399,7 @@ pub struct Clocks {
     pub pll2: PllCfg,
     /// Enable and speed status for PLL3
     pub pll3: PllCfg,
+    #[cfg(feature = "h7")]
     /// The prescaler between sysclk and hclk
     pub d1_core_prescaler: HclkPrescaler,
     /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
@@ -407,6 +408,7 @@ pub struct Clocks {
     pub d1_prescaler: ApbPrescaler,
     /// APB1 peripheral clocks
     pub d2_prescaler1: ApbPrescaler,
+    #[cfg(feature = "h7")]
     /// APB2 peripheral clocks
     pub d2_prescaler2: ApbPrescaler,
     /// APB4 peripheral clocks
@@ -565,19 +567,31 @@ impl Clocks {
             w.stopwuck().bit(self.stop_wuck as u8 != 0)
         });
 
+        #[cfg(feature = "h7")]
         rcc.d1cfgr.modify(|_, w| unsafe {
             w.d1cpre().bits(self.d1_core_prescaler as u8);
             w.d1ppre().bits(self.d1_prescaler as u8);
             w.hpre().bits(self.hclk_prescaler as u8)
         });
 
+        #[cfg(feature = "h7")]
         rcc.d2cfgr.modify(|_, w| unsafe {
             w.d2ppre1().bits(self.d2_prescaler1 as u8);
             w.d2ppre2().bits(self.d2_prescaler2 as u8)
         });
 
+        #[cfg(feature = "h7")]
         rcc.d3cfgr
             .modify(|_, w| unsafe { w.d3ppre().bits(self.d3_prescaler as u8) });
+
+        #[cfg(feature = "h5")]
+        rcc.cfgr2.modify(|_, w| {
+            w.ppre1.bits(self.d1_prescaler as u8);
+            w.ppre2.bits(self.d2_prescaler1 as u8);
+            // w.ppre2.bits(self.d2_prescaler1 as u8); // todo?
+            w.ppre3.bits(self.d3_prescaler as u8);
+            w.hpre.bits(self.hclk_prescaler as u8)
+        });
 
         #[cfg(not(feature = "h7b3"))]
         rcc.d2ccip1r.modify(|_, w| unsafe {
@@ -657,8 +671,10 @@ impl Clocks {
             // If using multiple PLLs, we do a write to `PLLCLKSELR` and `PLLCFGR` for each
             // enabled PLL. This is unecessary, but makes the code clearer. This is worth it, given
             // we expect the user to run `.setup()` only once.
+            #[cfg(feature = "h7")]
             rcc.pllckselr.modify(|_, w| w.divm1().bits(self.pll1.divm));
 
+            #[cfg(feature = "h7")]
             rcc.pllcfgr.modify(|_, w| {
                 w.pll1rge().bits(pll1_rng_val);
                 w.pll1vcosel().bit(pll1_vco != 0);
@@ -667,11 +683,30 @@ impl Clocks {
                 w.divr1en().bit(self.pll1.pllr_en)
             });
 
+            #[cfg(feature = "h5")]
+            rcc.pll1cfgr.modify(|_, w| {
+                w.pll1m().bits(self.pll1.divm);
+                w.pll1rge().bits(pll1_rng_val);
+                w.pll1vcosel().bit(pll1_vco != 0);
+                w.pll1pen().bit(true);
+                w.pll1qen().bit(self.pll1.pllq_en);
+                w.pll1ren().bit(self.pll1.pllr_en)
+            });
+
+            #[cfg(feature = "h7")]
             rcc.pll1divr.modify(|_, w| unsafe {
                 w.divn1().bits(self.pll1.divn - 1);
                 w.divp1().bits(self.pll1.divp - 1);
                 w.divq1().bits(self.pll1.divq - 1);
                 w.divr1().bits(self.pll1.divr - 1)
+            });
+
+            #[cfg(feature = "h5")]
+            rcc.pll1divr.modify(|_, w| unsafe {
+                w.pll1n().bits(self.pll1.divn - 1);
+                w.pll1p().bits(self.pll1.divp - 1);
+                w.pll1q().bits(self.pll1.divq - 1);
+                w.pll1r().bits(self.pll1.divr - 1)
             });
 
             // Now turn PLL back on, once we're configured things that can only be set with it off.
@@ -697,8 +732,10 @@ impl Clocks {
                 _ => 1,
             };
 
+            #[cfg(feature = "h7")]
             rcc.pllckselr.modify(|_, w| w.divm2().bits(self.pll2.divm));
 
+            #[cfg(feature = "h7")]
             rcc.pllcfgr.modify(|_, w| {
                 w.pll2rge().bits(pll2_rng_val);
                 w.pll2vcosel().bit(pll2_vco != 0);
@@ -707,11 +744,29 @@ impl Clocks {
                 w.divr2en().bit(self.pll2.pllr_en)
             });
 
+            #[cfg(feature = "h5")]
+            rcc.pll2cfgr.modify(|_, w| {
+                w.pll2rge().bits(pll2_rng_val);
+                w.pll2vcosel().bit(pll2_vco != 0);
+                w.pll2pen().bit(self.pll2.pllp_en);
+                w.pll2qen().bit(self.pll2.pllq_en);
+                w.pll2ren().bit(self.pll2.pllr_en)
+            });
+
+            #[cfg(feature = "h7")]
             rcc.pll2divr.modify(|_, w| unsafe {
                 w.divn2().bits(self.pll2.divn - 1);
                 w.divp2().bits(self.pll2.divp - 1);
                 w.divq2().bits(self.pll2.divq - 1);
                 w.divr2().bits(self.pll2.divr - 1)
+            });
+
+            #[cfg(feature = "h5")]
+            rcc.pll2divr.modify(|_, w| unsafe {
+                w.pll2n().bits(self.pll2.divn - 1);
+                w.pll2p().bits(self.pll2.divp - 1);
+                w.pll2q().bits(self.pll2.divq - 1);
+                w.pll2r().bits(self.pll2.divr - 1)
             });
 
             rcc.cr.modify(|_, w| w.pll2on().set_bit());
@@ -735,8 +790,10 @@ impl Clocks {
                 _ => 1,
             };
 
+            #[cfg(feature = "h7")]
             rcc.pllckselr.modify(|_, w| w.divm3().bits(self.pll3.divm));
 
+            #[cfg(feature = "h7")]
             rcc.pllcfgr.modify(|_, w| {
                 w.pll3rge().bits(pll3_rng_val);
                 w.pll3vcosel().bit(pll3_vco != 0);
@@ -745,11 +802,29 @@ impl Clocks {
                 w.divr3en().bit(self.pll3.pllr_en)
             });
 
+            #[cfg(feature = "h5")]
+            rcc.pll3cfgr.modify(|_, w| {
+                w.pll3rge().bits(pll3_rng_val);
+                w.pll3vcosel().bit(pll3_vco != 0);
+                w.pll3pen().bit(self.pll3.pllp_en);
+                w.pll3qen().bit(self.pll3.pllq_en);
+                w.pll3ren().bit(self.pll3.pllr_en)
+            });
+
+            #[cfg(feature = "h7")]
             rcc.pll3divr.modify(|_, w| unsafe {
                 w.divn3().bits(self.pll3.divn - 1);
                 w.divp3().bits(self.pll3.divp - 1);
                 w.divq3().bits(self.pll3.divq - 1);
                 w.divr3().bits(self.pll3.divr - 1)
+            });
+
+            #[cfg(feature = "h5")]
+            rcc.pll3divr.modify(|_, w| unsafe {
+                w.pll3n().bits(self.pll3.divn - 1);
+                w.pll3p().bits(self.pll3.divp - 1);
+                w.pll3q().bits(self.pll3.divq - 1);
+                w.pll3r().bits(self.pll3.divr - 1)
             });
 
             rcc.cr.modify(|_, w| w.pll3on().set_bit());
@@ -1061,6 +1136,7 @@ impl Default for Clocks {
             pll1: PllCfg::default(),
             pll2: PllCfg::disabled(),
             pll3: PllCfg::disabled(),
+            #[cfg(feature = "h7")]
             d1_core_prescaler: HclkPrescaler::Div1,
             d1_prescaler: ApbPrescaler::Div2,
             /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider

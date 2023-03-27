@@ -50,7 +50,7 @@ impl Can {
                 rcc.apb1hrstr.modify(|_, w| w.fdcanrst().set_bit());
                 rcc.apb1hrstr.modify(|_, w| w.fdcanrst().clear_bit());
 
-                set_message_ram_layout();
+                // set_message_ram_layout();
 
             } else {
                 rcc_en_reset!(apb1, fdcan, rcc);
@@ -66,7 +66,10 @@ impl Can {
 /// Set the message RAM layout. This is flexible on F7. This function hard-sets it to the setting
 /// that is hard-set by hardware on G4.
 /// todo: Allow flexibility.
-fn set_message_ram_layout() {
+///
+/// Note: Perhaps due to a reset of message ram called by the FDCAN crate's `.into_config_mode()`,
+/// we run this in application firmware once in config mode. Although a better API would be in the constructor.
+pub fn set_message_ram_layout() {
     let regs = unsafe { &(*CAN::ptr()) };
 
     // RM, section 56.4.1: Operation modes: "Access to the FDCAN configuration registers is only
@@ -128,9 +131,8 @@ fn set_message_ram_layout() {
     word_addr += 2 * TX_EVENT_MAX as u16;
 
     // Tx buffers
-    regs.txbc.modify(|_, w| unsafe {
-        w.tbsa().bits(word_addr).tfqs().bits(TX_FIFO_MAX)
-    });
+    regs.txbc
+        .modify(|_, w| unsafe { w.tbsa().bits(word_addr).tfqs().bits(TX_FIFO_MAX) });
     word_addr += 18 * TX_FIFO_MAX as u16;
 
     // Rx Buffer - not used
@@ -140,9 +142,8 @@ fn set_message_ram_layout() {
     // Trigger memory?
 
     // Set the element sizes to 16 bytes
-    regs.rxesc.modify(|_, w| unsafe {
-        w.rbds().bits(0b111).f1ds().bits(0b111).f0ds().bits(0b111)
-    });
+    regs.rxesc
+        .modify(|_, w| unsafe { w.rbds().bits(0b111).f1ds().bits(0b111).f0ds().bits(0b111) });
     regs.txesc.modify(|_, w| unsafe { w.tbds().bits(0b111) });
 }
 
