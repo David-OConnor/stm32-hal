@@ -13,7 +13,7 @@ use crate::{
 use cfg_if::cfg_if;
 use paste::paste;
 
-#[cfg(not(any(feature = "f4", feature = "l552")))]
+#[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -944,7 +944,7 @@ macro_rules! hal {
                 });
             }
 
-            #[cfg(not(any(feature = "f4", feature = "l552")))]
+            #[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
             /// Take a reading, using DMA. Sets conversion sequence; no need to set it directly.
             /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
             /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).

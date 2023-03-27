@@ -31,12 +31,12 @@ use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
         use crate::pac::DMA as DMA1;
-    } else if #[cfg(feature = "f4")] {} else {
+    } else if #[cfg(any(feature = "f4", feature = "h5"))] {} else {
         use crate::pac::DMA1;
     }
 }
 
-#[cfg(not(any(feature = "f4", feature = "l552")))]
+#[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
 
 use cfg_if::cfg_if;
@@ -360,7 +360,7 @@ macro_rules! set_exti {
                                 exti.cpuimr1.modify(|_, w| w.[<mr $num>]().set_bit());
                             } else if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
                                 exti.c1imr1.modify(|_, w| w.[<mr $num>]().set_bit());
-                            } else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl", feature = "h5"))] {
+                            } else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
                                 exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());
                             } else {
                                 exti.imr1.modify(|_, w| w.[<mr $num>]().set_bit());
@@ -368,7 +368,7 @@ macro_rules! set_exti {
                         }
 
                         cfg_if! {
-                            if #[cfg(any(feature = "g4", feature = "wb", feature = "wl", feature = "h5"))] {
+                            if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
                                 exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($rising));
                                 exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit($falling));
                             // } else if #[cfg(any(feature = "wb", feature = "wl"))] {
@@ -419,7 +419,7 @@ macro_rules! set_exti_f4 {
     }
 }
 
-#[cfg(feature = "l5")]
+#[cfg(any(feature = "l5", feature = "h5"))]
 // For L5 See `set_exti!`. Different method naming pattern for exticr.
 macro_rules! set_exti_l5 {
     ($pin:expr, $rising:expr, $falling:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
@@ -432,9 +432,16 @@ macro_rules! set_exti_l5 {
                         exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());  // unmask
                         exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($rising));  // Rising trigger
                         exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit($falling));   // Falling trigger
+
+                        #[cfg(feature = "l5")]
                         exti
                             .[<exticr $crnum>]
                             .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
+
+                        #[cfg(feature = "h5")]
+                        exti
+                            .[<exticr $crnum>]
+                            .modify(|_, w| unsafe { w.[<exti $num>]().bits($val) });
                     }
                 )+
                 _ => panic!("GPIO pins must be 0 - 15."),
@@ -973,7 +980,7 @@ impl Pin {
                     (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
                     (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]
                 );
-            } else if #[cfg(feature = "l5")] {
+            } else if #[cfg(any(feature = "l5", feature = "h5"))] {
                 set_exti_l5!(self.pin, rising, falling, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
                     (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
                     (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
@@ -1360,7 +1367,13 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
     }
 }
 
-#[cfg(not(any(feature = "f4", feature = "l5", feature = "f3", feature = "l4")))]
+#[cfg(not(any(
+    feature = "f4",
+    feature = "l5",
+    feature = "f3",
+    feature = "l4",
+    feature = "h5"
+)))]
 /// Write a series of words to the BSRR (atomic output) register. Note that these are direct writes
 /// to the full, 2-sided register - not a series of low/high values.
 pub unsafe fn write_dma(
@@ -1412,7 +1425,13 @@ pub unsafe fn write_dma(
     }
 }
 
-#[cfg(not(any(feature = "f4", feature = "l5", feature = "f3", feature = "l4")))]
+#[cfg(not(any(
+    feature = "f4",
+    feature = "l5",
+    feature = "f3",
+    feature = "l4",
+    feature = "h5"
+)))]
 /// Read a series of words from the IDR register.
 pub unsafe fn read_dma(
     buf: &[u32],

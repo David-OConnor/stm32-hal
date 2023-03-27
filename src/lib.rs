@@ -493,6 +493,7 @@ feature = "g491",
 feature = "g4a1",
 feature = "wl",
 feature = "l5", // todo: PAC errors on some regs.
+feature = "h5",
 )))]
 pub mod qspi;
 

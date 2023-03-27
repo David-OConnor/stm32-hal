@@ -9,6 +9,8 @@ use cfg_if::cfg_if;
 cfg_if! {
     if #[cfg(any(feature = "l5", feature = "h735", feature = "h7b3"))] {
         use crate::pac::OCTOSPI1 as QUADSPI;
+    } else if #[cfg(feature = "h5")] {
+        use crate::pac::OCTOSPI as QUADSPI;
     } else {
         use crate::pac::QUADSPI;
     }

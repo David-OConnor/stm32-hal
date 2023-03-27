@@ -9,7 +9,7 @@ use crate::{
     pac::{CRS, FLASH, PWR, RCC},
 };
 
-#[cfg(not(any(feature = "h7b3", feature = "h735")))]
+#[cfg(not(any(feature = "h5", feature = "h7b3", feature = "h735")))]
 use crate::pac::SYSCFG;
 
 use cfg_if::cfg_if;
@@ -471,7 +471,8 @@ impl Clocks {
         // – When decreasing performance, the system frequency shall first be decreased before
         // changing the voltage scaling.
         match self.vos_range {
-            #[cfg(not(any(feature = "h7b3", feature = "h735")))]
+            // todo: Do we need this on H5?
+            #[cfg(not(any(feature = "h5", feature = "h7b3", feature = "h735")))]
             // Note:H735 etc have VOS0, but not oden; the RM doesn't list these steps.
             VosRange::VOS0 => {
                 let syscfg = unsafe { &(*SYSCFG::ptr()) };
@@ -518,12 +519,10 @@ impl Clocks {
             }
             _ => {
                 #[cfg(feature = "h7")]
-                pwr
-                    .d3cr
+                pwr.d3cr
                     .modify(|_, w| unsafe { w.vos().bits(self.vos_range as u8) });
                 #[cfg(feature = "h5")]
-                pwr
-                    .voscr
+                pwr.voscr
                     .modify(|_, w| unsafe { w.vos().bits(self.vos_range as u8) });
             }
         }
@@ -550,7 +549,7 @@ impl Clocks {
                 while rcc.cr.read().hserdy().bit_is_clear() {}
             }
             InputSrc::Hsi(div) => {
-                rcc.cr.modify(|_, w| {
+                rcc.cr.modify(|_, w| unsafe {
                     w.hsidiv().bits(div as u8);
                     w.hsion().bit(true)
                 });
@@ -568,7 +567,7 @@ impl Clocks {
                         while rcc.cr.read().hserdy().bit_is_clear() {}
                     }
                     PllSrc::Hsi(div) => {
-                        rcc.cr.modify(|_, w| {
+                        rcc.cr.modify(|_, w| unsafe {
                             w.hsidiv().bits(div as u8);
                             w.hsion().bit(true)
                         });
@@ -607,7 +606,7 @@ impl Clocks {
             .modify(|_, w| unsafe { w.d3ppre().bits(self.d3_prescaler as u8) });
 
         #[cfg(feature = "h5")]
-        rcc.cfgr2.modify(|_, w| {
+        rcc.cfgr2.modify(|_, w| unsafe {
             // todo d1_core_prescaler?
             w.ppre1().bits(self.d1_prescaler as u8);
             w.ppre2().bits(self.d2_prescaler1 as u8);
@@ -741,7 +740,7 @@ impl Clocks {
             });
 
             #[cfg(feature = "h5")]
-            rcc.pll1cfgr.modify(|_, w| {
+            rcc.pll1cfgr.modify(|_, w| unsafe {
                 w.pll1src().bits(self.pll_src.bits());
                 w.divm1().bits(self.pll1.divm);
                 w.pll1rge().bits(pll1_rng_val);
@@ -803,7 +802,7 @@ impl Clocks {
             });
 
             #[cfg(feature = "h5")]
-            rcc.pll2cfgr.modify(|_, w| {
+            rcc.pll2cfgr.modify(|_, w| unsafe {
                 w.pll2src().bits(self.pll_src.bits());
                 w.pll2rge().bits(pll2_rng_val);
                 w.pll2vcosel().bit(pll2_vco != 0);
@@ -862,7 +861,7 @@ impl Clocks {
             });
 
             #[cfg(feature = "h5")]
-            rcc.pll3cfgr.modify(|_, w| {
+            rcc.pll3cfgr.modify(|_, w| unsafe {
                 w.pll3src().bits(self.pll_src.bits());
                 w.pll3rge().bits(pll3_rng_val);
                 w.pll3vcosel().bit(pll3_vco != 0);
@@ -925,7 +924,7 @@ impl Clocks {
                     }
                     PllSrc::Hsi(div) => {
                         // Generally reverts to Csi (see note below)
-                        rcc.cr.modify(|_, w| {
+                        rcc.cr.modify(|_, w| unsafe {
                             w.hsidiv().bits(div as u8); // todo: Do we need to reset the HSI div after low power?
                             w.hsion().bit(true)
                         });
@@ -952,7 +951,7 @@ impl Clocks {
                     // Configured by HW to force Csi or HSI16 oscillator selection when exiting Stop mode or in
                     // case of failure of the HSE oscillator, depending on STOPWUCK value."
                     // In tests, from stop, it tends to revert to Csi.
-                    rcc.cr.modify(|_, w| {
+                    rcc.cr.modify(|_, w| unsafe {
                         w.hsidiv().bits(div as u8); // todo: Do we need to reset the HSI div after low power?
                         w.hsion().bit(true)
                     });
