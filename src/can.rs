@@ -61,13 +61,25 @@ impl Can {
     }
 }
 
+#[cfg(feature = "h7")]
 // todo: Troubleshooting. COpied from H7xx-hal
 /// Set the message RAM layout. This is flexible on F7. This function hard-sets it to the setting
 /// that is hard-set by hardware on G4.
 /// todo: Allow flexibility.
 fn set_message_ram_layout() {
     let regs = unsafe { &(*CAN::ptr()) };
-    let mut word_addr = 0x000; // todo: 0x400 for FDCAN2.
+
+    // RM, section 56.4.1: Operation modes: "Access to the FDCAN configuration registers is only
+    // enabled when both INIT bit in FDCAN_CCCR register and CCE bit in FDCAN_CCCR register are set.
+    // Note: we do this as 2 separate writes. RM: "CCE bit in FDCAN_CCCR register can only be set/cleared while INIT bit in FDCAN_CCCR
+    // is set. CCE bit in FDCAN_CCCR register is automatically cleared when INIT bit in
+    // FDCAN_CCCR is cleared."
+    regs.cccr.modify(|_, w| w.init().set_bit());
+    while regs.cccr.read().init().bit_is_clear() {}
+    regs.cccr.modify(|_, w| w.cce().set_bit());
+    while regs.cccr.read().cce().bit_is_clear() {}
+
+    let mut word_addr = 0x000; // todo: 0x400 for FDCAN2?
 
     use fdcan::message_ram::*;
 
@@ -75,10 +87,12 @@ fn set_message_ram_layout() {
     regs.sidfc
         .modify(|_, w| unsafe { w.flssa().bits(word_addr) });
     word_addr += STANDARD_FILTER_MAX as u16;
+
     // 29-bit filter
     regs.xidfc
         .modify(|_, w| unsafe { w.flesa().bits(word_addr) });
     word_addr += 2 * EXTENDED_FILTER_MAX as u16;
+
     // Rx FIFO 0
     regs.rxf0c.modify(|_, w| unsafe {
         w.f0sa()
@@ -89,6 +103,7 @@ fn set_message_ram_layout() {
             .bits(RX_FIFO_MAX)
     });
     word_addr += 18 * RX_FIFO_MAX as u16;
+
     // Rx FIFO 1
     regs.rxf1c.modify(|_, w| unsafe {
         w.f1sa()
@@ -99,6 +114,7 @@ fn set_message_ram_layout() {
             .bits(RX_FIFO_MAX)
     });
     word_addr += 18 * RX_FIFO_MAX as u16;
+
     // Rx buffer - see below
     // Tx event FIFO
     regs.txefc.modify(|_, w| unsafe {
@@ -110,6 +126,7 @@ fn set_message_ram_layout() {
             .bits(TX_EVENT_MAX)
     });
     word_addr += 2 * TX_EVENT_MAX as u16;
+
     // Tx buffers
     regs.txbc.modify(|_, w| unsafe {
         w.tbsa().bits(word_addr).tfqs().bits(TX_FIFO_MAX)
@@ -151,8 +168,12 @@ cfg_if! {
 
         unsafe impl fdcan::message_ram::Instance for Can {
             #[cfg(feature = "g4")]
+            // G4 RM, table 3. "Series memory map and peripheral register boundary
+            // addresses". CAN message RAM: 3 listings, 1kb each:
+            // 0x4000_A400 - 0x4000_A7FF, 0x4000_A800 - 0x4000_ABFF,  0x4000_AC00 - 0x4000_AFFF,
             const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_a400 as *mut _);
             #[cfg(feature = "h7")]
+            // H743 RM, table 8. "Register boundary addresses". 0x4000_AC00 - 0x4000_D3FF". CAN message RAM.
             const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_ac00 as *mut _);
             // todo: (0x4000_ac00 + 0x1000) for H7, CAN2.
             // todo: (0x4000_a750 as *mut _) for G4, CAN2
