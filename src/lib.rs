@@ -412,7 +412,8 @@ pub mod clocks;
     feature = "g4",
     feature = "l5",
     feature = "wb",
-    feature = "wl"
+    feature = "wl",
+    feature = "h5", // todo: COme back to
 )))]
 pub mod crc;
 
@@ -463,7 +464,7 @@ pub mod gpio;
 #[cfg(feature = "wb")]
 pub mod hsem;
 
-#[cfg(not(feature = "f4"))]
+#[cfg(not(any(feature = "f4", feature = "h5")))] // todo: Come back to H5!
 pub mod i2c;
 #[cfg(feature = "f4")]
 pub mod i2c_f4;

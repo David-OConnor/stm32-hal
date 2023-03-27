@@ -618,8 +618,7 @@ impl Clocks {
 
         // Enable and reset System Configuration Controller, ie for interrupts.
         // todo: Is this the right module to do this in?
-        #[cfg(not(any(feature = "wb", feature = "wl")))] // todo: Do interrupts work without enabling syscfg on wb, which
-                                                         // todo doesn't have this?
+        #[cfg(not(any(feature = "wb", feature = "wl")))]
         rcc_en_reset!(apb2, syscfg, rcc);
 
         // Adjust flash wait states according to the HCLK frequency.

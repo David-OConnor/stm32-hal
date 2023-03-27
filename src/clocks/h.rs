@@ -399,7 +399,7 @@ pub struct Clocks {
     pub pll2: PllCfg,
     /// Enable and speed status for PLL3
     pub pll3: PllCfg,
-    #[cfg(feature = "h7")]
+    // todo: D1 core pres possibly not on H5.
     /// The prescaler between sysclk and hclk
     pub d1_core_prescaler: HclkPrescaler,
     /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
@@ -408,7 +408,7 @@ pub struct Clocks {
     pub d1_prescaler: ApbPrescaler,
     /// APB1 peripheral clocks
     pub d2_prescaler1: ApbPrescaler,
-    #[cfg(feature = "h7")]
+    // todo: D2 prescaler 2 possibly not on H5.
     /// APB2 peripheral clocks
     pub d2_prescaler2: ApbPrescaler,
     /// APB4 peripheral clocks
@@ -455,9 +455,12 @@ impl Clocks {
 
         // Enable and reset System Configuration Controller, ie for interrupts.
         // todo: Is this the right module to do this in?
-        rcc.apb4enr.modify(|_, w| w.syscfgen().set_bit());
-        rcc.apb4rstr.modify(|_, w| w.syscfgrst().set_bit());
-        rcc.apb4rstr.modify(|_, w| w.syscfgrst().clear_bit());
+        #[cfg(feature = "h7")]
+        {
+            rcc.apb4enr.modify(|_, w| w.syscfgen().set_bit());
+            rcc.apb4rstr.modify(|_, w| w.syscfgrst().set_bit());
+            rcc.apb4rstr.modify(|_, w| w.syscfgrst().clear_bit());
+        }
 
         // H743 RM, sefction 6.8.6, and section 6.6.2: Voltage Scaling
         //  Voltage scaling selection according to performance
@@ -479,9 +482,17 @@ impl Clocks {
                 // The sequence to activate the VOS0 is the following:
                 // 1. Ensure that the system voltage scaling is set to VOS1 by checking the VOS bits in
                 // PWR D3 domain control register (PWR D3 domain control register (PWR_D3CR))
-                pwr.d3cr
-                    .modify(|_, w| unsafe { w.vos().bits(VosRange::VOS1 as u8) });
-                while pwr.d3cr.read().vosrdy().bit_is_clear() {}
+                cfg_if! {
+                    if #[cfg(feature = "h7")] {
+                        pwr.d3cr
+                            .modify(|_, w| unsafe { w.vos().bits(VosRange::VOS1 as u8) });
+                        while pwr.d3cr.read().vosrdy().bit_is_clear() {}
+                    } else {
+                        pwr.voscr
+                            .modify(|_, w| unsafe { w.vos().bits(VosRange::VOS1 as u8) });
+                        while pwr.vossr.read().vosrdy().bit_is_clear() {}
+                    }
+                }
 
                 // 2. Enable the SYSCFG clock in the RCC by setting the SYSCFGEN bit in the
                 // RCC_APB4ENR register.
@@ -491,7 +502,10 @@ impl Clocks {
                 syscfg.pwrcr.modify(|_, w| w.oden().set_bit());
 
                 // 4. Wait for VOSRDY to be set.
+                #[cfg(feature = "h7")]
                 while pwr.d3cr.read().vosrdy().bit_is_clear() {}
+                #[cfg(feature = "h5")]
+                while pwr.vossr.read().vosrdy().bit_is_clear() {}
 
                 // Once the VCORE supply has reached the required level, the system frequency can be
                 // increased. Figure 31 shows the recommended sequence for switching VCORE from VOS1 to
@@ -502,15 +516,23 @@ impl Clocks {
                 // in the RCC_APB4ENR register.
                 // 3. Reset the ODEN bit in the SYSCFG_PWRCR register to disable VOS0.
             }
-            _ => pwr
-                .d3cr
-                .modify(|_, w| unsafe { w.vos().bits(self.vos_range as u8) }),
+            _ => {
+                #[cfg(feature = "h7")]
+                pwr
+                    .d3cr
+                    .modify(|_, w| unsafe { w.vos().bits(self.vos_range as u8) });
+                #[cfg(feature = "h5")]
+                pwr
+                    .voscr
+                    .modify(|_, w| unsafe { w.vos().bits(self.vos_range as u8) });
+            }
         }
 
         // Adjust flash wait states according to the HCLK frequency.
         // We need to do this before enabling PLL, or it won't enable.
         // H742 RM, Table 17.
         let wait_states = self.vos_range.wait_states(self.hclk());
+
         flash.acr.modify(|_, w| unsafe {
             w.latency().bits(wait_states.0);
             w.wrhighfreq().bits(wait_states.1)
@@ -586,14 +608,15 @@ impl Clocks {
 
         #[cfg(feature = "h5")]
         rcc.cfgr2.modify(|_, w| {
-            w.ppre1.bits(self.d1_prescaler as u8);
-            w.ppre2.bits(self.d2_prescaler1 as u8);
+            // todo d1_core_prescaler?
+            w.ppre1().bits(self.d1_prescaler as u8);
+            w.ppre2().bits(self.d2_prescaler1 as u8);
             // w.ppre2.bits(self.d2_prescaler1 as u8); // todo?
-            w.ppre3.bits(self.d3_prescaler as u8);
-            w.hpre.bits(self.hclk_prescaler as u8)
+            w.ppre3().bits(self.d3_prescaler as u8);
+            w.hpre().bits(self.hclk_prescaler as u8)
         });
 
-        #[cfg(not(feature = "h7b3"))]
+        #[cfg(not(any(feature = "h7b3", feature = "h5")))]
         rcc.d2ccip1r.modify(|_, w| unsafe {
             w.sai1sel().bits(self.sai1_src as u8);
             #[cfg(not(feature = "h735"))]
@@ -606,22 +629,56 @@ impl Clocks {
 
         // Set USART2 to HSI; temp hardcoded.
         // todo: Add config enums for these, and add them as Clocks fields.
-        #[cfg(not(feature = "h7b3"))]
+        #[cfg(not(any(feature = "h7b3", feature = "h5")))]
         rcc.d2ccip2r.modify(|_, w| unsafe {
             w.usart234578sel().bits(0b111);
             w.usbsel().bits(self.usb_src as u8)
         });
 
-        #[cfg(not(feature = "h7b3"))]
+        #[cfg(not(any(feature = "h7b3", feature = "h5")))]
         rcc.d3ccipr.modify(|_, w| unsafe {
             w.sai4asel().bits(self.sai4a_src as u8);
             w.sai4bsel().bits(self.sai4b_src as u8)
+        });
+
+        // #[cfg(feature = "h5")]
+        // rcc.ccipr1.modify(|_, w| unsafe {
+        // });
+
+        // #[cfg(feature = "h5")]
+        // rcc.ccipr2.modify(|_, w| unsafe {
+        // });
+
+        #[cfg(feature = "h5")]
+        rcc.ccipr3.modify(|_, w| unsafe {
+            // todo: This is broken down into each spi individually on H5.
+            w.spi1sel().bits(self.spi123_src as u8);
+            w.spi2sel().bits(self.spi123_src as u8);
+            w.spi3sel().bits(self.spi45_src as u8);
+            w.spi4sel().bits(self.spi45_src as u8);
+            w.spi5sel().bits(self.spi123_src as u8)
+            // w.spi6sel().bits(self.spi123_src as u8);
+        });
+
+        #[cfg(feature = "h5")]
+        rcc.ccipr4.modify(|_, w| unsafe {
+            w.usbfssel().bits(self.usb_src as u8)
+            // Also: OctoSPI and I2C.
+        });
+
+        #[cfg(feature = "h5")]
+        rcc.ccipr5.modify(|_, w| unsafe {
+            w.sai1sel().bits(self.sai1_src as u8);
+            w.sai2sel().bits(self.sai23_src as u8);
+            w.fdcan12sel().bits(self.can_src as u8)
+            // also: ADC and DAC.
         });
 
         rcc.cr.modify(|_, w| w.hsecsson().bit(self.security_system));
 
         // todo: Allow configuring the PLL in fractional mode.
 
+        #[cfg(feature = "h7")]
         rcc.pllckselr
             .modify(|_, w| w.pllsrc().bits(self.pll_src.bits()));
 
@@ -685,7 +742,8 @@ impl Clocks {
 
             #[cfg(feature = "h5")]
             rcc.pll1cfgr.modify(|_, w| {
-                w.pll1m().bits(self.pll1.divm);
+                w.pll1src().bits(self.pll_src.bits());
+                w.divm1().bits(self.pll1.divm);
                 w.pll1rge().bits(pll1_rng_val);
                 w.pll1vcosel().bit(pll1_vco != 0);
                 w.pll1pen().bit(true);
@@ -746,6 +804,7 @@ impl Clocks {
 
             #[cfg(feature = "h5")]
             rcc.pll2cfgr.modify(|_, w| {
+                w.pll2src().bits(self.pll_src.bits());
                 w.pll2rge().bits(pll2_rng_val);
                 w.pll2vcosel().bit(pll2_vco != 0);
                 w.pll2pen().bit(self.pll2.pllp_en);
@@ -804,6 +863,7 @@ impl Clocks {
 
             #[cfg(feature = "h5")]
             rcc.pll3cfgr.modify(|_, w| {
+                w.pll3src().bits(self.pll_src.bits());
                 w.pll3rge().bits(pll3_rng_val);
                 w.pll3vcosel().bit(pll3_vco != 0);
                 w.pll3pen().bit(self.pll3.pllp_en);
@@ -1136,7 +1196,6 @@ impl Default for Clocks {
             pll1: PllCfg::default(),
             pll2: PllCfg::disabled(),
             pll3: PllCfg::disabled(),
-            #[cfg(feature = "h7")]
             d1_core_prescaler: HclkPrescaler::Div1,
             d1_prescaler: ApbPrescaler::Div2,
             /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
@@ -1230,6 +1289,7 @@ impl Clocks {
     }
 }
 
+#[cfg(not(feature = "h5"))] // todo: Come back to
 // todo
 /// Enable the Clock Recovery System.
 /// "The STM32L443xx devices embed a special block which allows automatic trimming of the
