@@ -7,6 +7,8 @@ use crate::{pac::RCC, util::rcc_en_reset};
 
 use cfg_if::cfg_if;
 
+// todo: H5 support.
+
 cfg_if! {
     if #[cfg(feature = "f3")] {
         use bxcan;
@@ -15,14 +17,14 @@ cfg_if! {
     } else if #[cfg(any(feature = "f4", feature = "l4"))] {
         use bxcan;
         // todo: F4 has CAN2 as well.
-        use crate::pac::{can1 as can, CAN1 as CAN};
+        use crate::pac::{CAN1 as CAN};
     } else if #[cfg(feature = "g4")]{
         use fdcan;
-        use crate::pac::{fdcan as can, FDCAN1 as CAN};
+        use crate::pac::{FDCAN1 as CAN};
     } else { // eg G0, H7
         use fdcan;
         // todo: CAN2 on H7.
-        use crate::pac::{fdcan1 as can, FDCAN1 as CAN};
+        use crate::pac::{FDCAN1 as CAN};
     }
 }
 
@@ -48,6 +50,8 @@ impl Can {
                 rcc.apb1hrstr.modify(|_, w| w.fdcanrst().set_bit());
                 rcc.apb1hrstr.modify(|_, w| w.fdcanrst().clear_bit());
 
+                set_message_ram_layout();
+
             } else {
                 rcc_en_reset!(apb1, fdcan, rcc);
             }
@@ -55,6 +59,74 @@ impl Can {
 
         Self { regs }
     }
+}
+
+// todo: Troubleshooting. COpied from H7xx-hal
+/// Set the message RAM layout. This is flexible on F7. This function hard-sets it to the setting
+/// that is hard-set by hardware on G4.
+/// todo: Allow flexibility.
+fn set_message_ram_layout() {
+    let regs = unsafe { &(*CAN::ptr()) };
+    let mut word_addr = 0x000; // todo: 0x400 for FDCAN2.
+
+    use fdcan::message_ram::*;
+
+    // 11-bit filter
+    regs.sidfc
+        .modify(|_, w| unsafe { w.flssa().bits(word_addr) });
+    word_addr += STANDARD_FILTER_MAX as u16;
+    // 29-bit filter
+    regs.xidfc
+        .modify(|_, w| unsafe { w.flesa().bits(word_addr) });
+    word_addr += 2 * EXTENDED_FILTER_MAX as u16;
+    // Rx FIFO 0
+    regs.rxf0c.modify(|_, w| unsafe {
+        w.f0sa()
+            .bits(word_addr)
+            .f0s()
+            .bits(RX_FIFO_MAX)
+            .f0wm()
+            .bits(RX_FIFO_MAX)
+    });
+    word_addr += 18 * RX_FIFO_MAX as u16;
+    // Rx FIFO 1
+    regs.rxf1c.modify(|_, w| unsafe {
+        w.f1sa()
+            .bits(word_addr)
+            .f1s()
+            .bits(RX_FIFO_MAX)
+            .f1wm()
+            .bits(RX_FIFO_MAX)
+    });
+    word_addr += 18 * RX_FIFO_MAX as u16;
+    // Rx buffer - see below
+    // Tx event FIFO
+    regs.txefc.modify(|_, w| unsafe {
+        w.efsa()
+            .bits(word_addr)
+            .efs()
+            .bits(TX_EVENT_MAX)
+            .efwm()
+            .bits(TX_EVENT_MAX)
+    });
+    word_addr += 2 * TX_EVENT_MAX as u16;
+    // Tx buffers
+    regs.txbc.modify(|_, w| unsafe {
+        w.tbsa().bits(word_addr).tfqs().bits(TX_FIFO_MAX)
+    });
+    word_addr += 18 * TX_FIFO_MAX as u16;
+
+    // Rx Buffer - not used
+    regs.rxbc.modify(|_, w| unsafe { w.rbsa().bits(word_addr) });
+
+    // TX event FIFO?
+    // Trigger memory?
+
+    // Set the element sizes to 16 bytes
+    regs.rxesc.modify(|_, w| unsafe {
+        w.rbds().bits(0b111).f1ds().bits(0b111).f0ds().bits(0b111)
+    });
+    regs.txesc.modify(|_, w| unsafe { w.tbds().bits(0b111) });
 }
 
 // Implement the traits required for the `bxcan` or `fdcan` library.
@@ -76,6 +148,7 @@ cfg_if! {
         unsafe impl fdcan::Instance for Can {
             const REGISTERS: *mut fdcan::RegisterBlock = CAN::ptr() as *mut _;
         }
+
         unsafe impl fdcan::message_ram::Instance for Can {
             #[cfg(feature = "g4")]
             const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_a400 as *mut _);
@@ -83,7 +156,7 @@ cfg_if! {
             const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_ac00 as *mut _);
             // todo: (0x4000_ac00 + 0x1000) for H7, CAN2.
             // todo: (0x4000_a750 as *mut _) for G4, CAN2
-            // todo: (0x4000_aaa0 as *mut _) fir G4m CAN3.
+            // todo: (0x4000_aaa0 as *mut _) fir G4 CAN3.
         }
     }
 }
