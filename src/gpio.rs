@@ -292,10 +292,13 @@ macro_rules! set_alt {
                 match $pin {
                     $(
                         $num => {
+                            #[cfg(feature = "h5")]
+                            (*$regs).moder.modify(|_, w| w.[<mode $num>]().bits(PinMode::Alt(0).val()));
+                            #[cfg(not(feature = "h5"))]
                             (*$regs).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                            #[cfg(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb"))]
+                            #[cfg(any(feature = "l5", feature = "g0", feature = "h5", feature = "h7", feature = "wb"))]
                             (*$regs).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                            #[cfg(not(any(feature = "l5", feature = "g0", feature = "h7", feature = "wb")))]
+                            #[cfg(not(any(feature = "l5", feature = "g0", feature = "h5", feature = "h7", feature = "wb")))]
                             (*$regs).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
                         }
                     )+
@@ -312,6 +315,9 @@ macro_rules! get_input_data {
             unsafe {
                 match $pin {
                     $(
+                        #[cfg(feature = "h5")]
+                        $num => (*$regs).idr.read().[<id $num>]().bit_is_set(),
+                        #[cfg(not(feature = "h5"))]
                         $num => (*$regs).idr.read().[<idr $num>]().bit_is_set(),
                     )+
                     _ => panic!("GPIO pins must be 0 - 15."),
@@ -354,7 +360,7 @@ macro_rules! set_exti {
                                 exti.cpuimr1.modify(|_, w| w.[<mr $num>]().set_bit());
                             } else if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
                                 exti.c1imr1.modify(|_, w| w.[<mr $num>]().set_bit());
-                            } else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
+                            } else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl", feature = "h5"))] {
                                 exti.imr1.modify(|_, w| w.[<im $num>]().set_bit());
                             } else {
                                 exti.imr1.modify(|_, w| w.[<mr $num>]().set_bit());
@@ -362,7 +368,7 @@ macro_rules! set_exti {
                         }
 
                         cfg_if! {
-                            if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
+                            if #[cfg(any(feature = "g4", feature = "wb", feature = "wl", feature = "h5"))] {
                                 exti.rtsr1.modify(|_, w| w.[<rt $num>]().bit($rising));
                                 exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit($falling));
                             // } else if #[cfg(any(feature = "wb", feature = "wl"))] {
@@ -801,6 +807,18 @@ impl Pin {
 
     /// Set pin mode. Eg, Output, Input, Analog, or Alt. Sets the `MODER` register.
     pub fn mode(&mut self, value: PinMode) {
+        #[cfg(feature = "h5")] // todo: Probably needs a PAC fix for H5.
+        set_field!(
+            self.regs(),
+            self.pin,
+            moder,
+            mode,
+            bits,
+            value.val(),
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        );
+
+        #[cfg(not(feature = "h5"))] // todo: Probably needs a PAC fix for H5.
         set_field!(
             self.regs(),
             self.pin,
@@ -831,6 +849,7 @@ impl Pin {
 
     /// Set output speed to Low, Medium, or High. Sets the `OSPEEDR` register.
     pub fn output_speed(&mut self, value: OutputSpeed) {
+        #[cfg(not(feature = "h5"))] // todo: Probably needs a PAC fix for H5.
         set_field!(
             self.regs(),
             self.pin,
@@ -844,6 +863,18 @@ impl Pin {
 
     /// Set internal pull resistor: Pull up, pull down, or floating. Sets the `PUPDR` register.
     pub fn pull(&mut self, value: Pull) {
+        #[cfg(feature = "h5")] // todo: Probably needs a PAC fix for H5.
+        set_field!(
+            self.regs(),
+            self.pin,
+            pupdr,
+            pupd,
+            bits,
+            value as u8,
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        );
+
+        #[cfg(not(feature = "h5"))] // todo: Probably needs a PAC fix for H5.
         set_field!(
             self.regs(),
             self.pin,
@@ -906,7 +937,7 @@ impl Pin {
         assert!(value <= 15, "Alt function must be 0 to 15.");
 
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g0", feature = "wb"))] {
+            if #[cfg(any(feature = "l5", feature = "g0", feature = "wb", feature = "h5"))] {
                 set_alt!(self.regs(), self.pin, afsel, value, [(0, l), (1, l), (2, l),
                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                     (13, h), (14, h), (15, h)])
@@ -1211,6 +1242,28 @@ pub fn clear_exti_interrupt(line: u8) {
                         13 => w.pr13().set_bit(),
                         14 => w.pr14().set_bit(),
                         15 => w.pr15().set_bit(),
+                        _ => panic!(),
+                    }
+                });
+              } else if #[cfg(feature = "h5")] {
+                (*EXTI::ptr()).rpr1.modify(|_, w| {
+                    match line {
+                        0 => w.rpif0().set_bit(),
+                        1 => w.rpif1().set_bit(),
+                        2 => w.rpif2().set_bit(),
+                        3 => w.rpif3().set_bit(),
+                        4 => w.rpif4().set_bit(),
+                        5 => w.rpif5().set_bit(),
+                        6 => w.rpif6().set_bit(),
+                        7 => w.rpif7().set_bit(),
+                        8 => w.rpif8().set_bit(),
+                        9 => w.rpif9().set_bit(),
+                        10 => w.rpif10().set_bit(),
+                        11 => w.rpif11().set_bit(),
+                        12 => w.rpif12().set_bit(),
+                        13 => w.rpif13().set_bit(),
+                        14 => w.rpif14().set_bit(),
+                        15 => w.rpif15().set_bit(),
                         _ => panic!(),
                     }
                 });

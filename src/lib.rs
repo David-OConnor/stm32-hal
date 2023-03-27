@@ -415,12 +415,14 @@ pub mod clocks;
     feature = "wl"
 )))]
 pub mod crc;
+
 #[cfg(not(any(
     feature = "f401",
     feature = "f411",
     feature = "f412",
     feature = "wb",
-    feature = "g0"
+    feature = "g0",
+    feature = "h5", // todo: H5 DAC pending PAC fix.
 )))]
 // WB doesn't have a DAC. Some G0 variants do - add it! Most F4 variants have it, some don't
 pub mod dac;
@@ -437,16 +439,18 @@ pub mod dac;
     feature = "g4",
     feature = "wb",
     feature = "wl",
+    feature = "h5", // todo: Check PAC.
 // todo: DFSDM support for other platforms that don't support clustering
 )))]
 pub mod dfsdm;
 
-#[cfg(not(any(feature = "f4", feature = "l552")))]
+#[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
 pub mod dma;
 
 #[cfg(all(feature = "h7", feature = "net"))]
 pub mod ethernet;
 
+#[cfg(not(feature = "h5"))] // todo: Come back to
 pub mod flash;
 
 // todo: PAC doesn't yet support these newer H7 MCUs that use FMAC.
@@ -501,9 +505,11 @@ pub mod qspi;
     feature = "g071",
     feature = "g0b1",
     feature = "g0c1",
+    feature = "h5", // todo: Come back to this.
 )))]
 pub mod rng;
 
+#[cfg(not(feature = "h5"))] // todo: Come back to this
 pub mod rtc;
 
 #[cfg(not(any(
@@ -512,10 +518,12 @@ pub mod rtc;
     feature = "g0",
     // feature = "g4", // todo: G4 PAC issue re getting channel-specific reg blocks.
     feature = "h7b3",
-    feature = "wl"
+    feature = "wl",
+    feature = "h5", // todo
 )))]
 pub mod sai;
 
+#[cfg(not(feature = "h5"))] // todo: Add H5 SPI!
 pub mod spi;
 
 #[cfg(not(feature = "h5"))] // todo temp

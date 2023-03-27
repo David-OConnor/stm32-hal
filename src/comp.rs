@@ -32,11 +32,7 @@ pub enum NonInvertingInput {
     Io2 = 0x00000080,
     // PA1/PA3 for STM32L41xxx/42xxx/43xxx/44xxx/45xxx/46xxx
     // TODO: Include stm32l471
-    #[cfg(any(
-        feature = "stm32l4x1",
-        feature = "stm32l4x2",
-        feature = "stm32l4x3",
-    ))]
+    #[cfg(any(feature = "stm32l4x1", feature = "stm32l4x2", feature = "stm32l4x3",))]
     /// From the third GPIO pin connected to the comparator.
     ///
     /// The GPIO pin used depends on the MCU and comparator used.

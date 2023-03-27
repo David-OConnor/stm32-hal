@@ -141,39 +141,41 @@ impl Qspi {
             "Dumy cycles must be between 0 and 31."
         );
 
-        free(|_| {
-            let rcc = unsafe { &(*RCC::ptr()) };
+        let rcc = unsafe { &(*RCC::ptr()) };
 
-            // cfg_if! {
-            //     if #[cfg(any(feature = "l4", feature = "l5", feature = "")] {
-            //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
-            //         rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
-            //         rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
-            //     } else { // G and H7
-            //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
-            //         rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
-            //         rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
-            //     }
-            // }
+        // cfg_if! {
+        //     if #[cfg(any(feature = "l4", feature = "l5", feature = "")] {
+        //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
+        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
+        //     } else { // G and H7
+        //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
+        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
+        //     }
+        // }
 
-            // todo: You need to get rcc en reset working for this to make it work on octospi2.
+        // todo: You need to get rcc en reset working for this to make it work on octospi2.
 
-            cfg_if! {
-                if #[cfg(any(feature = "h735", feature = "h7b3"))] {
-                    rcc.ahb3enr.modify(|_, w| w.octospi1en().set_bit());
-                    rcc.ahb3rstr.modify(|_, w| w.octospi1rst().set_bit());
-                    rcc.ahb3rstr.modify(|_, w| w.octospi1rst().clear_bit());
-                } else if #[cfg(feature = "l5")] {
-                    rcc.ahb3enr.modify(|_, w| w.ospi1en().set_bit());
-                    rcc.ahb3rstr.modify(|_, w| w.ospi1rst().set_bit());
-                    rcc.ahb3rstr.modify(|_, w| w.ospi1rst().clear_bit());
-                } else {
-                    rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
-                    rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
-                    rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
-                }
+        cfg_if! {
+            if #[cfg(any(feature = "h735", feature = "h7b3"))] {
+                rcc.ahb3enr.modify(|_, w| w.octospi1en().set_bit());
+                rcc.ahb3rstr.modify(|_, w| w.octospi1rst().set_bit());
+                rcc.ahb3rstr.modify(|_, w| w.octospi1rst().clear_bit());
+            } else if #[cfg(feature = "h5")] {
+                rcc.ahb4enr.modify(|_, w| w.octospi1en().set_bit());
+                rcc.ahb4rstr.modify(|_, w| w.octospi1rst().set_bit());
+                rcc.ahb4rstr.modify(|_, w| w.octospi1rst().clear_bit());
+            } else if #[cfg(feature = "l5")] {
+                rcc.ahb3enr.modify(|_, w| w.ospi1en().set_bit());
+                rcc.ahb3rstr.modify(|_, w| w.ospi1rst().set_bit());
+                rcc.ahb3rstr.modify(|_, w| w.ospi1rst().clear_bit());
+            } else {
+                rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
+                rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+                rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
             }
-        });
+        }
 
         // Disable QUADSPI before configuring it.
         regs.cr.write(|w| w.en().clear_bit());

@@ -1,4 +1,6 @@
 //! This module supports the FD-CAN peripheral.
+//!
+//! todo: Deprecated in favor of `fdcan` crate.
 
 use core::ops::Deref;
 

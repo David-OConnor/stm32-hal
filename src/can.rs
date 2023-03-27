@@ -78,7 +78,7 @@ cfg_if! {
         }
         unsafe impl fdcan::message_ram::Instance for Can {
             #[cfg(feature = "g4")]
-            const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_ac00 as *mut _);
+            const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_a400 as *mut _);
             #[cfg(feature = "h7")]
             const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_ac00 as *mut _);
             // todo: (0x4000_ac00 + 0x1000) for H7, CAN2.

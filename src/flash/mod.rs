@@ -29,7 +29,7 @@ cfg_if! {
 }
 
 cfg_if! {
-    if #[cfg(feature = "l5")] {
+    if #[cfg(any(feature = "l5", feature = "h5"))] {
         mod trustzone;
         pub use trustzone::*;
     } else {
