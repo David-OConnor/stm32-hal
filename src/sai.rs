@@ -3,8 +3,6 @@
 
 use core::ops::Deref;
 
-use cortex_m::interrupt::free;
-
 use crate::{clocks::Clocks, pac::RCC, util::RccPeriph};
 
 #[cfg(not(any(feature = "g4", feature = "h7")))]

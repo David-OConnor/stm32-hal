@@ -464,7 +464,7 @@ pub mod gpio;
 #[cfg(feature = "wb")]
 pub mod hsem;
 
-#[cfg(not(any(feature = "f4", feature = "h5")))] // todo: Come back to H5!
+#[cfg(not(any(feature = "f4")))]
 pub mod i2c;
 #[cfg(feature = "f4")]
 pub mod i2c_f4;
@@ -507,11 +507,9 @@ pub mod qspi;
     feature = "g071",
     feature = "g0b1",
     feature = "g0c1",
-    feature = "h5", // todo: Come back to this.
 )))]
 pub mod rng;
 
-#[cfg(not(feature = "h5"))] // todo: Come back to this
 pub mod rtc;
 
 #[cfg(not(any(
@@ -530,6 +528,7 @@ pub mod spi;
 
 #[cfg(not(feature = "h5"))] // todo temp
 pub mod timer;
+
 #[cfg(not(feature = "h5"))] // todo temp. Needs CR1 and ISR added, among other things.
 pub mod usart;
 
@@ -618,8 +617,6 @@ macro_rules! make_simple_globals {
 }
 
 // todo: Remove this debug_workaroudn function on MCUs that don't require it. Ie, is this required on G4? G0?
-use cortex_m::interrupt::free;
-
 #[cfg(not(any(feature = "g0")))]
 /// Workaround due to debugger disconnecting in WFI (and low-power) modes.
 /// This affects most (all?) STM32 devices. In production on battery-powered

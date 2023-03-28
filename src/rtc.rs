@@ -7,8 +7,6 @@
 use crate::pac::{EXTI, PWR, RCC, RTC};
 use core::convert::TryInto;
 
-use cortex_m::interrupt::free;
-
 use chrono::{Datelike, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 
 use cfg_if::cfg_if;
@@ -127,11 +125,10 @@ impl Rtc {
         // field here.
 
         // See L4 RM, `Backup domain access` section.
-        free(|_| {
-            let rcc = unsafe { &(*RCC::ptr()) };
-            let pwr = unsafe { &(*PWR::ptr()) };
+        let rcc = unsafe { &(*RCC::ptr()) };
+        let pwr = unsafe { &(*PWR::ptr()) };
 
-            cfg_if! {
+        cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "f4"))] {
                     rcc.apb1enr.modify(|_, w| w.pwren().set_bit());
                     pwr.cr.read(); // read to allow the pwr clock to enable
@@ -163,6 +160,12 @@ impl Rtc {
                     pwr.cr1.read();
                     pwr.cr1.modify( | _, w| w.dbp().set_bit());
                     while pwr.cr1.read().dbp().bit_is_clear() {}
+                } else if #[cfg(feature = "h5")] {
+                    rcc.apb3enr.modify(|_, w| w.rtcapben().set_bit());
+                    rcc.apb3lpenr.modify(|_, w| w.rtcapblpen().set_bit());  // In sleep and stop modes.
+                    pwr.dbpcr.read(); // read to allow the pwr clock to enable // todo??
+                    pwr.dbpcr.modify( | _, w| w.dbp().set_bit());
+                    while pwr.dbpcr.read().dbp().bit_is_clear() {}
                 } else { // eg h7
                     rcc.apb4enr.modify(|_, w| w.rtcapben().set_bit());
                     rcc.apb4lpenr.modify(|_, w| w.rtcapblpen().set_bit());  // In sleep and stop modes.
@@ -172,37 +175,39 @@ impl Rtc {
                 }
             }
 
-            // Set up the LSI or LSE as required.
-            match config.clock_source {
-                RtcClockSource::Lsi => {
-                    cfg_if! {
+        // Set up the LSI or LSE as required.
+        match config.clock_source {
+            RtcClockSource::Lsi => {
+                cfg_if! {
                         if #[cfg(feature = "wb")] {
                         // todo: LSI2?
                             rcc.csr.modify(|_, w| w.lsi1on().set_bit());
                             while rcc.csr.read().lsi1rdy().bit_is_clear() {}
+                        } else if #[cfg(feature = "h5")] {
+                            rcc.bdcr.modify(|_, w| w.lsion().set_bit());
+                            while rcc.bdcr.read().lsirdy().bit_is_clear() {}
                         } else {
                             rcc.csr.modify(|_, w| w.lsion().set_bit());
                             while rcc.csr.read().lsirdy().bit_is_clear() {}
                         }
                     }
-                }
-                RtcClockSource::Lse => {
-                    // Can only set lsebyp when lse is off, so do this as a separate step.
-                    rcc.bdcr
-                        .modify(|_, w| w.lsebyp().bit(config.bypass_lse_output));
-                    rcc.bdcr.modify(|_, w| w.lseon().set_bit());
-                    while rcc.bdcr.read().lserdy().bit_is_clear() {}
-                }
-                _ => (),
             }
+            RtcClockSource::Lse => {
+                // Can only set lsebyp when lse is off, so do this as a separate step.
+                rcc.bdcr
+                    .modify(|_, w| w.lsebyp().bit(config.bypass_lse_output));
+                rcc.bdcr.modify(|_, w| w.lseon().set_bit());
+                while rcc.bdcr.read().lserdy().bit_is_clear() {}
+            }
+            _ => (),
+        }
 
-            rcc.bdcr.modify(|_, w| {
-                // 3. Select the RTC clock source in the Backup domain control register (RCC_BDCR).
-                unsafe { w.rtcsel().bits(result.config.clock_source as u8) };
-                // 4. Enable the RTC clock by setting the RTCEN [15] bit in the Backup domain control
-                // register (RCC_BDCR)
-                w.rtcen().set_bit()
-            });
+        rcc.bdcr.modify(|_, w| {
+            // 3. Select the RTC clock source in the Backup domain control register (RCC_BDCR).
+            unsafe { w.rtcsel().bits(result.config.clock_source as u8) };
+            // 4. Enable the RTC clock by setting the RTCEN [15] bit in the Backup domain control
+            // register (RCC_BDCR)
+            w.rtcen().set_bit()
         });
 
         result.edit_regs(false, |regs| {
@@ -402,7 +407,7 @@ impl Rtc {
                 exti.imr1.modify(|_, w| w.im20().unmasked());
                 exti.rtsr1.modify(|_, w| w.rt20().set_bit());
                 exti.ftsr1.modify(|_, w| w.ft20().clear_bit());
-            } else if #[cfg(any(feature = "l5", feature = "g0", feature = "wb", feature = "wl"))] {
+            } else if #[cfg(any(feature = "l5", feature = "g0", feature = "wb", feature = "wl", feature = "h5"))] {
                 // exti.imr1.modify(|_, w| w.mr20().unmasked());
                 // exti.rtsr1.modify(|_, w| w.rt20().set_bit());
                 // exti.ftsr1.modify(|_, w| w.ft20().clear_bit());
@@ -429,7 +434,7 @@ impl Rtc {
         // Ensure access to Wakeup auto-reload counter and bits WUCKSEL[2:0] is allowed.
         // Poll WUTWF until it is set in RTC_ISR (RTC2)/RTC_ICSR (RTC3) (May not be avail on F3)
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
+            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
                 while self.regs.icsr.read().wutwf().bit_is_clear() {}
             } else {
                 while self.regs.isr.read().wutwf().bit_is_clear() {}
@@ -445,7 +450,7 @@ impl Rtc {
         self.regs.cr.modify(|_, w| w.wutie().set_bit());
 
         cfg_if! {
-            if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
+            if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
                 self.regs.scr.write(|w| w.cwutf().set_bit());
             } else {
                 self.regs.isr.modify(|_, w| w.wutf().clear_bit());
@@ -492,7 +497,7 @@ impl Rtc {
         }
 
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
+            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
                 while self.regs.icsr.read().wutwf().bit_is_clear() {}
             } else {
                 while self.regs.isr.read().wutwf().bit_is_clear() {}
@@ -515,7 +520,7 @@ impl Rtc {
             regs.cr.modify(|_, w| w.wute().clear_bit());
 
             cfg_if! {
-                if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
+                if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
                     regs.scr.write(|w| w.cwutf().set_bit());
                 } else {
                     // Note that we clear this by writing 0, which isn't
@@ -533,8 +538,8 @@ impl Rtc {
     /// It also optionally handles the additional step required to set a clock or calendar
     /// value.
     fn edit_regs<F>(&mut self, init_mode: bool, mut closure: F)
-    where
-        F: FnMut(&mut RTC),
+        where
+            F: FnMut(&mut RTC),
     {
         // Disable write protection
         // This is safe, as we're only writin the correct and expected values.
@@ -544,7 +549,7 @@ impl Rtc {
         // todo: L4 has ICSR and ISR regs. Maybe both for backwards compat?
 
         cfg_if! {
-             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl"))] {
+             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
                  // Enter init mode if required. This is generally used to edit the clock or calendar,
                  // but not for initial enabling steps.
                  if init_mode && self.regs.icsr.read().initf().bit_is_clear() {
@@ -804,7 +809,7 @@ impl Rtc {
             self.get_minutes().into(),
             self.get_seconds().into(),
         )
-        .unwrap()
+            .unwrap()
     }
 
     /// Get the weekday component of the current date.
@@ -839,7 +844,7 @@ impl Rtc {
             self.get_month().into(),
             self.get_day().into(),
         )
-        .unwrap()
+            .unwrap()
     }
 
     /// Get the current datetime.
@@ -849,13 +854,13 @@ impl Rtc {
             self.get_month().into(),
             self.get_day().into(),
         )
-        .unwrap()
-        .and_hms_opt(
-            self.get_hours().into(),
-            self.get_minutes().into(),
-            self.get_seconds().into(),
-        )
-        .unwrap()
+            .unwrap()
+            .and_hms_opt(
+                self.get_hours().into(),
+                self.get_minutes().into(),
+                self.get_seconds().into(),
+            )
+            .unwrap()
     }
 }
 

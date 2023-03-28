@@ -15,7 +15,7 @@ use crate::{
     util::RccPeriph,
 };
 
-#[cfg(not(feature = "l552"))]
+#[cfg(not(any(feature = "l552", feature = "h5")))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -23,7 +23,7 @@ use crate::dma::DmaInput;
 
 #[cfg(feature = "g0")]
 use crate::pac::DMA as DMA1;
-#[cfg(not(feature = "g0"))]
+#[cfg(not(any(feature = "g0", feature = "h5")))]
 use crate::pac::DMA1;
 
 // todo: Get rid of this macro.
@@ -538,7 +538,7 @@ where
     /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
     /// For a single write, set `autoend` to `true`. For a write_read and other use cases,
     /// set it to `false`.
-    #[cfg(not(feature = "l552"))]
+    #[cfg(not(any(feature = "l552", feature = "h5")))]
     pub unsafe fn write_dma(
         &mut self,
         addr: u8,
@@ -626,7 +626,7 @@ where
     /// Read data, using DMA. See L44 RM, 37.4.16: "Reception using DMA"
     /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
     /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
-    #[cfg(not(feature = "l552"))]
+    #[cfg(not(any(feature = "l552", feature = "h5")))]
     pub unsafe fn read_dma(
         &mut self,
         addr: u8,
