@@ -399,7 +399,7 @@ pub struct Clocks {
     pub pll2: PllCfg,
     /// Enable and speed status for PLL3
     pub pll3: PllCfg,
-    // todo: D1 core pres possibly not on H5.
+    #[cfg(feature = "h7")]
     /// The prescaler between sysclk and hclk
     pub d1_core_prescaler: HclkPrescaler,
     /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
@@ -411,6 +411,7 @@ pub struct Clocks {
     // todo: D2 prescaler 2 possibly not on H5.
     /// APB2 peripheral clocks
     pub d2_prescaler2: ApbPrescaler,
+    #[cfg(feature = "h7")]
     /// APB4 peripheral clocks
     pub d3_prescaler: ApbPrescaler,
     /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
@@ -607,11 +608,9 @@ impl Clocks {
 
         #[cfg(feature = "h5")]
         rcc.cfgr2.modify(|_, w| unsafe {
-            // todo d1_core_prescaler?
             w.ppre1().bits(self.d1_prescaler as u8);
             w.ppre2().bits(self.d2_prescaler1 as u8);
-            // w.ppre2.bits(self.d2_prescaler1 as u8); // todo?
-            w.ppre3().bits(self.d3_prescaler as u8);
+            w.ppre3().bits(self.d2_prescaler2 as u8);
             w.hpre().bits(self.hclk_prescaler as u8)
         });
 
@@ -1021,6 +1020,7 @@ impl Clocks {
         }
     }
 
+    #[cfg(feature = "h7")]
     /// Get the Domain 1 core prescaler frequency, in hz
     pub fn d1cpreclk(&self) -> u32 {
         self.sysclk() / self.d1_core_prescaler.value() as u32
@@ -1028,14 +1028,22 @@ impl Clocks {
 
     /// Get the HCLK frequency, in hz
     pub fn hclk(&self) -> u32 {
-        self.sysclk() / self.d1_core_prescaler.value() as u32 / self.hclk_prescaler.value() as u32
+        #[cfg(feature = "h7")]
+        return self.sysclk()
+            / self.d1_core_prescaler.value() as u32
+            / self.hclk_prescaler.value() as u32;
+        #[cfg(feature = "h5")]
+        return self.sysclk() / self.hclk_prescaler.value() as u32;
     }
 
     /// Get the systick speed. Note that for dual core variants, this is for CPU1.
     /// CPU2 systick is equal to the HCLK (possibly divided by 8), so use the `hclk()` method.
     pub fn systick(&self) -> u32 {
         // todo: There's an optional /8 divider we're not taking into account here.
-        self.d1cpreclk()
+        #[cfg(feature = "h7")]
+        return self.d1cpreclk();
+        #[cfg(feature = "h5")]
+        return self.sysclk();
     }
 
     /// Get the USB clock frequency, in hz
@@ -1195,6 +1203,7 @@ impl Default for Clocks {
             pll1: PllCfg::default(),
             pll2: PllCfg::disabled(),
             pll3: PllCfg::disabled(),
+            #[cfg(feature = "h7")]
             d1_core_prescaler: HclkPrescaler::Div1,
             d1_prescaler: ApbPrescaler::Div2,
             /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
@@ -1210,8 +1219,6 @@ impl Default for Clocks {
             d2_prescaler2: ApbPrescaler::Div1,
             #[cfg(feature = "h7")]
             d2_prescaler2: ApbPrescaler::Div2,
-            #[cfg(feature = "h5")]
-            d3_prescaler: ApbPrescaler::Div1,
             #[cfg(feature = "h7")]
             d3_prescaler: ApbPrescaler::Div2,
             /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and

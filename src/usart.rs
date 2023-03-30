@@ -17,7 +17,7 @@ use core::ops::Deref;
 
 use cortex_m::interrupt::free;
 
-#[cfg(not(any(feature = "f4", feature = "l552")))]
+#[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -25,7 +25,7 @@ use crate::dma::DmaInput;
 
 #[cfg(feature = "g0")]
 use crate::pac::DMA as DMA1;
-#[cfg(not(feature = "g0"))]
+#[cfg(not(any(feature = "g0", feature = "h5")))]
 use crate::pac::DMA1;
 
 #[cfg(feature = "embedded_hal")]
@@ -132,7 +132,7 @@ pub struct UsartConfig {
     /// IrDA mode: Enables this protocol, which is used to communicate with IR devices.
     pub irda_mode: IrdaMode,
     #[cfg(any(feature = "g4", feature = "h7"))] // todo: Which others have FIFO?
-    /// The first-in, first-out buffer is enabled. Defaults to false,
+    /// The first-in, first-out buffer is enabled. Defaults to enabled.
     pub fifo_enabled: bool,
     #[cfg(not(feature = "f4"))]
     /// Optionally, disable the overrun functionality. Defaults to `false`.
@@ -148,11 +148,47 @@ impl Default for UsartConfig {
             parity: Parity::Disabled,
             irda_mode: IrdaMode::None,
             #[cfg(any(feature = "g4", feature = "h7"))]
-            fifo_enabled: false,
+            fifo_enabled: true,
             #[cfg(not(feature = "f4"))]
             overrun_disabled: false,
         }
     }
+}
+
+// todo: FIFO enabled versions of these H5 etc helper macros/fns
+
+// Sep macros due to too many feature-gates.
+// todo: Use functions?
+
+// todo: Support fifo_disabled regs.
+
+#[cfg(feature = "h5")]
+macro_rules! cr1 {
+    ($regs:expr) => {
+        $regs.cr1_enabled()
+    };
+}
+
+#[cfg(not(feature = "h5"))]
+macro_rules! cr1 {
+    ($regs:expr) => {
+        $regs.cr1
+    };
+}
+
+// Some variants like H5 and certain G0 variants use separate registers for FIFO
+#[cfg(feature = "h5")]
+macro_rules! isr {
+    ($regs:expr) => {
+        $regs.isr_enabled()
+    };
+}
+
+#[cfg(not(feature = "h5"))]
+macro_rules! isr {
+    ($regs:expr) => {
+        $regs.isr
+    };
 }
 
 /// Represents the USART peripheral, for serial communications.
@@ -185,7 +221,7 @@ where
         // 1. Program the M bits in USART_CR1 to define the word length.
 
         let word_len_bits = result.config.word_len.bits();
-        result.regs.cr1.modify(|_, w| {
+        cr1!(result.regs).modify(|_, w| {
             w.over8().bit(result.config.oversampling as u8 != 0);
             w.pce().bit(result.config.parity != Parity::Disabled);
             cfg_if! {
@@ -239,7 +275,7 @@ where
         // 6. Set the RE bit USART_CR1. This enables the receiver which begins searching for a
         // start bit.
 
-        result.regs.cr1.modify(|_, w| {
+        cr1!(result.regs).modify(|_, w| {
             w.te().set_bit();
             w.re().set_bit()
         });
@@ -272,24 +308,24 @@ where
 
     /// Enable this U[s]ART peripheral.
     pub fn enable(&mut self) {
-        self.regs.cr1.modify(|_, w| w.ue().set_bit());
-        while self.regs.cr1.read().ue().bit_is_clear() {}
+        cr1!(self.regs).modify(|_, w| w.ue().set_bit());
+        while cr1!(self.regs).read().ue().bit_is_clear() {}
     }
 
     /// Disable this U[s]ART peripheral.
     pub fn disable(&mut self) {
-        self.regs.cr1.modify(|_, w| w.ue().clear_bit());
-        while self.regs.cr1.read().ue().bit_is_set() {}
+        cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
+        while cr1!(self.regs).read().ue().bit_is_set() {}
     }
 
     /// Set the BAUD rate. Called during init, and can be called later to change BAUD
     /// during program execution.
     pub fn set_baud(&mut self, baud: u32, clock_cfg: &Clocks) {
-        let originally_enabled = self.regs.cr1.read().ue().bit_is_set();
+        let originally_enabled = cr1!(self.regs).read().ue().bit_is_set();
 
         if originally_enabled {
-            self.regs.cr1.modify(|_, w| w.ue().clear_bit());
-            while self.regs.cr1.read().ue().bit_is_set() {}
+            cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
+            while cr1!(self.regs).read().ue().bit_is_set() {}
         }
 
         // To set BAUD rate, see L4 RM section 38.5.4: "USART baud rate generation".
@@ -316,7 +352,7 @@ where
         self.baud = baud;
 
         if originally_enabled {
-            self.regs.cr1.modify(|_, w| w.ue().set_bit());
+            cr1!(self.regs).modify(|_, w| w.ue().set_bit());
         }
     }
 
@@ -331,7 +367,13 @@ where
         cfg_if! {
             if #[cfg(not(feature = "f4"))] {
                 for word in data {
-                    while self.regs.isr.read().txe().bit_is_clear() {}
+                    #[cfg(feature = "h5")]
+                    while isr!(self.regs).read().txfe().bit_is_clear() {}
+                    self.regs
+                        .tdr
+                        .modify(|_, w| unsafe { w.tdr().bits(*word as u16) });
+                    #[cfg(not(feature = "h5"))]
+                    while isr!(self.regs).read().txe().bit_is_clear() {}
                     self.regs
                         .tdr
                         .modify(|_, w| unsafe { w.tdr().bits(*word as u16) });
@@ -340,7 +382,7 @@ where
                 // that the transmission of the last frame is complete. This is required for instance when
                 // the USART is disabled or enters the Halt mode to avoid corrupting the last
                 // transmission
-                while self.regs.isr.read().tc().bit_is_clear() {}
+                while isr!(self.regs).read().tc().bit_is_clear() {}
             } else {
                 for word in data {
                     while self.regs.sr.read().txe().bit_is_clear() {}
@@ -365,7 +407,7 @@ where
         // todo take `&u16`.
         cfg_if! {
             if #[cfg(not(feature = "f4"))] {
-            // while self.regs.isr.read().txe().bit_is_clear() {}
+            // while isr!(self.regs).read().txe().bit_is_clear() {}
             self.regs
                 .tdr
                 .modify(|_, w| unsafe { w.tdr().bits(word as u16) });
@@ -384,7 +426,10 @@ where
             cfg_if! {
                 if #[cfg(not(feature = "f4"))] {
                     // Wait for the next bit
-                    while self.regs.isr.read().rxne().bit_is_clear() {}
+                    #[cfg(feature = "h5")]
+                    while isr!(self.regs).read().rxfne().bit_is_clear() {}
+                    #[cfg(not(feature = "h5"))]
+                    while isr!(self.regs).read().rxne().bit_is_clear() {}
                     buf[i] = self.regs.rdr.read().rdr().bits() as u8;
                 } else {
                     while self.regs.sr.read().rxne().bit_is_clear() {}
@@ -420,7 +465,7 @@ where
         }
     }
 
-    #[cfg(not(any(feature = "f4", feature = "l552")))]
+    #[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
     /// Transmit data using DMA. (L44 RM, section 38.5.15)
     /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
     /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
@@ -516,7 +561,7 @@ where
         // of the last frame.
     }
 
-    #[cfg(not(any(feature = "f4", feature = "l552")))]
+    #[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
     /// Receive data using DMA. (L44 RM, section 38.5.15; G4 RM section 37.5.19.
     /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
     /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
@@ -601,7 +646,7 @@ where
     /// Flush the transmit buffer.
     pub fn flush(&self) {
         #[cfg(not(feature = "f4"))]
-        while self.regs.isr.read().tc().bit_is_clear() {}
+        while isr!(self.regs).read().tc().bit_is_clear() {}
         #[cfg(feature = "f4")]
         while self.regs.sr.read().tc().bit_is_clear() {}
     }
@@ -615,11 +660,11 @@ where
             UsartInterrupt::CharDetect(char_wrapper) => {
                 if let Some(char) = char_wrapper {
                     // Disable the UART to allow writing the `add` and `addm7` bits
-                    self.regs.cr1.modify(|_, w| w.ue().clear_bit());
-                    while self.regs.cr1.read().ue().bit_is_set() {}
+                    cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
+                    while cr1!(self.regs).read().ue().bit_is_set() {}
 
                     // Enable character-detecting UART interrupt
-                    self.regs.cr1.modify(|_, w| w.cmie().set_bit());
+                    cr1!(self.regs).modify(|_, w| w.cmie().set_bit());
 
                     // Allow an 8-bit address to be set in `add`.
                     self.regs.cr2.modify(|_, w| unsafe {
@@ -639,16 +684,16 @@ where
                     });
                 }
 
-                self.regs.cr1.modify(|_, w| w.ue().set_bit());
+                cr1!(self.regs).modify(|_, w| w.ue().set_bit());
             }
             UsartInterrupt::Cts => {
                 self.regs.cr3.modify(|_, w| w.ctsie().set_bit());
             }
             UsartInterrupt::EndOfBlock => {
-                self.regs.cr1.modify(|_, w| w.eobie().set_bit());
+                cr1!(self.regs).modify(|_, w| w.eobie().set_bit());
             }
             UsartInterrupt::Idle => {
-                self.regs.cr1.modify(|_, w| w.idleie().set_bit());
+                cr1!(self.regs).modify(|_, w| w.idleie().set_bit());
             }
             UsartInterrupt::FramingError => {
                 self.regs.cr3.modify(|_, w| w.eie().set_bit());
@@ -660,13 +705,16 @@ where
                 self.regs.cr3.modify(|_, w| w.eie().set_bit());
             }
             UsartInterrupt::ParityError => {
-                self.regs.cr1.modify(|_, w| w.peie().set_bit());
+                cr1!(self.regs).modify(|_, w| w.peie().set_bit());
             }
             UsartInterrupt::ReadNotEmpty => {
-                self.regs.cr1.modify(|_, w| w.rxneie().set_bit());
+                #[cfg(feature = "h5")]
+                cr1!(self.regs).modify(|_, w| w.rxfneie().set_bit());
+                #[cfg(not(feature = "h5"))]
+                cr1!(self.regs).modify(|_, w| w.rxneie().set_bit());
             }
             UsartInterrupt::ReceiverTimeout => {
-                self.regs.cr1.modify(|_, w| w.rtoie().set_bit());
+                cr1!(self.regs).modify(|_, w| w.rtoie().set_bit());
             }
             #[cfg(not(any(feature = "f3", feature = "l4")))]
             UsartInterrupt::Tcbgt => {
@@ -674,10 +722,13 @@ where
                 self.regs.cr3.modify(|_, w| w.tcbgtie().set_bit());
             }
             UsartInterrupt::TransmissionComplete => {
-                self.regs.cr1.modify(|_, w| w.tcie().set_bit());
+                cr1!(self.regs).modify(|_, w| w.tcie().set_bit());
             }
             UsartInterrupt::TransmitEmpty => {
-                self.regs.cr1.modify(|_, w| w.txeie().set_bit());
+                #[cfg(feature = "h5")]
+                cr1!(self.regs).modify(|_, w| w.txfeie().set_bit());
+                #[cfg(not(feature = "h5"))]
+                cr1!(self.regs).modify(|_, w| w.txeie().set_bit());
             }
         }
     }
@@ -688,16 +739,16 @@ where
     pub fn disable_interrupt(&mut self, interrupt: UsartInterrupt) {
         match interrupt {
             UsartInterrupt::CharDetect(_) => {
-                self.regs.cr1.modify(|_, w| w.cmie().clear_bit());
+                cr1!(self.regs).modify(|_, w| w.cmie().clear_bit());
             }
             UsartInterrupt::Cts => {
                 self.regs.cr3.modify(|_, w| w.ctsie().clear_bit());
             }
             UsartInterrupt::EndOfBlock => {
-                self.regs.cr1.modify(|_, w| w.eobie().clear_bit());
+                cr1!(self.regs).modify(|_, w| w.eobie().clear_bit());
             }
             UsartInterrupt::Idle => {
-                self.regs.cr1.modify(|_, w| w.idleie().clear_bit());
+                cr1!(self.regs).modify(|_, w| w.idleie().clear_bit());
             }
             UsartInterrupt::FramingError => {
                 self.regs.cr3.modify(|_, w| w.eie().clear_bit());
@@ -709,13 +760,16 @@ where
                 self.regs.cr3.modify(|_, w| w.eie().clear_bit());
             }
             UsartInterrupt::ParityError => {
-                self.regs.cr1.modify(|_, w| w.peie().clear_bit());
+                cr1!(self.regs).modify(|_, w| w.peie().clear_bit());
             }
             UsartInterrupt::ReadNotEmpty => {
-                self.regs.cr1.modify(|_, w| w.rxneie().clear_bit());
+                #[cfg(feature = "h5")]
+                cr1!(self.regs).modify(|_, w| w.rxfneie().clear_bit());
+                #[cfg(not(feature = "h5"))]
+                cr1!(self.regs).modify(|_, w| w.rxneie().clear_bit());
             }
             UsartInterrupt::ReceiverTimeout => {
-                self.regs.cr1.modify(|_, w| w.rtoie().clear_bit());
+                cr1!(self.regs).modify(|_, w| w.rtoie().clear_bit());
             }
             #[cfg(not(any(feature = "f3", feature = "l4")))]
             UsartInterrupt::Tcbgt => {
@@ -723,10 +777,13 @@ where
                 self.regs.cr3.modify(|_, w| w.tcbgtie().clear_bit());
             }
             UsartInterrupt::TransmissionComplete => {
-                self.regs.cr1.modify(|_, w| w.tcie().clear_bit());
+                cr1!(self.regs).modify(|_, w| w.tcie().clear_bit());
             }
             UsartInterrupt::TransmitEmpty => {
-                self.regs.cr1.modify(|_, w| w.txeie().clear_bit());
+                #[cfg(feature = "h5")]
+                cr1!(self.regs).modify(|_, w| w.txfeie().clear_bit());
+                #[cfg(not(feature = "h5"))]
+                cr1!(self.regs).modify(|_, w| w.txeie().clear_bit());
             }
         }
     }
@@ -761,7 +818,7 @@ where
     /// Checks if a given status flag is set. Returns `true` if the status flag is set. Note that this preforms
     /// a read each time called. If checking multiple flags, this isn't optimal.
     pub fn check_status_flag(&mut self, flag: UsartInterrupt) -> bool {
-        let status = self.regs.isr.read();
+        let status = isr!(self.regs).read();
 
         match flag {
             UsartInterrupt::CharDetect(_) => status.cmf().bit_is_set(),
@@ -772,11 +829,17 @@ where
             UsartInterrupt::LineBreak => status.lbdf().bit_is_set(),
             UsartInterrupt::Overrun => status.ore().bit_is_set(),
             UsartInterrupt::ParityError => status.pe().bit_is_set(),
+            #[cfg(feature = "h5")]
+            UsartInterrupt::ReadNotEmpty => status.rxfne().bit_is_set(),
+            #[cfg(not(feature = "h5"))]
             UsartInterrupt::ReadNotEmpty => status.rxne().bit_is_set(),
             UsartInterrupt::ReceiverTimeout => status.rtof().bit_is_set(),
             #[cfg(not(any(feature = "f3", feature = "l4")))]
             UsartInterrupt::Tcbgt => status.tcbgt().bit_is_set(),
             UsartInterrupt::TransmissionComplete => status.tc().bit_is_set(),
+            #[cfg(feature = "h5")]
+            UsartInterrupt::TransmitEmpty => status.txfe().bit_is_set(),
+            #[cfg(not(feature = "h5"))]
             UsartInterrupt::TransmitEmpty => status.txe().bit_is_set(),
         }
     }
@@ -807,7 +870,7 @@ where
 
     #[cfg(not(feature = "f4"))]
     fn read(&mut self) -> nb::Result<u8, Error> {
-        while !self.regs.isr.read().rxne().bit_is_set() {}
+        while !isr!(self.regs).read().rxne().bit_is_set() {}
 
         Ok(self.regs.rdr.read().rdr().bits() as u8)
     }
@@ -827,7 +890,7 @@ where
 
     #[cfg(not(feature = "f4"))]
     fn write(&mut self, word: u8) -> nb::Result<(), Error> {
-        while !self.regs.isr.read().txe().bit_is_set() {}
+        while !isr!(self.regs).read().txe().bit_is_set() {}
 
         self.regs
             .tdr
@@ -849,7 +912,7 @@ where
 
     fn flush(&mut self) -> nb::Result<(), Error> {
         #[cfg(not(feature = "f4"))]
-        while !self.regs.isr.read().tc().bit_is_set() {}
+        while !isr!(self.regs).read().tc().bit_is_set() {}
         #[cfg(feature = "f4")]
         while !self.regs.sr.read().tc().bit_is_set() {}
 

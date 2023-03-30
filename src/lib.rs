@@ -529,7 +529,7 @@ pub mod spi;
 #[cfg(not(feature = "h5"))] // todo temp
 pub mod timer;
 
-#[cfg(not(feature = "h5"))] // todo temp. Needs CR1 and ISR added, among other things.
+// #[cfg(not(feature = "h5"))] // todo temp. Needs CR1 and ISR added, among other things.
 pub mod usart;
 
 #[cfg(any(feature = "l4"))]

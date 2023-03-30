@@ -28,7 +28,6 @@ use fdcan::{
 // Code shortener to isolate typestate syntax.
 type Can_ = FdCan<Can, NormalOperationMode>;
 
-
 /// An example function to set up the pins that don't need to be interacted with directly later.
 /// For example, ones used with buses (eg I2C, SPI, UART), USB, ADC, and DAC pins.
 /// This may also include input pins that trigger interrupts, and aren't polled.
@@ -44,7 +43,6 @@ pub fn setup_can(can_pac: pac::FDCAN1) -> Can_ {
     // todo: CAN clock cfg. Can be on PCLK1 (170Mhz), orPLLQ. (Should be able to
     // todo get a custom speed there)
     let mut can = FdCan::new(Can::new(can_pac)).into_config_mode();
-
 
     // Kernel Clock 170MHz, Bit rate: 1MBit/s, Sample Point 87.5%
     // An example of where to get values: http://www.bittiming.can-wiki.info/
