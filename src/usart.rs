@@ -368,12 +368,14 @@ where
             if #[cfg(not(feature = "f4"))] {
                 for word in data {
                     #[cfg(feature = "h5")]
+                    // todo: Fifo vs non-fifo for f5.
                     while isr!(self.regs).read().txfe().bit_is_clear() {}
-                    self.regs
-                        .tdr
-                        .modify(|_, w| unsafe { w.tdr().bits(*word as u16) });
+
                     #[cfg(not(feature = "h5"))]
+                    // Note: Per these PACs, TXFNF and TXE are on the same field, so this is actually
+                    // checking txfnf if the fifo is enabled.
                     while isr!(self.regs).read().txe().bit_is_clear() {}
+
                     self.regs
                         .tdr
                         .modify(|_, w| unsafe { w.tdr().bits(*word as u16) });
@@ -390,10 +392,6 @@ where
                         .dr
                         .modify(|_, w| unsafe { w.dr().bits(*word as u16) });
 
-                    // // NOTE(write_volatile) 8-bit write that's not possible through the svd2rust API
-                    // unsafe {
-                    //     ptr::write_volatile(*self.regs.dr, word)
-                    // }
                 }
                 while self.regs.sr.read().tc().bit_is_clear() {}
             }
@@ -412,7 +410,6 @@ where
                 .tdr
                 .modify(|_, w| unsafe { w.tdr().bits(word as u16) });
             } else {
-            // while self.regs.sr.read().txe().bit_is_clear() {}
                 self.regs
                     .dr
                     .modify(|_, w| unsafe { w.dr().bits(word as u16) });
@@ -428,8 +425,10 @@ where
                     // Wait for the next bit
                     #[cfg(feature = "h5")]
                     while isr!(self.regs).read().rxfne().bit_is_clear() {}
+
                     #[cfg(not(feature = "h5"))]
                     while isr!(self.regs).read().rxne().bit_is_clear() {}
+
                     buf[i] = self.regs.rdr.read().rdr().bits() as u8;
                 } else {
                     while self.regs.sr.read().rxne().bit_is_clear() {}
