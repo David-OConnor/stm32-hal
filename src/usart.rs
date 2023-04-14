@@ -681,6 +681,9 @@ where
                             }
                         }
                     });
+
+                    cr1!(self.regs).modify(|_, w| w.ue().set_bit());
+                    while cr1!(self.regs).read().ue().bit_is_clear() {}
                 }
 
                 cr1!(self.regs).modify(|_, w| w.cmie().set_bit());
