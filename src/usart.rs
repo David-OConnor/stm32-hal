@@ -683,7 +683,7 @@ where
                     });
                 }
 
-                cr1!(self.regs).modify(|_, w| w.ue().set_bit());
+                cr1!(self.regs).modify(|_, w| w.cmie().set_bit());
             }
             UsartInterrupt::Cts => {
                 self.regs.cr3.modify(|_, w| w.ctsie().set_bit());

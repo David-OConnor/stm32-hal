@@ -527,7 +527,6 @@ where
     }
 
     /// Read a single byte if available, or block until it's available.
-    /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
     #[cfg(not(any(feature = "h5", feature = "h7")))]
     pub fn read(&mut self) -> Result<u8, SpiError> {
         let sr = self.regs.sr.read();
@@ -611,7 +610,6 @@ where
 
     #[cfg(any(feature = "h5", feature = "h7"))]
     fn exchange_duplex(&mut self, word: u8) -> Result<u8, SpiError> {
-        // NOTE(write_volatile/read_volatile) write/read only 1 word
         // todo DRY
         let sr = self.regs.sr.read();
 
