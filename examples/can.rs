@@ -23,6 +23,7 @@ use fdcan::{
     frame::{FrameFormat, TxFrameHeader},
     id::{ExtendedId, Id},
     FdCan, NormalOperationMode,
+    interrupt::{Interrupt, InterruptLine},
 };
 
 // Code shortener to isolate typestate syntax.
@@ -83,6 +84,9 @@ pub fn setup_can(can_pac: pac::FDCAN1) -> Can_ {
         .set_frame_transmit(config::FrameTransmissionConfig::AllowFdCanAndBRS);
 
     can.apply_config(can_cfg);
+
+    can.enable_interrupt(Interrupt::RxFifo0NewMsg);
+    can.enable_interrupt_line(InterruptLine::_0, true);
 
     can.into_normal()
 }
