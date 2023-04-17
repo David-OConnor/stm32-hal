@@ -514,13 +514,34 @@ impl Flash {
 
         // Map our 8-bit data input API to the 64-bit write API. (Used by all variants, even though
         // they have different read sizes.)
-        // "The Flash memory is programmed 72 bits at a time (64 bits + 8 bits ECC)."
-        for chunk in data.chunks_exact(8) {
-            let word1 = u32::from_le_bytes(chunk[0..4].try_into().unwrap());
-            let word2 = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
+        // "The Flash memory is programmed 72 bits at a time (64 bits + 8 bits ECC)"
+        // G4 RM: "It is only possible to program double word (2 x 32-bit data). •
+        // Any attempt to write byte or half-word sets SIZERR flag in the FLASH_SR register.
+        // Any attempt to write a double word which is not aligned with a double word address
+        // sets PGAERR flag in the FLASH_SR register."
+
+        for chunk in data.chunks(8) {
+            // 8 bytes is 64 bits. (Double word)
+            // Pad to 64 bits if required, ie on the last word.
+            let mut padded = [0xff; 8];
+
+            let (word1, word2) = if chunk.len() < 8 {
+                // 0xff due to the default value of erased pages.
+                padded[0..chunk.len()].clone_from_slice(&chunk);
+
+                (
+                    u32::from_le_bytes(padded[0..4].try_into().unwrap()),
+                    u32::from_le_bytes(padded[4..8].try_into().unwrap()),
+                )
+            } else {
+                (
+                    u32::from_le_bytes(chunk[0..4].try_into().unwrap()),
+                    u32::from_le_bytes(chunk[4..8].try_into().unwrap()),
+                )
+            };
 
             unsafe {
-                // Write a first word in an address aligned with double wor
+                // Write a first word in an address aligned with double word
                 core::ptr::write_volatile(address, word1);
                 address = address.add(1);
                 // Write the second word
@@ -568,7 +589,8 @@ impl Flash {
 
         // Note that the key element separating each 256-bit writes is wating until the `qw` bit
         // is cleared.
-        for chunk in data.chunks_exact(32) {
+        for chunk in data.chunks(32) {
+            // todo: Test if you need similar padding logic as for non-H7 writes
             // We use 8 pointer-sized (32-bit) words to meet our full 32-byte (256-bit) write.
             for i in 0..8 {
                 let word = u32::from_le_bytes(chunk[i * 4..i * 4 + 4].try_into().unwrap());

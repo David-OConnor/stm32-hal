@@ -22,8 +22,8 @@ use stm32_hal2::{
 use fdcan::{
     frame::{FrameFormat, TxFrameHeader},
     id::{ExtendedId, Id},
-    FdCan, NormalOperationMode,
     interrupt::{Interrupt, InterruptLine},
+    FdCan, NormalOperationMode,
 };
 
 // Code shortener to isolate typestate syntax.
