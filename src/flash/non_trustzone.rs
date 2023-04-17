@@ -185,9 +185,9 @@ impl Flash {
     /// disturbances."
     pub fn unlock(&mut self) -> Result<(), Error> {
         #[cfg(not(feature = "h7"))]
-        let regs = &self.regs;
+            let regs = &self.regs;
         #[cfg(feature = "h7")]
-        let regs = self.regs.bank1();
+            let regs = self.regs.bank1();
 
         if regs.cr.read().lock().bit_is_clear() {
             return Ok(());
@@ -234,9 +234,9 @@ impl Flash {
         // todo: bank
 
         #[cfg(not(feature = "h7"))]
-        let regs = &self.regs;
+            let regs = &self.regs;
         #[cfg(feature = "h7")]
-        let regs = &self.regs.bank1();
+            let regs = &self.regs.bank1();
 
         while regs.sr.read().bsy().bit_is_set() {}
         regs.cr.modify(|_, w| w.lock().set_bit());
@@ -391,9 +391,9 @@ impl Flash {
         self.unlock()?;
 
         #[cfg(not(feature = "h7"))]
-        let regs = &self.regs;
+            let regs = &self.regs;
         #[cfg(feature = "h7")]
-        let regs = &match bank {
+            let regs = &match bank {
             Bank::B1 => self.regs.bank1(),
             // todo: PAC bank 2 error
             #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
@@ -662,9 +662,17 @@ impl Flash {
             // Offset it by the start position
             addr = unsafe { addr.add(offset) };
             // Iterate on chunks of 32bits
-            for chunk in buf.chunks_exact_mut(4) {
+            for chunk in buf.chunks_mut(4) {
                 let word = unsafe { core::ptr::read_volatile(addr) };
-                chunk[0..4].copy_from_slice(&word.to_le_bytes());
+                let bytes = word.to_le_bytes();
+
+                let len = chunk.len();
+                if len < 4 {
+                    chunk[0..len].copy_from_slice(&bytes[0..len]);
+                } else {
+                    chunk[0..4].copy_from_slice(&bytes);
+                };
+
                 unsafe { addr = addr.add(1) };
             }
         }
@@ -674,11 +682,11 @@ impl Flash {
 /// Calculate the address of the start of a given page. Each page is 2,048 Kb for non-H7.
 /// For H7, sectors are 128Kb, with 8 sectors per bank.
 #[cfg(not(any(
-    feature = "g473",
-    feature = "g474",
-    feature = "g483",
-    feature = "g484",
-    feature = "h7"
+feature = "g473",
+feature = "g474",
+feature = "g483",
+feature = "g484",
+feature = "h7"
 )))]
 fn page_to_address(page: usize) -> usize {
     super::BANK1_START_ADDR + page * super::PAGE_SIZE
