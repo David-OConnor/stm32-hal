@@ -350,18 +350,25 @@ impl Flash {
 
                 // Map our 8-bit data input API to the 64-bit write API.
                 // "The Flash memory is programmed 72 bits at a time (64 bits + 8 bits ECC)."
-                for chunk in data.chunks_exact(8) {
-                    let word1 = u32::from_le_bytes(chunk[0..4].try_into().unwrap());
-                    let word2 = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
+                for chunk in data.chunks(8) {
+                    // 8 bytes is 64 bits. (Double word)
+                    // Pad to 64 bits if required, ie on the last word.
+                    let mut padded = [0xff; 8];
 
-                    unsafe {
-                        // Write a first word in an address aligned with double wor
-                        core::ptr::write_volatile(address, word1);
-                        address = address.add(1);
-                        // Write the second word
-                        core::ptr::write_volatile(address, word2);
-                        address = address.add(1);
-                    }
+                    let (word1, word2) = if chunk.len() < 8 {
+                        // 0xff due to the default value of erased pages.
+                        padded[0..chunk.len()].clone_from_slice(&chunk);
+
+                        (
+                            u32::from_le_bytes(padded[0..4].try_into().unwrap()),
+                            u32::from_le_bytes(padded[4..8].try_into().unwrap()),
+                        )
+                    } else {
+                        (
+                            u32::from_le_bytes(chunk[0..4].try_into().unwrap()),
+                            u32::from_le_bytes(chunk[4..8].try_into().unwrap()),
+                        )
+                    };
 
                     // 5. Wait until the BSY bit is cleared in the FLASH_NSSR register.
                     while self.regs.nssr.read().nsbsy().bit_is_set() {}
@@ -392,9 +399,25 @@ impl Flash {
                 let mut address = page_to_address(self.dual_bank, bank, page) as *mut u32;
 
                 // todo: No need to repeat this section.
-                for chunk in data.chunks_exact(8) {
-                    let word1 = u32::from_le_bytes(chunk[0..4].try_into().unwrap());
-                    let word2 = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
+                for chunk in data.chunks(8) {
+                    // 8 bytes is 64 bits. (Double word)
+                    // Pad to 64 bits if required, ie on the last word.
+                    let mut padded = [0xff; 8];
+
+                    let (word1, word2) = if chunk.len() < 8 {
+                        // 0xff due to the default value of erased pages.
+                        padded[0..chunk.len()].clone_from_slice(&chunk);
+
+                        (
+                            u32::from_le_bytes(padded[0..4].try_into().unwrap()),
+                            u32::from_le_bytes(padded[4..8].try_into().unwrap()),
+                        )
+                    } else {
+                        (
+                            u32::from_le_bytes(chunk[0..4].try_into().unwrap()),
+                            u32::from_le_bytes(chunk[4..8].try_into().unwrap()),
+                        )
+                    };
 
                     unsafe {
                         // Write a first word in an address aligned with double wor
@@ -442,9 +465,17 @@ impl Flash {
         // Offset it by the start position
         addr = unsafe { addr.add(offset) };
         // Iterate on chunks of 32bits
-        for chunk in buf.chunks_exact_mut(4) {
+        for chunk in buf.chunks_mut(4) {
             let word = unsafe { core::ptr::read_volatile(addr) };
-            chunk[0..4].copy_from_slice(&word.to_le_bytes());
+            let bytes = word.to_le_bytes();
+
+            let len = chunk.len();
+            if len < 4 {
+                chunk[0..len].copy_from_slice(&bytes[0..len]);
+            } else {
+                chunk[0..4].copy_from_slice(&bytes);
+            };
+
             unsafe { addr = addr.add(1) };
         }
     }
