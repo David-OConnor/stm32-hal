@@ -1,10 +1,12 @@
 // todo: Dual bank support.
 
-use crate::pac::FLASH;
-
 use core;
 
 use cfg_if::cfg_if;
+
+use crate::pac::FLASH;
+
+use super::{page_to_address, Flash};
 
 const FLASH_KEY1: u32 = 0x4567_0123;
 const FLASH_KEY2: u32 = 0xCDEF_89AB;
@@ -101,18 +103,7 @@ fn clear_error_flags(regs: &FLASH, security: Security) {
     }
 }
 
-pub struct Flash {
-    pub regs: FLASH,
-    pub dual_bank: DualBank,
-}
-
 impl Flash {
-    /// Create a struct used to perform operations on Flash.
-    pub fn new(regs: FLASH, dual_bank: DualBank) -> Self {
-        // todo: Implement and configure dual bank mode.
-        Self { regs, dual_bank }
-    }
-
     /// Unlock the flash memory, allowing writes. See L4 Reference manual, section 6.3.5.
     pub fn unlock(&mut self, security: Security) -> Result<(), Error> {
         match security {
@@ -456,40 +447,5 @@ impl Flash {
         self.write_page(bank, page, data, security)?;
 
         Ok(())
-    }
-
-    /// Read flash memory at a given page and offset into a buffer.
-    pub fn read(&self, bank: Bank, page: usize, offset: usize, buf: &mut [u8]) {
-        let mut addr = page_to_address(self.dual_bank, bank, page) as *mut u32;
-
-        // Offset it by the start position
-        addr = unsafe { addr.add(offset) };
-        // Iterate on chunks of 32bits
-        for chunk in buf.chunks_mut(4) {
-            let word = unsafe { core::ptr::read_volatile(addr) };
-            let bytes = word.to_le_bytes();
-
-            let len = chunk.len();
-            if len < 4 {
-                chunk[0..len].copy_from_slice(&bytes[0..len]);
-            } else {
-                chunk[0..4].copy_from_slice(&bytes);
-            };
-
-            unsafe { addr = addr.add(1) };
-        }
-    }
-}
-
-/// Calculate the address of the start of a given page. Each page is 2,048 Kb for non-H7.
-/// For H7, sectors are 128Kb, with 8 sectors per bank.
-fn page_to_address(dual_bank: DualBank, bank: Bank, page: usize) -> usize {
-    if dual_bank == DualBank::Single {
-        super::BANK1_START_ADDR + page * super::PAGE_SIZE_SINGLE_BANK
-    } else {
-        match bank {
-            Bank::B1 => super::BANK1_START_ADDR + page * super::PAGE_SIZE_DUAL_BANK,
-            Bank::B2 => super::BANK2_START_ADDR + page * super::PAGE_SIZE_DUAL_BANK,
-        }
     }
 }

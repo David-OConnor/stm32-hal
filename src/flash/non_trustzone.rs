@@ -1,14 +1,16 @@
 // todo: Between L5 and the rest, and L5 secure and non, there's a lot of DRY!
 // todo: The answer may be macros.
 
+use core;
+
 use crate::pac::FLASH;
 
 #[cfg(feature = "h7")]
 use crate::pac::flash::BANK;
 
-use core;
-
 use cfg_if::cfg_if;
+
+use super::{page_to_address, Flash};
 
 const FLASH_KEY1: u32 = 0x4567_0123;
 const FLASH_KEY2: u32 = 0xCDEF_89AB;
@@ -159,25 +161,7 @@ fn clear_error_flags(regs: &BANK) {
     }
 }
 
-pub struct Flash {
-    pub regs: FLASH,
-    #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
-    pub dual_bank: DualBank,
-}
-
 impl Flash {
-    /// Create a struct used to perform operations on Flash.
-    pub fn new(regs: FLASH) -> Self {
-        cfg_if! {
-            if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
-                // Some G4 variants let you select dual or single-bank mode.
-                Self { regs, dual_bank: DualBank::Single }
-            } else {
-                Self { regs}
-            }
-        }
-    }
-
     /// Unlock the flash memory, allowing writes. See L4 Reference manual, section 3.3.5.
     /// (G4 RM section 5.3.5)
     /// "After reset, write is not allowed in the Flash control register (FLASH_CR) to protect the
@@ -185,9 +169,9 @@ impl Flash {
     /// disturbances."
     pub fn unlock(&mut self) -> Result<(), Error> {
         #[cfg(not(feature = "h7"))]
-            let regs = &self.regs;
+        let regs = &self.regs;
         #[cfg(feature = "h7")]
-            let regs = self.regs.bank1();
+        let regs = self.regs.bank1();
 
         if regs.cr.read().lock().bit_is_clear() {
             return Ok(());
@@ -234,9 +218,9 @@ impl Flash {
         // todo: bank
 
         #[cfg(not(feature = "h7"))]
-            let regs = &self.regs;
+        let regs = &self.regs;
         #[cfg(feature = "h7")]
-            let regs = &self.regs.bank1();
+        let regs = &self.regs.bank1();
 
         while regs.sr.read().bsy().bit_is_set() {}
         regs.cr.modify(|_, w| w.lock().set_bit());
@@ -391,9 +375,9 @@ impl Flash {
         self.unlock()?;
 
         #[cfg(not(feature = "h7"))]
-            let regs = &self.regs;
+        let regs = &self.regs;
         #[cfg(feature = "h7")]
-            let regs = &match bank {
+        let regs = &match bank {
             Bank::B1 => self.regs.bank1(),
             // todo: PAC bank 2 error
             #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
@@ -631,76 +615,6 @@ impl Flash {
         self.write_sector(bank, page, data)?;
 
         Ok(())
-    }
-
-    /// Read flash memory at a given page and offset into an 8-bit-dword buffer.
-    #[allow(unused_variables)] // bank arg on single-bank MCUs.
-    pub fn read(&self, bank: Bank, page: usize, offset: usize, buf: &mut [u8]) {
-        // H742 RM, section 4.3.8:
-        // Single read sequence
-        // The recommended simple read sequence is the following:
-        // 1. Freely perform read accesses to any AXI-mapped area.
-        // 2. The embedded Flash memory effectively executes the read operation from the read
-        // command queue buffer as soon as the non-volatile memory is ready and the previously
-        // requested operations on this specific bank have been served.
-        cfg_if! {
-            if #[cfg(any(
-                feature = "g473",
-                feature = "g474",
-                feature = "g483",
-                feature = "g484",
-            ))] {
-                let mut addr = page_to_address(self.dual_bank, bank, page) as *mut u32;
-            } else if #[cfg(feature = "h7")]{
-                let mut addr = sector_to_address(bank, page) as *mut u32;
-            } else {
-                let mut addr = page_to_address(page) as *mut u32;
-            }
-        }
-
-        unsafe {
-            // Offset it by the start position
-            addr = unsafe { addr.add(offset) };
-            // Iterate on chunks of 32bits
-            for chunk in buf.chunks_mut(4) {
-                let word = unsafe { core::ptr::read_volatile(addr) };
-                let bytes = word.to_le_bytes();
-
-                let len = chunk.len();
-                if len < 4 {
-                    chunk[0..len].copy_from_slice(&bytes[0..len]);
-                } else {
-                    chunk[0..4].copy_from_slice(&bytes);
-                };
-
-                unsafe { addr = addr.add(1) };
-            }
-        }
-    }
-}
-
-/// Calculate the address of the start of a given page. Each page is 2,048 Kb for non-H7.
-/// For H7, sectors are 128Kb, with 8 sectors per bank.
-#[cfg(not(any(
-feature = "g473",
-feature = "g474",
-feature = "g483",
-feature = "g484",
-feature = "h7"
-)))]
-fn page_to_address(page: usize) -> usize {
-    super::BANK1_START_ADDR + page * super::PAGE_SIZE
-}
-
-#[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
-fn page_to_address(dual_bank: DualBank, bank: Bank, page: usize) -> usize {
-    if dual_bank == DualBank::Single {
-        super::BANK1_START_ADDR + page * super::PAGE_SIZE_SINGLE_BANK
-    } else {
-        match bank {
-            Bank::B1 => super::BANK1_START_ADDR + page * super::PAGE_SIZE_DUAL_BANK,
-            Bank::B2 => super::BANK2_START_ADDR + page * super::PAGE_SIZE_DUAL_BANK,
-        }
     }
 }
 
