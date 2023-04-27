@@ -81,7 +81,7 @@ impl Flash {
             ))] {
                 let mut addr = page_to_address(self.dual_bank, bank, page) as *mut u32;
             } else if #[cfg(feature = "h7")]{
-                let mut addr = sector_to_address(bank, page) as *mut u32;
+                let mut addr = page_to_address(bank, page) as *mut u32;
             } else {
                 let mut addr = page_to_address(page) as *mut u32;
             }
@@ -139,3 +139,19 @@ fn page_to_address(dual_bank: DualBank, bank: Bank, page: usize) -> usize {
         }
     }
 }
+
+#[cfg(feature = "h7")]
+/// Calculate the address of the start of a given page. Each page is 2,048 Kb for non-H7.
+/// For H7, sectors are 128Kb, with 8 sectors per bank.
+fn page_to_address(bank: Bank, sector: usize) -> usize {
+    // Note; Named sector on H7.
+    let starting_pt = match bank {
+        Bank::B1 => BANK1_START_ADDR,
+        // todo: This isn't the same bank2 starting point for all H7 variants!
+        #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
+        Bank::B2 =>BANK2_START_ADDR,
+    };
+
+    starting_pt + sector * SECTOR_SIZE
+}
+

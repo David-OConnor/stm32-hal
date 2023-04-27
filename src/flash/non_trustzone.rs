@@ -569,7 +569,7 @@ impl Flash {
 
         // 4. Write one Flash-word corresponding to 32-byte data starting at a 32-byte aligned
         // address.
-        let mut address = sector_to_address(bank, sector) as *mut u32;
+        let mut address = page_to_address(bank, sector) as *mut u32;
 
         // Note that the key element separating each 256-bit writes is wating until the `qw` bit
         // is cleared.
@@ -616,19 +616,4 @@ impl Flash {
 
         Ok(())
     }
-}
-
-#[cfg(feature = "h7")]
-/// Calculate the address of the start of a given page. Each page is 2,048 Kb for non-H7.
-/// For H7, sectors are 128Kb, with 8 sectors per bank.
-fn sector_to_address(bank: Bank, sector: usize) -> usize {
-    // Note; Named sector on H7.
-    let starting_pt = match bank {
-        Bank::B1 => super::BANK1_START_ADDR,
-        // todo: This isn't the same bank2 starting point for all H7 variants!
-        #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
-        Bank::B2 => super::BANK2_START_ADDR,
-    };
-
-    starting_pt + sector * super::SECTOR_SIZE
 }
