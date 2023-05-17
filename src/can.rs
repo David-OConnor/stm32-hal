@@ -63,7 +63,7 @@ impl Can {
 
 #[cfg(feature = "h7")]
 // todo: Troubleshooting. COpied from H7xx-hal
-/// Set the message RAM layout. This is flexible on F7. This function hard-sets it to the setting
+/// Set the message RAM layout. This is flexible on H7. This function hard-sets it to the setting
 /// that is hard-set by hardware on G4.
 /// todo: Allow flexibility.
 ///
@@ -157,7 +157,7 @@ cfg_if! {
         unsafe impl bxcan::FilterOwner for Can {
             #[cfg(any(feature = "f3", feature = "f4"))]
             const NUM_FILTER_BANKS: u8 = 28;
-            #[cfg(any(feature = "f4", feature = "l4"))]
+            #[cfg(not(any(feature = "f4", feature = "l4")))]
             const NUM_FILTER_BANKS: u8 = 14;
         }
 
@@ -171,8 +171,9 @@ cfg_if! {
             #[cfg(feature = "g4")]
             // G4 RM, table 3. "Series memory map and peripheral register boundary
             // addresses". CAN message RAM: 3 listings, 1kb each:
-            // 0x4000_A400 - 0x4000_A7FF, 0x4000_A800 - 0x4000_ABFF,  0x4000_AC00 - 0x4000_AFFF,
             const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_a400 as *mut _);
+            // const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_a800 as *mut _); // todo ts
+            // const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_ac00 as *mut _); // todo ts
             #[cfg(feature = "h7")]
             // H743 RM, table 8. "Register boundary addresses". 0x4000_AC00 - 0x4000_D3FF". CAN message RAM.
             const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_ac00 as *mut _);

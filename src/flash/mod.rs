@@ -149,9 +149,8 @@ fn page_to_address(bank: Bank, sector: usize) -> usize {
         Bank::B1 => BANK1_START_ADDR,
         // todo: This isn't the same bank2 starting point for all H7 variants!
         #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
-        Bank::B2 =>BANK2_START_ADDR,
+        Bank::B2 => BANK2_START_ADDR,
     };
 
     starting_pt + sector * SECTOR_SIZE
 }
-

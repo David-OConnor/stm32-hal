@@ -61,3 +61,10 @@ impl Rng {
         self.regs.cr.modify(|_, w| w.ie().set_bit());
     }
 }
+
+/// Gets a random value without needing to pass the `Rng` struct. Assumes it has been initialized,
+/// to enable it and its peripheral clock.
+pub fn read() -> i32 {
+    let regs = unsafe { &(*RNG::ptr()) };
+    regs.dr.read().bits() as i32
+}
