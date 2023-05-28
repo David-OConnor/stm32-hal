@@ -42,7 +42,7 @@ cfg_if! {
 
 pub struct Flash {
     pub regs: FLASH,
-    #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
+    #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484", feature = "l5"))]
     pub dual_bank: DualBank,
 }
 
@@ -53,7 +53,7 @@ impl Flash {
     /// Create a struct used to perform operations on Flash.
     pub fn new(regs: FLASH) -> Self {
         cfg_if! {
-            if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
+            if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484", feature = "l5"))] {
                 // Some G4 variants let you select dual or single-bank mode.
                 Self { regs, dual_bank: DualBank::Single }
             } else {
@@ -78,6 +78,7 @@ impl Flash {
                 feature = "g474",
                 feature = "g483",
                 feature = "g484",
+                feature = "l5",
             ))] {
                 let mut addr = page_to_address(self.dual_bank, bank, page) as *mut u32;
             } else if #[cfg(feature = "h7")]{
@@ -116,6 +117,7 @@ impl Flash {
     feature = "g483",
     feature = "g484",
     feature = "h5",
+    feature = "l5",
     feature = "h7"
 )))]
 fn page_to_address(page: usize) -> usize {
@@ -127,7 +129,8 @@ fn page_to_address(page: usize) -> usize {
     feature = "g474",
     feature = "g483",
     feature = "g484",
-    feature = "h5"
+    feature = "h5",
+    feature = "l5",
 ))]
 fn page_to_address(dual_bank: DualBank, bank: Bank, page: usize) -> usize {
     if dual_bank == DualBank::Single {

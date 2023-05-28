@@ -206,6 +206,7 @@ impl Comp {
 
         match result.device {
             CompDevice::One => modify_bit!(comp1_csr, config),
+            #[cfg(not(feature = "l412"))]
             CompDevice::Two => modify_bit!(comp2_csr, config),
         }
         result
@@ -219,6 +220,7 @@ impl Comp {
 
         match self.device {
             CompDevice::One => set_bit!(comp1_csr, value),
+            #[cfg(not(feature = "l412"))]
             CompDevice::Two => set_bit!(comp2_csr, value),
         }
 
@@ -234,7 +236,9 @@ impl Comp {
         }
 
         match self.device {
+
             CompDevice::One => clear_bit!(comp1_csr, value),
+            #[cfg(not(feature = "l412"))]
             CompDevice::Two => clear_bit!(comp2_csr, value),
         }
 
@@ -247,6 +251,7 @@ impl Comp {
     fn read_bit(&self, value: u32) -> u32 {
         match self.device {
             CompDevice::One => read_bit!(comp1_csr, value),
+            #[cfg(not(feature = "l412"))]
             CompDevice::Two => read_bit!(comp2_csr, value),
         }
     }

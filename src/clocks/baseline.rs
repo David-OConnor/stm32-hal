@@ -1025,8 +1025,12 @@ impl Clocks {
         rcc.ccipr
             .modify(|_, w| unsafe { w.sai1sel().bits(self.sai1_src as u8) });
 
-        #[cfg(any(feature = "g0", feature = "g4"))]
+        #[cfg(feature = "g4")]
         rcc.ccipr
+            .modify(|_, w| unsafe { w.fdcansel().bits(self.can_src as u8) });
+
+        #[cfg(feature = "g0c1")]
+        rcc.ccipr2
             .modify(|_, w| unsafe { w.fdcansel().bits(self.can_src as u8) });
 
         #[cfg(feature = "l5")]
