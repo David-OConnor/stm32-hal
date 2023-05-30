@@ -518,6 +518,30 @@ macro_rules! enable_interrupt {
     };
 }
 
+/// Reduce DRY over channels when configuring a channel's interrupts.
+#[cfg(not(feature = "h7"))]
+macro_rules! disable_interrupt {
+    ($ccr:expr, $interrupt_type:expr) => {
+        // "It must not be written when the channel is disabled (EN = 1)."
+        let originally_disabled = $ccr.read().en().bit_is_set();
+        if originally_disabled {
+            $ccr.modify(|_, w| w.en().clear_bit());
+            while $ccr.read().en().bit_is_set() {}
+        }
+
+        $ccr.modify(|_, w| match $interrupt_type {
+            DmaInterrupt::TransferError => w.teie().clear_bit(),
+            DmaInterrupt::HalfTransfer => w.htie().clear_bit(),
+            DmaInterrupt::TransferComplete => w.tcie().clear_bit(),
+        });
+
+        if originally_disabled {
+            $ccr.modify(|_, w| w.en().set_bit());
+            while $ccr.read().en().bit_is_clear() {}
+        }
+    };
+}
+
 /// This struct is used to pass common (non-peripheral and non-use-specific) data when configuring
 /// a channel.
 #[derive(Clone)]
@@ -1590,7 +1614,7 @@ where
     }
 }
 
-/// Stop a DMA transfer, if in progress.
+/// Enable an interrupt.
 #[cfg(not(feature = "h7"))]
 fn enable_interrupt_internal<D>(regs: &mut D, channel: DmaChannel, interrupt: DmaInterrupt)
 where
@@ -1678,6 +1702,94 @@ where
     };
 }
 
+/// Disable an interrupt.
+#[cfg(not(feature = "h7"))]
+fn disable_interrupt_internal<D>(regs: &mut D, channel: DmaChannel, interrupt: DmaInterrupt)
+where
+    D: Deref<Target = dma1::RegisterBlock>,
+{
+    // Can only be set when the channel is disabled.
+    match channel {
+        DmaChannel::C1 => {
+            cfg_if! {
+                if #[cfg(any(feature = "f3", feature = "g0"))] {
+                    let ccr = &regs.ch1.cr;
+                } else {
+                    let ccr = &regs.ccr1;
+                }
+            }
+            disable_interrupt!(ccr, interrupt);
+        }
+        DmaChannel::C2 => {
+            cfg_if! {
+                if #[cfg(any(feature = "f3", feature = "g0"))] {
+                    let ccr = &regs.ch2.cr;
+                } else {
+                    let ccr = &regs.ccr2;
+                }
+            }
+            disable_interrupt!(ccr, interrupt);
+        }
+        DmaChannel::C3 => {
+            cfg_if! {
+                if #[cfg(any(feature = "f3", feature = "g0"))] {
+                    let ccr = &regs.ch3.cr;
+                } else {
+                    let ccr = &regs.ccr3;
+                }
+            }
+            disable_interrupt!(ccr, interrupt);
+        }
+        DmaChannel::C4 => {
+            cfg_if! {
+                if #[cfg(any(feature = "f3", feature = "g0"))] {
+                    let ccr = &regs.ch4.cr;
+                } else {
+                    let ccr = &regs.ccr4;
+                }
+            }
+            disable_interrupt!(ccr, interrupt);
+        }
+        DmaChannel::C5 => {
+            cfg_if! {
+                if #[cfg(any(feature = "f3", feature = "g0"))] {
+                    let ccr = &regs.ch5.cr;
+                } else {
+                    let ccr = &regs.ccr5;
+                }
+            }
+            disable_interrupt!(ccr, interrupt);
+        }
+        #[cfg(not(feature = "g0"))]
+        DmaChannel::C6 => {
+            cfg_if! {
+                if #[cfg(any(feature = "f3", feature = "g0"))] {
+                    let ccr = &regs.ch6.cr;
+                } else {
+                    let ccr = &regs.ccr6;
+                }
+            }
+            disable_interrupt!(ccr, interrupt);
+        }
+        #[cfg(not(feature = "g0"))]
+        DmaChannel::C7 => {
+            cfg_if! {
+                if #[cfg(any(feature = "f3", feature = "g0"))] {
+                    let ccr = &regs.ch7.cr;
+                } else {
+                    let ccr = &regs.ccr7;
+                }
+            }
+            disable_interrupt!(ccr, interrupt);
+        }
+        #[cfg(any(feature = "l5", feature = "g4"))]
+        DmaChannel::C8 => {
+            let ccr = &regs.ccr8;
+            disable_interrupt!(ccr, interrupt);
+        }
+    };
+}
+
 /// Stop a DMA transfer, if in progress.
 #[cfg(feature = "h7")]
 fn enable_interrupt_internal<D>(regs: &mut D, channel: DmaChannel, interrupt: DmaInterrupt)
@@ -1709,6 +1821,21 @@ pub fn enable_interrupt(periph: DmaPeriph, channel: DmaChannel, interrupt: DmaIn
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             enable_interrupt_internal(&mut regs, channel, interrupt);
+        }
+    }
+}
+
+/// Disable a specific type of interrupt.
+pub fn disable_interrupt(periph: DmaPeriph, channel: DmaChannel, interrupt: DmaInterrupt) {
+    match periph {
+        DmaPeriph::Dma1 => {
+            let mut regs = unsafe { &(*DMA1::ptr()) };
+            disable_interrupt_internal(&mut regs, channel, interrupt);
+        }
+        #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
+        DmaPeriph::Dma2 => {
+            let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+            disable_interrupt_internal(&mut regs, channel, interrupt);
         }
     }
 }
