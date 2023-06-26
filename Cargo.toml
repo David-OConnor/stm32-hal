@@ -17,7 +17,7 @@ exclude = [".gitignore"]
 edition = "2021"
 
 [dependencies]
-cortex-m = "0.7.6"
+cortex-m = "^0.7.7"
 
 # Peripheral Access Crates
 stm32f3 = { version = "0.15.1", optional = true }
@@ -33,11 +33,11 @@ stm32wb = { version = "0.15.1", optional = true }
 stm32wl = { version = "0.15.1", optional = true }
 
 # Embedded-HAL traits and related libs. Featured-gated with `embedded-hal`.
-embedded-hal = { version = "0.2.5", features = ["unproven"], optional = true }
+embedded-hal = { version = "^0.2.5", features = ["unproven"], optional = true }
 # `nb` is only included when using the embedded-hal feature.
 nb = { version = "^1.0.0", optional = true }
 void = { version = "^1.0.2", default-features = false, optional = true }
-embedded-time = { version = "0.12.1", optional = true }
+embedded-time = { version = "^0.12.1", optional = true }
 
 # Enabled with the `monotonic` feature.
 rtic-monotonic = { version = "^1.0.0", optional = true }
@@ -47,20 +47,20 @@ chrono = { version = "^0.4.23", default-features = false }
 
 # These USB and CAN crates are only imported if one of the `can`, `usb`, `usbotg_fs`, or `usbotg_hs`
 # features are used.
-stm32-usbd = { version = "0.6.0", optional = true }
-synopsys-usb-otg = { version = "0.3.2", features = ["cortex-m"], optional = true }
-bxcan = { version = "0.7.0", optional = true }
-fdcan = { version = "0.1.2", optional = true }
+stm32-usbd = { version = "^0.6.0", optional = true }
+synopsys-usb-otg = { version = "^0.3.2", features = ["cortex-m"], optional = true }
+bxcan = { version = "^0.7.0", optional = true }
+fdcan = { version = "^0.1.2", optional = true }
 
 # TCP stack for use with the Ethernet peripheral.
-smoltcp = { version = "0.8.1", optional = true }
+smoltcp = { version = "^0.8.1", optional = true }
 
 # Misc features
-num-traits = { version = "0.2.14", default-features = false, features=["libm"] }  # For sqrt in timers
+num-traits = { version = "^0.2.15", default-features = false }  # For sqrt in timers
 
 # Meta-programming; mainly used for feature-gating
-cfg-if = "1.0.0"  # if/else blocks for feature-gating
-paste = "1.0.4"  # Token pasting, to make macros easier
+cfg-if = "^1.0.0"  # if/else blocks for feature-gating
+paste = "^1.0.4"  # Token pasting, to make macros easier
 
 [package.metadata.docs.rs]
 features = ["h735", "h7rt", "usbotg_hs", "can_fd_h", "embedded_hal"]

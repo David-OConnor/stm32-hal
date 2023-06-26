@@ -474,6 +474,8 @@ pub use i2c_f4 as i2c;
 #[cfg(feature = "wb")]
 pub mod ipcc;
 
+pub mod iwdg;
+
 pub mod low_power;
 
 #[cfg(any(feature = "h747cm4", feature = "h747cm7"))]

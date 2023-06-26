@@ -42,7 +42,13 @@ cfg_if! {
 
 pub struct Flash {
     pub regs: FLASH,
-    #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484", feature = "l5"))]
+    #[cfg(any(
+        feature = "g473",
+        feature = "g474",
+        feature = "g483",
+        feature = "g484",
+        feature = "l5"
+    ))]
     pub dual_bank: DualBank,
 }
 

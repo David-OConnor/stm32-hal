@@ -1790,7 +1790,6 @@ where
     };
 }
 
-/// Stop a DMA transfer, if in progress.
 #[cfg(feature = "h7")]
 fn enable_interrupt_internal<D>(regs: &mut D, channel: DmaChannel, interrupt: DmaInterrupt)
 where
@@ -1807,6 +1806,27 @@ where
         DmaInterrupt::FifoError => regs.st[channel as usize]
             .fcr
             .modify(|_, w| w.feie().set_bit()),
+    }
+}
+
+#[cfg(feature = "h7")]
+fn disable_interrupt_internal<D>(regs: &mut D, channel: DmaChannel, interrupt: DmaInterrupt)
+where
+    D: Deref<Target = dma1::RegisterBlock>,
+{
+    // Can only be set when the channel is disabled.
+    let cr = &regs.st[channel as usize].cr;
+
+    // todo DRY
+
+    match interrupt {
+        DmaInterrupt::TransferError => cr.modify(|_, w| w.teie().clear_bit()),
+        DmaInterrupt::HalfTransfer => cr.modify(|_, w| w.htie().clear_bit()),
+        DmaInterrupt::TransferComplete => cr.modify(|_, w| w.tcie().clear_bit()),
+        DmaInterrupt::DirectModeError => cr.modify(|_, w| w.dmeie().clear_bit()),
+        DmaInterrupt::FifoError => regs.st[channel as usize]
+            .fcr
+            .modify(|_, w| w.feie().clear_bit()),
     }
 }
 

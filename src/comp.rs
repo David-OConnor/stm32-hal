@@ -236,7 +236,6 @@ impl Comp {
         }
 
         match self.device {
-
             CompDevice::One => clear_bit!(comp1_csr, value),
             #[cfg(not(feature = "l412"))]
             CompDevice::Two => clear_bit!(comp2_csr, value),
