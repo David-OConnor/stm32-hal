@@ -56,7 +56,7 @@ fdcan = { version = "^0.1.2", optional = true }
 smoltcp = { version = "^0.8.1", optional = true }
 
 # Misc features
-num-traits = { version = "^0.2.15", default-features = false }  # For sqrt in timers
+num-traits = { version = "^0.2.15", default-features = false, features = ["libm"] }  # For sqrt in timers
 
 # Meta-programming; mainly used for feature-gating
 cfg-if = "^1.0.0"  # if/else blocks for feature-gating
