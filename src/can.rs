@@ -149,7 +149,7 @@ pub fn set_message_ram_layout() {
 
 // Implement the traits required for the `bxcan` or `fdcan` library.
 cfg_if! {
-    if #[cfg(feature = "bx_can")] {
+    if #[cfg(feature = "can_bx")] {
         unsafe impl bxcan::Instance for Can {
             const REGISTERS: *mut bxcan::RegisterBlock = CAN::ptr() as *mut _;
         }
@@ -157,7 +157,7 @@ cfg_if! {
         unsafe impl bxcan::FilterOwner for Can {
             #[cfg(any(feature = "f3", feature = "f4"))]
             const NUM_FILTER_BANKS: u8 = 28;
-            #[cfg(not(any(feature = "f4", feature = "l4")))]
+            #[cfg(any(feature = "l4"))]
             const NUM_FILTER_BANKS: u8 = 14;
         }
 
