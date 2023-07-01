@@ -18,8 +18,6 @@ cfg_if! {
 
 use core::ptr;
 
-use cortex_m::interrupt::free;
-
 // todo: Status-polling mode.
 
 // todo: Is this avail in PAC? Feature-gate if diff on diff platforms?
