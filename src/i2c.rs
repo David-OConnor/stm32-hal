@@ -13,6 +13,7 @@ use crate::{
     clocks::Clocks,
     pac::{self, RCC},
     util::RccPeriph,
+    MAX_ITERS,
 };
 
 #[cfg(not(any(feature = "l552", feature = "h5")))]
@@ -29,6 +30,8 @@ use crate::pac::DMA1;
 // todo: Get rid of this macro.
 macro_rules! busy_wait {
     ($regs:expr, $flag:ident) => {
+        let mut i = 0;
+
         loop {
             let isr = $regs.isr.read();
 
@@ -58,6 +61,11 @@ macro_rules! busy_wait {
                 // try again
                 // todo: Timeout!
             }
+
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(Error::Hardware);
+            }
         }
     };
 }
@@ -76,6 +84,7 @@ pub enum Error {
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
+    Hardware,
 }
 
 #[derive(Clone, Copy)]
@@ -362,7 +371,7 @@ where
     }
 
     /// Enable SMBus support. See L44 RM, section 37.4.11: SMBus initialization
-    pub fn enable_smbus(&mut self) {
+    pub fn enable_smbus(&mut self) -> Result<(), Error> {
         // todo: Roll this into an init setting or I2cConfig struct etc.
         // PEC calculation is enabled by setting the PECEN bit in the I2C_CR1 register. Then the PEC
         // transfer is managed with the help of a hardware byte counter: NBYTES[7:0] in the I2C_CR2
@@ -377,7 +386,14 @@ where
         let originally_enabled = self.regs.cr1.read().pe().bit_is_set();
         if originally_enabled {
             self.regs.cr1.modify(|_, w| w.pe().clear_bit());
-            while self.regs.cr1.read().pe().bit_is_set() {}
+
+            let mut i = 0;
+            while self.regs.cr1.read().pe().bit_is_set() {
+                i += 1;
+                if i >= MAX_ITERS {
+                    return Err(Error::Hardware);
+                }
+            }
         }
 
         self.regs.cr1.modify(|_, w| w.pecen().set_bit());
@@ -390,6 +406,8 @@ where
         if originally_enabled {
             self.regs.cr1.modify(|_, w| w.pe().set_bit());
         }
+
+        Ok(())
     }
 
     /// Read multiple words to a buffer. Can return an error due to Bus, Arbitration, or NACK.
@@ -397,7 +415,14 @@ where
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
-        while self.regs.cr2.read().start().bit_is_set() {}
+
+        let mut i = 0;
+        while self.regs.cr2.read().start().bit_is_set() {
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(Error::Hardware);
+            }
+        }
 
         // Set START and prepare to receive bytes into
         // `buffer`. The START bit can be set even if the bus
@@ -419,7 +444,13 @@ where
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
-        while self.regs.cr2.read().start().bit_is_set() {}
+        let mut i = 0;
+        while self.regs.cr2.read().start().bit_is_set() {
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(Error::Hardware);
+            }
+        }
 
         self.set_cr2_write(addr, bytes.len() as u8, true);
 
@@ -441,7 +472,13 @@ where
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
-        while self.regs.cr2.read().start().bit_is_set() {}
+        let mut i = 0;
+        while self.regs.cr2.read().start().bit_is_set() {
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(Error::Hardware);
+            }
+        }
 
         self.set_cr2_write(addr, bytes.len() as u8, false);
 

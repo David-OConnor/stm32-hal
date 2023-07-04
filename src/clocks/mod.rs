@@ -36,15 +36,10 @@ cfg_if::cfg_if! {
 // todo: Continue working through DRY between the clock modules.
 
 /// Speed out of limits.
-#[derive(Debug)]
-pub struct SpeedError {
-    pub error_msg: &'static str,
-}
-
-impl SpeedError {
-    pub(crate) fn new(error_msg: &'static str) -> Self {
-        Self { error_msg }
-    }
+#[derive(Clone, Copy, Debug)]
+pub enum RccError {
+    Speed,
+    Hardware,
 }
 
 // #[derive(Clone, Copy)]

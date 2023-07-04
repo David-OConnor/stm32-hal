@@ -5,9 +5,10 @@
 // Similar in from to the H7 clocks module, but includes notable differendes.
 
 use crate::{
-    clocks::SpeedError,
+    clocks::RccError,
     pac::{self, FLASH, RCC},
     util::rcc_en_reset,
+    MAX_ITERS,
 };
 
 #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]
@@ -90,71 +91,71 @@ pub enum StopWuck {
 }
 
 cfg_if! {
-    if #[cfg(feature = "g0")] {
-        #[derive(Clone, Copy, PartialEq)]
-        /// Clock input source, also known as system clock switch. Sets RCC_CFGR register, SW field.
-        pub enum InputSrc {
-            Hsi,
-            Hse(u32), // freq in Mhz,
-            Pll(PllSrc),
-            Lsi,
-            Lse,
-        }
+if #[cfg(feature = "g0")] {
+#[derive(Clone, Copy, PartialEq)]
+/// Clock input source, also known as system clock switch. Sets RCC_CFGR register, SW field.
+pub enum InputSrc {
+Hsi,
+Hse(u32), // freq in Mhz,
+Pll(PllSrc),
+Lsi,
+Lse,
+}
 
-        impl InputSrc {
-            /// Required due to numerical value on non-uniform discrim being experimental.
-            /// (ie, can't set on `Pll(Pllsrc)`. G0 RM, section 5.4.3.
-            pub fn bits(&self) -> u8 {
-                match self {
-                    Self::Hsi => 0b000,
-                    Self::Hse(_) => 0b001,
-                    Self::Pll(_) => 0b010,
-                    Self::Lsi => 0b011,
-                    Self::Lse => 0b100,
-                }
-            }
-        }
-    } else if #[cfg(feature = "g4")] {
-        #[derive(Clone, Copy, PartialEq)]
-        pub enum InputSrc {
-            Hsi,
-            Hse(u32), // freq in Hz,
-            Pll(PllSrc),
-        }
+impl InputSrc {
+/// Required due to numerical value on non-uniform discrim being experimental.
+/// (ie, can't set on `Pll(Pllsrc)`. G0 RM, section 5.4.3.
+pub fn bits(&self) -> u8 {
+match self {
+Self::Hsi => 0b000,
+Self::Hse(_) => 0b001,
+Self::Pll(_) => 0b010,
+Self::Lsi => 0b011,
+Self::Lse => 0b100,
+}
+}
+}
+} else if #[cfg(feature = "g4")] {
+#[derive(Clone, Copy, PartialEq)]
+pub enum InputSrc {
+Hsi,
+Hse(u32), // freq in Hz,
+Pll(PllSrc),
+}
 
-        impl InputSrc {
-            /// Required due to numerical value on non-uniform discrim being experimental.
-            /// (ie, can't set on `Pll(Pllsrc)`.
-            pub fn bits(&self) -> u8 {
-                match self {
-                    Self::Hsi => 0b01,
-                    Self::Hse(_) => 0b10,
-                    Self::Pll(_) => 0b11,
-                }
-            }
-        }
-    } else {  // ie L4 and L5
-        #[derive(Clone, Copy, PartialEq)]
-        pub enum InputSrc {
-            Msi(MsiRange),
-            Hsi,
-            Hse(u32), // freq in Hz,
-            Pll(PllSrc),
-        }
+impl InputSrc {
+/// Required due to numerical value on non-uniform discrim being experimental.
+/// (ie, can't set on `Pll(Pllsrc)`.
+pub fn bits(&self) -> u8 {
+match self {
+Self::Hsi => 0b01,
+Self::Hse(_) => 0b10,
+Self::Pll(_) => 0b11,
+}
+}
+}
+} else {  // ie L4 and L5
+#[derive(Clone, Copy, PartialEq)]
+pub enum InputSrc {
+Msi(MsiRange),
+Hsi,
+Hse(u32), // freq in Hz,
+Pll(PllSrc),
+}
 
-        impl InputSrc {
-            /// Required due to numerical value on non-uniform discrim being experimental.
-            /// (ie, can't set on `Pll(Pllsrc)`.
-            pub fn bits(&self) -> u8 {
-                match self {
-                    Self::Msi(_) => 0b00,
-                    Self::Hsi => 0b01,
-                    Self::Hse(_) => 0b10,
-                    Self::Pll(_) => 0b11,
-                }
-            }
-        }
-    }
+impl InputSrc {
+/// Required due to numerical value on non-uniform discrim being experimental.
+/// (ie, can't set on `Pll(Pllsrc)`.
+pub fn bits(&self) -> u8 {
+match self {
+Self::Msi(_) => 0b00,
+Self::Hsi => 0b01,
+Self::Hse(_) => 0b10,
+Self::Pll(_) => 0b11,
+}
+}
+}
+}
 }
 
 #[cfg(feature = "wb")]
@@ -606,7 +607,7 @@ impl Clocks {
     /// are invalid.
     /// Use the STM32CubeIDE Clock Configuration tab to help identify valid configs.
     /// Use the `default()` implementation as a safe baseline.
-    pub fn setup(&self) -> Result<(), SpeedError> {
+    pub fn setup(&self) -> Result<(), RccError> {
         if let Err(e) = self.validate_speeds() {
             return Err(e);
         }
@@ -626,120 +627,120 @@ impl Clocks {
         let sysclk = self.sysclk();
 
         cfg_if! {
-            if #[cfg(feature = "wb")] {
-                let hclk = sysclk / self.hclk4_prescaler.value() as u32;
-            } else if #[cfg(feature = "wl")] {
-                let hclk = sysclk / self.hclk3_prescaler.value() as u32;
-            } else {
-                let hclk = sysclk / self.hclk_prescaler.value() as u32;
-            }
+        if #[cfg(feature = "wb")] {
+        let hclk = sysclk / self.hclk4_prescaler.value() as u32;
+        } else if #[cfg(feature = "wl")] {
+        let hclk = sysclk / self.hclk3_prescaler.value() as u32;
+        } else {
+        let hclk = sysclk / self.hclk_prescaler.value() as u32;
+        }
         }
 
         cfg_if! {
-            if #[cfg(feature = "g4")] {
-                if self.boost_mode {
-                    // The sequence to switch from Range1 normal mode to Range1 boost mode is:
-                    // 1. The system clock must be divided by 2 using the AHB prescaler before switching to a
-                    // higher system frequency.
-                    rcc.cfgr.modify(|_, w| unsafe { w.hpre().bits(HclkPrescaler::Div2 as u8) });
-                    // 2. Clear the R1MODE bit is in the PWR_CR5 register.
-                    let pwr = unsafe { &(*pac::PWR::ptr()) };
-                    pwr.cr5.modify(|_, w| w.r1mode().clear_bit());
-                }
+        if #[cfg(feature = "g4")] {
+        if self.boost_mode {
+        // The sequence to switch from Range1 normal mode to Range1 boost mode is:
+        // 1. The system clock must be divided by 2 using the AHB prescaler before switching to a
+        // higher system frequency.
+        rcc.cfgr.modify(|_, w| unsafe { w.hpre().bits(HclkPrescaler::Div2 as u8) });
+        // 2. Clear the R1MODE bit is in the PWR_CR5 register.
+        let pwr = unsafe { &(*pac::PWR::ptr()) };
+        pwr.cr5.modify(|_, w| w.r1mode().clear_bit());
+        }
 
-                // (Remaining steps accomplished below)
-                // 3. Adjust the number of wait states according to the new frequency target in range1 boost
-                // mode
-                // 4. Configure and switch to new system frequency.
-                // 5. Wait for at least 1us and then reconfigure the AHB prescaler to get the needed HCLK
-                // clock frequency.
-            }
+        // (Remaining steps accomplished below)
+        // 3. Adjust the number of wait states according to the new frequency target in range1 boost
+        // mode
+        // 4. Configure and switch to new system frequency.
+        // 5. Wait for at least 1us and then reconfigure the AHB prescaler to get the needed HCLK
+        // clock frequency.
+        }
         }
 
         cfg_if! {
-            if #[cfg(feature = "l4")] {  // RM section 3.3.3
-                let wait_state = if hclk <= 16_000_000 {
-                    WaitState::W0
-                } else if hclk <= 32_000_000 {
-                    WaitState::W1
-                } else if hclk <= 48_000_000 {
-                    WaitState::W2
-                } else if hclk <= 64_000_000 {
-                    WaitState::W3
-                } else {
-                    WaitState::W4
-                };
-            } else if #[cfg(feature = "l5")] {  // RM section 6.3.3
-                let wait_state = if hclk <= 20_000_000 {
-                    WaitState::W0
-                } else if hclk <= 40_000_000 {
-                    WaitState::W1
-                } else if hclk <= 60_000_000 {
-                    WaitState::W2
-                } else if hclk <= 80_000_000 {
-                    WaitState::W3
-                } else if hclk <= 100_000_000 {
-                    WaitState::W4
-                } else {
-                    WaitState::W5
-                };
-            } else if #[cfg(feature = "g0")] {  // G0. RM section 3.3.4
-                let wait_state = if hclk <= 24_000_000 {
-                    WaitState::W0
-                } else if hclk <= 48_000_000 {
-                    WaitState::W1
-                } else {
-                    WaitState::W2
-                };
-            } else if #[cfg(feature = "wb")] {  // WB. RM section 3.3.4, Table 4.
-                // Note: This applies to HCLK4 HCLK. (See HCLK4 used above for hclk var.)
-                let wait_state = if hclk <= 18_000_000 {
-                    WaitState::W0
-                } else if hclk <= 36_000_000 {
-                    WaitState::W1
-                } else if hclk <= 54_000_000 {
-                    WaitState::W2
-                } else {
-                    WaitState::W3
-                };
-            } else if #[cfg(any(feature = "wb", feature = "wl"))] {  // WL. RM section 3.3.4, Table 5.
-                // Note: This applies to HCLK3 HCLK. (See HCLK3 used above for hclk var.)
-                let wait_state = if hclk <= 18_000_000 {
-                    WaitState::W0
-                } else if hclk <= 36_000_000 {
-                    WaitState::W1
-                } else {
-                    WaitState::W2
-                };
-            } else {  // G4. RM section 3.3.3
-                let wait_state = if self.boost_mode {
-                    // Vcore Range 1 boost mode
-                    if hclk <= 34_000_000 {
-                        WaitState::W0
-                    } else if hclk <= 68_000_000 {
-                        WaitState::W1
-                    } else if hclk <= 102_000_000 {
-                        WaitState::W2
-                    } else if hclk <= 136_000_000 {
-                        WaitState::W3
-                    } else {
-                        WaitState::W4
-                    }
-                } else {
-                    // Vcore Range 1 normal mode.
-                    if hclk <= 30_000_000 {
-                        WaitState::W0
-                    } else if hclk <= 60_000_000 {
-                        WaitState::W1
-                    } else if hclk <= 90_000_000 {
-                        WaitState::W2
-                    } else if hclk <= 120_000_000 {
-                        WaitState::W3
-                    } else {
-                        WaitState::W4
-                    }
-                };
-            }
+        if #[cfg(feature = "l4")] {  // RM section 3.3.3
+        let wait_state = if hclk <= 16_000_000 {
+        WaitState::W0
+        } else if hclk <= 32_000_000 {
+        WaitState::W1
+        } else if hclk <= 48_000_000 {
+        WaitState::W2
+        } else if hclk <= 64_000_000 {
+        WaitState::W3
+        } else {
+        WaitState::W4
+        };
+        } else if #[cfg(feature = "l5")] {  // RM section 6.3.3
+        let wait_state = if hclk <= 20_000_000 {
+        WaitState::W0
+        } else if hclk <= 40_000_000 {
+        WaitState::W1
+        } else if hclk <= 60_000_000 {
+        WaitState::W2
+        } else if hclk <= 80_000_000 {
+        WaitState::W3
+        } else if hclk <= 100_000_000 {
+        WaitState::W4
+        } else {
+        WaitState::W5
+        };
+        } else if #[cfg(feature = "g0")] {  // G0. RM section 3.3.4
+        let wait_state = if hclk <= 24_000_000 {
+        WaitState::W0
+        } else if hclk <= 48_000_000 {
+        WaitState::W1
+        } else {
+        WaitState::W2
+        };
+        } else if #[cfg(feature = "wb")] {  // WB. RM section 3.3.4, Table 4.
+        // Note: This applies to HCLK4 HCLK. (See HCLK4 used above for hclk var.)
+        let wait_state = if hclk <= 18_000_000 {
+        WaitState::W0
+        } else if hclk <= 36_000_000 {
+        WaitState::W1
+        } else if hclk <= 54_000_000 {
+        WaitState::W2
+        } else {
+        WaitState::W3
+        };
+        } else if #[cfg(any(feature = "wb", feature = "wl"))] {  // WL. RM section 3.3.4, Table 5.
+        // Note: This applies to HCLK3 HCLK. (See HCLK3 used above for hclk var.)
+        let wait_state = if hclk <= 18_000_000 {
+        WaitState::W0
+        } else if hclk <= 36_000_000 {
+        WaitState::W1
+        } else {
+        WaitState::W2
+        };
+        } else {  // G4. RM section 3.3.3
+        let wait_state = if self.boost_mode {
+        // Vcore Range 1 boost mode
+        if hclk <= 34_000_000 {
+        WaitState::W0
+        } else if hclk <= 68_000_000 {
+        WaitState::W1
+        } else if hclk <= 102_000_000 {
+        WaitState::W2
+        } else if hclk <= 136_000_000 {
+        WaitState::W3
+        } else {
+        WaitState::W4
+        }
+        } else {
+        // Vcore Range 1 normal mode.
+        if hclk <= 30_000_000 {
+        WaitState::W0
+        } else if hclk <= 60_000_000 {
+        WaitState::W1
+        } else if hclk <= 90_000_000 {
+        WaitState::W2
+        } else if hclk <= 120_000_000 {
+        WaitState::W3
+        } else {
+        WaitState::W4
+        }
+        };
+        }
         }
 
         // Enable instruction and data caches, for a potential performance increase.
@@ -794,6 +795,17 @@ impl Clocks {
         // 5. Enable the desired PLL outputs by configuring PLLPEN, PLLQEN, PLLREN in PLL
         // configuration register (RCC_PLLCFGR).
 
+        let mut i = 0;
+
+        macro_rules! wait_hang {
+            ($i:ident) => {
+                i += 1;
+                if i >= MAX_ITERS {
+                    return Err(RccError::Hardware);
+                }
+            };
+        }
+
         // Enable oscillators, and wait until ready.
         match self.input_src {
             #[cfg(not(any(feature = "g0", feature = "g4")))]
@@ -801,7 +813,11 @@ impl Clocks {
                 // MSI initializes to the default clock source. Turn it off before
                 // Adjusting its speed etc.
                 rcc.cr.modify(|_, w| w.msion().clear_bit());
-                while rcc.cr.read().msirdy().bit_is_set() {}
+
+                i = 0;
+                while rcc.cr.read().msirdy().bit_is_set() {
+                    wait_hang!(i)
+                }
 
                 rcc.cr.modify(|_, w| unsafe {
                     w.msirange().bits(range as u8);
@@ -810,17 +826,29 @@ impl Clocks {
                     w.msion().set_bit()
                 });
                 // Wait for the MSI to be ready.
-                while rcc.cr.read().msirdy().bit_is_clear() {}
+
+                i = 0;
+                while rcc.cr.read().msirdy().bit_is_clear() {
+                    wait_hang!(i);
+                }
                 // todo: If LSE is enabled, calibrate MSI.
             }
             InputSrc::Hse(_) => {
                 rcc.cr.modify(|_, w| w.hseon().set_bit());
                 // Wait for the HSE to be ready.
-                while rcc.cr.read().hserdy().bit_is_clear() {}
+
+                i = 0;
+                while rcc.cr.read().hserdy().bit_is_clear() {
+                    wait_hang!(i);
+                }
             }
             InputSrc::Hsi => {
                 rcc.cr.modify(|_, w| w.hsion().set_bit());
-                while rcc.cr.read().hsirdy().bit_is_clear() {}
+
+                i = 0;
+                while rcc.cr.read().hsirdy().bit_is_clear() {
+                    wait_hang!(i);
+                }
             }
             InputSrc::Pll(pll_src) => {
                 // todo: PLL setup here is DRY with the HSE, HSI, and MSI setup above.
@@ -833,15 +861,27 @@ impl Clocks {
                             w.msirgsel().set_bit();
                             w.msion().set_bit()
                         });
-                        while rcc.cr.read().msirdy().bit_is_clear() {}
+
+                        i = 0;
+                        while rcc.cr.read().msirdy().bit_is_clear() {
+                            wait_hang!(i);
+                        }
                     }
                     PllSrc::Hse(_) => {
                         rcc.cr.modify(|_, w| w.hseon().set_bit());
-                        while rcc.cr.read().hserdy().bit_is_clear() {}
+
+                        i = 0;
+                        while rcc.cr.read().hserdy().bit_is_clear() {
+                            wait_hang!(i);
+                        }
                     }
                     PllSrc::Hsi => {
                         rcc.cr.modify(|_, w| w.hsion().set_bit());
-                        while rcc.cr.read().hsirdy().bit_is_clear() {}
+
+                        i = 0;
+                        while rcc.cr.read().hsirdy().bit_is_clear() {
+                            wait_hang!(i);
+                        }
                     }
                     PllSrc::None => {}
                 }
@@ -849,12 +889,20 @@ impl Clocks {
             #[cfg(feature = "g0")]
             InputSrc::Lsi => {
                 rcc.csr.modify(|_, w| w.lsion().set_bit());
-                while rcc.csr.read().lsirdy().bit_is_clear() {}
+
+                i = 0;
+                while rcc.csr.read().lsirdy().bit_is_clear() {
+                    wait_hang!(i);
+                }
             }
             #[cfg(feature = "g0")]
             InputSrc::Lse => {
                 rcc.bdcr.modify(|_, w| w.lseon().set_bit());
-                while rcc.bdcr.read().lserdy().bit_is_clear() {}
+
+                i = 0;
+                while rcc.bdcr.read().lserdy().bit_is_clear() {
+                    wait_hang!(i);
+                }
             }
         }
 
@@ -898,7 +946,12 @@ impl Clocks {
             // Turn off the PLL: Required for modifying some of the settings below.
             rcc.cr.modify(|_, w| w.pllon().clear_bit());
             // Wait for the PLL to no longer be ready before executing certain writes.
-            while rcc.cr.read().pllrdy().bit_is_set() {}
+
+            let mut i = 0;
+            while rcc.cr.read().pllrdy().bit_is_set() {
+                wait_hang!(i);
+            }
+
 
             cfg_if! {
                 if #[cfg(feature = "g0")] {
@@ -1045,7 +1098,7 @@ impl Clocks {
         rcc.ccipr1
             .modify(|_, w| unsafe { w.clk48msel().bits(self.clk48_src as u8) });
 
-        // If we're not using the default clock source as input source or for PLL, turn it off.
+       // If we're not using the default clock source as input source or for PLL, turn it off.
         cfg_if! {
             if #[cfg(any(feature = "l4", feature = "l5"))] {
                 match self.input_src {
@@ -1080,6 +1133,7 @@ impl Clocks {
                 }
             }
         }
+
 
         #[cfg(feature = "wb")]
         rcc.csr
@@ -1331,24 +1385,24 @@ impl Clocks {
     }
 
     cfg_if! {
-        if #[cfg(any(feature = "g0", feature = "wl"))] {
-            pub fn usb(&self) -> u32 {
-                unimplemented!("No USB on G0 or WL");
-            }
-        } else if #[cfg(feature = "g4")] {
-            pub fn usb(&self) -> u32 {
-                48_000_000 // Uses hsi48.
-            }
-        } else { // L4 and L5
-            pub fn usb(&self) -> u32 {
-                match self.clk48_src {
-                    Clk48Src::Hsi48 => 48_000_000,
-                    Clk48Src::PllSai1 => unimplemented!(),
-                    Clk48Src::Pllq => unimplemented!(),
-                    Clk48Src::Msi => unimplemented!(),
-                }
-            }
-        }
+    if #[cfg(any(feature = "g0", feature = "wl"))] {
+    pub fn usb(&self) -> u32 {
+    unimplemented!("No USB on G0 or WL");
+    }
+    } else if #[cfg(feature = "g4")] {
+    pub fn usb(&self) -> u32 {
+    48_000_000 // Uses hsi48.
+    }
+    } else { // L4 and L5
+    pub fn usb(&self) -> u32 {
+    match self.clk48_src {
+    Clk48Src::Hsi48 => 48_000_000,
+    Clk48Src::PllSai1 => unimplemented!(),
+    Clk48Src::Pllq => unimplemented!(),
+    Clk48Src::Msi => unimplemented!(),
+    }
+    }
+    }
     }
 
     /// Get the APB1 peripheral clock frequency frequency, in hz
@@ -1370,33 +1424,33 @@ impl Clocks {
     }
 
     cfg_if! {
-        if #[cfg(feature = "g0")] {
-            // On G0, a single APB prescaler is used for both APB1 and APB2.
-            pub fn apb2(&self) -> u32 {
-                self.hclk() / self.apb1_prescaler.value() as u32
-            }
+    if #[cfg(feature = "g0")] {
+    // On G0, a single APB prescaler is used for both APB1 and APB2.
+    pub fn apb2(&self) -> u32 {
+    self.hclk() / self.apb1_prescaler.value() as u32
+    }
 
-            pub fn apb2_timer(&self) -> u32 {
-                if let ApbPrescaler::Div1 = self.apb1_prescaler {
-                    self.apb2()
-                } else {
-                    self.apb2() * 2
-                }
-            }
-        } else {
-            /// Get the APB2 peipheral clock frequency, in hz.
-            pub fn apb2(&self) -> u32 {
-                self.hclk() / self.apb2_prescaler.value() as u32
-            }
+    pub fn apb2_timer(&self) -> u32 {
+    if let ApbPrescaler::Div1 = self.apb1_prescaler {
+    self.apb2()
+    } else {
+    self.apb2() * 2
+    }
+    }
+    } else {
+    /// Get the APB2 peipheral clock frequency, in hz.
+    pub fn apb2(&self) -> u32 {
+    self.hclk() / self.apb2_prescaler.value() as u32
+    }
 
-            pub fn apb2_timer(&self) -> u32 {
-                if let ApbPrescaler::Div1 = self.apb2_prescaler {
-                    self.apb2()
-                } else {
-                    self.apb2() * 2
-                }
-            }
-        }
+    pub fn apb2_timer(&self) -> u32 {
+    if let ApbPrescaler::Div1 = self.apb2_prescaler {
+    self.apb2()
+    } else {
+    self.apb2() * 2
+    }
+    }
+    }
     }
 
     /// Get the SAI audio clock frequency, in hz
@@ -1431,7 +1485,7 @@ impl Clocks {
         }
     }
 
-    pub fn validate_speeds(&self) -> Result<(), SpeedError> {
+    pub fn validate_speeds(&self) -> Result<(), RccError> {
         #[cfg(feature = "l4")]
         let max_clock = 80_000_000;
 
@@ -1461,31 +1515,31 @@ impl Clocks {
             || self.pllsai1.divn < 7
             || self.pllsai1.divn > 86
         {
-            return Err(SpeedError::new("A PLL divider is out of limits"));
+            return Err(RccError::Speed);
         }
 
         if self.pll.pdiv == 1 {
-            return Err(SpeedError::new("A Pllp divider is invalid"));
+            return Err(RccError::Speed);
         }
 
         #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
         if self.pllsai1.pdiv == 1 {
-            return Err(SpeedError::new("A Pllp divider is invalid"));
+            return Err(RccError::Speed);
         }
 
         #[cfg(any(feature = "l4x5", feature = "l4x6"))]
         if self.pllsai2.pdiv == 1 {
-            return Err(SpeedError::new("A Pllp divider is invalid"));
+            return Err(RccError::Speed);
         }
 
         #[cfg(feature = "g0")]
         if self.pll.divn < 9 || self.pll.divn > 86 {
-            return Err(SpeedError::new("A PLL divider is out of limits"));
+            return Err(RccError::Speed);
         }
 
         #[cfg(feature = "g4")]
         if self.pll.divn < 8 || self.pll.divn > 127 {
-            return Err(SpeedError::new("A PLL divider is out of limits"));
+            return Err(RccError::Speed);
         }
 
         // todo: on WB, input src / PlLM * plln Must be between 96 and 344 Mhz.
@@ -1496,22 +1550,22 @@ impl Clocks {
         // todo: Note that this involves repeatedly calculating sysclk.
         // todo. We could work around thsi by calcing it once here.
         if self.sysclk() > max_clock {
-            return Err(SpeedError::new("Sysclk out of limits"));
+            return Err(RccError::Speed);
         }
 
         // todo: What are the actual hclk limits? Not always sysclk?
 
         if self.hclk() > max_clock {
-            return Err(SpeedError::new("Hclk out of limits"));
+            return Err(RccError::Speed);
         }
 
         if self.apb1() > max_clock {
-            return Err(SpeedError::new("Apb1 out of limits"));
+            return Err(RccError::Speed);
         }
 
         #[cfg(not(feature = "g0"))]
         if self.apb2() > max_clock {
-            return Err(SpeedError::new("Apb2 out of limits"));
+            return Err(RccError::Speed);
         }
 
         Ok(())
@@ -1574,12 +1628,12 @@ pub fn enable_crs(sync_src: CrsSyncSrc) {
 
     // todo: CRSEN missing on l4x5 pac: https://github.com/stm32-rs/stm32-rs/issues/572
     cfg_if! {
-        if #[cfg(feature = "l4x5")] {
-            let val = rcc.apb1enr1.read().bits();
-            rcc.apb1enr1.write(|w| unsafe { w.bits(val | (1 << 24)) });
-        } else {
-            rcc.apb1enr1.modify(|_, w| w.crsen().set_bit());
-        }
+    if #[cfg(feature = "l4x5")] {
+    let val = rcc.apb1enr1.read().bits();
+    rcc.apb1enr1.write(|w| unsafe { w.bits(val | (1 << 24)) });
+    } else {
+    rcc.apb1enr1.modify(|_, w| w.crsen().set_bit());
+    }
     }
 
     crs.cfgr

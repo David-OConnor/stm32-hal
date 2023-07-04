@@ -1,5 +1,5 @@
 use crate::{
-    clocks::SpeedError,
+    clocks::RccError,
     pac::{self, FLASH, RCC},
     util::rcc_en_reset,
 };
@@ -391,7 +391,7 @@ impl Clocks {
     /// `Invalid`, and don't setup if not.
     /// https://docs.rs/stm32f3xx-hal/0.5.0/stm32f3xx_hal/rcc/struct.CFGR.html
     /// Use the STM32CubeIDE Clock Configuration tab to help.
-    pub fn setup(&self) -> Result<(), SpeedError> {
+    pub fn setup(&self) -> Result<(), RccError> {
         if let Err(e) = self.validate_speeds() {
             return Err(e);
         }
@@ -672,7 +672,7 @@ impl Clocks {
         }
     }
 
-    pub fn validate_speeds(&self) -> Result<(), SpeedError> {
+    pub fn validate_speeds(&self) -> Result<(), RccError> {
         cfg_if! {
             if #[cfg(feature = "f3")] {
                 let max_clock = 72_000_000;
@@ -689,26 +689,26 @@ impl Clocks {
 
         #[cfg(feature = "f4")]
         if self.plln < 50 || self.plln > 432 || self.pllm < 2 || self.pllm > 63 {
-            return Err(SpeedError::new("A PLL divider is out of limits"));
+            return Err(RccError::Speed);
         }
 
         let max_hclk = max_clock;
 
         // todo: min clock? eg for apxb?
         if self.sysclk() > max_hclk {
-            return Err(SpeedError::new("Sysclk out of limits"));
+            return Err(RccError::Speed);
         }
 
         if self.hclk() > max_hclk {
-            return Err(SpeedError::new("Hclk out of limits"));
+            return Err(RccError::Speed);
         }
 
         if self.apb1() > max_clock {
-            return Err(SpeedError::new("Apb1 out of limits"));
+            return Err(RccError::Speed);
         }
 
         if self.apb2() > max_clock {
-            return Err(SpeedError::new("Apb2 out of limits"));
+            return Err(RccError::Speed);
         }
 
         Ok(())

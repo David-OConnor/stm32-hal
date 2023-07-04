@@ -10,6 +10,7 @@ use embedded_hal::spi::FullDuplex;
 use crate::{
     pac::{self, RCC},
     util::RccPeriph,
+    MAX_ITERS,
 };
 
 use cfg_if::cfg_if;
@@ -40,6 +41,7 @@ pub enum SpiError {
     ModeFault,
     /// CRC error
     Crc,
+    Hardware,
 }
 
 /// Possible interrupt types. Enable these in SPIx_CR2. Check and clear with SR. There is no explicit
@@ -540,7 +542,14 @@ where
             return Err(SpiError::Crc);
         }
 
-        while !self.regs.sr.read().rxne().bit_is_set() {}
+        let mut i = 0;
+        while !self.regs.sr.read().rxne().bit_is_set() {
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(SpiError::Hardware);
+            }
+        }
+
         Ok(unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) })
     }
 
@@ -559,7 +568,14 @@ where
             return Err(SpiError::Crc);
         }
 
-        while !self.regs.sr.read().txe().bit_is_set() {}
+        let mut i = 0;
+        while !self.regs.sr.read().txe().bit_is_set() {
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(SpiError::Hardware);
+            }
+        }
+
         unsafe { ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, byte) };
 
         Ok(())

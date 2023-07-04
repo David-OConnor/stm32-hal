@@ -5,8 +5,9 @@
 // Similar in from to the `baseline` clocks module, but includes notable differendes.
 
 use crate::{
-    clocks::SpeedError,
+    clocks::RccError,
     pac::{CRS, FLASH, PWR, RCC},
+    MAX_ERRORS,
 };
 
 #[cfg(not(any(feature = "h5", feature = "h7b3", feature = "h735")))]
@@ -445,7 +446,7 @@ impl Clocks {
     /// Use the `default()` implementation as a safe baseline.
     /// This method also configures the PWR VOS setting, and can be used to enable VOS boost,
     /// if `vos_range` is set to `VosRange::VOS0`.
-    pub fn setup(&self) -> Result<(), SpeedError> {
+    pub fn setup(&self) -> Result<(), RccError> {
         if let Err(e) = self.validate_speeds() {
             return Err(e);
         }
@@ -1103,7 +1104,7 @@ impl Clocks {
         }
     }
 
-    pub fn validate_speeds(&self) -> Result<(), SpeedError> {
+    pub fn validate_speeds(&self) -> Result<(), RccError> {
         cfg_if! {
             if #[cfg(feature = "h735")] {
                 let max_sysclk = 480_000_000;
@@ -1135,13 +1136,13 @@ impl Clocks {
             || self.pll3.divp < 2
         // todo: R and Q
         {
-            return Err(SpeedError::new("A PLL divider is out of limits"));
+            return Err(RccError::Speed);
         }
 
         if let InputSrc::Pll1 = self.input_src {
             let pll_input_speed = self.pll_input_speed(self.pll_src, 1);
             if pll_input_speed < 1_000_000 || pll_input_speed > 16_000_000 {
-                return Err(SpeedError::new("Invalid PLL input speed"));
+                return Err(RccError::Speed);
             }
             // VCO0: Wide VCO range: 192 to 836 MHz (default after reset) (VCOH)
             // Note: The RM appears out of date: Revision "V" allgedly supports 960_000_000
@@ -1149,12 +1150,12 @@ impl Clocks {
             let vco_speed = self.vco_output_freq(self.pll_src, 1);
             if pll_input_speed <= 2_000_000 && (vco_speed < 192_000_000 || vco_speed > 960_000_000)
             {
-                return Err(SpeedError::new("Invalid wide VCO speed"));
+                return Err(RccError::Speed);
             }
             // 1: Medium VCO range: 150 to 420 MHz. (VCOL)
             // Note: You may get power savings
             if pll_input_speed > 2_000_000 && (vco_speed < 150_000_000 || vco_speed > 420_000_000) {
-                return Err(SpeedError::new("Invalid medium VCO speed"));
+                return Err(RccError::Speed);
             }
         }
 
@@ -1166,19 +1167,19 @@ impl Clocks {
         // todo: Note that this involves repeatedly calculating sysclk.
         // todo. We could work around thsi by calcing it once here.
         if self.sysclk() > max_sysclk {
-            return Err(SpeedError::new("Sysclock out of limits"));
+            return Err(RccError::Speed);
         }
 
         if self.hclk() > max_hclk {
-            return Err(SpeedError::new("Hclk out of limits"));
+            return Err(RccError::Speed);
         }
 
         if self.apb1() > max_apb {
-            return Err(SpeedError::new("APB1 out of limits"));
+            return Err(RccError::Speed);
         }
 
         if self.apb2() > max_apb {
-            return Err(SpeedError::new("APB2 out of limits"));
+            return Err(RccError::Speed);
         }
 
         // todo: Apb3/4

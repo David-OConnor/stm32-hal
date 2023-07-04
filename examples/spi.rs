@@ -137,7 +137,7 @@ fn DMA1_CH2() {
     free(|cs| {
         defmt::println!("SPI DMA read complete");
         access_global!(SPI, spi, cs);
-        spi.stop_dma(DmaChannel::C2, DmaPeriph::Dma2);
+        spi.stop_dma(DmaChannel::C2, Some(DmaPeriph::Dma2), DmaPeriph::Dma2);
 
         unsafe {
             // Ignore byte 0, which is the reg we passed during the write.

@@ -11,6 +11,7 @@ use crate::{
     clocks::Clocks,
     pac::{self, RCC},
     util::{BaudPeriph, RccPeriph},
+    MAX_ITERS,
 };
 
 use core::ops::Deref;

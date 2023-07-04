@@ -130,6 +130,9 @@
 
 // todo: H7B3 has too many changes in v14 PAC; not supporting at this time. (2021-10-07)
 
+// Used for while loops, to allow returning an error instead of hanging.
+pub(crate) const MAX_ITERS: u16 = 50_000; // todo: What should this be?
+
 #[cfg(not(any(
     feature = "f301",
     feature = "f302",
