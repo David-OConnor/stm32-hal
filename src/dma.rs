@@ -14,6 +14,7 @@ use cortex_m::interrupt::free;
 use crate::{
     pac::{self, RCC},
     util::rcc_en_reset,
+    MAX_ITERS,
 };
 
 cfg_if! {

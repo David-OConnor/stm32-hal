@@ -1121,6 +1121,11 @@ where
             _ => w.eotc().set_bit(), // todo: PAC ommission?
         });
     }
+
+    /// Print the (raw) contents of the status register.
+    pub fn read_status(&self) -> u32 {
+        unsafe { self.regs.sr.read().bits() }
+    }
 }
 
 #[cfg(feature = "embedded_hal")]

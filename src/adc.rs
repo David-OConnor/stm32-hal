@@ -1137,6 +1137,12 @@ macro_rules! hal {
                 //     AdcInterrupt::InjectedOverflow => self.regs.icr.write(|_w| w.jqovf().set_bit()),
                 // }
             }
+
+
+        /// Print the (raw) contents of the status register.
+    pub fn read_status(&self) -> u32 {
+        unsafe { self.regs.isr.read().bits() }
+    }
         }
     }
 }

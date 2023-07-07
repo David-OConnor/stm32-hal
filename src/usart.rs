@@ -791,6 +791,11 @@ where
         }
     }
 
+    /// Print the (raw) contents of the status register.
+    pub fn read_status(&self) -> u32 {
+        unsafe { self.regs.isr.read().bits() }
+    }
+
     #[cfg(not(feature = "f4"))]
     /// Clears the interrupt pending flag for a specific type of interrupt. Note that
     /// it can also clear error flags, like Overrun and framing errors. See G4 RM,

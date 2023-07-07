@@ -1203,4 +1203,14 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
             }
         }
     }
+
+    /// Print the (raw) contents of the (A and B) status registers.
+    pub fn read_status(&self) -> (u32, u32) {
+        unsafe {
+            (
+                self.regs.cha().sr.read().bits(),
+                self.regs.chb().sr.read().bits(),
+            )
+        }
+    }
 }

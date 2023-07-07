@@ -896,6 +896,11 @@ macro_rules! make_timer {
             fn disable_timer(&mut self) {
                 self.disable();
             }
+
+            /// Print the (raw) contents of the status register.
+            pub fn read_status(&self) -> u32 {
+                unsafe { self.regs.isr.read().bits() }
+            }
         }
 
         #[cfg(feature = "embedded_hal")]

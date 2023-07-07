@@ -186,6 +186,10 @@ fn main() -> ! {
     timer.enable_interrupt(TimerInterrupt::Update); // Enable update event interrupts.
     timer.enable();
 
+    // You can read most peripheral status registers with a `read_status()` method: (Returns the
+    // 32-bit status register contents).
+    let status = timer.read_status();
+
     // For pins that aren't called directly (Like the ones we set up for I2C, SPI, UART, ADC, and DAC),
     // consider a separate function:
     // fn setup_pins(gpioa: &mut GpioA, gpiob: &mut GpioB, exti: &mut EXTI, syscfg: &mut SYSCFG) {
