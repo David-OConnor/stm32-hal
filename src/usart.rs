@@ -321,12 +321,18 @@ where
 
     /// Set the BAUD rate. Called during init, and can be called later to change BAUD
     /// during program execution.
-    pub fn set_baud(&mut self, baud: u32, clock_cfg: &Clocks) {
+    pub fn set_baud(&mut self, baud: u32, clock_cfg: &Clocks) -> Result<(), Error> {
         let originally_enabled = cr1!(self.regs).read().ue().bit_is_set();
 
         if originally_enabled {
             cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
-            while cr1!(self.regs).read().ue().bit_is_set() {}
+            let mut i = 0;
+            while cr1!(self.regs).read().ue().bit_is_set() {
+                i += 1;
+                if i >= MAX_ITERS {
+                    return Err(Error::Hardware);
+                }
+            }
         }
 
         // To set BAUD rate, see L4 RM section 38.5.4: "USART baud rate generation".
@@ -355,10 +361,12 @@ where
         if originally_enabled {
             cr1!(self.regs).modify(|_, w| w.ue().set_bit());
         }
+
+        Ok(())
     }
 
     /// Transmit data, as a sequence of u8. See L44 RM, section 38.5.2: "Character transmission procedure"
-    pub fn write(&mut self, data: &[u8]) {
+    pub fn write(&mut self, data: &[u8]) -> Result<(), Error> {
         // todo: how does this work with a 9 bit words? Presumably you'd need to make `data`
         // todo take `&u16`.
 
@@ -368,14 +376,26 @@ where
         cfg_if! {
             if #[cfg(not(feature = "f4"))] {
                 for word in data {
+                    let mut i = 0;
+
                     #[cfg(feature = "h5")]
                     // todo: Fifo vs non-fifo for f5.
-                    while isr!(self.regs).read().txfe().bit_is_clear() {}
+                    while isr!(self.regs).read().txfe().bit_is_clear() {
+                        i += 1;
+                        if i >= MAX_ITERS {
+                            return Err(Error::Hardware);
+                        }
+                    }
 
                     #[cfg(not(feature = "h5"))]
                     // Note: Per these PACs, TXFNF and TXE are on the same field, so this is actually
                     // checking txfnf if the fifo is enabled.
-                    while isr!(self.regs).read().txe().bit_is_clear() {}
+                    while isr!(self.regs).read().txe().bit_is_clear() {
+                        i += 1;
+                        if i >= MAX_ITERS {
+                            return Err(Error::Hardware);
+                        }
+                    }
 
                     self.regs
                         .tdr
@@ -385,18 +405,38 @@ where
                 // that the transmission of the last frame is complete. This is required for instance when
                 // the USART is disabled or enters the Halt mode to avoid corrupting the last
                 // transmission
-                while isr!(self.regs).read().tc().bit_is_clear() {}
+                let mut i = 0;
+                while isr!(self.regs).read().tc().bit_is_clear() {
+                                            i += 1;
+                        if i >= MAX_ITERS {
+                            return Err(Error::Hardware);
+                        }
+                }
             } else {
                 for word in data {
-                    while self.regs.sr.read().txe().bit_is_clear() {}
+                    let mut i = 0;
+                    while self.regs.sr.read().txe().bit_is_clear() {
+                        i += 1;
+                        if i >= MAX_ITERS {
+                            return Err(Error::Hardware);
+                        }
+                    }
                     self.regs
                         .dr
                         .modify(|_, w| unsafe { w.dr().bits(*word as u16) });
 
                 }
-                while self.regs.sr.read().tc().bit_is_clear() {}
+                let mut i = 0;
+                while self.regs.sr.read().tc().bit_is_clear() {
+                                            i += 1;
+                        if i >= MAX_ITERS {
+                            return Err(Error::Hardware);
+                        }
+                }
             }
         }
+
+        Ok(())
     }
 
     /// Write a single word, without waiting until ready for the next. Compared to the `write()` function, this
@@ -406,7 +446,6 @@ where
         // todo take `&u16`.
         cfg_if! {
             if #[cfg(not(feature = "f4"))] {
-            // while isr!(self.regs).read().txe().bit_is_clear() {}
             self.regs
                 .tdr
                 .modify(|_, w| unsafe { w.tdr().bits(word as u16) });
@@ -419,20 +458,38 @@ where
     }
 
     /// Receive data into a u8 buffer. See L44 RM, section 38.5.3: "Character reception procedure"
-    pub fn read(&mut self, buf: &mut [u8]) {
+    pub fn read(&mut self, buf: &mut [u8]) -> Result<(), Error> {
         for i in 0..buf.len() {
+            let mut i_ = 0;
             cfg_if! {
                 if #[cfg(not(feature = "f4"))] {
                     // Wait for the next bit
+
+                    let mut i = 0;
                     #[cfg(feature = "h5")]
-                    while isr!(self.regs).read().rxfne().bit_is_clear() {}
+                    while isr!(self.regs).read().rxfne().bit_is_clear() {
+                        i_ += 1;
+                        if i_ >= MAX_ITERS {
+                            return Err(Error::Hardware);
+                        }
+                    }
 
                     #[cfg(not(feature = "h5"))]
-                    while isr!(self.regs).read().rxne().bit_is_clear() {}
+                    while isr!(self.regs).read().rxne().bit_is_clear() {
+                        i_ += 1;
+                        if i_ >= MAX_ITERS {
+                            return Err(Error::Hardware);
+                        }
+                    }
 
                     buf[i] = self.regs.rdr.read().rdr().bits() as u8;
                 } else {
-                    while self.regs.sr.read().rxne().bit_is_clear() {}
+                    while self.regs.sr.read().rxne().bit_is_clear() {
+                        i_ += 1;
+                        if i_ >= MAX_ITERS {
+                            return Err(Error::Hardware);
+                        }
+                    }
                     buf[i] = self.regs.dr.read().dr().bits() as u8;
                 }
             }
@@ -451,6 +508,8 @@ where
         // USART_RDR register. The RXNE flag can also be cleared by writing 1 to the RXFRQ
         // in the USART_RQR register. The RXNE bit must be cleared before the end of the
         // reception of the next character to avoid an overrun error
+
+        Ok(())
     }
 
     /// Read a single word, without waiting  until ready for the next. Compared to the `read()` function, this
@@ -865,6 +924,7 @@ pub enum Error {
     Overrun,
     /// Parity check error
     Parity,
+    Hardware,
 }
 
 // todo: Use those errors above.

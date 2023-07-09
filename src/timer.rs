@@ -1961,7 +1961,7 @@ cfg_if! {
             }
 
             /// Set the timer period, in seconds. Overrides the period or frequency set
-            /// in the constructor.  If changing period frequently, don't use this method, as
+            /// in the constructor.  If changing pe riod frequently, don't use this method, as
             /// it has computational overhead: use `set_auto_reload` and `set_prescaler` methods instead.
             pub fn set_period(&mut self, time: f32) -> Result<(), ValueError> {
                 assert!(time > 0.);
@@ -2022,8 +2022,20 @@ cfg_if! {
     }
 }
 
-// #[cfg(feature = "embedded_hal")]
-// struct WaitError {}
+// pub enum TimerNum {
+// Tim1,
+// Tim2,
+// Tim3,
+// }
+// impl TimerNum {
+// pub fn regs(&self) -> {
+// todo probably macro
+// }
+
+// /// Experimental approach where we set frequency without taking ownership.
+// pub fn set_freq(timer: TimerNum, mut freq: f32) -> Result<(), ValueError> {
+//
+// }
 
 // todo: Non-macro refactor base timer reg blocks:
 

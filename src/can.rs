@@ -59,6 +59,11 @@ impl Can {
 
         Self { regs }
     }
+
+    /// Print the (raw) contents of the status register.
+    pub fn read_status(&self) -> u32 {
+        unsafe { self.regs.psr.read().bits() }
+    }
 }
 
 #[cfg(feature = "h7")]
