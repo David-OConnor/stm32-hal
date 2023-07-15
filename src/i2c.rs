@@ -27,13 +27,17 @@ use crate::pac::DMA as DMA1;
 #[cfg(not(any(feature = "g0", feature = "h5")))]
 use crate::pac::DMA1;
 
-// todo: Get rid of this macro.
 macro_rules! busy_wait {
     ($regs:expr, $flag:ident) => {
         let mut i = 0;
 
         loop {
             let isr = $regs.isr.read();
+
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(Error::Hardware);
+            }
 
             if isr.$flag().bit_is_set() {
                 break;
@@ -57,15 +61,7 @@ macro_rules! busy_wait {
                 }
 
                 return Err(Error::Nack);
-            } else {
-                // try again
-                // todo: Timeout!
-            }
-
-            i += 1;
-            if i >= MAX_ITERS {
-                return Err(Error::Hardware);
-            }
+            } else {}
         }
     };
 }
