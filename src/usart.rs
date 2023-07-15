@@ -383,7 +383,7 @@ where
                     while isr!(self.regs).read().txfe().bit_is_clear() {
                         i += 1;
                         if i >= MAX_ITERS {
-                            return Err(Error::Hardware);
+                            // return Err(Error::Hardware);
                         }
                     }
 
@@ -407,7 +407,7 @@ where
                 // transmission
                 let mut i = 0;
                 while isr!(self.regs).read().tc().bit_is_clear() {
-                                            i += 1;
+                        i += 1;
                         if i >= MAX_ITERS {
                             return Err(Error::Hardware);
                         }
