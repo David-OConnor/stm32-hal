@@ -558,6 +558,10 @@ where
         // register whenever the TXE bit is set."
         self.regs.cr3.modify(|_, w| w.dmat().set_bit());
 
+        // 6. Clear the TC flag in the USART_ISR register by setting the TCCF bit in the
+        // USART_ICR register.
+        self.regs.icr.write(|w| w.tccf().set_bit());
+
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
                 let mut regs = unsafe { &(*DMA1::ptr()) };
@@ -602,10 +606,6 @@ where
         // 5. Configure DMA interrupt generation after half/ full transfer as required by the
         // application.
         // (Handled in `cfg_channel`)
-
-        // 6. Clear the TC flag in the USART_ISR register by setting the TCCF bit in the
-        // USART_ICR register.
-        self.regs.icr.write(|w| w.tccf().set_bit());
 
         // 7. Activate the channel in the DMA register.
         // When the number of data transfers programmed in the DMA Controller is reached, the DMA

@@ -4,6 +4,15 @@
 // todo: This module could be greatly simplified if [this issue](https://github.com/stm32-rs/stm32-rs/issues/610)
 // todo is addressed: Ie H7 PAC approach adopted by other modules.
 
+// todo: Use this clip or something similar to end terminate while loops, as in other modules.
+// let mut i = 0;
+// while asdf {
+//     i += 1;
+//     if i >= MAX_ITERS {
+//         return Err(Error::Hardware);
+//     }
+// }
+
 use core::{
     ops::Deref,
     sync::atomic::{self, Ordering},

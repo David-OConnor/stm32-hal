@@ -129,7 +129,8 @@ fn DMA1_CH1() {
 
         // (Handle the data, which is now populated in `RX_BUF`.)
 
-        // Depending on your control flow, you may need to explicitly stop the transfer.
+        // You may need to explicitly stop the transfer, to prevent future transfers from failing.
+        // This is true for writes; not sure if required for reads as well.
         dma::stop(DMA_PERIPH, DMA_CH);
 
         // Start a  new transfer, if appropriate for the protocol you're using.

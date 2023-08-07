@@ -61,7 +61,8 @@ macro_rules! busy_wait {
                 }
 
                 return Err(Error::Nack);
-            } else {}
+            } else {
+            }
         }
     };
 }
