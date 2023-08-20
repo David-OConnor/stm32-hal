@@ -61,9 +61,10 @@ impl Flash {
         cfg_if! {
             if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484", feature = "l5"))] {
                 // Some G4 variants let you select dual or single-bank mode.
-                Self { regs, dual_bank: DualBank::Single }
+                // Self { regs, dual_bank: DualBank::Single }
+                Self { regs, dual_bank: DualBank::Dual } // todo: Experimenting
             } else {
-                Self { regs}
+                Self { regs }
             }
         }
     }

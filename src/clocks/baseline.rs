@@ -774,6 +774,7 @@ impl Clocks {
         flash
             .acr
             .modify(|_, w| unsafe { w.latency().bits(wait_state as u8) });
+
         #[cfg(feature = "l5")] // todo: u5 too.
         icache.icache_cr.modify(|_, w| w.en().set_bit());
 
@@ -816,7 +817,7 @@ impl Clocks {
 
                 i = 0;
                 while rcc.cr.read().msirdy().bit_is_set() {
-                    wait_hang!(i)
+                    wait_hang!(i);
                 }
 
                 rcc.cr.modify(|_, w| unsafe {

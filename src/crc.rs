@@ -9,6 +9,8 @@ use crate::pac::{crc, CRC, RCC};
 
 use cfg_if::cfg_if;
 
+// todo: Redo this in the style of the rest of our modules.
+
 pub trait CrcExt {
     /// Enable the CRC unit.
     fn crc(self, rcc: &mut RCC) -> Crc;
@@ -20,7 +22,11 @@ impl CrcExt for CRC {
             if #[cfg(feature = "f3")] {
                 rcc.ahbenr.modify(|_, w| w.crcen().set_bit());
                 // F3 doesn't appear to have a crcrst field in `ahbrstr`, per RM.
-            } else if #[cfg(any(feature = "l4", feature = "wb"))] {
+            } else if #[cfg(feature = "g0")] {
+                rcc.ahbenr.modify(|_, w| w.crcen().set_bit());
+                rcc.ahbrstr.modify(|_, w| w.crcrst().set_bit());
+                rcc.ahbrstr.modify(|_, w| w.crcrst().clear_bit());
+            } else if #[cfg(any(feature = "l4", feature = "wb", feature = "l5", feature = "g4"))] {
                 rcc.ahb1enr.modify(|_, w| w.crcen().set_bit());
                 rcc.ahb1rstr.modify(|_, w| w.crcrst().set_bit());
                 rcc.ahb1rstr.modify(|_, w| w.crcrst().clear_bit());
@@ -32,7 +38,7 @@ impl CrcExt for CRC {
         }
 
         Crc {
-            reg: self,
+            regs: self,
             output_xor: 0,
         }
     }
@@ -40,7 +46,7 @@ impl CrcExt for CRC {
 
 /// The hardware CRC unit.
 pub struct Crc {
-    reg: CRC,
+    pub regs: CRC,
     output_xor: u32,
 }
 
@@ -51,7 +57,7 @@ impl Crc {
 
         // manual says unit must be reset (or DR read) before change of polynomial
         // (technically only in case of ongoing calculation, but DR is buffered)
-        self.reg.cr.modify(|_, w| {
+        self.regs.cr.modify(|_, w| unsafe {
             w.polysize()
                 .bits(config.poly.polysize())
                 .rev_in()
@@ -63,14 +69,21 @@ impl Crc {
         });
         cfg_if! {
             if #[cfg(any(feature = "h7"))] {
-                self.reg.pol.write(|w| w.pol().bits(config.poly.pol()));
+                self.regs.pol.write(|w| w.pol().bits(config.poly.pol()));
             } else {
-                self.reg.pol.write(|w| unsafe { w.bits(config.poly.pol()) });
+                self.regs.pol.write(|w| unsafe { w.bits(config.poly.pol()) });
             }
         }
 
-        self.reg.init.write(|w| w.init().bits(config.initial));
         // writing to INIT sets DR to its value
+        #[cfg(not(feature = "h7"))]
+        self.regs
+            .init
+            .write(|w| unsafe { w.crc_init().bits(config.initial) });
+        #[cfg(feature = "h7")]
+        self.regs
+            .init
+            .write(|w| unsafe { w.init().bits(config.initial) });
     }
 
     /// Write data to the CRC unit. Note that CRC calculation works
@@ -82,7 +95,7 @@ impl Crc {
         for word in words.by_ref() {
             let word = u32::from_be_bytes(word.try_into().unwrap());
             // todo: Put back once PAC settles. Currently causing error on H7
-            // self.reg.dr_mut().write(|w| w.dr().bits(word));
+            // self.regs.dr_mut().write(|w| w.dr().bits(word));
         }
 
         // there will be at most 3 bytes remaining, so 1 half-word and 1 byte
@@ -90,12 +103,12 @@ impl Crc {
         if let Some(half_word) = half_word.next() {
             let _half_word = u16::from_be_bytes(half_word.try_into().unwrap());
             // todo: Put back once PAC settles. Currently causing error on H7
-            // self.reg.dr16_mut().write(|w| w.dr16().bits(half_word));
+            // self.regs.dr16_mut().write(|w| w.dr16().bits(half_word));
         }
 
         if let Some(byte) = half_word.remainder().first() {
             // todo: Put back once PAC settles. Currently causing error on H7
-            // self.reg.dr8_mut().write(|w| w.dr8().bits(*byte));
+            // self.regs.dr8_mut().write(|w| w.dr8().bits(*byte));
         }
     }
 
@@ -111,7 +124,7 @@ impl Crc {
     /// This does not reset the configuration options.
     pub fn finish(&mut self) -> u32 {
         let result = self.read_crc();
-        self.reg.cr.modify(|_, w| w.reset().set_bit());
+        self.regs.cr.modify(|_, w| w.reset().set_bit());
         result
     }
 
@@ -129,7 +142,7 @@ impl Crc {
     /// algorithm that does not apply an output XOR or reverse the output bits.
     pub fn read_state(&self) -> u32 {
         let state = self.read_crc_no_xor();
-        if self.reg.cr.read().rev_out().is_reversed() {
+        if self.regs.cr.read().rev_out().bit_is_set() {
             state.reverse_bits()
         } else {
             state
@@ -139,17 +152,20 @@ impl Crc {
     /// Read the CRC without applying output XOR.
     #[inline(always)]
     fn read_crc_no_xor(&self) -> u32 {
-        self.reg.dr().read().dr().bits()
+        #[cfg(not(feature = "h7"))]
+        return self.regs.dr.read().dr().bits();
+        #[cfg(feature = "h7")]
+        return self.regs.dr().read().dr().bits();
     }
 
     cfg_if! {
-        if #[cfg(any(feature = "f3x4", feature = "g4", feature = "h7", feature = "wb"))] {
+        if #[cfg(any(feature = "f3x4", feature = "g0", feature = "g4", feature = "h7", feature = "wb"))] {
             /// Write the independent data register. The IDR can be used as
             /// temporary storage. It is not cleared on CRC hash reset.
             ///
             /// The IDR is not involved with CRC calculation.
             pub fn set_idr(&mut self, value: u32) {
-                self.reg.idr.write(|w| w.idr().bits(value));
+                self.regs.idr.write(|w| unsafe { w.idr().bits(value) });
             }
         } else {
             /// Write the independent data register. The IDR can be used as
@@ -157,25 +173,25 @@ impl Crc {
             ///
             /// The IDR is not involved with CRC calculation.
             pub fn set_idr(&mut self, value: u8) {
-                self.reg.idr.write(|w| w.idr().bits(value));
+                self.regs.idr.write(|w| unsafe { w.idr().bits(value) });
             }
         }
     }
 
     cfg_if! {
-        if #[cfg(any(feature = "f3x4", feature = "g4", feature = "h7", feature = "wb"))] {
+        if #[cfg(any(feature = "f3x4", feature = "g0", feature = "g4", feature = "h7", feature = "wb"))] {
             /// Get the current value of the independent data register.
             ///
             /// The IDR is not involved with CRC calculation.
             pub fn get_idr(&self) -> u32 {
-                self.reg.idr.read().idr().bits()
+                self.regs.idr.read().idr().bits()
             }
         } else {
             /// Get the current value of the independent data register.
             ///
             /// The IDR is not involved with CRC calculation.
             pub fn get_idr(&self) -> u8 {
-                self.reg.idr.read().idr().bits()
+                self.regs.idr.read().idr().bits()
             }
         }
     }
@@ -260,13 +276,14 @@ impl Polynomial {
     }
 
     /// Return POLYSIZE register value.
+    /// todo: Use our normal register enum format.
     fn polysize(self) -> u8 {
-        (match self.0 {
-            Poly::B7(_) => crc::cr::POLYSIZE_A::Polysize7,
-            Poly::B8(_) => crc::cr::POLYSIZE_A::Polysize8,
-            Poly::B16(_) => crc::cr::POLYSIZE_A::Polysize16,
-            Poly::B32(_) => crc::cr::POLYSIZE_A::Polysize32,
-        }) as u8
+        match self.0 {
+            Poly::B7(_) => 0b11,
+            Poly::B8(_) => 0b10,
+            Poly::B16(_) => 0b01,
+            Poly::B32(_) => 0b00,
+        }
     }
 
     /// Return POL register value.
@@ -340,11 +357,11 @@ enum Poly {
 #[repr(u8)]
 pub enum BitReversal {
     /// Each input byte has its bits reversed. `0x1A2B3C4D` becomes `0x58D43CB2`.
-    Byte = crc::cr::REV_IN_A::Byte as u8,
+    Byte = 0b01,
     /// Bits reversed by half-word. `0x1A2B3C4D` becomes `0xD458B23C`.
-    HalfWord = crc::cr::REV_IN_A::HalfWord as u8,
+    HalfWord = 0b10,
     /// Bits reversed by word. `0x1A2B3C4D` becomes `0xB23CD458`.
-    Word = crc::cr::REV_IN_A::Word as u8,
+    Word = 0b11,
 }
 
 /// CRC unit configuration.
@@ -398,9 +415,7 @@ impl Config {
 
     /// Get the register value of input reversal setting.
     fn get_reverse_input(&self) -> u8 {
-        self.reverse_input
-            .map(|rev| rev as u8)
-            .unwrap_or(crc::cr::REV_IN_A::Normal as u8)
+        self.reverse_input.map(|rev| rev as u8).unwrap_or(0b00)
     }
 
     /// Set whether to reverse the bits of the output.

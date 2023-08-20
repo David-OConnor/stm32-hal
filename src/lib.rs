@@ -408,12 +408,9 @@ pub mod can;
 // pub mod fd_can;
 
 pub mod clocks;
-// todo: You could get CRC working on most of these with some effort.
+// todo: You could get CRC working on these.
 #[cfg(not(any(
     feature = "f4",
-    feature = "g0",
-    feature = "g4",
-    feature = "l5",
     feature = "wb",
     feature = "wl",
     feature = "h5", // todo: COme back to
