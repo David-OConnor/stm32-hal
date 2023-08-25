@@ -329,7 +329,7 @@ impl Flash {
     /// Flash sector erase sequence. Note that this is similar to the procedure for other
     /// families, but has a different name "sector" vice "page", and the RM instructions
     /// are phrased differently.
-    pub fn erase_sector(&mut self, bank: Bank, sector: usize) -> Result<(), Error> {
+    pub fn erase_page(&mut self, bank: Bank, sector: usize) -> Result<(), Error> {
         self.unlock()?;
 
         let regs = &match bank {
@@ -555,12 +555,12 @@ impl Flash {
     /// Make sure the sector is one your MCU has, and isn't being used for the program itself. Writes
     /// a byte array, 256 bits at a time.
     #[cfg(feature = "h7")]
-    pub fn write_sector(&mut self, bank: Bank, sector: usize, data: &[u8]) -> Result<(), Error> {
+    pub fn write_page(&mut self, bank: Bank, sector: usize, data: &[u8]) -> Result<(), Error> {
         // 1. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration
         // protection (only if register is not already unlocked).
         self.unlock()?;
 
-        let regs = &self.regs.bank1(); // todo: Bank 2 support!
+        let regs = &self.regs.bank1(); // todo: Bank 2 support.
 
         // 2. Enable write operations by setting the PG1/2 bit in the FLASH_CR1/2 register.
         regs.cr.modify(|_, w| w.pg().set_bit());
@@ -574,10 +574,15 @@ impl Flash {
         // Note that the key element separating each 256-bit writes is wating until the `qw` bit
         // is cleared.
         for chunk in data.chunks(32) {
-            // todo: Test if you need similar padding logic as for non-H7 writes
             // We use 8 pointer-sized (32-bit) words to meet our full 32-byte (256-bit) write.
+            // Pad to 256 bits if required, ie on the last word.
+            let mut padded = [0xff; 32];
+
             for i in 0..8 {
-                let word = u32::from_le_bytes(chunk[i * 4..i * 4 + 4].try_into().unwrap());
+                // 0xff due to the default value of erased pages.
+                padded[0..chunk.len()].clone_from_slice(&chunk);
+
+                let word = u32::from_le_bytes(padded[i * 4..i * 4 + 4].try_into().unwrap());
                 unsafe {
                     core::ptr::write_volatile(address, word);
                     address = address.add(1);
@@ -594,25 +599,9 @@ impl Flash {
     }
 
     /// Erase a page, then write to it.
-    #[cfg(not(feature = "h7"))]
     pub fn erase_write_page(&mut self, bank: Bank, page: usize, data: &[u8]) -> Result<(), Error> {
         self.erase_page(bank, page)?;
         self.write_page(bank, page, data)?;
-
-        Ok(())
-    }
-
-    /// Erase a page, then write to it.
-    /// Make sure the sector is one your MCU has, and isn't being used for the program itself.
-    #[cfg(feature = "h7")]
-    pub fn erase_write_sector(
-        &mut self,
-        bank: Bank,
-        page: usize,
-        data: &[u8],
-    ) -> Result<(), Error> {
-        self.erase_sector(bank, page)?;
-        self.write_sector(bank, page, data)?;
 
         Ok(())
     }

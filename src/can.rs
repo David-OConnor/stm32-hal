@@ -73,7 +73,8 @@ impl Can {
 /// todo: Allow flexibility.
 ///
 /// Note: Perhaps due to a reset of message ram called by the FDCAN crate's `.into_config_mode()`,
-/// we run this in application firmware once in config mode. Although a better API would be in the constructor.
+/// we run this in application firmware once in config mode. Although a better API would be in the constructor
+/// This must be done after initial setup (Enabling RCC clocks most-likely).
 pub fn set_message_ram_layout() {
     let regs = unsafe { &(*CAN::ptr()) };
 
