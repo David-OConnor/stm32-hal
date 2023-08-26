@@ -850,9 +850,10 @@ where
         }
     }
 
+    #[cfg(not(feature = "f4"))]
     /// Print the (raw) contents of the status register.
     pub fn read_status(&self) -> u32 {
-        unsafe { self.regs.isr.read().bits() }
+        unsafe { isr!(self.regs).read().bits() }
     }
 
     #[cfg(not(feature = "f4"))]
