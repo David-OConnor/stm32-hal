@@ -410,6 +410,7 @@ pub mod can;
 pub mod clocks;
 // todo: You could get CRC working on these.
 #[cfg(not(any(
+    feature = "f3",
     feature = "f4",
     feature = "wb",
     feature = "wl",
