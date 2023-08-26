@@ -76,11 +76,11 @@ impl Crc {
         }
 
         // writing to INIT sets DR to its value
-        #[cfg(not(feature = "h7"))]
+        #[cfg(not(any(feature = "h7", feature = "l4")))]
         self.regs
             .init
             .write(|w| unsafe { w.crc_init().bits(config.initial) });
-        #[cfg(feature = "h7")]
+        #[cfg(any(feature = "h7", feature = "l4"))]
         self.regs
             .init
             .write(|w| unsafe { w.init().bits(config.initial) });
@@ -152,9 +152,9 @@ impl Crc {
     /// Read the CRC without applying output XOR.
     #[inline(always)]
     fn read_crc_no_xor(&self) -> u32 {
-        #[cfg(not(feature = "h7"))]
+        #[cfg(not(any(feature = "h7", feature = "l4")))]
         return self.regs.dr.read().dr().bits();
-        #[cfg(feature = "h7")]
+        #[cfg(any(feature = "h7", feature = "l4"))]
         return self.regs.dr().read().dr().bits();
     }
 
