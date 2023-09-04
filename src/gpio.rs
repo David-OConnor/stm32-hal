@@ -169,7 +169,7 @@ pub enum Port {
         feature = "l412",
         feature = "l4x3",
         feature = "g0",
-        feature = "g4",
+        // feature = "g4",
         feature = "wb",
         feature = "wl"
     )))]
@@ -234,7 +234,7 @@ impl Port {
                 feature = "l412",
                 feature = "l4x3",
                 feature = "g0",
-                feature = "g4",
+                // feature = "g4",
                 feature = "wb",
                 feature = "wl"
             )))]
@@ -708,7 +708,7 @@ impl Pin {
                     feature = "l412",
                     feature = "l4x3",
                     feature = "g0",
-                    feature = "g4",
+                    // feature = "g4",
                     feature = "wb",
                     feature = "wl"
                 )))]
@@ -1344,7 +1344,7 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
             feature = "l412",
             feature = "l4x3",
             feature = "g0",
-            feature = "g4",
+            // feature = "g4",
             feature = "wb",
             feature = "wl"
         )))]

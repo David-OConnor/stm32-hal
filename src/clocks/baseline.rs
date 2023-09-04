@@ -596,7 +596,7 @@ pub struct Clocks {
     /// clock frequency is up to 170Mhz. Defaults to true.
     pub boost_mode: bool,
     #[cfg(any(feature = "g0", feature = "g4"))]
-    /// FDCAN kernel clock selection. Defaults to PLL1Q.
+    /// FDCAN kernel clock selection. Defaults to APB1.
     pub can_src: CanSrc,
 }
 
@@ -797,7 +797,6 @@ impl Clocks {
         // configuration register (RCC_PLLCFGR).
 
         let mut i = 0;
-
         macro_rules! wait_hang {
             ($i:expr) => {
                 i += 1;

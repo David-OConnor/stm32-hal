@@ -5,7 +5,7 @@
 use core::convert::TryInto;
 use core::fmt;
 
-use crate::pac::{crc, CRC, RCC};
+use crate::pac::{CRC, RCC};
 
 use cfg_if::cfg_if;
 
