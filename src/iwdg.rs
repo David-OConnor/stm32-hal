@@ -38,12 +38,12 @@ pub fn setup(timeout: f32) {
         while regs.sr.read().bits() != 0 {}
 
         // 6. Refresh the counter value with IWDG_RLR (IWDG_KR = 0x0000 AAAA).
-        refresh()
+        pet()
     }
 }
 
 /// Run this at an interval shorter than the countdown time to prevent a reset.
-pub fn refresh() {
+pub fn pet() {
     unsafe {
         let regs = &(*IWDG::ptr());
         regs.kr.write(|w| w.bits(0x0000_aaaa));
