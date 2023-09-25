@@ -444,6 +444,7 @@ macro_rules! make_timer {
                     result
                 }
             }
+
             /// Enable a specific type of Timer interrupt.
             pub fn enable_interrupt(&mut self, interrupt: TimerInterrupt) {
                 match interrupt {
@@ -1860,7 +1861,6 @@ macro_rules! cc_1_channel {
                 // bit in the TIMx_EGR register."
                 self.reinitialize();
             }
-
         }
     }
 }
