@@ -78,7 +78,7 @@ pub enum DacBits {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-#[cfg(not(feature = "h7"))]
+#[cfg(not(any(feature = "h7", feature = "g4")))]
 /// Select a trigger, used by some features. Sets DAC_CR, TSEL1 and TSEL2 fields, for Channel 1
 /// and Channel 2 triggers respectively. See L44 RM, Table 75. DAC trigger selection.
 pub enum Trigger {
@@ -98,6 +98,89 @@ pub enum Trigger {
     Exti9 = 0b110,
     /// A software trigger
     Swtrig = 0b111,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+#[cfg(feature = "g4")]
+/// Trigger selection on G4, used by TSELx and Sawtooth generation ST[INC|RST]TRIGSELx
+/// Section 11.3.4 Table 66 - DAC trigger interconnect table
+pub enum Trigger {
+    Software = 0,
+    /// DAC[1,2,4] use TIM8, DAC3 uses TIM1
+    Tim8_1 = 1,
+    Tim7 = 2,
+    Tim15 = 3,
+    Tim2 = 4,
+    Tim4 = 5,
+    /// Reset uses EXTI9, increment uses EXTI10
+    ExtI9_10 = 6,
+    Tim6 = 7,
+    Tim3 = 8,
+
+    /// HRTIM Reset and Increment triggers
+    /// hrtim_dac_[reset|step]_trigX
+    HrtimTrigger1 = 9,
+    HrtimTrigger2 = 10,
+    HrtimTrigger3 = 11,
+    HrtimTrigger4 = 12,
+    HrtimTrigger5 = 13,
+    HrtimTrigger6 = 14,
+
+    /// Update/Reset Triggers from HRTIM
+    /// DAC1 - hrtim_dac_trg1
+    /// DAC2 - hrtim_dac_trg2
+    /// DAC3 - hrtim_dac_trg3
+    /// DAC4 - hrtim_dac_trg1
+    HrtimDacTrigger1_2_3 = 15,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+#[cfg(feature = "g4")]
+/// Select a waveform generation. Sets DAC_CR, WAVE1 and WAVE2 for Channel 1
+/// and Channel 2 repectively. See G4 RM, section 22.7.1 noise/triangle wave generation enable
+pub enum WaveGeneration {
+    /// No wave generation
+    Disabled = 0b00,
+    /// Noise wave generation mode
+    Noise = 0b01,
+    /// Triange wave generation mode
+    Triangle = 0b10,
+    /// Sawtooth wave generation mode
+    Sawtooth = 0b11,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u8)]
+#[cfg(any(feature = "g4"))]
+pub enum SawtoothDirection {
+    Falling = 0b0,
+    Rising = 0b1,
+}
+
+#[derive(Clone, Copy)]
+#[cfg(any(feature = "g4"))]
+/// Sawtooth Generation configuration for the generate_sawtooth() method
+pub struct SawtoothConfig {
+    /// Specify the increment trigger source from the Trigger enum
+    /// when increment is triggered, the DAC will increment 
+    /// incremenbt or decrement (depending on the configured direction)
+    /// the output by the increment value specified in the config.
+    pub increment_trigger: Trigger,
+    /// Specify the reset trigger source from the Trigger enum
+    /// when reset is triggered, the DAC will reset to the initial value
+    /// specified in the config.
+    pub reset_trigger: Trigger,
+    /// Initial value that is set on the DAC output each time a reset
+    /// event is triggered.
+    pub initial: u16,
+    /// Increment value that is added/subtracted from the DAC output
+    /// each time an increment event is triggered. 
+    pub increment: u16,
+    /// The direction of the sawtooth wave to control if the wave
+    /// is incremented or decremented on each increment trigger event.
+    pub direction: SawtoothDirection
 }
 
 #[derive(Clone, Copy)]
@@ -136,6 +219,21 @@ pub enum Trigger {
     Exti9 = 13,
 }
 
+#[derive(Clone, Copy)]
+#[repr(u8)]
+#[cfg(feature = "g4")]
+/// High frequency interface mode selection.
+/// Used in DAC_MCR
+/// See G4 RM, section 22.7.16
+pub enum HighFrequencyMode {
+    // High frequency interface mode disabled
+    Disabled = 0b00,
+    // High frequency interface mode compatible to AHB > 80MHz
+    Medium = 0b01,
+    // High frequency interface mode compatible to AHB > 160MHz
+    High = 0b10
+}
+
 #[derive(Clone)]
 pub struct DacConfig {
     /// Mode: Ie buffer enabled or not, and connected to internal, external, or both. Defaults
@@ -143,6 +241,9 @@ pub struct DacConfig {
     pub mode: DacMode,
     /// Output bit depth and alignment. Defaults to 12 bits, right-aligned.
     pub bits: DacBits,
+
+    #[cfg(feature = "g4")]
+    pub hfsel: HighFrequencyMode
 }
 
 impl Default for DacConfig {
@@ -150,6 +251,8 @@ impl Default for DacConfig {
         Self {
             mode: DacMode::NormExternalOnlyBufEn,
             bits: DacBits::TwelveR,
+            #[cfg(feature = "g4")]
+            hfsel: HighFrequencyMode::High
         }
     }
 }
@@ -583,6 +686,50 @@ where
         }
         self.set_trigger(channel, trigger);
         self.write(channel, data);
+    }
+
+
+
+    #[cfg(any(feature = "g4"))]
+    pub fn generate_sawtooth(&self, channel: DacChannel, config: SawtoothConfig) {
+        #[cfg(any(feature = "l5", feature = "g4"))]
+        let cr = &self.regs.dac_cr;
+        #[cfg(not(any(feature = "l5", feature = "g4")))]
+        let cr = &self.regs.cr;
+
+        match channel {
+            DacChannel::C1 => {
+                
+                self.regs.dac_str1.modify(|_,w| {
+                    w.strstdata1().variant(config.initial);
+                    w.stincdata1().variant(config.increment);
+                    w.stdir1().variant(config.direction as u8 == 1)
+                });
+
+                self.regs.dac_stmodr.modify(|_,w| {
+                    w.stinctrigsel1().variant(config.increment_trigger as u8);
+                    w.strsttrigsel1().variant(config.reset_trigger as u8)
+                });
+
+                cr.modify(|_,w| w.wave1().variant(WaveGeneration::Sawtooth as u8));
+            }
+
+            DacChannel::C2 => {
+
+                self.regs.dac_str2.modify(|_,w| {
+                    w.strstdata2().variant(config.initial);
+                    w.stincdata2().variant(config.increment);
+                    w.stdir2().variant(config.direction as u8 == 1)
+                });
+
+                self.regs.dac_stmodr.modify(|_,w| {
+                    w.stinctrigsel2().variant(config.increment_trigger as u8);
+                    w.strsttrigsel2().variant(config.reset_trigger as u8)
+                });
+
+                cr.modify(|_,w| w.wave2().variant(WaveGeneration::Sawtooth as u8));
+            }
+        }
     }
 
     /// Enable the DMA Underrun interrupt - the only interrupt available.
