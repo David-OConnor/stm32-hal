@@ -15,6 +15,9 @@ use crate::pac;
 use paste::paste;
 
 use cfg_if::cfg_if;
+
+
+#[cfg(any(feature = "g4"))]
 use crate::pac::comp::{
     C1CSR,
     C2CSR,
@@ -22,7 +25,20 @@ use crate::pac::comp::{
     C4CSR,
     C5CSR,
     C6CSR,
-    C7CSR
+    C7CSR,
+};
+
+
+#[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
+use crate::pac::comp1::{
+    CFGR1,
+    CFGR2,
+};
+
+#[cfg(any(feature = "l4x6"))]
+use crate::pac::comp::{
+    COMP1_CSR,
+    COMP2_CSR,
 };
 
 // Config enums
@@ -38,7 +54,7 @@ pub enum PowerMode {
 }
 
 /// Comparator input plus (Non-inverting Input)
-#[cfg(any(feature = "g4"))]
+#[cfg(any(feature = "g4", feature = "h7"))]
 #[derive(Clone,Copy)]
 #[repr(u8)]
 // STM32G4 reference manual section 24.3.2 table 196
@@ -67,7 +83,7 @@ pub enum NonInvertingInput {
 }
 
 /// Comparator input minus (Inverted Input)
-#[cfg(any(feature = "g4"))]
+#[cfg(any(feature = "g4", feature = "h7", feature = "l4"))]
 #[derive(Clone,Copy)]
 #[repr(u8)]
 // STM32G4 reference manual section 24.3.2 table 197
@@ -80,31 +96,6 @@ pub enum InvertingInput {
     Dac2 = 0b101,
     Io1 = 0b110,
     Io2 = 0b111
-}
-
-#[cfg(any(feature = "l4"))]
-// TODO Values are based on SCALEN (0x800000) and BRGEN (0x400000) check for other MCU.
-pub enum InvertingInput {
-    /// 1/4 of Vref
-    OneQuarterVref = 0x00c00000,
-    /// 1/2 of Vref
-    OneHalfVref = 0x00c00010,
-    /// 3/4 of Vref
-    ThreeQuarterVref = 0x00c00020,
-    /// Vref
-    Vref = 0x00800030,
-    /// From DAC channel 1
-    DacCh1 = 0x00000040,
-    /// From DAC channel 2
-    DacCh2 = 0x00000050,
-    /// From the first GPIO pin connected to the comparator.
-    ///
-    /// The GPIO pin used depends on the MCU and comparator used.
-    Io1 = 0x00000060,
-    /// From the second GPIO pin connected to the comparator.
-    ///
-    /// The GPIO pin used depends on the MCU and comparator used.
-    Io2 = 0x00000070,
 }
 
 /// Comparator hysterisis
@@ -121,16 +112,16 @@ pub enum Hysterisis {
     SeventyMilliVolt = 0b111,
 }
 
-#[cfg(any(feature = "l4"))]
+#[cfg(any(feature = "l4", feature = "h7"))]
 pub enum Hysterisis {
     /// No Hysterisis.
-    NoHysterisis = 0x00000000,
+    NoHysterisis = 0b00,
     /// Low Hysterisis.
-    LowHysteresis = 0x00010000,
+    LowHysteresis = 0b01,
     /// Medium Hysterisis.
-    MediumHysteresis = 0x00020000,
+    MediumHysteresis = 0b10,
     /// High Hysterisis.
-    HighHysteresis = 0x00030000,
+    HighHysteresis = 0b11,
 }
 
 /// Comparator output polarity
@@ -145,7 +136,7 @@ pub enum Hysterisis {
 /// voltage than [InvertingInput]. The comparator output will be low (0) when
 /// [NonInvertingInput] has higher voltage than [InvertingInput].
 
-#[cfg(any(feature = "g4"))]
+#[cfg(any(feature = "g4", feature = "h7"))]
 #[derive(Clone,Copy)]
 pub enum OutputPolarity {
     NotInverted = 0b0,
@@ -235,7 +226,10 @@ macro_rules! make_comp {
 
             // Get a reference to the CSR from the COMP RegisterBlock for this comparator
             pub fn csr(&self) -> &$csr_type {
+                #[cfg(any(feature = "g4", feature = "l4"))]
                 unsafe { &(*pac::COMP::ptr()).$csr_reg }
+                #[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
+                unsafe { &(*pac::COMP1::ptr()).$csr_reg }
             }
 
             pub fn enable(&self) {
@@ -248,23 +242,55 @@ macro_rules! make_comp {
 
             // Sets the inverting input in the CSR
             pub fn set_inverting_input(&self, input: InvertingInput) {
-                self.csr().modify(|_,w| w.inmsel().variant(input as u8));
+                cfg_if! {
+                    if #[cfg(feature = "l4")] {
+                        unsafe { self.csr().modify(|_,w| w.inmsel().bits(input as u8)) };
+                    } else {
+                        self.csr().modify(|_,w| w.inmsel().variant(input as u8));
+                    }
+                }
             }
 
             pub fn set_non_inverting_input(&self, input: NonInvertingInput) {
-                self.csr().modify(|_,w| w.inpsel().variant(input as u8 != 0));
+                cfg_if! {
+                    if #[cfg(feature = "l4")] {
+                        self.csr().modify(|_,w| w.inpsel().bit(input as u8 != 0));
+                    } else {
+                        self.csr().modify(|_,w| w.inpsel().variant(input as u8 != 0));
+                    }
+                }
             }
 
             pub fn set_polarity(&self, polarity: OutputPolarity) {
-                self.csr().modify(|_,w| w.pol().variant((polarity as u8) != 0));
+                cfg_if! {
+                    if #[cfg(feature = "l4")] {
+                        self.csr().modify(|_,w| w.polarity().bit((polarity as u8) != 0));
+                    } else {
+                        #[cfg(feature = "g4")]
+                        self.csr().modify(|_,w| w.pol().variant((polarity as u8) != 0));
+
+                        #[cfg(feature = "h7")]
+                        self.csr().modify(|_,w| w.polarity().variant((polarity as u8) != 0));
+                    }
+                }
             }
 
             pub fn set_hysterisis(&self, hyst: Hysterisis) {
-                self.csr().modify(|_,w| w.hyst().variant((hyst as u8)));
+                cfg_if! {
+                    if #[cfg(feature = "l4")] {
+                        self.csr().modify(|_,w| w.hyst().bits((hyst as u8)));
+                    } else {
+                        self.csr().modify(|_,w| w.hyst().variant((hyst as u8)));
+                    }
+                }
             }
 
             pub fn set_blanking_source(&self, source: u8) {
+                #[cfg(feature = "g4")]
                 self.csr().modify(|_,w| w.blanksel().variant(source));
+
+                #[cfg(feature = "h7")]
+                self.csr().modify(|_,w| w.blanking().variant(source));
             }
 
             /// Locks the comparator.
@@ -291,16 +317,48 @@ macro_rules! make_comp {
             /// The oposite will be out inverted if [polarity](CompConfig::polarity) is
             /// [Inverted](OutputPolarity::NotInverted).
             pub fn get_output_level(&self) -> bool {
-                self.csr().read().value().bit()
+                cfg_if! {
+                    if #[cfg(any(feature = "g4", feature = "l4"))] {
+                        self.csr().read().value().bit()
+                    }
+                    else if #[cfg(feature = "h7")] {
+                        // On the H7, the comparator output is in a separate status register
+                        let status = unsafe { &(*pac::COMP1::ptr()).sr.read() };
+
+                        // Check which channel this impl is for
+                        match "$csr_reg" {
+                            "c1csr" => {
+                                status.c1val().bit_is_set()
+                            }
+
+                            "c2csr" => {
+                                status.c2val().bit_is_set()
+                            }
+
+                            _ => todo!(),
+                        }
+                    }
+                }
             }
         }
     }
 }
 
-make_comp!(C1CSR, c1csr, comp1);
-make_comp!(C2CSR, c2csr, comp2);
-make_comp!(C3CSR, c3csr, comp3);
-make_comp!(C4CSR, c4csr, comp4);
-make_comp!(C5CSR, c5csr, comp5);
-make_comp!(C6CSR, c6csr, comp6);
-make_comp!(C7CSR, c7csr, comp7);
+
+cfg_if! {
+    if #[cfg(any(feature = "g4"))] {
+        make_comp!(C1CSR, c1csr, comp1);
+        make_comp!(C2CSR, c2csr, comp2);
+        make_comp!(C3CSR, c3csr, comp3);
+        make_comp!(C4CSR, c4csr, comp4);
+        make_comp!(C5CSR, c5csr, comp5);
+        make_comp!(C6CSR, c6csr, comp6);
+        make_comp!(C7CSR, c7csr, comp7);
+    } else if #[cfg(any(feature = "l4x6"))] {
+        make_comp!(COMP1_CSR, comp1_csr, comp1);
+        make_comp!(COMP2_CSR, comp2_csr, comp2);
+    } else if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
+        make_comp!(CFGR1, cfgr1, comp1);
+        make_comp!(CFGR2, cfgr2, comp2);
+    }
+}
