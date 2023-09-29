@@ -188,6 +188,11 @@ pub enum Port {
         feature = "wl"
     )))]
     H,
+    #[cfg(any(
+        feature = "h747cm4",
+        feature = "h747cm7"
+    ))]
+    I,
 }
 
 impl Port {
@@ -253,6 +258,11 @@ impl Port {
                 feature = "wl"
             )))]
             Self::H => 7,
+            #[cfg(any(
+                feature = "h747cm4",
+                feature = "h747cm7"
+            ))]
+            Self::I => 8,
         }
     }
 }
@@ -797,6 +807,21 @@ impl Pin {
                         } else { // L4, L5, G4
                             if rcc.ahb2enr.read().gpiohen().bit_is_clear() {
                                 rcc_en_reset!(ahb2, gpioh, rcc);
+                            }
+                        }
+                    }
+                }
+                #[cfg(any(
+                    feature = "h747cm4",
+                    feature = "h747cm7"
+                ))]
+                Port::I => {
+                    cfg_if! {
+                        if #[cfg(feature = "h7")] {
+                            if rcc.ahb4enr.read().gpiohen().bit_is_clear() {
+                                rcc.ahb4enr.modify(|_, w| w.gpioien().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpioirst().set_bit());
+                                rcc.ahb4rstr.modify(|_, w| w.gpioirst().clear_bit());
                             }
                         }
                     }
@@ -1361,6 +1386,11 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
             feature = "wl"
         )))]
         Port::H => crate::pac::GPIOH::ptr() as _,
+        #[cfg(any(
+            feature = "h747cm4",
+            feature = "h747cm7"
+        ))]
+        Port::I => crate::pac::GPIOI::ptr() as _,
     }
 }
 
