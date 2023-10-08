@@ -5,7 +5,10 @@
 
 // todo: WB and WL should support pwm features
 
-use core::ops::Deref;
+use core::{
+    ops::Deref,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 use cortex_m::interrupt::free;
 
@@ -50,6 +53,9 @@ use crate::dma::DmaInput;
 use crate::pac::DMA as DMA1;
 #[cfg(not(feature = "g0"))]
 use crate::pac::DMA1;
+
+// This `TICK_OVERFLOW_COUNT` must be incremented in firmware in the timer's update interrupt.
+pub static TICK_OVERFLOW_COUNT: AtomicU32 = AtomicU32::new(0);
 
 // todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
 
@@ -387,7 +393,8 @@ pub struct Timer<TIM> {
     /// Updated in the constructor and `set_freq` fns. Used for mapping timer ticks to time (eg in
     /// seconds, us etc)
     // pub us_per_tick: f32,
-    pub ns_per_tick: f32,
+    ns_per_tick: f32,
+    period: f32, // In seconds. Used for overflow tracking. Updated when `ns_per_tick` is.
 }
 
 macro_rules! make_timer {
@@ -431,6 +438,7 @@ macro_rules! make_timer {
                         // #[cfg(feature = "monotonic")]
                         // us_per_tick: 0., // set below
                         ns_per_tick: 0., // set below
+                        period: 0., // set below.
                     };
 
                     result.set_freq(freq).ok();
@@ -555,6 +563,7 @@ macro_rules! make_timer {
                 let period_secs = (psc as f32 + 1.) * ( arr_f32 + 1.) / self.clock_speed as f32;
                 // self.us_per_tick = period_secs  / (arr_f32) * 1_000_000.;
                 self.ns_per_tick = period_secs  / (arr_f32) * 1_000_000_000.;
+                self.period = period_secs;
 
                 Ok(())
             }
@@ -851,6 +860,15 @@ macro_rules! make_timer {
                     self.get_max_duty() as f32) * self.ns_per_tick) as i64;
 
                 Instant { count_ns }
+            }
+
+            /// Get the current timestamp, while keeping track of overflows. You must increment `TICK_OVERFLOW_COUNT`
+            /// in firmware using an ISR, and the timer must be kept running. This is useful for tracking
+            /// longer periods of time, such as system uptime.
+            pub fn get_timestamp(&mut self) -> f32 {
+                let elapsed = self.time_elapsed().as_secs();
+
+                TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as f32 * self.period + elapsed
             }
         }
 

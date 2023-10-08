@@ -537,7 +537,8 @@ pub mod usart;
 
 #[cfg(any(
     feature = "l4",
-    feature = "g4",
+    // feature = "g4",
+    feature = "g473", // todo: Not compiling on G431
     feature = "h7"
 ))]
 pub mod comp;

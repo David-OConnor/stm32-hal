@@ -17,7 +17,7 @@ use paste::paste;
 use cfg_if::cfg_if;
 
 
-#[cfg(any(feature = "g4"))]
+#[cfg(any(feature = "g473"))]
 use crate::pac::comp::{
     C1CSR,
     C2CSR,
@@ -54,7 +54,7 @@ pub enum PowerMode {
 }
 
 /// Comparator input plus (Non-inverting Input)
-#[cfg(any(feature = "g4", feature = "h7"))]
+#[cfg(any(feature = "g473", feature = "h7"))]
 #[derive(Clone,Copy)]
 #[repr(u8)]
 // STM32G4 reference manual section 24.3.2 table 196
@@ -83,7 +83,7 @@ pub enum NonInvertingInput {
 }
 
 /// Comparator input minus (Inverted Input)
-#[cfg(any(feature = "g4", feature = "h7", feature = "l4"))]
+#[cfg(any(feature = "g473", feature = "h7", feature = "l4"))]
 #[derive(Clone,Copy)]
 #[repr(u8)]
 // STM32G4 reference manual section 24.3.2 table 197
@@ -99,7 +99,7 @@ pub enum InvertingInput {
 }
 
 /// Comparator hysterisis
-#[cfg(any(feature = "g4"))]
+#[cfg(any(feature = "g473"))]
 #[derive(Clone,Copy)]
 pub enum Hysterisis {
     None = 0b000,
@@ -136,7 +136,7 @@ pub enum Hysterisis {
 /// voltage than [InvertingInput]. The comparator output will be low (0) when
 /// [NonInvertingInput] has higher voltage than [InvertingInput].
 
-#[cfg(any(feature = "g4", feature = "h7"))]
+#[cfg(any(feature = "g473", feature = "h7"))]
 #[derive(Clone,Copy)]
 pub enum OutputPolarity {
     NotInverted = 0b0,
@@ -160,7 +160,7 @@ pub enum BlankingSource {
 }
 
 /// Comparator devices avaiable.
-#[cfg(any(feature = "g4"))]
+#[cfg(any(feature = "g473"))]
 pub enum CompDevice {
     One,
     Two,
@@ -174,7 +174,7 @@ pub enum CompDevice {
 // Structs
 /// Initial configuration data for the comparator peripheral.
 
-#[cfg(any(feature = "g4"))]
+#[cfg(any(feature = "g473"))]
 #[derive(Clone,Copy)]
 pub struct CompConfig {
     pub inpsel: NonInvertingInput,
@@ -226,7 +226,7 @@ macro_rules! make_comp {
 
             // Get a reference to the CSR from the COMP RegisterBlock for this comparator
             pub fn csr(&self) -> &$csr_type {
-                #[cfg(any(feature = "g4", feature = "l4"))]
+                #[cfg(any(feature = "g473", feature = "l4"))]
                 unsafe { &(*pac::COMP::ptr()).$csr_reg }
                 #[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
                 unsafe { &(*pac::COMP1::ptr()).$csr_reg }
@@ -286,7 +286,7 @@ macro_rules! make_comp {
             }
 
             pub fn set_blanking_source(&self, source: u8) {
-                #[cfg(feature = "g4")]
+                #[cfg(feature = "g473")]
                 self.csr().modify(|_,w| w.blanksel().variant(source));
 
                 #[cfg(feature = "h7")]
