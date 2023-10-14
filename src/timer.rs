@@ -876,7 +876,7 @@ macro_rules! make_timer {
             pub fn get_timestamp_ms(&mut self) -> u64 {
                 let elapsed = self.time_elapsed().count_ns as u64 * 1_000;
 
-                TICK_OVERFLOW_COUNT.load(Ordering::Acquire) * (self.period * 1_000_000.) as u64 + elapsed
+                TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as u64 * (self.period * 1_000_000.) as u64 + elapsed
             }
         }
 
