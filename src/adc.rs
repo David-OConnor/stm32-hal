@@ -933,6 +933,11 @@ macro_rules! hal {
                 self.read_result()
             }
 
+            pub fn read_voltage(&mut self, channel: u8) -> f32 {
+                let reading = self.read(channel);
+                self.reading_to_voltage(reading)
+            }
+
 
             /// Select and activate a trigger. See G4 RM, section 21.4.18:
             /// Conversion on external trigger and trigger polarit
