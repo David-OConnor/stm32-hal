@@ -413,7 +413,7 @@ macro_rules! hal {
                     result.enable();
 
                     // Set up VDDA only after the ADC is otherwise enabled.
-                    // result.setup_vdda(clock_cfg);
+                    result.setup_vdda(clock_cfg);
 
                     // Don't set continuous mode until after configuring VDDA, since it needs
                     // to take a oneshot reading.
@@ -788,7 +788,6 @@ macro_rules! hal {
             /// to voltage accuracy. See L44 RM, section 16.4.34: "Monitoring the internal voltage reference"
             fn setup_vdda(&mut self, clock_cfg: &Clocks) {
                 let common_regs = unsafe { &*pac::$ADC_COMMON::ptr() };
-
                 // RM: It is possible to monitor the internal voltage reference (VREFINT) to have a reference point for
                 // evaluating the ADC VREF+ voltage level.
                 // The internal voltage reference is internally connected to the input channel 0 of the ADC1
@@ -828,7 +827,7 @@ macro_rules! hal {
 
                     // This fn will be called recursively for ADC1, generating the vdda value we need.
                     // adc1.vdda_calibrated
-                    3.3
+                    // 3.3
                 } else {
                     // "Table 24. Embedded internal voltage reference" states that the sample time needs to be
                     // at a minimum 4 us. With 640.5 ADC cycles we have a minimum of 8 us at 80 MHz, leaving

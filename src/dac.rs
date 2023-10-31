@@ -164,7 +164,7 @@ pub enum SawtoothDirection {
 /// Sawtooth Generation configuration for the generate_sawtooth() method
 pub struct SawtoothConfig {
     /// Specify the increment trigger source from the Trigger enum
-    /// when increment is triggered, the DAC will increment 
+    /// when increment is triggered, the DAC will increment
     /// incremenbt or decrement (depending on the configured direction)
     /// the output by the increment value specified in the config.
     pub increment_trigger: Trigger,
@@ -176,11 +176,11 @@ pub struct SawtoothConfig {
     /// event is triggered.
     pub initial: u16,
     /// Increment value that is added/subtracted from the DAC output
-    /// each time an increment event is triggered. 
+    /// each time an increment event is triggered.
     pub increment: u16,
     /// The direction of the sawtooth wave to control if the wave
     /// is incremented or decremented on each increment trigger event.
-    pub direction: SawtoothDirection
+    pub direction: SawtoothDirection,
 }
 
 #[derive(Clone, Copy)]
@@ -231,7 +231,7 @@ pub enum HighFrequencyMode {
     // High frequency interface mode compatible to AHB > 80MHz
     Medium = 0b01,
     // High frequency interface mode compatible to AHB > 160MHz
-    High = 0b10
+    High = 0b10,
 }
 
 #[derive(Clone)]
@@ -243,7 +243,7 @@ pub struct DacConfig {
     pub bits: DacBits,
 
     #[cfg(feature = "g4")]
-    pub hfsel: HighFrequencyMode
+    pub hfsel: HighFrequencyMode,
 }
 
 impl Default for DacConfig {
@@ -252,7 +252,7 @@ impl Default for DacConfig {
             mode: DacMode::NormExternalOnlyBufEn,
             bits: DacBits::TwelveR,
             #[cfg(feature = "g4")]
-            hfsel: HighFrequencyMode::High
+            hfsel: HighFrequencyMode::High,
         }
     }
 }
@@ -688,8 +688,6 @@ where
         self.write(channel, data);
     }
 
-
-
     #[cfg(any(feature = "g4"))]
     pub fn generate_sawtooth(&self, channel: DacChannel, config: SawtoothConfig) {
         #[cfg(any(feature = "l5", feature = "g4"))]
@@ -699,35 +697,33 @@ where
 
         match channel {
             DacChannel::C1 => {
-                
-                self.regs.dac_str1.modify(|_,w| {
+                self.regs.dac_str1.modify(|_, w| {
                     w.strstdata1().variant(config.initial);
                     w.stincdata1().variant(config.increment);
                     w.stdir1().variant(config.direction as u8 == 1)
                 });
 
-                self.regs.dac_stmodr.modify(|_,w| {
+                self.regs.dac_stmodr.modify(|_, w| {
                     w.stinctrigsel1().variant(config.increment_trigger as u8);
                     w.strsttrigsel1().variant(config.reset_trigger as u8)
                 });
 
-                cr.modify(|_,w| w.wave1().variant(WaveGeneration::Sawtooth as u8));
+                cr.modify(|_, w| w.wave1().variant(WaveGeneration::Sawtooth as u8));
             }
 
             DacChannel::C2 => {
-
-                self.regs.dac_str2.modify(|_,w| {
+                self.regs.dac_str2.modify(|_, w| {
                     w.strstdata2().variant(config.initial);
                     w.stincdata2().variant(config.increment);
                     w.stdir2().variant(config.direction as u8 == 1)
                 });
 
-                self.regs.dac_stmodr.modify(|_,w| {
+                self.regs.dac_stmodr.modify(|_, w| {
                     w.stinctrigsel2().variant(config.increment_trigger as u8);
                     w.strsttrigsel2().variant(config.reset_trigger as u8)
                 });
 
-                cr.modify(|_,w| w.wave2().variant(WaveGeneration::Sawtooth as u8));
+                cr.modify(|_, w| w.wave2().variant(WaveGeneration::Sawtooth as u8));
             }
         }
     }

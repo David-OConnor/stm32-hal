@@ -188,11 +188,7 @@ pub enum Port {
         feature = "wl"
     )))]
     H,
-    #[cfg(any(
-        feature = "h747cm4",
-        feature = "h747cm7",
-        feature = "l4x6",
-    ))]
+    #[cfg(any(feature = "h747cm4", feature = "h747cm7", feature = "l4x6",))]
     I,
 }
 
@@ -259,11 +255,7 @@ impl Port {
                 feature = "wl"
             )))]
             Self::H => 7,
-            #[cfg(any(
-                feature = "h747cm4",
-                feature = "h747cm7",
-                feature = "l4x6",
-            ))]
+            #[cfg(any(feature = "h747cm4", feature = "h747cm7", feature = "l4x6",))]
             Self::I => 8,
         }
     }
@@ -813,11 +805,7 @@ impl Pin {
                         }
                     }
                 }
-                #[cfg(any(
-                    feature = "l4x6",
-                    feature = "h747cm4",
-                    feature = "h747cm7"
-                ))]
+                #[cfg(any(feature = "l4x6", feature = "h747cm4", feature = "h747cm7"))]
                 Port::I => {
                     cfg_if! {
                         if #[cfg(feature = "h7")] {
@@ -1395,11 +1383,7 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
             feature = "wl"
         )))]
         Port::H => crate::pac::GPIOH::ptr() as _,
-        #[cfg(any(
-            feature = "h747cm4",
-            feature = "h747cm7",
-            feature = "l4x6"
-        ))]
+        #[cfg(any(feature = "h747cm4", feature = "h747cm7", feature = "l4x6"))]
         Port::I => crate::pac::GPIOI::ptr() as _,
     }
 }

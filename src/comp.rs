@@ -16,30 +16,14 @@ use paste::paste;
 
 use cfg_if::cfg_if;
 
-
 #[cfg(any(feature = "g473"))]
-use crate::pac::comp::{
-    C1CSR,
-    C2CSR,
-    C3CSR,
-    C4CSR,
-    C5CSR,
-    C6CSR,
-    C7CSR,
-};
-
+use crate::pac::comp::{C1CSR, C2CSR, C3CSR, C4CSR, C5CSR, C6CSR, C7CSR};
 
 #[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
-use crate::pac::comp1::{
-    CFGR1,
-    CFGR2,
-};
+use crate::pac::comp1::{CFGR1, CFGR2};
 
 #[cfg(any(feature = "l4x6"))]
-use crate::pac::comp::{
-    COMP1_CSR,
-    COMP2_CSR,
-};
+use crate::pac::comp::{COMP1_CSR, COMP2_CSR};
 
 // Config enums
 /// Comparator power mode
@@ -55,12 +39,12 @@ pub enum PowerMode {
 
 /// Comparator input plus (Non-inverting Input)
 #[cfg(any(feature = "g473", feature = "h7"))]
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy)]
 #[repr(u8)]
 // STM32G4 reference manual section 24.3.2 table 196
 pub enum NonInvertingInput {
     Io1 = 0b0,
-    Io2 = 0b1
+    Io2 = 0b1,
 }
 
 #[cfg(any(feature = "l4"))]
@@ -84,7 +68,7 @@ pub enum NonInvertingInput {
 
 /// Comparator input minus (Inverted Input)
 #[cfg(any(feature = "g473", feature = "h7", feature = "l4"))]
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy)]
 #[repr(u8)]
 // STM32G4 reference manual section 24.3.2 table 197
 pub enum InvertingInput {
@@ -95,12 +79,12 @@ pub enum InvertingInput {
     Dac1 = 0b100,
     Dac2 = 0b101,
     Io1 = 0b110,
-    Io2 = 0b111
+    Io2 = 0b111,
 }
 
 /// Comparator hysterisis
 #[cfg(any(feature = "g473"))]
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy)]
 pub enum Hysterisis {
     None = 0b000,
     TenMilliVolt = 0b001,
@@ -137,10 +121,10 @@ pub enum Hysterisis {
 /// [NonInvertingInput] has higher voltage than [InvertingInput].
 
 #[cfg(any(feature = "g473", feature = "h7"))]
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy)]
 pub enum OutputPolarity {
     NotInverted = 0b0,
-    Inverted = 0b1
+    Inverted = 0b1,
 }
 
 #[cfg(any(feature = "l4"))]
@@ -168,19 +152,19 @@ pub enum CompDevice {
     Four,
     Five,
     Six,
-    Seven
+    Seven,
 }
 
 // Structs
 /// Initial configuration data for the comparator peripheral.
 
 #[cfg(any(feature = "g473"))]
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy)]
 pub struct CompConfig {
     pub inpsel: NonInvertingInput,
     pub inmsel: InvertingInput,
     pub hyst: Hysterisis,
-    pub polarity: OutputPolarity
+    pub polarity: OutputPolarity,
 }
 
 #[cfg(any(feature = "l4"))]
@@ -211,8 +195,7 @@ pub struct Comp<T> {
 // and provide a csr() method to access the register scoped to this comparator
 macro_rules! make_comp {
     ($csr_type:ident, $csr_reg:ident, $comp:ident) => {
-        impl Comp<$csr_type>
-        {
+        impl Comp<$csr_type> {
             paste! {
                 pub fn [<new_ $comp>]() -> Self {
                     unsafe {
@@ -227,17 +210,21 @@ macro_rules! make_comp {
             // Get a reference to the CSR from the COMP RegisterBlock for this comparator
             pub fn csr(&self) -> &$csr_type {
                 #[cfg(any(feature = "g473", feature = "l4"))]
-                unsafe { &(*pac::COMP::ptr()).$csr_reg }
+                unsafe {
+                    &(*pac::COMP::ptr()).$csr_reg
+                }
                 #[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
-                unsafe { &(*pac::COMP1::ptr()).$csr_reg }
+                unsafe {
+                    &(*pac::COMP1::ptr()).$csr_reg
+                }
             }
 
             pub fn enable(&self) {
-                self.csr().modify(|_,w| w.en().set_bit());
+                self.csr().modify(|_, w| w.en().set_bit());
             }
 
             pub fn disable(&self) {
-                self.csr().modify(|_,w| w.en().clear_bit());
+                self.csr().modify(|_, w| w.en().clear_bit());
             }
 
             // Sets the inverting input in the CSR
@@ -287,10 +274,10 @@ macro_rules! make_comp {
 
             pub fn set_blanking_source(&self, source: u8) {
                 #[cfg(feature = "g473")]
-                self.csr().modify(|_,w| w.blanksel().variant(source));
+                self.csr().modify(|_, w| w.blanksel().variant(source));
 
                 #[cfg(feature = "h7")]
-                self.csr().modify(|_,w| w.blanking().variant(source));
+                self.csr().modify(|_, w| w.blanking().variant(source));
             }
 
             /// Locks the comparator.
@@ -302,7 +289,7 @@ macro_rules! make_comp {
             /// a hardware reset.
             pub fn lock(&mut self) {
                 self.is_locked = true;
-                self.csr().modify(|_,w| w.lock().set_bit());
+                self.csr().modify(|_, w| w.lock().set_bit());
             }
 
             /// Gets the output level of the comparator
@@ -341,9 +328,8 @@ macro_rules! make_comp {
                 }
             }
         }
-    }
+    };
 }
-
 
 cfg_if! {
     if #[cfg(any(feature = "g4"))] {
