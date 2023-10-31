@@ -827,7 +827,7 @@ macro_rules! hal {
 
                     // This fn will be called recursively for ADC1, generating the vdda value we need.
                     // adc1.vdda_calibrated
-                    // 3.3
+                    3.3
                 } else {
                     // "Table 24. Embedded internal voltage reference" states that the sample time needs to be
                     // at a minimum 4 us. With 640.5 ADC cycles we have a minimum of 8 us at 80 MHz, leaving
