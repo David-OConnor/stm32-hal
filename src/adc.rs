@@ -154,9 +154,10 @@ pub enum SampleTime {
 }
 
 impl Default for SampleTime {
-    /// T_1 is also the reset value.
+    /// T_1 is the rest value; pick a higher one, as the lower values may cause significantly
+    /// lower-than-accurate readings.
     fn default() -> Self {
-        SampleTime::T1
+        SampleTime::T181
     }
 }
 
@@ -309,6 +310,9 @@ impl Default for Align {
 pub struct AdcConfig {
     /// ADC clock mode. Defaults to AHB clock rcc_hclk3 (or hclk) divided by 2.
     pub clock_mode: ClockMode,
+    /// ADC sample time. See the `SampleTime` enum for details. Higher values
+    ///  result in more accurate readings.
+    pub sample_time: SampleTime,
     /// ADC clock prescaler. Defaults to no division.
     pub prescaler: Prescaler,
     /// One-shot, or continuous measurements. Defaults to one-shot.
@@ -324,6 +328,7 @@ impl Default for AdcConfig {
     fn default() -> Self {
         Self {
             clock_mode: ClockMode::SyncDiv2,
+            sample_time: Default::default(),
             prescaler: Prescaler::D1,
             operation_mode: OperationMode::OneShot,
             cal_single_ended: None,
@@ -349,8 +354,13 @@ macro_rules! hal {
     ($ADC:ident, $ADC_COMMON:ident, $adc:ident, $rcc_num:tt) => {
         impl Adc<pac::$ADC> {
             paste! {
-                /// Initialize an ADC peripheral, including configuration register writes, and enabling and resetting
-                /// its RCC peripheral clock.
+                /// Initialize an ADC peripheral, including configuration register writes, enabling and resetting
+                /// its RCC peripheral clock, and calibrtation.
+                ///
+                /// If used with ADC1, this also performs VDDA measurement,
+                /// used for converting raw output to voltage. If using an ADC other than ADC1, this measurement
+                /// is skipped, and 3.3V is assumed. In this case, it's recommended to setup ADC1, read
+                /// it's VDDA value (`vdda_calibrated` field), and update the ADC in question with it.
                 pub fn [<new_ $adc>](
                     regs: pac::$ADC,
                     device: AdcDevice,
@@ -418,6 +428,14 @@ macro_rules! hal {
                     // Don't set continuous mode until after configuring VDDA, since it needs
                     // to take a oneshot reading.
                     result.regs.cfgr.modify(|_, w| w.cont().bit(result.cfg.operation_mode as u8 != 0));
+
+                    for ch in 1..10 {
+                        result.set_sample_time(ch, result.cfg.sample_time);
+                    }
+                    // Note: We are getting a hardfault on G431 when setting this for channel 10.
+                    for ch in 11..19 {
+                        result.set_sample_time(ch, result.cfg.sample_time);
+                    }
 
                     result
                 }
@@ -740,7 +758,7 @@ macro_rules! hal {
                     14 => self.regs.sqr3.modify(|_, w| unsafe { w.sq14().bits(chan) }),
                     15 => self.regs.sqr4.modify(|_, w| unsafe { w.sq15().bits(chan) }),
                     16 => self.regs.sqr4.modify(|_, w| unsafe { w.sq16().bits(chan) }),
-                    _ => panic!("Sequence out of bounds. Only 16 positions are available."),
+                    _ => panic!("Sequence out of bounds. Only 16 positions are available, starting at 1."),
                 }
             }
 
@@ -888,9 +906,7 @@ macro_rules! hal {
                 // • VREFINT_DATA is the actual VREFINT output value converted by the ADC
                 // • FULL_SCALE is the maximum digital value of the ADC output. For example with 12-bit
                 // resolution, it will be 212 − 1 = 4095 or with 8-bit resolution, 28 − 1 = 255
-                // todo: Pass vdda here, or to teh struct?
                 // todo: FULL_SCALE will be different for 16-bit. And differential?
-                // todo: Does it matter if vdda is measured at 3.0 vs 3.3?
 
                 self.vdda_calibrated / 4_096. * reading as f32
             }
@@ -927,17 +943,17 @@ macro_rules! hal {
                 return self.regs.dr.read().rdata().bits() as u16;
             }
 
-            /// Take a single reading.
+            /// Take a single reading; return a raw integer value.
             pub fn read(&mut self, channel: u8) -> u16 {
                 self.start_conversion(&[channel]);
                 self.read_result()
             }
 
+            /// Take a single reading; return a voltage.
             pub fn read_voltage(&mut self, channel: u8) -> f32 {
                 let reading = self.read(channel);
                 self.reading_to_voltage(reading)
             }
-
 
             /// Select and activate a trigger. See G4 RM, section 21.4.18:
             /// Conversion on external trigger and trigger polarit
