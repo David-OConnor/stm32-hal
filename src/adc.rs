@@ -33,7 +33,7 @@ cfg_if! {
     } else if #[cfg(feature = "g4")] {
         const VREFINT_ADDR: u32 = 0x1FFF_75AA;
         const VREFINT_VOLTAGE: f32 = 3.0;
-        const VREFINT_CH: u8 = 18; // G491
+        const VREFINT_CH: u8 = 18; // G491, G431
     } else {
         const VREFINT_ADDR: u32 = 0x1FFF_75AA;
         const VREFINT_VOLTAGE: f32 = 3.0;
@@ -48,6 +48,7 @@ pub enum AdcDevice {
     One,
     Two,
     Three,
+    #[cfg(feature = "g4")] // todo: Check the specifics.
     Four,
     #[cfg(feature = "g4")]
     Five,
@@ -378,17 +379,27 @@ macro_rules! hal {
                         let rcc = unsafe { &(*RCC::ptr()) };
                         let common_regs = unsafe { &*pac::$ADC_COMMON::ptr() };
 
+                        // Note: We only perform RCC enabling, not resetingg; resetting will
+                        // cause ADCs that share RCC en/reset registers (eg ADC1/2 on G4) that
+                        // were previously set up to stop working.
                         paste! {
                             cfg_if! {
-                                if #[cfg(any(feature = "f3", feature = "h7"))] {
+                                if #[cfg(feature = "f3")] {
                                     rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
                                 } else if #[cfg(feature = "f4")] {
                                     rcc_en_reset!(2, [<adc $rcc_num>], rcc);
-                                } else if #[cfg(any(feature = "h7"))] {
-                                // todo: 1 and 2 are on ahb1enr etc. 3 is on ahb4. 3 won't work here.
-                                    rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
+                                } else if #[cfg(feature = "h7")] {
+                                    match device {
+                                        AdcDevice::One | AdcDevice::Two => {
+                                            rcc.ahb1enr.modify(|_, w| w.adc12en().set_bit());
+                                        }
+                                        AdcDevice::Three => {
+                                            rcc.ahb4enr.modify(|_, w| w.adc3en().set_bit());
+                                        }
+                                    }
                                 } else if #[cfg(any(feature = "g4"))] {
-                                    rcc_en_reset!(ahb2, [<adc $rcc_num>], rcc);
+                                    rcc.ahb2enr.modify(|_, w| w.adc12en().set_bit());
+                                    // rcc_en_reset!(ahb2, [<adc $rcc_num>], rcc);
                                 } else {  // ie L4, L5, G0(?)
                                     rcc_en_reset!(ahb2, adc, rcc);
                                 }
@@ -471,7 +482,7 @@ macro_rules! hal {
                 // using the associated interrupt (setting ADRDYIE=1).
                 while self.regs.isr.read().adrdy().bit_is_clear() {}  // Wait until ready
                 // 4. Clear the ADRDY bit in the ADC_ISR register by writing ‘1’ (optional).
-                self.regs.isr.modify(|_, w| w.adrdy().clear_bit());
+                self.regs.isr.modify(|_, w| w.adrdy().set_bit());
             }
 
             /// Disable the ADC.
@@ -802,6 +813,7 @@ macro_rules! hal {
                 // self.enable();
             }
 
+
             /// Find and store the internal voltage reference, to improve conversion from reading
             /// to voltage accuracy. See L44 RM, section 16.4.34: "Monitoring the internal voltage reference"
             fn setup_vdda(&mut self, clock_cfg: &Clocks) {
@@ -816,21 +828,21 @@ macro_rules! hal {
                     // todo: What if ADC1 is already enabled and configured differently?
                     // todo: Either way, if you're also using ADC1, this will screw things up⋅.
 
-                    let dp = unsafe { pac::Peripherals::steal() };
-
-                    #[cfg(feature = "l5")]
-                    let dp_adc = dp.ADC;
-                    #[cfg(not(feature = "l5"))]
-                    let dp_adc = dp.ADC1;
+                    // let dp = unsafe { pac::Peripherals::steal() };
+                    //
+                    // #[cfg(feature = "l5")]
+                    // let dp_adc = dp.ADC;
+                    // #[cfg(not(feature = "l5"))]
+                    // let dp_adc = dp.ADC1;
 
                     // If we're currently using ADC1 (and this is a different ADC), skip this step for now;
                     // VDDA will be wrong,
                     // and all readings using voltage conversion will be wrong.
                     // todo: Take an ADC1 reading if this is the case, or let the user pass in VDDA from there.
-                    if dp_adc.cr.read().aden().bit_is_set() {
-                        self.vdda_calibrated = 3.3; // A guess.
-                        return
-                    }
+                    // if dp_adc.cr.read().aden().bit_is_set() {
+                    //     self.vdda_calibrated = 3.3; // A guess.
+                    //     return
+                    // }
 
                     // todo: Get this working.
                     // let mut adc1 = Adc::new_adc1(
@@ -1203,7 +1215,7 @@ cfg_if! {
     if #[cfg(feature = "h7")] {
         hal!(ADC1, ADC12_COMMON, adc1, 12);
         hal!(ADC2, ADC12_COMMON, adc2, 12);
-        // hal!(ADC3, ADC3_COMMON, adc3, 3);
+        hal!(ADC3, ADC3_COMMON, adc3, 3);
     }
 }
 
