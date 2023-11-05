@@ -2,9 +2,11 @@
 //! high-speed communications with external flash memory. Also supports OctoSPI
 //! on variants that support it.
 
-use crate::{clocks::Clocks, pac::RCC};
+use core::ptr;
 
 use cfg_if::cfg_if;
+
+use crate::{clocks::Clocks, pac::RCC};
 
 cfg_if! {
     if #[cfg(any(feature = "l5", feature = "h735", feature = "h7b3"))] {
@@ -15,8 +17,6 @@ cfg_if! {
         use crate::pac::QUADSPI;
     }
 }
-
-use core::ptr;
 
 // todo: Status-polling mode.
 
@@ -93,12 +93,14 @@ pub enum QspiError {
 pub struct QspiConfig {
     pub protocol_mode: ProtocolMode,
     pub data_mode: DataMode,
-    pub frequency: u32,
+    /// Dide the QSPI kernel clock by this to get the QSPI speed.
+    pub clock_division: u8,
     pub address_size: AddressSize,
     pub dummy_cycles: u8,
     pub sampling_edge: SamplingEdge,
     pub fifo_threshold: u8,
-    pub mem_size: u32, // Size of the memory, in Megabytes.
+    /// Size of memory, in megabytes. (not megabits)
+    pub mem_size: u32,
 }
 
 impl Default for QspiConfig {
@@ -107,12 +109,13 @@ impl Default for QspiConfig {
             // todo: QC what you want here.
             protocol_mode: ProtocolMode::Quad,
             data_mode: DataMode::Sdr,
-            frequency: 40_000_000, // todo: What should this be?
+            // For example: On an H743, this might be 240Mhz/4 = 60Mhz.
+            clock_division: 4,
             address_size: AddressSize::A8,
             dummy_cycles: 0,
             sampling_edge: SamplingEdge::Falling,
             fifo_threshold: 1, // todo: What is this?
-            mem_size: 64,
+            mem_size: 8,
         }
     }
 }
@@ -200,20 +203,11 @@ impl Qspi {
         // RM: The FSIZE[4:0] field defines the size of external memory using the following formula:
         // Number of bytes in Flash memory = 2^[FSIZE+1]
         // The addressable space in memory-mapped mode is limited to 256MB.
-        // regs.dcr.modify(|_, w| unsafe { w.fsize.bits(cfg.mem_size / 2 - 1) });
-
-        let mut fsize = 0;
-        for shift in 0..32 {
-            if cfg.mem_size >> shift == 0 {
-                fsize = shift - 1;
-                break;
-            }
-        }
-
+        //
+        let fsize = (cfg.mem_size * 1_000_000).ilog2() - 1;
         #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
-        // todo: Equiv for octo?
-        regs.dcr.modify(|_, w| unsafe { w.fsize().bits(fsize) }); // todo
-                                                                  // regs.dcr.modify(|_, w| unsafe { w.fsize().bits(24) });
+        regs.dcr
+            .modify(|_, w| unsafe { w.fsize().bits(fsize as u8) });
 
         // RM: This field [prescaler] defines the scaler factor for generating CLK based on the
         // clock (value+1).
@@ -222,11 +216,6 @@ impl Qspi {
         // 2: FCLK = F/3
         // ...
         // 255: FCLK = F/256
-        // todo: What bus is QSPI on? is it selectable? SAI etc?? APB2 as placeholder.
-        let prescaler = match (clocks.apb2() + cfg.frequency - 1) / cfg.frequency {
-            divisor @ 1..=256 => divisor - 1,
-            _ => panic!("Invalid QSPI frequency requested"),
-        };
 
         let sampling_edge = match cfg.data_mode {
             // When receiving data in SDR mode, the QUADSPI assumes that the Flash memories also
@@ -243,7 +232,7 @@ impl Qspi {
         #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
         // todo: Equiv for octo?
         regs.cr.write(|w| unsafe {
-            w.prescaler().bits(prescaler as u8);
+            w.prescaler().bits(cfg.clock_division as u8 - 1);
             w.sshift().bit(sampling_edge as u8 != 0);
             w.fthres().bits(cfg.fifo_threshold - 1)
         });
