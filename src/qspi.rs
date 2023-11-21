@@ -36,6 +36,15 @@ pub enum ProtocolMode {
     Quad = 0b11,
 }
 
+// #[derive(Copy, Clone)]
+// #[repr(u8)]
+// pub enum AlternateBytesMode {
+//     None = 0b00,
+//     SingleLine = 0b01,
+//     TwoLines = 0b010,
+//     FourLines = 0b11,
+// }
+
 #[derive(Copy, Clone)]
 #[repr(u8)]
 /// Sets the Qspi data mode. Affects the DDRM field of the CCR reg.
@@ -91,30 +100,37 @@ pub enum QspiError {
 /// A structure for specifying QSPI configuration.
 #[derive(Copy, Clone)]
 pub struct QspiConfig {
+    /// Note: For configuration purposes, use IndirectRead or Indirect Write
+    // pub functional_mode: FunctionalMode,
     pub protocol_mode: ProtocolMode,
     pub data_mode: DataMode,
-    /// Dide the QSPI kernel clock by this to get the QSPI speed.
+    // pub address_mode: ProtocolMode,
+    // pub alternate_bytes_mode: AlternateBytesMode,
+    /// Dide the QSPI kernel clock by this to get the QSPI speed. Defaults to 4.
     pub clock_division: u8,
     pub address_size: AddressSize,
     pub dummy_cycles: u8,
     pub sampling_edge: SamplingEdge,
     pub fifo_threshold: u8,
-    /// Size of memory, in megabytes. (not megabits)
+    /// Size of memory, in megabytes. (not megabits). Defaults to 64M-bits (8 M-bytes)
     pub mem_size: u32,
 }
 
 impl Default for QspiConfig {
     fn default() -> Self {
         Self {
+            // functional_mode: FunctionalMode::IndirectRead,
             // todo: QC what you want here.
             protocol_mode: ProtocolMode::Quad,
             data_mode: DataMode::Sdr,
+            // alternate_bytes_mode: AlternateBytesMode::None,
             // For example: On an H743, this might be 240Mhz/4 = 60Mhz.
             clock_division: 4,
             address_size: AddressSize::A8,
             dummy_cycles: 0,
             sampling_edge: SamplingEdge::Falling,
             fifo_threshold: 1, // todo: What is this?
+            // This is
             mem_size: 8,
         }
     }
@@ -272,8 +288,6 @@ impl Qspi {
 
     /// Perform a memory write in indirect mode.
     pub fn write_indirect(&mut self, addr: u32, data: &[u8]) {
-        // todo: Do we want to use interrupt flats in these blocking fns?
-        self.clear_interrupt(QspiInterrupt::TransferComplete);
         // FMODE, and perhaps othe rfields can only be set when BUSY = 0.
         while self.is_busy() {}
 
@@ -355,8 +369,6 @@ impl Qspi {
 
     /// Perform a memory read in indirect mode.
     pub fn read_indirect(&mut self, addr: u32, buf: &mut [u8]) -> Result<(), QspiError> {
-        // todo: Do we want to use interrupt flats in these blocking fns?
-        self.clear_interrupt(QspiInterrupt::TransferComplete);
         while self.is_busy() {}
 
         // todo: Fix this
