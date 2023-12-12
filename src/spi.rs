@@ -576,7 +576,10 @@ where
             }
         }
 
-        unsafe { ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, byte) };
+        #[allow(invalid_reference_casting)]
+        unsafe {
+            ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, byte)
+        };
 
         Ok(())
     }

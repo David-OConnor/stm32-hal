@@ -389,6 +389,7 @@ pub use stm32wl::stm32wle5 as pac;
 // todo: U5 once SVD is out.
 
 use cfg_if::cfg_if;
+use cortex_m::{self, delay::Delay};
 
 #[cfg(not(any(feature = "f301", feature = "f302")))]
 pub mod adc;
@@ -665,6 +666,13 @@ pub fn debug_workaround() {
             rcc.ahb1enr.modify(|_, w| w.dma1en().set_bit());
         }
     }
+}
+
+/// A blocking delay, for a specified time in ms.
+pub fn delay_ms(num_ms: u32, ahb_freq: u32) {
+    let cp = unsafe { cortex_m::Peripherals::steal() };
+    let mut delay = Delay::new(cp.SYST, ahb_freq);
+    delay.delay_ms(num_ms);
 }
 
 /// In the prelude, we export helper macros.
