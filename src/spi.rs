@@ -31,6 +31,8 @@ use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 
+use defmt::println; // todo temp
+
 /// SPI error
 #[non_exhaustive]
 #[derive(Copy, Clone, Debug)]
@@ -603,6 +605,22 @@ where
         for word in words.iter_mut() {
             self.write_one(*word)?;
             *word = self.read()?;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(not(any(feature = "h5", feature = "h7")))]
+    pub fn transfer_type2<'w>(&mut self, write_buf: &'w [u8], read_buf: &'w mut [u8]) -> Result<(), SpiError> {
+        println!("Write buf: {:?}, Read buf: {:?}", write_buf, read_buf);
+        for (i_write, word) in write_buf.iter().enumerate() {
+            self.write_one(*word)?;
+            // let i_read = i + write_buf.len();
+            if i_write >= write_buf.len() - 1 {
+                let i_read = i_write - write_buf.len() + 1;
+                read_buf[i_read] = self.read()?;
+                println!("read: {:?}", read_buf[i_read]);
+            }
         }
 
         Ok(())

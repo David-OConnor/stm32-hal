@@ -32,6 +32,8 @@ stm32h7 = { version = "0.15.1", optional = true }
 stm32wb = { version = "0.15.1", optional = true }
 stm32wl = { version = "0.15.1", optional = true }
 
+defmt = "^0.3.4"
+
 # Embedded-HAL traits and related libs. Featured-gated with `embedded-hal`.
 embedded-hal = { version = "^0.2.5", features = ["unproven"], optional = true }
 # `nb` is only included when using the embedded-hal feature.
