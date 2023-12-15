@@ -682,12 +682,12 @@ pub fn delay_us(num_us: u32, ahb_freq: u32) {
     delay.delay_us(num_us);
 }
 
-/// A blocking delay, for a specified time in ns.
-pub fn delay_ns(num_ns: u32, ahb_freq: u32) {
-    let cp = unsafe { cortex_m::Peripherals::steal() };
-    let mut delay = Delay::new(cp.SYST, ahb_freq);
-    delay.delay_ns(num_ns);
-}
+// /// A blocking delay, for a specified time in ns.
+// pub fn delay_ns(num_ns: u32, ahb_freq: u32) {
+//     let cp = unsafe { cortex_m::Peripherals::steal() };
+//     let mut delay = Delay::new(cp.SYST, ahb_freq);
+//     delay.delay_ns(num_ns);
+// }
 
 /// In the prelude, we export helper macros.
 pub mod prelude {
