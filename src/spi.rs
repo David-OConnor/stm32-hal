@@ -613,15 +613,26 @@ where
     #[cfg(not(any(feature = "h5", feature = "h7")))]
     pub fn transfer_type2<'w>(&mut self, write_buf: &'w [u8], read_buf: &'w mut [u8]) -> Result<(), SpiError> {
         println!("Write buf: {:?}, Read buf: {:?}", write_buf, read_buf);
+
+        let mut i_read = 0;
+
         for (i_write, word) in write_buf.iter().enumerate() {
             self.write_one(*word)?;
-            // let i_read = i + write_buf.len();
-            if i_write >= write_buf.len() - 1 {
-                let i_read = i_write - write_buf.len() + 1;
-                read_buf[i_read] = self.read()?;
-                println!("read: {:?}", read_buf[i_read]);
-            }
+            read_buf[i_write] = self.read()?;
+            println!("read: {}", read_buf[i_write]);
         }
+
+        // for (i_write, word) in write_buf.iter().enumerate() {
+        //     self.write_one(*word)?;
+        //     // let i_read = i + write_buf.len();
+        //
+        //     if i_write >= write_buf.len() - 1 {
+        //         // let i_read = i_write - write_buf.len() + 1;
+        //         read_buf[i_read] = self.read()?;
+        //         println!("read. i:{} v:{:?}", i_read, read_buf[i_read]);
+        //         i_read += 1;
+        //     }
+        // }
 
         Ok(())
     }
