@@ -4,9 +4,8 @@ use core;
 
 use cfg_if::cfg_if;
 
-use crate::pac::FLASH;
-
 use super::{page_to_address, Flash};
+use crate::pac::FLASH;
 
 const FLASH_KEY1: u32 = 0x4567_0123;
 const FLASH_KEY2: u32 = 0xCDEF_89AB;

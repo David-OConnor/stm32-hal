@@ -1,11 +1,10 @@
 //! Hardware semaphore (HSEM)
 //! Used on STM32WB to synchronize processes running on different cores.
 
-use crate::pac::{self, HSEM, RCC};
-
 use cortex_m::interrupt::free;
-
 use paste::paste;
+
+use crate::pac::{self, HSEM, RCC};
 
 #[derive(Clone, Copy)]
 /// The core that's performing the requested operation. Core 1 is the M4 core, and Core 2 is the M0+ core.

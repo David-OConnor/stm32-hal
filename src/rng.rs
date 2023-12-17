@@ -1,13 +1,12 @@
 //! Support for the Random Number Generator (RNG) peripheral.
 
+use cfg_if::cfg_if;
 use cortex_m::interrupt::free;
 
 use crate::{
     pac::{RCC, RNG},
     util::rcc_en_reset,
 };
-
-use cfg_if::cfg_if;
 
 /// Represents a RNG peripheral.
 pub struct Rng {

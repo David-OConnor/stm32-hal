@@ -4,16 +4,15 @@
 
 // Similar in from to the `baseline` clocks module, but includes notable differendes.
 
+use cfg_if::cfg_if;
+
+#[cfg(not(any(feature = "h5", feature = "h7b3", feature = "h735")))]
+use crate::pac::SYSCFG;
 use crate::{
     clocks::RccError,
     pac::{CRS, FLASH, PWR, RCC},
     MAX_ITERS,
 };
-
-#[cfg(not(any(feature = "h5", feature = "h7b3", feature = "h735")))]
-use crate::pac::SYSCFG;
-
-use cfg_if::cfg_if;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum PllSrc {
@@ -1234,13 +1233,13 @@ impl Clocks {
             // Note: The RM appears out of date: Revision "V" allgedly supports 960_000_000
             // VCO speed, to allow a max core speed of 480Mhz.
             let vco_speed = self.vco_output_freq(self.pll_src, 1);
-            if pll_input_speed <= 2_000_000 && (vco_speed < 192_000_000 || vco_speed > 960_000_000)
-            {
+            if pll_input_speed > 2_000_000 && (vco_speed < 192_000_000 || vco_speed > 960_000_000) {
                 return Err(RccError::Speed);
             }
             // 1: Medium VCO range: 150 to 420 MHz. (VCOL)
             // Note: You may get power savings
-            if pll_input_speed > 2_000_000 && (vco_speed < 150_000_000 || vco_speed > 420_000_000) {
+            if pll_input_speed <= 2_000_000 && (vco_speed < 150_000_000 || vco_speed > 420_000_000)
+            {
                 return Err(RccError::Speed);
             }
         }

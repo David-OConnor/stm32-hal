@@ -10,7 +10,6 @@
 #![no_std]
 
 use cortex_m_rt::entry;
-
 use stm32_hal2::{
     clocks::{self, ApbPrescaler, Clocks, InputSrc, MsiRng, PllCfg, PllSrc, Pllm, Pllr},
     low_power, pac,

@@ -5,8 +5,8 @@
 
 use core::ops::Deref;
 
+use cfg_if::cfg_if;
 use cortex_m::interrupt::free;
-
 use num_traits::Float; // Float rounding.
 
 use crate::{
@@ -14,8 +14,6 @@ use crate::{
     pac::{self, RCC},
     util::rcc_en_reset,
 };
-
-use cfg_if::cfg_if;
 
 cfg_if! {
     if #[cfg(any(feature = "l4", feature = "l5", feature = "h7b3"))] {
@@ -25,13 +23,11 @@ cfg_if! {
     }
 }
 
-use crate::pac::DMA1;
-
-#[cfg(not(any(feature = "f4", feature = "l552")))]
-use crate::dma::{self, ChannelCfg, DmaChannel};
-
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
+#[cfg(not(any(feature = "f4", feature = "l552")))]
+use crate::dma::{self, ChannelCfg, DmaChannel};
+use crate::pac::DMA1;
 
 #[derive(Clone, Copy)]
 pub enum Filter {

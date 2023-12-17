@@ -1,23 +1,20 @@
 //! Support for the ADC (Analog to Digital Converter) peripheral.
 
-use cortex_m::{asm, delay::Delay, interrupt::free};
-
 use core::ptr;
 
+use cfg_if::cfg_if;
+use cortex_m::{asm, delay::Delay, interrupt::free};
+use paste::paste;
+
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::dma::DmaInput;
+#[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
+use crate::dma::{self, ChannelCfg, DmaChannel};
 use crate::{
     clocks::Clocks,
     pac::{self, RCC},
     util::rcc_en_reset,
 };
-
-use cfg_if::cfg_if;
-use paste::paste;
-
-#[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
-use crate::dma::{self, ChannelCfg, DmaChannel};
-
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::dma::DmaInput;
 
 // Address of the ADCinterval voltage reference. This address is found in the User manual. It appears
 // to be the same for most STM32s. The voltage this is measured at my vary by variant; eg 3.0 vice 3.3.

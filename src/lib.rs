@@ -199,197 +199,137 @@ compile_error!("This crate requires an MCU-specifying feature to be enabled. eg 
 // Re-export of the [svd2rust](https://crates.io/crates/svd2rust) auto-generated API for
 // stm32 peripherals.
 
+// todo: U5 once SVD is out.
+use cfg_if::cfg_if;
+use cortex_m::{self, delay::Delay};
 #[cfg(feature = "f301")]
 pub use stm32f3::stm32f301 as pac;
-
 #[cfg(feature = "f302")]
 pub use stm32f3::stm32f302 as pac;
-
 #[cfg(feature = "f303")]
 pub use stm32f3::stm32f303 as pac;
-
 #[cfg(feature = "f373")]
 pub use stm32f3::stm32f373 as pac;
-
 #[cfg(feature = "f3x4")]
 pub use stm32f3::stm32f3x4 as pac;
-
 // F4 PAC
 #[cfg(feature = "f401")]
 pub use stm32f4::stm32f401 as pac;
-
 #[cfg(feature = "f405")]
 pub use stm32f4::stm32f405 as pac;
-
 #[cfg(feature = "f407")]
 pub use stm32f4::stm32f407 as pac;
-
 #[cfg(feature = "f410")]
 pub use stm32f4::stm32f410 as pac;
-
 #[cfg(feature = "f411")]
 pub use stm32f4::stm32f411 as pac;
-
 #[cfg(feature = "f412")]
 pub use stm32f4::stm32f412 as pac;
-
 #[cfg(feature = "f413")]
 pub use stm32f4::stm32f413 as pac;
-
 #[cfg(feature = "f427")]
 pub use stm32f4::stm32f427 as pac;
-
 #[cfg(feature = "f429")]
 pub use stm32f4::stm32f429 as pac;
-
 #[cfg(feature = "f446")]
 pub use stm32f4::stm32f446 as pac;
-
 #[cfg(feature = "f469")]
 pub use stm32f4::stm32f469 as pac;
-
-// L4 PAC
-#[cfg(feature = "l4x1")]
-pub use stm32l4::stm32l4x1 as pac;
-
-#[cfg(feature = "l4x2")]
-pub use stm32l4::stm32l4x2 as pac;
-
-#[cfg(feature = "l412")]
-pub use stm32l4::stm32l412 as pac;
-
-#[cfg(feature = "l4x3")]
-pub use stm32l4::stm32l4x3 as pac;
-
-#[cfg(feature = "l4x5")]
-pub use stm32l4::stm32l4x5 as pac;
-
-#[cfg(feature = "l4x6")]
-pub use stm32l4::stm32l4x6 as pac;
-
-// L5 PAC
-#[cfg(feature = "l552")]
-pub use stm32l5::stm32l552 as pac;
-
-#[cfg(feature = "l562")]
-pub use stm32l5::stm32l562 as pac;
-
 // todo: Test and make accomodations for recently added G0 variants 50, 51, 61, B0, B1 and C1, in
 // todo the individual modules.
 
 // G0 PAC
 #[cfg(feature = "g030")]
 pub use stm32g0::stm32g030 as pac;
-
 #[cfg(feature = "g031")]
 pub use stm32g0::stm32g031 as pac;
-
 #[cfg(feature = "g041")]
 pub use stm32g0::stm32g041 as pac;
-
 #[cfg(feature = "g050")]
 pub use stm32g0::stm32g050 as pac;
-
 #[cfg(feature = "g051")]
 pub use stm32g0::stm32g051 as pac;
-
 #[cfg(feature = "g061")]
 pub use stm32g0::stm32g061 as pac;
-
 #[cfg(feature = "g070")]
 pub use stm32g0::stm32g070 as pac;
-
 #[cfg(feature = "g071")]
 pub use stm32g0::stm32g071 as pac;
-
 #[cfg(feature = "g081")]
 pub use stm32g0::stm32g081 as pac;
-
 #[cfg(feature = "g0b0")]
 pub use stm32g0::stm32g0b0 as pac;
-
 #[cfg(feature = "g0b1")]
 pub use stm32g0::stm32g0b1 as pac;
-
 #[cfg(feature = "g0c1")]
 pub use stm32g0::stm32g0c1 as pac;
-
 // G4 PAC
 #[cfg(feature = "g431")]
 pub use stm32g4::stm32g431 as pac;
-
 #[cfg(feature = "g441")]
 pub use stm32g4::stm32g441 as pac;
-
 #[cfg(feature = "g471")]
 pub use stm32g4::stm32g471 as pac;
-
 #[cfg(feature = "g473")]
 pub use stm32g4::stm32g473 as pac;
-
 #[cfg(feature = "g474")]
 pub use stm32g4::stm32g474 as pac;
-
 #[cfg(feature = "g483")]
 pub use stm32g4::stm32g483 as pac;
-
 #[cfg(feature = "g484")]
 pub use stm32g4::stm32g484 as pac;
-
 #[cfg(feature = "g491")]
 pub use stm32g4::stm32g491 as pac;
-
 #[cfg(feature = "g4a1")]
 pub use stm32g4::stm32g4a1 as pac;
-
 // H5 PAC
 #[cfg(feature = "h503")]
 pub use stm32h5::stm32h503 as pac;
-
 #[cfg(feature = "h562")]
 pub use stm32h5::stm32h562 as pac;
-
 #[cfg(feature = "h563")]
 pub use stm32h5::stm32h563 as pac;
-
 #[cfg(feature = "h573")]
 pub use stm32h5::stm32h573 as pac;
-
 // H7 PAC
 #[cfg(feature = "h735")]
 pub use stm32h7::stm32h735 as pac;
-
 #[cfg(feature = "h743")]
 pub use stm32h7::stm32h743 as pac;
-
 #[cfg(feature = "h743v")]
 pub use stm32h7::stm32h743v as pac;
-
 #[cfg(feature = "h747cm4")]
 pub use stm32h7::stm32h747cm4 as pac;
-
 #[cfg(feature = "h747cm7")]
 pub use stm32h7::stm32h747cm7 as pac;
-
 #[cfg(feature = "h753")]
 pub use stm32h7::stm32h753 as pac;
-
 #[cfg(feature = "h753v")]
 pub use stm32h7::stm32h753v as pac;
-
 #[cfg(feature = "h7b3")]
 pub use stm32h7::stm32h7b3 as pac;
-
+#[cfg(feature = "l412")]
+pub use stm32l4::stm32l412 as pac;
+// L4 PAC
+#[cfg(feature = "l4x1")]
+pub use stm32l4::stm32l4x1 as pac;
+#[cfg(feature = "l4x2")]
+pub use stm32l4::stm32l4x2 as pac;
+#[cfg(feature = "l4x3")]
+pub use stm32l4::stm32l4x3 as pac;
+#[cfg(feature = "l4x5")]
+pub use stm32l4::stm32l4x5 as pac;
+#[cfg(feature = "l4x6")]
+pub use stm32l4::stm32l4x6 as pac;
+// L5 PAC
+#[cfg(feature = "l552")]
+pub use stm32l5::stm32l552 as pac;
+#[cfg(feature = "l562")]
+pub use stm32l5::stm32l562 as pac;
 #[cfg(feature = "wb55")]
 pub use stm32wb::stm32wb55 as pac;
-
 #[cfg(feature = "wle5")]
 pub use stm32wl::stm32wle5 as pac;
-
-// todo: U5 once SVD is out.
-
-use cfg_if::cfg_if;
-use cortex_m::{self, delay::Delay};
 
 #[cfg(not(any(feature = "f301", feature = "f302")))]
 pub mod adc;

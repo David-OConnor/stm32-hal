@@ -5,27 +5,23 @@
 use core::ops::Deref;
 
 use cortex_m::interrupt::free;
-
 #[cfg(feature = "embedded_hal")]
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::dma::DmaInput;
+#[cfg(not(any(feature = "l552", feature = "h5")))]
+use crate::dma::{self, ChannelCfg, DmaChannel};
+#[cfg(feature = "g0")]
+use crate::pac::DMA as DMA1;
+#[cfg(not(any(feature = "g0", feature = "h5")))]
+use crate::pac::DMA1;
 use crate::{
     clocks::Clocks,
     pac::{self, RCC},
     util::RccPeriph,
     MAX_ITERS,
 };
-
-#[cfg(not(any(feature = "l552", feature = "h5")))]
-use crate::dma::{self, ChannelCfg, DmaChannel};
-
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::dma::DmaInput;
-
-#[cfg(feature = "g0")]
-use crate::pac::DMA as DMA1;
-#[cfg(not(any(feature = "g0", feature = "h5")))]
-use crate::pac::DMA1;
 
 macro_rules! busy_wait {
     ($regs:expr, $flag:ident) => {

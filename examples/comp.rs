@@ -5,13 +5,11 @@
 #![no_std]
 
 // These lines are part of our setup for debug printing.
-use defmt_rtt as _;
-use panic_probe as _;
-
 // Cortex-M Import
 use cortex_m::delay::Delay;
 use cortex_m_rt::entry;
-
+use defmt_rtt as _;
+use panic_probe as _;
 // Importing library
 use stm32_hal2::{
     clocks::Clocks,

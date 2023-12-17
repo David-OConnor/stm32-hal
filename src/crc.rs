@@ -2,12 +2,11 @@
 
 // Based on `stm32h7xx-hal`
 
-use core::convert::TryInto;
-use core::fmt;
-
-use crate::pac::{CRC, RCC};
+use core::{convert::TryInto, fmt};
 
 use cfg_if::cfg_if;
+
+use crate::pac::{CRC, RCC};
 
 // todo: Redo this in the style of the rest of our modules.
 

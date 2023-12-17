@@ -11,19 +11,17 @@ use cortex_m::{
     peripheral::NVIC,
 };
 use cortex_m_rt::entry;
-
-use stm32_hal2::{
-    can::{self, Can},
-    clocks::Clocks,
-    gpio::{self, Edge, OutputSpeed, Pin, PinMode, PinState, Port},
-    pac,
-};
-
 use fdcan::{
     frame::{FrameFormat, TxFrameHeader},
     id::{ExtendedId, Id},
     interrupt::{Interrupt, InterruptLine},
     FdCan, NormalOperationMode,
+};
+use stm32_hal2::{
+    can::{self, Can},
+    clocks::Clocks,
+    gpio::{self, Edge, OutputSpeed, Pin, PinMode, PinState, Port},
+    pac,
 };
 
 // Code shortener to isolate typestate syntax.

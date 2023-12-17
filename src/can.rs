@@ -3,9 +3,9 @@
 //!
 //! Requires the `can_bx` or `can_fd_g[h]` features. F3, F4, and L4 use BX CAN. G0, G4, L5, and H7 use FD CAN.
 
-use crate::{pac::RCC, util::rcc_en_reset};
-
 use cfg_if::cfg_if;
+
+use crate::{pac::RCC, util::rcc_en_reset};
 
 // todo: H5 support.
 

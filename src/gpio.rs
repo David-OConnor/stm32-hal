@@ -10,14 +10,12 @@
 use core::convert::Infallible;
 
 use cortex_m::interrupt::free;
-
-use crate::pac::{self, EXTI, RCC};
-
-#[cfg(not(feature = "h7"))]
-use crate::util::rcc_en_reset;
-
 #[cfg(feature = "embedded_hal")]
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
+
+use crate::pac::{self, EXTI, RCC};
+#[cfg(not(feature = "h7"))]
+use crate::util::rcc_en_reset;
 
 // #[cfg(not(any(
 //     // feature = "g0",
@@ -36,11 +34,11 @@ cfg_if! {
     }
 }
 
-#[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
-use crate::dma::{self, ChannelCfg, DmaChannel};
-
 use cfg_if::cfg_if;
 use paste::paste;
+
+#[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
+use crate::dma::{self, ChannelCfg, DmaChannel};
 
 #[derive(Copy, Clone)]
 #[repr(u8)]

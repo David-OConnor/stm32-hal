@@ -4,13 +4,12 @@
 #![no_std]
 #![no_main]
 
-use bxcan::{
-    filter::Mask32,
-    {Frame, StandardId},
-};
 use core::panic::PanicInfo;
+
+use bxcan::{filter::Mask32, Frame, StandardId};
 use cortex_m::delay::Delay;
 use cortex_m_rt::entry; // The runtime
+use defmt_rtt as _;
 use nb::block;
 use stm32_hal2::{
     self,
@@ -19,8 +18,6 @@ use stm32_hal2::{
     gpio::{OutputType, Pin, PinMode, Port},
     pac,
 };
-
-use defmt_rtt as _;
 
 // This marks the entrypoint of our application. The cortex_m_rt creates some
 // startup code before this, but we don't need to worry about this

@@ -3,14 +3,12 @@
 
 use core;
 
-use crate::pac::FLASH;
-
-#[cfg(feature = "h7")]
-use crate::pac::flash::BANK;
-
 use cfg_if::cfg_if;
 
 use super::{page_to_address, Flash};
+#[cfg(feature = "h7")]
+use crate::pac::flash::BANK;
+use crate::pac::FLASH;
 
 const FLASH_KEY1: u32 = 0x4567_0123;
 const FLASH_KEY2: u32 = 0xCDEF_89AB;

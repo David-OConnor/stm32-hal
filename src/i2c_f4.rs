@@ -8,17 +8,15 @@
 use core::ops::Deref;
 
 use cortex_m::interrupt::free;
-
 #[cfg(feature = "embedded_hal")]
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
+use paste::paste;
 
 use crate::{
     clocks::Clocks,
     pac::{self, i2c1, RCC},
     util::rcc_en_reset,
 };
-
-use paste::paste;
 
 #[derive(Clone, Copy)]
 pub enum I2cDevice {

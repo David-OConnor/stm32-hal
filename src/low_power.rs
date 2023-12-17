@@ -1,18 +1,15 @@
 //! This module contains code used to place the MCU in low power modes.
 //! Reference section 5.3.3: `Low power modes` of the L4 Reference Manual.
 
-#[cfg(not(feature = "h7"))]
-use crate::pac::PWR;
-
-#[cfg(any(feature = "l4", feature = "l5"))]
-use crate::pac;
+use cfg_if::cfg_if;
+use cortex_m::{asm::wfi, Peripherals};
 
 #[cfg(any(feature = "l4", feature = "l5"))]
 use crate::clocks::{Clocks, MsiRange};
-
-use cortex_m::{asm::wfi, Peripherals};
-
-use cfg_if::cfg_if;
+#[cfg(any(feature = "l4", feature = "l5"))]
+use crate::pac;
+#[cfg(not(feature = "h7"))]
+use crate::pac::PWR;
 
 // See L4 Reference Manual section 5.3.6. The values correspond to the PWR_CR1 LPMS bits.
 // todo PWR_CR1, LPMS field.

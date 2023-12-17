@@ -10,7 +10,6 @@ use cortex_m::{
     peripheral::NVIC,
 };
 use cortex_m_rt::entry;
-
 use stm32_hal::{
     adc::{Adc, AdcChannel, AdcDevice},
     clocks::Clocks,

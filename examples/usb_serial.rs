@@ -6,16 +6,13 @@
 #![no_std]
 
 use cortex_m::{self, interrupt::free, peripheral::NVIC};
-
 use cortex_m_rt::entry;
-
 use stm32_hal2::{
     clocks::{self, Clk48Src, Clocks, CrsSyncSrc},
     gpio::{Pin, PinMode, Port},
     pac,
     usb::{Peripheral, UsbBus, UsbBusType},
 };
-
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 static mut USB_BUS: Option<UsbBusAllocator<UsbBusType>> = None;

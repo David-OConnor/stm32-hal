@@ -12,7 +12,6 @@ use cortex_m::{
     peripheral::NVIC,
 };
 use cortex_m_rt::entry;
-
 use stm32_hal2::{
     adc::{
         Adc, AdcChannel, AdcDevice, AdcInterrupt, Align, ClockMode, InputType, OperationMode,

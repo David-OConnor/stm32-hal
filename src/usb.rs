@@ -20,17 +20,13 @@
  Strangely, the register modification commands for the l4x5 have OTG in their names
 */
 
-use crate::{pac, util::rcc_en_reset};
-
-#[cfg(any(feature = "l4", feature = "l5", feature = "g0"))]
-use crate::pac::PWR;
-
-use crate::pac::USB;
-
+use cfg_if::cfg_if;
 pub use stm32_usbd::UsbBus;
 use stm32_usbd::UsbPeripheral;
 
-use cfg_if::cfg_if;
+#[cfg(any(feature = "l4", feature = "l5", feature = "g0"))]
+use crate::pac::PWR;
+use crate::{pac, pac::USB, util::rcc_en_reset};
 
 /// Represents a Universal Serial Bus (USB) peripheral. Functionality is implemented through the
 /// implemented `stm32_usbd::UsbPeripheral` trait.

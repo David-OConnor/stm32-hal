@@ -1,9 +1,9 @@
 //! Inter-processor communication controller (IPCC).
 //! Used on STM32WB for communication between cores.
 
-use crate::pac::{self, IPCC, RCC};
-
 use cortex_m::interrupt::free;
+
+use crate::pac::{self, IPCC, RCC};
 
 // todo: C1_1 and C2_1 etc for channels instead of separate core enum?
 // todo: Consider macros to reduce DRY here, re Core and Channel matching.

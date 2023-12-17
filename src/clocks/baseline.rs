@@ -4,17 +4,16 @@
 
 // Similar in from to the H7 clocks module, but includes notable differendes.
 
+use cfg_if::cfg_if;
+
+#[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]
+use crate::pac::CRS;
 use crate::{
     clocks::RccError,
     pac::{self, FLASH, RCC},
     util::rcc_en_reset,
     MAX_ITERS,
 };
-
-#[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]
-use crate::pac::CRS;
-
-use cfg_if::cfg_if;
 
 // todo: WB is missing second LSI2, and perhaps other things.
 

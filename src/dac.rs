@@ -2,10 +2,9 @@
 
 use core::ops::Deref;
 
-use cortex_m::interrupt::free;
-
 #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "g4")))]
 use cortex_m::delay::Delay;
+use cortex_m::interrupt::free;
 
 use crate::{
     pac::{self, RCC},
@@ -20,16 +19,14 @@ cfg_if! {
     }
 }
 
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::dma::DmaInput;
+#[cfg(not(any(feature = "f4", feature = "l552")))]
+use crate::dma::{self, ChannelCfg, DmaChannel};
 #[cfg(feature = "g0")]
 use crate::pac::DMA as DMA1;
 #[cfg(not(feature = "g0"))]
 use crate::pac::DMA1;
-
-#[cfg(not(any(feature = "f4", feature = "l552")))]
-use crate::dma::{self, ChannelCfg, DmaChannel};
-
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::dma::DmaInput;
 
 #[derive(Clone, Copy)]
 #[repr(u8)]

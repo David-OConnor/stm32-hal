@@ -35,7 +35,8 @@ use cortex_m::{
     peripheral::NVIC,
 };
 use cortex_m_rt::entry;
-
+use defmt_rtt as _; // global logger
+use panic_probe as _;
 use stm32_hal2::{
     self,
     clocks::{Clocks, HclkPrescaler, InputSrc, PllCfg, PllSrc, SaiSrc, VosRange},
@@ -48,9 +49,6 @@ use stm32_hal2::{
     prelude::*,
     timer::{BasicTimer, MasterModeSelection, Timer, TimerInterrupt},
 };
-
-use defmt_rtt as _; // global logger
-use panic_probe as _;
 
 const FS: u32 = 48_000;
 

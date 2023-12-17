@@ -11,14 +11,14 @@ compile_error!("target only supports usbotg_hs feature");
 #[cfg(all(not(feature = "h7"), feature = "usbotg_hs"))]
 compile_error!("target only supports usbotg_fs feature");
 
+use cfg_if::cfg_if;
+pub use synopsys_usb_otg::UsbBus;
+use synopsys_usb_otg::UsbPeripheral;
+
 use crate::{
     gpio::Pin,
     pac::{self, PWR, RCC},
 };
-
-use cfg_if::cfg_if;
-pub use synopsys_usb_otg::UsbBus;
-use synopsys_usb_otg::UsbPeripheral;
 
 cfg_if! {
     if #[cfg(feature = "usbotg_hs")] {

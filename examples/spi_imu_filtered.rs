@@ -5,8 +5,12 @@
 #![no_main]
 #![no_std]
 
+use cmsis_dsp_api as dsp_api;
+use cmsis_dsp_sys as dsp_sys;
 use cortex_m::{self, asm, delay::Delay};
-
+use defmt::println;
+use defmt_rtt as _; // global logger
+use panic_probe as _;
 use stm32_hal2::{
     clocks::{self, Clocks},
     dma::{self, ChannelCfg, Dma, DmaChannel, DmaInterrupt, DmaPeriph},
@@ -14,14 +18,6 @@ use stm32_hal2::{
     pac::{self, DMA1, SPI1},
     spi::{BaudRate, Spi, SpiConfig, SpiMode},
 };
-
-use cmsis_dsp_api as dsp_api;
-use cmsis_dsp_sys as dsp_sys;
-
-use defmt::println;
-
-use defmt_rtt as _; // global logger
-use panic_probe as _;
 
 static mut WRITE_BUF: [u8; 13] = [0; 13];
 
@@ -37,6 +33,7 @@ pub struct IirInstWrapper {
 unsafe impl Send for IirInstWrapper {}
 
 mod imu {
+    use cortex_m::delay::Delay;
     ///! Module for TDK ICM-426xx IMUs. Stripped down in this example to include only what we need.
     use stm32_hal2::{
         dma::{Dma, DmaChannel, DmaPeriph},
@@ -44,8 +41,6 @@ mod imu {
         pac::{DMA1, SPI1},
         spi::Spi,
     };
-
-    use cortex_m::delay::Delay;
 
     const GYRO_FULLSCALE: f32 = 34.90659; // 2,000 degrees/sec
     const ACCEL_FULLSCALE: f32 = 156.9056; // 16 G

@@ -3,17 +3,10 @@
 
 use core::ops::Deref;
 
-use crate::{clocks::Clocks, pac::RCC, util::RccPeriph};
-
-#[cfg(not(any(feature = "g4", feature = "h7")))]
-use crate::pac::sai1 as sai;
-
-#[cfg(feature = "g4")]
-use crate::pac::sai;
-
-#[cfg(feature = "h7")]
-use crate::pac::sai4 as sai;
-
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::dma::DmaInput;
+#[cfg(not(any(feature = "f4", feature = "l552")))]
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
 #[cfg(feature = "g0")]
 use crate::pac::dma as dma_p;
 #[cfg(any(
@@ -25,12 +18,13 @@ use crate::pac::dma as dma_p;
     feature = "wb"
 ))]
 use crate::pac::dma1 as dma_p;
-
-#[cfg(not(any(feature = "f4", feature = "l552")))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
-
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::dma::DmaInput;
+#[cfg(feature = "g4")]
+use crate::pac::sai;
+#[cfg(not(any(feature = "g4", feature = "h7")))]
+use crate::pac::sai1 as sai;
+#[cfg(feature = "h7")]
+use crate::pac::sai4 as sai;
+use crate::{clocks::Clocks, pac::RCC, util::RccPeriph};
 
 #[derive(Clone, Copy)]
 #[repr(u8)]

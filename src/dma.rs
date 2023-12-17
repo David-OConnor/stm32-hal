@@ -37,19 +37,15 @@ cfg_if! {
     }
 }
 
+// use embedded_dma::{ReadBuffer, WriteBuffer};
+use cfg_if::cfg_if;
 #[cfg(any(feature = "g0", feature = "g4", feature = "wl"))]
 use pac::DMAMUX;
-
 // todo: DMAMUX2 support (Not sure if WB has it, but H7 has both).
 #[cfg(any(feature = "l5", feature = "wb", feature = "h7"))]
 use pac::DMAMUX1 as DMAMUX;
-
 #[cfg(feature = "h7")]
 use pac::DMAMUX2;
-
-// use embedded_dma::{ReadBuffer, WriteBuffer};
-
-use cfg_if::cfg_if;
 use paste::paste;
 
 // todo: Several sections of this are only correct for DMA1.

@@ -6,9 +6,9 @@
 //! Make sure not to write to a page your MCU doesn't have, or that includes your
 //! program's memory.
 
-use crate::pac::FLASH;
-
 use cfg_if::cfg_if;
+
+use crate::pac::FLASH;
 
 // Note that L5 code is simialr to other families like L4 and G4, but splits many options into
 // 2 sets; one for secure, one for nonsecure.

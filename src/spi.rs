@@ -4,6 +4,7 @@
 
 use core::{ops::Deref, ptr};
 
+use cfg_if::cfg_if;
 #[cfg(feature = "embedded_hal")]
 use embedded_hal::spi::FullDuplex;
 
@@ -12,8 +13,6 @@ use crate::{
     util::RccPeriph,
     MAX_ITERS,
 };
-
-use cfg_if::cfg_if;
 
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
@@ -25,13 +24,12 @@ cfg_if! {
     }
 }
 
-#[cfg(not(any(feature = "f4", feature = "l552")))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+use defmt::println;
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
-
-use defmt::println; // todo temp
+#[cfg(not(any(feature = "f4", feature = "l552")))]
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel}; // todo temp
 
 /// SPI error
 #[non_exhaustive]
@@ -611,7 +609,11 @@ where
     }
 
     #[cfg(not(any(feature = "h5", feature = "h7")))]
-    pub fn transfer_type2<'w>(&mut self, write_buf: &'w [u8], read_buf: &'w mut [u8]) -> Result<(), SpiError> {
+    pub fn transfer_type2<'w>(
+        &mut self,
+        write_buf: &'w [u8],
+        read_buf: &'w mut [u8],
+    ) -> Result<(), SpiError> {
         println!("Write buf: {:?}, Read buf: {:?}", write_buf, read_buf);
 
         let mut i_read = 0;

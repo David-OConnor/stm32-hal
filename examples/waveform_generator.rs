@@ -26,9 +26,9 @@ use cortex_m::{
     interrupt::{free, Mutex},
     peripheral::NVIC,
 };
-
 use cortex_m_rt::entry;
-
+use defmt_rtt as _; // global logger
+use panic_probe as _;
 use stm32_hal2::{
     self,
     clocks::Clocks,
@@ -39,9 +39,6 @@ use stm32_hal2::{
     low_power, pac,
     timer::{BasicTimer, MasterModeSelection, TimerDevice},
 };
-
-use defmt_rtt as _; // global logger
-use panic_probe as _;
 
 // Length of the lookup table used to generate sin waves etc.
 const LUT_LEN: usize = 256;

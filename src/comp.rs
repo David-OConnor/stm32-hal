@@ -10,20 +10,16 @@
 
 use core::marker::PhantomData;
 
-use crate::pac;
-
+use cfg_if::cfg_if;
 use paste::paste;
 
-use cfg_if::cfg_if;
-
+use crate::pac;
 #[cfg(any(feature = "g473"))]
 use crate::pac::comp::{C1CSR, C2CSR, C3CSR, C4CSR, C5CSR, C6CSR, C7CSR};
-
-#[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
-use crate::pac::comp1::{CFGR1, CFGR2};
-
 #[cfg(any(feature = "l4x6"))]
 use crate::pac::comp::{COMP1_CSR, COMP2_CSR};
+#[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
+use crate::pac::comp1::{CFGR1, CFGR2};
 
 // Config enums
 /// Comparator power mode

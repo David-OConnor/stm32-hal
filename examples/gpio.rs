@@ -15,7 +15,7 @@ use cortex_m::{
     peripheral::NVIC,
 };
 use cortex_m_rt::entry;
-
+use embedded_hal::digital::OutputPin;
 use stm32_hal2::{
     adc::{Adc, AdcChannel, Align, CkMode, InputType, OperationMode},
     clocks::Clocks,
@@ -23,8 +23,6 @@ use stm32_hal2::{
     low_power, pac,
     prelude::*,
 };
-
-use embedded_hal::digital::OutputPin;
 
 // Set up an output pin in a globally-accessible mutex. This is useful for accessing
 // peripherals in interrupt contexts. We use a macro imported in the

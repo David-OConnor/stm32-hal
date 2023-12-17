@@ -7,28 +7,10 @@
 
 // todo: Missing some features (like additional interrupts) on the USARTv3 peripheral . (L5, G etc)
 
-use crate::{
-    clocks::Clocks,
-    pac::{self, RCC},
-    util::{BaudPeriph, RccPeriph},
-    MAX_ITERS,
-};
-
 use core::ops::Deref;
 
+use cfg_if::cfg_if;
 use cortex_m::interrupt::free;
-
-#[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
-use crate::dma::{self, ChannelCfg, DmaChannel};
-
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::dma::DmaInput;
-
-#[cfg(feature = "g0")]
-use crate::pac::DMA as DMA1;
-#[cfg(not(any(feature = "g0", feature = "h5")))]
-use crate::pac::DMA1;
-
 #[cfg(feature = "embedded_hal")]
 use embedded_hal::{
     blocking,
@@ -37,7 +19,20 @@ use embedded_hal::{
 #[cfg(feature = "embedded_hal")]
 use nb;
 
-use cfg_if::cfg_if;
+#[cfg(any(feature = "f3", feature = "l4"))]
+use crate::dma::DmaInput;
+#[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
+use crate::dma::{self, ChannelCfg, DmaChannel};
+#[cfg(feature = "g0")]
+use crate::pac::DMA as DMA1;
+#[cfg(not(any(feature = "g0", feature = "h5")))]
+use crate::pac::DMA1;
+use crate::{
+    clocks::Clocks,
+    pac::{self, RCC},
+    util::{BaudPeriph, RccPeriph},
+    MAX_ITERS,
+};
 
 // todo: Prescaler (USART_PRESC) register on v3 (L5, G, H etc)
 

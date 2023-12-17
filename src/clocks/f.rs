@@ -1,10 +1,10 @@
+use cfg_if::cfg_if;
+
 use crate::{
     clocks::RccError,
     pac::{self, FLASH, RCC},
     util::rcc_en_reset,
 };
-
-use cfg_if::cfg_if;
 
 cfg_if! {
    if #[cfg(feature = "f3")] {

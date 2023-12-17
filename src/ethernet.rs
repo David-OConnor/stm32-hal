@@ -7,7 +7,6 @@
 use core::ops::Deref;
 
 use cortex_m::interrupt::free;
-
 use smoltcp::{
     self,
     phy::{self, Device, DeviceCapabilities, Medium},

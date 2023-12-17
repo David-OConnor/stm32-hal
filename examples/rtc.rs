@@ -14,7 +14,6 @@ use cortex_m::{
     peripheral::NVIC,
 };
 use cortex_m_rt::entry;
-
 use stm32_hal::{
     clocks::Clocks,
     low_power::{self, StopMode},
