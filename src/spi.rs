@@ -608,6 +608,7 @@ where
         Ok(())
     }
 
+    /// An alternative transfer API, using separate read and write buffers.
     #[cfg(not(any(feature = "h5", feature = "h7")))]
     pub fn transfer_type2<'w>(
         &mut self,
@@ -616,17 +617,22 @@ where
     ) -> Result<(), SpiError> {
         println!("Write buf: {:?}, Read buf: {:?}", write_buf, read_buf);
 
-        let mut i_read = 0;
-
-        for (i_write, word) in write_buf.iter().enumerate() {
+        for (i, word) in write_buf.iter().enumerate() {
             self.write_one(*word)?;
-            read_buf[i_write] = self.read()?;
-            println!("read: {}", read_buf[i_write]);
+            if i < read_buf.len() {
+                read_buf[i] = self.read()?;
+            }
         }
+
+        // for (i_read, word) in read_buf.iter().enumerate() {
+        //     self.write_one(*word)?;
+        //     read_buf[i_write] = self.read()?;
+        //     println!("read: {}", read_buf[i_write]);
+        // }
 
         // for (i_write, word) in write_buf.iter().enumerate() {
         //     self.write_one(*word)?;
-        //     // let i_read = i + write_buf.len();
+        //     let i_read = i + write_buf.len();
         //
         //     if i_write >= write_buf.len() - 1 {
         //         // let i_read = i_write - write_buf.len() + 1;

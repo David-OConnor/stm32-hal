@@ -548,7 +548,6 @@ macro_rules! access_globals {
     };
 }
 
-
 /// Syntax helper for setting global variables of the form `Mutex<RefCell<Option>>>`.
 /// eg in interrupt handlers. Ideal for non-copy-type variables that can't be initialized
 /// immediatiately.
