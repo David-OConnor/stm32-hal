@@ -615,8 +615,6 @@ where
         write_buf: &'w [u8],
         read_buf: &'w mut [u8],
     ) -> Result<(), SpiError> {
-        println!("Write buf: {:?}, Read buf: {:?}", write_buf, read_buf);
-
         for (i, word) in write_buf.iter().enumerate() {
             self.write_one(*word)?;
             if i < read_buf.len() {
@@ -804,7 +802,7 @@ where
         buf: &[u8],
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
-        dma: &mut Dma<D>,
+        dma_periph: dma::DmaPeriph,
     ) where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
@@ -846,16 +844,37 @@ where
         #[cfg(not(any(feature = "h5", feature = "h7")))]
         let num_data = len as u16;
 
-        dma.cfg_channel(
-            channel,
-            periph_addr,
-            ptr as u32,
-            num_data,
-            dma::Direction::ReadFromMem,
-            dma::DataSize::S8,
-            dma::DataSize::S8,
-            channel_cfg,
-        );
+        match dma_periph {
+            dma::DmaPeriph::Dma1 => {
+                let mut regs = unsafe { &(*DMA1::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel,
+                    periph_addr,
+                    ptr as u32,
+                    num_data,
+                    dma::Direction::ReadFromMem,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg,
+                );
+            }
+            #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
+            dma::DmaPeriph::Dma2 => {
+                let mut regs = unsafe { &(*pac::DMA2::ptr()) };
+                dma::cfg_channel(
+                    &mut regs,
+                    channel,
+                    periph_addr,
+                    ptr as u32,
+                    num_data,
+                    dma::Direction::ReadFromMem,
+                    dma::DataSize::S8,
+                    dma::DataSize::S8,
+                    channel_cfg,
+                );
+            }
+        }
 
         // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
         #[cfg(not(feature = "h7"))]
@@ -952,11 +971,7 @@ where
         channel_cfg_write: ChannelCfg,
         channel_cfg_read: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-        // dma: &mut Dma<D>,
     ) {
-        // where
-        // D: Deref<Target = dma_p::RegisterBlock>,
-        // {
         // todo: Accept u16 words too.
         let (ptr_write, len_write) = (buf_write.as_ptr(), buf_write.len());
         let (ptr_read, len_read) = (buf_read.as_mut_ptr(), buf_read.len());
