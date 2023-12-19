@@ -1,6 +1,6 @@
 [package]
 name = "stm32-hal2"
-version = "1.6.4"
+version = "1.7.0"
 authors = ["David O'Connor <david.alan.oconnor@gmail.com>"]
 description = "Hardware abstraction layer for the STM32 MCUs"
 keywords = ["no-std", "stm32", "embedded", "embedded-hal"]

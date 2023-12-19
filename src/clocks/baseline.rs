@@ -1152,7 +1152,6 @@ impl Clocks {
     pub fn reselect_input(&self) -> Result<(), RccError> {
         let rcc = unsafe { &(*RCC::ptr()) };
 
-        // let mut i = 0;
         macro_rules! wait_hang {
             ($i:expr) => {
                 $i += 1;
@@ -1192,7 +1191,7 @@ impl Clocks {
                         // Generally reverts to MSI (see note below)
                         if let StopWuck::Msi = self.stop_wuck {
                             rcc.cr.modify(|_, w| w.hsion().set_bit());
-                            i = 0;
+                            let mut i = 0;
                             while rcc.cr.read().hsirdy().bit_is_clear() {
                                 wait_hang!(i);
                             }
@@ -1213,7 +1212,7 @@ impl Clocks {
 
                         if let StopWuck::Hsi = self.stop_wuck {
                             rcc.cr.modify(|_, w| w.msion().set_bit());
-                            i = 0;
+                            let mut i = 0;
                             while rcc.cr.read().msirdy().bit_is_clear() {
                                 wait_hang!(i);
                             }
@@ -1251,7 +1250,7 @@ impl Clocks {
                     #[cfg(not(any(feature = "g0", feature = "g4")))]
                     if let StopWuck::Msi = self.stop_wuck {
                         rcc.cr.modify(|_, w| w.hsion().set_bit());
-                        i = 0;
+                        let mut i = 0;
                         while rcc.cr.read().hsirdy().bit_is_clear() {
                             wait_hang!(i);
                         }
@@ -1275,7 +1274,7 @@ impl Clocks {
 
                 if let StopWuck::Hsi = self.stop_wuck {
                     rcc.cr.modify(|_, w| w.msion().set_bit());
-                    i = 0;
+                    let mut i = 0;
                     while rcc.cr.read().msirdy().bit_is_clear() {
                         wait_hang!(i);
                     }
@@ -1287,7 +1286,7 @@ impl Clocks {
             #[cfg(feature = "g0")]
             InputSrc::Lsi => {
                 rcc.csr.modify(|_, w| w.lsion().set_bit());
-                i = 0;
+                let mut i = 0;
                 while rcc.csr.read().lsirdy().bit_is_clear() {
                     wait_hang!(i);
                 }
@@ -1297,7 +1296,7 @@ impl Clocks {
             #[cfg(feature = "g0")]
             InputSrc::Lse => {
                 rcc.bdcr.modify(|_, w| w.lseon().set_bit());
-                i = 0;
+                let mut i = 0;
                 while rcc.bdcr.read().lserdy().bit_is_clear() {
                     wait_hang!(i);
                 }
