@@ -797,15 +797,13 @@ where
     /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
     /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
     #[cfg(not(any(feature = "f4", feature = "l552")))]
-    pub unsafe fn write_dma<D>(
+    pub unsafe fn write_dma(
         &mut self,
         buf: &[u8],
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) where
-        D: Deref<Target = dma_p::RegisterBlock>,
-    {
+    ) {
         // Static write and read buffers?
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
