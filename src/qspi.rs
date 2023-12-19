@@ -356,6 +356,7 @@ impl Qspi {
 
         unsafe {
             for word in data {
+                #[allow(invalid_reference_casting)]
                 ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, *word);
             }
         }

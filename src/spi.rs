@@ -24,8 +24,6 @@ cfg_if! {
     }
 }
 
-use defmt::println;
-
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552")))]

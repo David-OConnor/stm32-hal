@@ -354,7 +354,7 @@ where
         let mut result = Self { regs, cfg };
 
         if result.cfg.smbus {
-            result.enable_smbus();
+            result.enable_smbus().ok();
         }
 
         // Enable the peripheral

@@ -255,7 +255,7 @@ where
             .modify(|_, w| w.fifoen().bit(result.config.fifo_enabled));
 
         // 2. Select the desired baud rate using the USART_BRR register.
-        result.set_baud(baud, clock_cfg);
+        result.set_baud(baud, clock_cfg).ok();
         // 3. Program the number of stop bits in USART_CR2.
         result
             .regs
@@ -460,7 +460,6 @@ where
                 if #[cfg(not(feature = "f4"))] {
                     // Wait for the next bit
 
-                    let mut i = 0;
                     #[cfg(feature = "h5")]
                     while isr!(self.regs).read().rxfne().bit_is_clear() {
                         i_ += 1;

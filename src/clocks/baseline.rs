@@ -1152,11 +1152,11 @@ impl Clocks {
     pub fn reselect_input(&self) -> Result<(), RccError> {
         let rcc = unsafe { &(*RCC::ptr()) };
 
-        let mut i = 0;
+        // let mut i = 0;
         macro_rules! wait_hang {
             ($i:expr) => {
-                i += 1;
-                if i >= MAX_ITERS {
+                $i += 1;
+                if $i >= MAX_ITERS {
                     return Err(RccError::Hardware);
                 }
             };
@@ -1169,7 +1169,7 @@ impl Clocks {
         match self.input_src {
             InputSrc::Hse(_) => {
                 rcc.cr.modify(|_, w| w.hseon().set_bit());
-                i = 0;
+                let mut i = 0;
                 while rcc.cr.read().hserdy().bit_is_clear() {
                     wait_hang!(i);
                 }
@@ -1182,7 +1182,7 @@ impl Clocks {
                 match pll_src {
                     PllSrc::Hse(_) => {
                         rcc.cr.modify(|_, w| w.hseon().set_bit());
-                        i = 0;
+                        let mut i = 0;
                         while rcc.cr.read().hserdy().bit_is_clear() {
                             wait_hang!(i);
                         }
@@ -1223,7 +1223,7 @@ impl Clocks {
                 }
 
                 rcc.cr.modify(|_, w| w.pllon().clear_bit());
-                i = 0;
+                let mut i = 0;
                 while rcc.cr.read().pllrdy().bit_is_set() {
                     wait_hang!(i);
                 }
@@ -1232,7 +1232,7 @@ impl Clocks {
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
 
                 rcc.cr.modify(|_, w| w.pllon().set_bit());
-                i = 0;
+                let mut i = 0;
                 while rcc.cr.read().pllrdy().bit_is_clear() {
                     wait_hang!(i);
                 }
