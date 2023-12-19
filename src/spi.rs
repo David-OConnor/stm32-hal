@@ -651,6 +651,7 @@ where
     fn send(&mut self, word: u8) -> Result<(), SpiError> {
         // NOTE(write_volatile) see note above
         unsafe {
+            #[allow(invalid_reference_casting)]
             ptr::write_volatile(&self.regs.txdr as *const _ as *mut u8, word);
         }
         // write CSTART to start a transaction in
@@ -675,6 +676,7 @@ where
             return Err(SpiError::Crc);
         }
 
+        #[allow(invalid_reference_casting)]
         unsafe {
             ptr::write_volatile(&self.regs.txdr as *const _ as *mut _, word);
             Ok(ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8))
