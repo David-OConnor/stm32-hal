@@ -1091,7 +1091,6 @@ where
         &mut self,
         channel: DmaChannel,
         channel2: Option<DmaChannel>,
-        // dma: &mut Dma<D>,
         dma_periph: dma::DmaPeriph,
     ) {
         // where
@@ -1121,6 +1120,32 @@ where
             w.txdmaen().clear_bit();
             w.rxdmaen().clear_bit()
         });
+    }
+
+    /// Convenience function that clears the interrupt, and stops the transfer. For use with the TC
+    /// interrupt only.
+    pub fn cleanup_dma(
+        &mut self,
+        dma_periph: dma::DmaPeriph,
+        channel_tx: DmaChannel,
+        channel_rx: Option<DmaChannel>,
+    ) {
+        // The hardware seems to automatically enable Tx too; and we use it when transmitting.
+        dma::clear_interrupt(
+            dma_periph,
+            channel_tx,
+            crate::dma::DmaInterrupt::TransferComplete,
+        );
+
+        if let Some(ch_rx) = channel_rx {
+            dma::clear_interrupt(
+                dma_periph,
+                ch_rx,
+                crate::dma::DmaInterrupt::TransferComplete,
+            );
+        }
+
+        self.stop_dma(channel_tx, channel_rx, dma_periph);
     }
 
     #[cfg(not(any(feature = "h5", feature = "h7")))]

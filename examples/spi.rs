@@ -136,7 +136,10 @@ fn DMA1_CH2() {
     free(|cs| {
         defmt::println!("SPI DMA read complete");
         access_global!(SPI, spi, cs);
-        spi.stop_dma(DmaChannel::C2, Some(DmaPeriph::Dma2), DmaPeriph::Dma2);
+        spi.stop_dma(DmaChannel::C1, Some(DmaChannel::C2), DmaPeriph::Dma2);
+
+        // See also this convenience function, which clears the interrupt and stops othe Txfer.:
+        spi.cleanup_dma(DmaPeriph::Dma2, DmaChannel::C1, Some(DmaChannel::C2));
 
         unsafe {
             // Ignore byte 0, which is the reg we passed during the write.
