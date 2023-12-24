@@ -1134,14 +1134,14 @@ where
         dma::clear_interrupt(
             dma_periph,
             channel_tx,
-            crate::dma::DmaInterrupt::TransferComplete,
+            dma::DmaInterrupt::TransferComplete,
         );
 
         if let Some(ch_rx) = channel_rx {
             dma::clear_interrupt(
                 dma_periph,
                 ch_rx,
-                crate::dma::DmaInterrupt::TransferComplete,
+                dma::DmaInterrupt::TransferComplete,
             );
         }
 
