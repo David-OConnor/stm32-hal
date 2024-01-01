@@ -14,6 +14,8 @@ use crate::{
     MAX_ITERS,
 };
 
+use defmt::println;
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum PllSrc {
     None,
@@ -1230,16 +1232,17 @@ impl Clocks {
                 return Err(RccError::Speed);
             }
             // VCO0: Wide VCO range: 192 to 836 MHz (default after reset) (VCOH)
-            // Note: The RM appears out of date: Revision "V" allgedly supports 960_000_000
+            // Note: The RM appears out of date: Revision "V" supports 960_000_000Mhz
             // VCO speed, to allow a max core speed of 480Mhz.
             let vco_speed = self.vco_output_freq(self.pll_src, 1);
-            if pll_input_speed > 2_000_000 && (vco_speed < 192_000_000 || vco_speed > 960_000_000) {
+            if pll_input_speed >= 2_000_000 && (vco_speed < 192_000_000 || vco_speed > 960_000_000) {
                 return Err(RccError::Speed);
             }
             // 1: Medium VCO range: 150 to 420 MHz. (VCOL)
             // Note: You may get power savings
-            if pll_input_speed <= 2_000_000 && (vco_speed < 150_000_000 || vco_speed > 420_000_000)
+            if pll_input_speed < 2_000_000 && (vco_speed < 150_000_000 || vco_speed > 420_000_000)
             {
+                println!("Exit D. PLL ip: {}, vco: {}", pll_input_speed, vco_speed);
                 return Err(RccError::Speed);
             }
         }

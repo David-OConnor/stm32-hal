@@ -1124,6 +1124,7 @@ where
 
     /// Convenience function that clears the interrupt, and stops the transfer. For use with the TC
     /// interrupt only.
+    #[cfg(not(any(feature = "f4", feature = "l552")))]
     pub fn cleanup_dma(
         &mut self,
         dma_periph: dma::DmaPeriph,
