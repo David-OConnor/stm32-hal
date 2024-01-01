@@ -14,8 +14,6 @@ use crate::{
     MAX_ITERS,
 };
 
-use defmt::println;
-
 #[derive(Clone, Copy, PartialEq)]
 pub enum PllSrc {
     None,
@@ -1242,7 +1240,6 @@ impl Clocks {
             // Note: You may get power savings
             if pll_input_speed < 2_000_000 && (vco_speed < 150_000_000 || vco_speed > 420_000_000)
             {
-                println!("Exit D. PLL ip: {}, vco: {}", pll_input_speed, vco_speed);
                 return Err(RccError::Speed);
             }
         }
