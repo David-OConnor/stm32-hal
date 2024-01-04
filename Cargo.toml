@@ -190,5 +190,8 @@ wb = []
 wl = []
 
 
+#[package.metadata.docs.rs]
+#features = ["h7rt", "h743v", "can_fd_h", "usbotg_hs"]
+
 # todo: w feature to combine wb and wl since they often have feature parity?
 

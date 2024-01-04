@@ -863,12 +863,10 @@ macro_rules! hal {
                     common_regs.ccr.modify(|_, w| w.vrefen().set_bit());
                     // User manual table: "Embedded internal voltage reference" states that it takes a maximum of 12 us
                     // to stabilize the internal voltage reference, we wait a little more.
-                    let cp = unsafe { cortex_m::Peripherals::steal() };
-                    let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
 
                     // todo: Not sure what to set this delay to and how to change it based on variant, so picking
                     // todo something conservative.
-                    delay.delay_us(100);
+                    crate::delay_us(100, clock_cfg.systick());
 
                     // This sample time is overkill.
                     // Note that you will need to reset the sample time if you use this channel on this
