@@ -11,9 +11,9 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use cortex_m::{
     self,
     delay::Delay,
-    interrupt::{free, Mutex},
     peripheral::NVIC,
 };
+use critical_section::{with, Mutex};
 use cortex_m_rt::entry;
 
 // These lines are part of our setup for debug printing.

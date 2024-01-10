@@ -6,9 +6,9 @@
 use core::cell::{Cell, RefCell};
 
 use cortex_m::{
-    interrupt::{free, Mutex},
     peripheral::NVIC,
 };
+use critical_section::{with, Mutex};
 use cortex_m_rt::entry;
 use stm32_hal::{
     adc::{Adc, AdcChannel, AdcDevice},
@@ -68,7 +68,7 @@ fn main() -> ! {
     adc.enable_interrupt(AdcInterrupt::EndOfConversion);
 
     // Set up our ADC as a global variable accessible in interrupts, now that it's initialized.
-    free(|cs| {
+    with(|cs| {
         ADC.borrow(cs).replace(Some(adc));
     });
 
@@ -101,7 +101,7 @@ fn EXTI0() {
     // Clear the interrupt flag, to prevent continous firing.
     gpio::clear_exti_interrupt(0);
 
-    free(|cs| {
+    with(|cs| {
         let bouncing = BOUNCING.borrow(cs);
         if bouncing.get() {
             return;
@@ -123,7 +123,7 @@ fn EXTI0() {
 #[interrupt]
 /// RTC wakeup handler
 fn RTC_WKUP() {
-    free(|cs| {
+    with(|cs| {
         unsafe {
             // Reset pending bit for interrupt line; RTC uses EXTI line 20.
             gpio::clear_exti_interrupt(20);
@@ -153,7 +153,7 @@ fn RTC_WKUP() {
 #[interrupt]
 /// Timer interrupt handler
 fn TIM3() {
-    free(|cs| {
+    with(|cs| {
         // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
         unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().clear_bit()) }
 
@@ -168,7 +168,7 @@ fn TIM3() {
 #[interrupt]
 /// We use this timer for button debounce.
 fn TIM15() {
-    free(|cs| {
+    with(|cs| {
         unsafe { (*pac::TIM15::ptr()).sr.modify(|_, w| w.uif().clear_bit()) }
 
         BOUNCING.borrow(cs).set(false);

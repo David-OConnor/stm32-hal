@@ -7,9 +7,10 @@ use core::cell::{Cell, RefCell};
 
 use cortex_m::{
     delay::Delay,
-    interrupt::{self, free, Mutex},
+    interrupt,
     peripheral::NVIC,
 };
+use critical_section::{with, Mutex};
 use cortex_m_rt::entry;
 use fdcan::{
     frame::{FrameFormat, TxFrameHeader},

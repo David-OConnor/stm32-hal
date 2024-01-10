@@ -11,10 +11,11 @@ use core::cell::{Cell, RefCell};
 
 use cortex_m::{
     delay::Delay,
-    interrupt::{self, free, Mutex},
     peripheral::NVIC,
 };
+use critical_section::{with, Mutex};
 use cortex_m_rt::entry;
+use critical_section::{with, Mutex};
 use embedded_hal::digital::OutputPin;
 use stm32_hal2::{
     adc::{Adc, AdcChannel, Align, CkMode, InputType, OperationMode},
@@ -138,7 +139,7 @@ fn main() -> ! {
     }
 
     // Make the debounce timer global, so we can acccess it in interrupt contexts.
-    free(|cs| {
+    with(|cs| {
         EXAMPLE_OUTPUT.borrow(cs).replace(Some(example_output));
         DEBOUNCE_TIMER.borrow(cs).replace(Some(debounce_timer));
     });
@@ -151,7 +152,8 @@ fn main() -> ! {
 #[interrupt]
 /// Interrupt handler for PB3. This ISR is called when this push button goes low.
 fn EXTI3() {
-    free(|cs| {
+    with(|cs| {
+        // with(|cs| {
         // Clear the interrupt flag, to prevent continous firing.
         gpio::clear_exti_interrupt(3);
 
@@ -173,7 +175,8 @@ fn EXTI3() {
 #[interrupt]
 /// Interrupt handler for PA4. This ISR is called when this push button goes low.
 fn EXTI4() {
-    free(|cs| {
+    with(|cs| {
+        // with(|cs| {
         // Clear the interrupt flag, to prevent continous firing.
         gpio::clear_exti_interrupt(4);
 
@@ -196,7 +199,7 @@ fn EXTI4() {
 #[interrupt]
 /// We use tim15 for button debounce.
 fn TIM15() {
-    free(|cs| {
+    with(|cs| {
         access_global!(DEBOUNCE_TIMER, debounce_timer, cs);
         // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
         debounce_timer.clear_interrupt(TimerInterrupt::Update);

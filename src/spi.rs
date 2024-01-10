@@ -1132,18 +1132,10 @@ where
         channel_rx: Option<DmaChannel>,
     ) {
         // The hardware seems to automatically enable Tx too; and we use it when transmitting.
-        dma::clear_interrupt(
-            dma_periph,
-            channel_tx,
-            dma::DmaInterrupt::TransferComplete,
-        );
+        dma::clear_interrupt(dma_periph, channel_tx, dma::DmaInterrupt::TransferComplete);
 
         if let Some(ch_rx) = channel_rx {
-            dma::clear_interrupt(
-                dma_periph,
-                ch_rx,
-                dma::DmaInterrupt::TransferComplete,
-            );
+            dma::clear_interrupt(dma_periph, ch_rx, dma::DmaInterrupt::TransferComplete);
         }
 
         self.stop_dma(channel_tx, channel_rx, dma_periph);

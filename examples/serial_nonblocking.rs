@@ -12,9 +12,9 @@
 use core::cell::{Cell, RefCell};
 
 use cortex_m::{
-    interrupt::{self, free, Mutex},
     peripheral::NVIC,
 };
+use critical_section::{with, Mutex};
 use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::Clocks,
@@ -68,7 +68,7 @@ fn main() -> ! {
         NVIC::unmask(interrupt::USART1);
     }
 
-    free(|cs| {
+    with(|cs| {
         // Now that we've initialized the USART peripheral, make it global.
         UART.borrow(cs).replace(Some(uart));
     });
@@ -95,7 +95,7 @@ fn main() -> ! {
 /// Non-blocking USART read interrupt handler; read to a global buffer one byte
 /// at a time as we receive them.
 fn USART1() {
-    free(|cs| {
+    with(|cs| {
         let mut u = UART.borrow(cs).borrow_mut();
         let uart = u.as_mut().unwrap();
 
@@ -119,7 +119,7 @@ fn USART1() {
 /// The transfer complete interrupt for our alternative, DMA-based approach. Note that even when
 /// using DMA, you may want to use a UART interrupt to end the transfer.
 fn DMA1_CH1() {
-    free(|cs| {
+    with(|cs| {
         let mut u = UART.borrow(cs).borrow_mut();
         let uart = u.as_mut().unwrap();
 

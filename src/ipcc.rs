@@ -1,7 +1,7 @@
 //! Inter-processor communication controller (IPCC).
 //! Used on STM32WB for communication between cores.
 
-use cortex_m::interrupt::free;
+use critical_section::with;
 
 use crate::pac::{self, IPCC, RCC};
 
@@ -66,7 +66,7 @@ impl Ipcc {
     /// Initialize the IPCC peripheral, including enabling interrupts, and enabling and resetting
     /// its RCC peripheral clock.
     pub fn new(regs: IPCC) -> Self {
-        free(|cs| {
+        with(|cs| {
             let mut rcc = unsafe { &(*RCC::ptr()) };
             rcc.ahb3enr.modify(|_, w| w.ipccen().set_bit());
             rcc.ahb3rstr.modify(|_, w| w.ipccrst().set_bit());

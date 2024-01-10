@@ -5,9 +5,9 @@
 #![no_std]
 
 use cortex_m::{
-    interrupt::{free, Mutex},
     peripheral::NVIC,
 };
+use critical_section::{with, Mutex};
 use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::Clocks,
@@ -137,7 +137,7 @@ fn main() -> ! {
 #[interrupt]
 /// Timer interrupt handler; runs when the countdown period expires.
 fn TIM3() {
-    free(|cs| {
+    with(|cs| {
         // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
         unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().clear_bit()) }
         // If you have access to the timer variable, eg through a Mutex, you can do this instead:

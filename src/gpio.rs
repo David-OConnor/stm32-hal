@@ -9,7 +9,6 @@
 #[cfg(feature = "embedded_hal")]
 use core::convert::Infallible;
 
-use cortex_m::interrupt::free;
 #[cfg(feature = "embedded_hal")]
 use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
 
@@ -498,331 +497,329 @@ impl Pin {
     pub fn new(port: Port, pin: u8, mode: PinMode) -> Self {
         assert!(pin <= 15, "Pin must be 0 - 15.");
 
-        free(|_| {
-            let rcc = unsafe { &(*RCC::ptr()) };
+        let rcc = unsafe { &(*RCC::ptr()) };
 
-            match port {
-                Port::A => {
-                    cfg_if! {
-                        if #[cfg(feature = "f3")] {
-                            if rcc.ahbenr.read().iopaen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, iopa, rcc);
-                            }
-                        } else if #[cfg(feature = "h7")] {
-                            if rcc.ahb4enr.read().gpioaen().bit_is_clear() {
-                                rcc.ahb4enr.modify(|_, w| w.gpioaen().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpioarst().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpioarst().clear_bit());
-                            }
-                        } else if #[cfg(feature = "f4")] {
-                            if rcc.ahb1enr.read().gpioaen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, gpioa, rcc);
-                            }
-                        } else if #[cfg(feature = "g0")] {
-                            if rcc.iopenr.read().iopaen().bit_is_clear() {
-                                rcc.iopenr.modify(|_, w| w.iopaen().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.ioparst().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.ioparst().clear_bit());
-                            }
-                        } else { // L4, L5, G4
-                            if rcc.ahb2enr.read().gpioaen().bit_is_clear() {
-                                rcc_en_reset!(ahb2, gpioa, rcc);
-                            }
+        match port {
+            Port::A => {
+                cfg_if! {
+                    if #[cfg(feature = "f3")] {
+                        if rcc.ahbenr.read().iopaen().bit_is_clear() {
+                            rcc_en_reset!(ahb1, iopa, rcc);
                         }
-                    }
-                }
-                Port::B => {
-                    cfg_if! {
-                        if #[cfg(feature = "f3")] {
-                            if rcc.ahbenr.read().iopben().bit_is_clear() {
-                                rcc_en_reset!(ahb1, iopb, rcc);
-                            }
-                        } else if #[cfg(feature = "h7")] {
-                            if rcc.ahb4enr.read().gpioben().bit_is_clear() {
-                                rcc.ahb4enr.modify(|_, w| w.gpioben().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiobrst().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiobrst().clear_bit());
-                            }
-                        } else if #[cfg(feature = "f4")] {
-                            if rcc.ahb1enr.read().gpioben().bit_is_clear() {
-                                rcc_en_reset!(ahb1, gpiob, rcc);
-                            }
-                        } else if #[cfg(feature = "g0")] {
-                            if rcc.iopenr.read().iopben().bit_is_clear() {
-                                rcc.iopenr.modify(|_, w| w.iopben().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iopbrst().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iopbrst().clear_bit());
-                            }
-                        } else { // L4, L5, G4
-                            if rcc.ahb2enr.read().gpioben().bit_is_clear() {
-                                rcc_en_reset!(ahb2, gpiob, rcc);
-                            }
+                    } else if #[cfg(feature = "h7")] {
+                        if rcc.ahb4enr.read().gpioaen().bit_is_clear() {
+                            rcc.ahb4enr.modify(|_, w| w.gpioaen().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpioarst().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpioarst().clear_bit());
                         }
-                    }
-                }
-                #[cfg(not(feature = "wl"))]
-                Port::C => {
-                    cfg_if! {
-                        if #[cfg(feature = "f3")] {
-                            if rcc.ahbenr.read().iopcen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, iopc, rcc);
-                            }
-                        } else if #[cfg(feature = "h7")] {
-                            if rcc.ahb4enr.read().gpiocen().bit_is_clear() {
-                                rcc.ahb4enr.modify(|_, w| w.gpiocen().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiocrst().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiocrst().clear_bit());
-                            }
-                        } else if #[cfg(feature = "f4")] {
-                            if rcc.ahb1enr.read().gpiocen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, gpioc, rcc);
-                            }
-                        } else if #[cfg(feature = "g0")] {
-                            if rcc.iopenr.read().iopcen().bit_is_clear() {
-                                rcc.iopenr.modify(|_, w| w.iopcen().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iopcrst().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iopcrst().clear_bit());
-                            }
-                        } else { // L4, L5, G4
-                            if rcc.ahb2enr.read().gpiocen().bit_is_clear() {
-                                rcc_en_reset!(ahb2, gpioc, rcc);
-                            }
+                    } else if #[cfg(feature = "f4")] {
+                        if rcc.ahb1enr.read().gpioaen().bit_is_clear() {
+                            rcc_en_reset!(ahb1, gpioa, rcc);
                         }
-                    }
-                }
-                #[cfg(not(any(feature = "f410", feature = "wl")))]
-                Port::D => {
-                    cfg_if! {
-                        if #[cfg(feature = "f3")] {
-                            if rcc.ahbenr.read().iopden().bit_is_clear() {
-                                rcc_en_reset!(ahb1, iopd, rcc);
-                            }
-                        } else if #[cfg(feature = "h7")] {
-                            if rcc.ahb4enr.read().gpioden().bit_is_clear() {
-                                rcc.ahb4enr.modify(|_, w| w.gpioden().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiodrst().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiodrst().clear_bit());
-                            }
-                        } else if #[cfg(feature = "f4")] {
-                            if rcc.ahb1enr.read().gpioden().bit_is_clear() {
-                                rcc_en_reset!(ahb1, gpiod, rcc);
-                            }
-                        } else if #[cfg(feature = "g0")] {
-                            if rcc.iopenr.read().iopden().bit_is_clear() {
-                                rcc.iopenr.modify(|_, w| w.iopden().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iopdrst().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iopdrst().clear_bit());
-                            }
-                        } else { // L4, L5, G4
-                            if rcc.ahb2enr.read().gpioden().bit_is_clear() {
-                                rcc_en_reset!(ahb2, gpiod, rcc);
-                            }
+                    } else if #[cfg(feature = "g0")] {
+                        if rcc.iopenr.read().iopaen().bit_is_clear() {
+                            rcc.iopenr.modify(|_, w| w.iopaen().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.ioparst().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.ioparst().clear_bit());
                         }
-                    }
-                }
-                #[cfg(not(any(
-                    feature = "f301",
-                    feature = "f3x4",
-                    feature = "f410",
-                    feature = "g0",
-                    feature = "wb",
-                    feature = "wl"
-                )))]
-                Port::E => {
-                    cfg_if! {
-                        if #[cfg(feature = "f3")] {
-                            if rcc.ahbenr.read().iopeen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, iope, rcc);
-                            }
-                        } else if #[cfg(feature = "h7")] {
-                            if rcc.ahb4enr.read().gpioeen().bit_is_clear() {
-                                rcc.ahb4enr.modify(|_, w| w.gpioeen().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpioerst().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpioerst().clear_bit());
-                            }
-                        } else if #[cfg(feature = "f4")] {
-                            if rcc.ahb1enr.read().gpioeen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, gpioe, rcc);
-                            }
-                        } else if #[cfg(feature = "g0")] {
-                            if rcc.iopenr.read().iopeen().bit_is_clear() {
-                                rcc.iopenr.modify(|_, w| w.iopeen().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.ioperst().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.ioperst().clear_bit());
-                            }
-                        } else { // L4, L5, G4
-                            if rcc.ahb2enr.read().gpioeen().bit_is_clear() {
-                                rcc_en_reset!(ahb2, gpioe, rcc);
-                            }
-                        }
-                    }
-                }
-                #[cfg(not(any(
-                    feature = "f401",
-                    feature = "f410",
-                    feature = "f411",
-                    feature = "l4x1",
-                    feature = "l4x2",
-                    feature = "l412",
-                    feature = "l4x3",
-                    feature = "wb",
-                    feature = "wl"
-                )))]
-                Port::F => {
-                    cfg_if! {
-                        if #[cfg(feature = "f3")] {
-                            if rcc.ahbenr.read().iopfen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, iopf, rcc);
-                            }
-                        } else if #[cfg(feature = "h7")] {
-                            if rcc.ahb4enr.read().gpiofen().bit_is_clear() {
-                                rcc.ahb4enr.modify(|_, w| w.gpiofen().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiofrst().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiofrst().clear_bit());
-                            }
-                        } else if #[cfg(feature = "f4")] {
-                            if rcc.ahb1enr.read().gpiofen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, gpiof, rcc);
-                            }
-                        } else if #[cfg(feature = "g0")] {
-                            if rcc.iopenr.read().iopfen().bit_is_clear() {
-                                rcc.iopenr.modify(|_, w| w.iopfen().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iopfrst().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iopfrst().clear_bit());
-                            }
-                        } else { // L4, L5, G4
-                            if rcc.ahb2enr.read().gpiofen().bit_is_clear() {
-                                rcc_en_reset!(ahb2, gpiof, rcc);
-                            }
-                        }
-                    }
-                }
-                #[cfg(not(any(
-                    feature = "f373",
-                    feature = "f301",
-                    feature = "f3x4",
-                    feature = "f401",
-                    feature = "f410",
-                    feature = "f411",
-                    feature = "l4x1",
-                    feature = "l4x2",
-                    feature = "l412",
-                    feature = "l4x3",
-                    feature = "g0",
-                    feature = "wb",
-                    feature = "wl"
-                )))]
-                Port::G => {
-                    cfg_if! {
-                        if #[cfg(feature = "f3")] {
-                            if rcc.ahbenr.read().iopgen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, iopg, rcc);
-                            }
-                        } else if #[cfg(feature = "h7")] {
-                            if rcc.ahb4enr.read().gpiogen().bit_is_clear() {
-                                rcc.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiogrst().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiogrst().clear_bit());
-                            }
-                        } else if #[cfg(feature = "f4")] {
-                            if rcc.ahb1enr.read().gpiogen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, gpiog, rcc);
-                            }
-                        } else if #[cfg(feature = "g0")] {
-                            if rcc.iopenr.read().iopgen().bit_is_clear() {
-                                rcc.iopenr.modify(|_, w| w.iopgen().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iopgrst().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iopgrst().clear_bit());
-                            }
-                        } else { // L4, L5, G4
-                            if rcc.ahb2enr.read().gpiogen().bit_is_clear() {
-                                rcc_en_reset!(ahb2, gpiog, rcc);
-
-                                #[cfg(feature = "l4x6")]
-                                {
-                                    let pwr = unsafe { &(*pac::PWR::ptr()) };
-                                    // RM0351: Setting this bit (IOSV) is mandatory to use PG[15:2].
-                                    rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
-                                    pwr.cr2.modify(|_, w| w.iosv().set_bit());
-                                }
-                            }
-                        }
-                    }
-                    #[cfg(feature = "l5")]
-                    // also for RM0351 L4 variants, which we don't currently support
-                    // L5 RM: "[The IOSV bit] is used to validate the VDDIO2 supply for electrical and logical isolation purpose.
-                    // Setting this bit is mandatory to use PG[15:2]."
-                    {
-                        unsafe {
-                            (*crate::pac::PWR::ptr())
-                                .cr2
-                                .modify(|_, w| w.iosv().set_bit());
-                        }
-                    }
-                }
-                #[cfg(not(any(
-                    feature = "f373",
-                    feature = "f301",
-                    feature = "f3x4",
-                    feature = "f410",
-                    feature = "l4x1",
-                    feature = "l4x2",
-                    feature = "l412",
-                    feature = "l4x3",
-                    feature = "g0",
-                    feature = "g4",
-                    feature = "wb",
-                    feature = "wl"
-                )))]
-                Port::H => {
-                    cfg_if! {
-                        if #[cfg(feature = "f3")] {
-                            if rcc.ahbenr.read().iophen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, ioph, rcc);
-                            }
-                        } else if #[cfg(feature = "h7")] {
-                            if rcc.ahb4enr.read().gpiohen().bit_is_clear() {
-                                rcc.ahb4enr.modify(|_, w| w.gpiohen().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiohrst().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpiohrst().clear_bit());
-                            }
-                        } else if #[cfg(feature = "f4")] {
-                            if rcc.ahb1enr.read().gpiohen().bit_is_clear() {
-                                rcc_en_reset!(ahb1, gpioh, rcc);
-                            }
-                        } else if #[cfg(feature = "g0")] {
-                            if rcc.iopenr.read().iophen().bit_is_clear() {
-                                rcc.iopenr.modify(|_, w| w.iophen().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iophrst().set_bit());
-                                rcc.ioprstr.modify(|_, w| w.iophrst().clear_bit());
-                            }
-                        } else { // L4, L5, G4
-                            if rcc.ahb2enr.read().gpiohen().bit_is_clear() {
-                                rcc_en_reset!(ahb2, gpioh, rcc);
-                            }
-                        }
-                    }
-                }
-                #[cfg(any(feature = "l4x6", feature = "h747cm4", feature = "h747cm7"))]
-                Port::I => {
-                    cfg_if! {
-                        if #[cfg(feature = "h7")] {
-                            if rcc.ahb4enr.read().gpioien().bit_is_clear() {
-                                rcc.ahb4enr.modify(|_, w| w.gpioien().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpioirst().set_bit());
-                                rcc.ahb4rstr.modify(|_, w| w.gpioirst().clear_bit());
-                            }
-                        } else if #[cfg(feature = "l4")] {
-                            if rcc.ahb2enr.read().gpioien().bit_is_clear() {
-                                rcc.ahb2enr.modify(|_,w| w.gpioien().set_bit());
-                                rcc.ahb2rstr.modify(|_, w| w.gpioirst().set_bit());
-                                rcc.ahb2rstr.modify(|_, w| w.gpioirst().clear_bit());
-                            }
+                    } else { // L4, L5, G4
+                        if rcc.ahb2enr.read().gpioaen().bit_is_clear() {
+                            rcc_en_reset!(ahb2, gpioa, rcc);
                         }
                     }
                 }
             }
-        });
+            Port::B => {
+                cfg_if! {
+                    if #[cfg(feature = "f3")] {
+                        if rcc.ahbenr.read().iopben().bit_is_clear() {
+                            rcc_en_reset!(ahb1, iopb, rcc);
+                        }
+                    } else if #[cfg(feature = "h7")] {
+                        if rcc.ahb4enr.read().gpioben().bit_is_clear() {
+                            rcc.ahb4enr.modify(|_, w| w.gpioben().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpiobrst().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpiobrst().clear_bit());
+                        }
+                    } else if #[cfg(feature = "f4")] {
+                        if rcc.ahb1enr.read().gpioben().bit_is_clear() {
+                            rcc_en_reset!(ahb1, gpiob, rcc);
+                        }
+                    } else if #[cfg(feature = "g0")] {
+                        if rcc.iopenr.read().iopben().bit_is_clear() {
+                            rcc.iopenr.modify(|_, w| w.iopben().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.iopbrst().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.iopbrst().clear_bit());
+                        }
+                    } else { // L4, L5, G4
+                        if rcc.ahb2enr.read().gpioben().bit_is_clear() {
+                            rcc_en_reset!(ahb2, gpiob, rcc);
+                        }
+                    }
+                }
+            }
+            #[cfg(not(feature = "wl"))]
+            Port::C => {
+                cfg_if! {
+                    if #[cfg(feature = "f3")] {
+                        if rcc.ahbenr.read().iopcen().bit_is_clear() {
+                            rcc_en_reset!(ahb1, iopc, rcc);
+                        }
+                    } else if #[cfg(feature = "h7")] {
+                        if rcc.ahb4enr.read().gpiocen().bit_is_clear() {
+                            rcc.ahb4enr.modify(|_, w| w.gpiocen().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpiocrst().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpiocrst().clear_bit());
+                        }
+                    } else if #[cfg(feature = "f4")] {
+                        if rcc.ahb1enr.read().gpiocen().bit_is_clear() {
+                            rcc_en_reset!(ahb1, gpioc, rcc);
+                        }
+                    } else if #[cfg(feature = "g0")] {
+                        if rcc.iopenr.read().iopcen().bit_is_clear() {
+                            rcc.iopenr.modify(|_, w| w.iopcen().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.iopcrst().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.iopcrst().clear_bit());
+                        }
+                    } else { // L4, L5, G4
+                        if rcc.ahb2enr.read().gpiocen().bit_is_clear() {
+                            rcc_en_reset!(ahb2, gpioc, rcc);
+                        }
+                    }
+                }
+            }
+            #[cfg(not(any(feature = "f410", feature = "wl")))]
+            Port::D => {
+                cfg_if! {
+                    if #[cfg(feature = "f3")] {
+                        if rcc.ahbenr.read().iopden().bit_is_clear() {
+                            rcc_en_reset!(ahb1, iopd, rcc);
+                        }
+                    } else if #[cfg(feature = "h7")] {
+                        if rcc.ahb4enr.read().gpioden().bit_is_clear() {
+                            rcc.ahb4enr.modify(|_, w| w.gpioden().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpiodrst().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpiodrst().clear_bit());
+                        }
+                    } else if #[cfg(feature = "f4")] {
+                        if rcc.ahb1enr.read().gpioden().bit_is_clear() {
+                            rcc_en_reset!(ahb1, gpiod, rcc);
+                        }
+                    } else if #[cfg(feature = "g0")] {
+                        if rcc.iopenr.read().iopden().bit_is_clear() {
+                            rcc.iopenr.modify(|_, w| w.iopden().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.iopdrst().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.iopdrst().clear_bit());
+                        }
+                    } else { // L4, L5, G4
+                        if rcc.ahb2enr.read().gpioden().bit_is_clear() {
+                            rcc_en_reset!(ahb2, gpiod, rcc);
+                        }
+                    }
+                }
+            }
+            #[cfg(not(any(
+                feature = "f301",
+                feature = "f3x4",
+                feature = "f410",
+                feature = "g0",
+                feature = "wb",
+                feature = "wl"
+            )))]
+            Port::E => {
+                cfg_if! {
+                    if #[cfg(feature = "f3")] {
+                        if rcc.ahbenr.read().iopeen().bit_is_clear() {
+                            rcc_en_reset!(ahb1, iope, rcc);
+                        }
+                    } else if #[cfg(feature = "h7")] {
+                        if rcc.ahb4enr.read().gpioeen().bit_is_clear() {
+                            rcc.ahb4enr.modify(|_, w| w.gpioeen().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpioerst().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpioerst().clear_bit());
+                        }
+                    } else if #[cfg(feature = "f4")] {
+                        if rcc.ahb1enr.read().gpioeen().bit_is_clear() {
+                            rcc_en_reset!(ahb1, gpioe, rcc);
+                        }
+                    } else if #[cfg(feature = "g0")] {
+                        if rcc.iopenr.read().iopeen().bit_is_clear() {
+                            rcc.iopenr.modify(|_, w| w.iopeen().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.ioperst().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.ioperst().clear_bit());
+                        }
+                    } else { // L4, L5, G4
+                        if rcc.ahb2enr.read().gpioeen().bit_is_clear() {
+                            rcc_en_reset!(ahb2, gpioe, rcc);
+                        }
+                    }
+                }
+            }
+            #[cfg(not(any(
+                feature = "f401",
+                feature = "f410",
+                feature = "f411",
+                feature = "l4x1",
+                feature = "l4x2",
+                feature = "l412",
+                feature = "l4x3",
+                feature = "wb",
+                feature = "wl"
+            )))]
+            Port::F => {
+                cfg_if! {
+                    if #[cfg(feature = "f3")] {
+                        if rcc.ahbenr.read().iopfen().bit_is_clear() {
+                            rcc_en_reset!(ahb1, iopf, rcc);
+                        }
+                    } else if #[cfg(feature = "h7")] {
+                        if rcc.ahb4enr.read().gpiofen().bit_is_clear() {
+                            rcc.ahb4enr.modify(|_, w| w.gpiofen().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpiofrst().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpiofrst().clear_bit());
+                        }
+                    } else if #[cfg(feature = "f4")] {
+                        if rcc.ahb1enr.read().gpiofen().bit_is_clear() {
+                            rcc_en_reset!(ahb1, gpiof, rcc);
+                        }
+                    } else if #[cfg(feature = "g0")] {
+                        if rcc.iopenr.read().iopfen().bit_is_clear() {
+                            rcc.iopenr.modify(|_, w| w.iopfen().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.iopfrst().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.iopfrst().clear_bit());
+                        }
+                    } else { // L4, L5, G4
+                        if rcc.ahb2enr.read().gpiofen().bit_is_clear() {
+                            rcc_en_reset!(ahb2, gpiof, rcc);
+                        }
+                    }
+                }
+            }
+            #[cfg(not(any(
+                feature = "f373",
+                feature = "f301",
+                feature = "f3x4",
+                feature = "f401",
+                feature = "f410",
+                feature = "f411",
+                feature = "l4x1",
+                feature = "l4x2",
+                feature = "l412",
+                feature = "l4x3",
+                feature = "g0",
+                feature = "wb",
+                feature = "wl"
+            )))]
+            Port::G => {
+                cfg_if! {
+                    if #[cfg(feature = "f3")] {
+                        if rcc.ahbenr.read().iopgen().bit_is_clear() {
+                            rcc_en_reset!(ahb1, iopg, rcc);
+                        }
+                    } else if #[cfg(feature = "h7")] {
+                        if rcc.ahb4enr.read().gpiogen().bit_is_clear() {
+                            rcc.ahb4enr.modify(|_, w| w.gpiogen().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpiogrst().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpiogrst().clear_bit());
+                        }
+                    } else if #[cfg(feature = "f4")] {
+                        if rcc.ahb1enr.read().gpiogen().bit_is_clear() {
+                            rcc_en_reset!(ahb1, gpiog, rcc);
+                        }
+                    } else if #[cfg(feature = "g0")] {
+                        if rcc.iopenr.read().iopgen().bit_is_clear() {
+                            rcc.iopenr.modify(|_, w| w.iopgen().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.iopgrst().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.iopgrst().clear_bit());
+                        }
+                    } else { // L4, L5, G4
+                        if rcc.ahb2enr.read().gpiogen().bit_is_clear() {
+                            rcc_en_reset!(ahb2, gpiog, rcc);
+
+                            #[cfg(feature = "l4x6")]
+                            {
+                                let pwr = unsafe { &(*pac::PWR::ptr()) };
+                                // RM0351: Setting this bit (IOSV) is mandatory to use PG[15:2].
+                                rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
+                                pwr.cr2.modify(|_, w| w.iosv().set_bit());
+                            }
+                        }
+                    }
+                }
+                #[cfg(feature = "l5")]
+                // also for RM0351 L4 variants, which we don't currently support
+                // L5 RM: "[The IOSV bit] is used to validate the VDDIO2 supply for electrical and logical isolation purpose.
+                // Setting this bit is mandatory to use PG[15:2]."
+                {
+                    unsafe {
+                        (*crate::pac::PWR::ptr())
+                            .cr2
+                            .modify(|_, w| w.iosv().set_bit());
+                    }
+                }
+            }
+            #[cfg(not(any(
+                feature = "f373",
+                feature = "f301",
+                feature = "f3x4",
+                feature = "f410",
+                feature = "l4x1",
+                feature = "l4x2",
+                feature = "l412",
+                feature = "l4x3",
+                feature = "g0",
+                feature = "g4",
+                feature = "wb",
+                feature = "wl"
+            )))]
+            Port::H => {
+                cfg_if! {
+                    if #[cfg(feature = "f3")] {
+                        if rcc.ahbenr.read().iophen().bit_is_clear() {
+                            rcc_en_reset!(ahb1, ioph, rcc);
+                        }
+                    } else if #[cfg(feature = "h7")] {
+                        if rcc.ahb4enr.read().gpiohen().bit_is_clear() {
+                            rcc.ahb4enr.modify(|_, w| w.gpiohen().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpiohrst().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpiohrst().clear_bit());
+                        }
+                    } else if #[cfg(feature = "f4")] {
+                        if rcc.ahb1enr.read().gpiohen().bit_is_clear() {
+                            rcc_en_reset!(ahb1, gpioh, rcc);
+                        }
+                    } else if #[cfg(feature = "g0")] {
+                        if rcc.iopenr.read().iophen().bit_is_clear() {
+                            rcc.iopenr.modify(|_, w| w.iophen().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.iophrst().set_bit());
+                            rcc.ioprstr.modify(|_, w| w.iophrst().clear_bit());
+                        }
+                    } else { // L4, L5, G4
+                        if rcc.ahb2enr.read().gpiohen().bit_is_clear() {
+                            rcc_en_reset!(ahb2, gpioh, rcc);
+                        }
+                    }
+                }
+            }
+            #[cfg(any(feature = "l4x6", feature = "h747cm4", feature = "h747cm7"))]
+            Port::I => {
+                cfg_if! {
+                    if #[cfg(feature = "h7")] {
+                        if rcc.ahb4enr.read().gpioien().bit_is_clear() {
+                            rcc.ahb4enr.modify(|_, w| w.gpioien().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpioirst().set_bit());
+                            rcc.ahb4rstr.modify(|_, w| w.gpioirst().clear_bit());
+                        }
+                    } else if #[cfg(feature = "l4")] {
+                        if rcc.ahb2enr.read().gpioien().bit_is_clear() {
+                            rcc.ahb2enr.modify(|_,w| w.gpioien().set_bit());
+                            rcc.ahb2rstr.modify(|_, w| w.gpioirst().set_bit());
+                            rcc.ahb2rstr.modify(|_, w| w.gpioirst().clear_bit());
+                        }
+                    }
+                }
+            }
+        }
 
         let mut result = Self { port, pin };
         result.mode(mode);

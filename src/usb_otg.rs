@@ -201,7 +201,7 @@ cfg_if! {
             fn enable() {
                 let rcc = unsafe { &*pac::RCC::ptr() };
 
-                cortex_m::interrupt::free(|_| {
+                cortex_m::interrupt::with(|_| {
                     // Enable USB peripheral
                     rcc.ahb1enr.modify(|_, w| w.usb1otgen().enabled());
 

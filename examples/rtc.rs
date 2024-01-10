@@ -10,9 +10,9 @@ use core::{
 
 use cortex_m::{
     self,
-    interrupt::{free, Mutex},
     peripheral::NVIC,
 };
+use critical_section::{with, Mutex};
 use cortex_m_rt::entry;
 use stm32_hal::{
     clocks::Clocks,
@@ -51,7 +51,7 @@ fn main() -> ! {
 
     // Store the RTC in a global variable that we can access in interrupts, using
     // critical sections.
-    free(|cs| {
+    with(|cs| {
         RTC.borrow(cs).replace(Some(rtc));
     });
 
@@ -82,7 +82,7 @@ fn main() -> ! {
 #[interrupt]
 /// RTC wakeup handler
 fn RTC_WKUP() {
-    free(|cs| {
+    with(|cs| {
         // Reset pending bit for interrupt line
         unsafe {
             (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr20().set_bit());

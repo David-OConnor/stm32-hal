@@ -3,7 +3,7 @@
 use core::ptr;
 
 use cfg_if::cfg_if;
-use cortex_m::{asm, delay::Delay, interrupt::free};
+use cortex_m::{asm, delay::Delay};
 use paste::paste;
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -372,42 +372,40 @@ macro_rules! hal {
                         vdda_calibrated: 0.
                     };
 
-                    free(|_| {
-                        let rcc = unsafe { &(*RCC::ptr()) };
-                        let common_regs = unsafe { &*pac::$ADC_COMMON::ptr() };
+                    let rcc = unsafe { &(*RCC::ptr()) };
+                    let common_regs = unsafe { &*pac::$ADC_COMMON::ptr() };
 
-                        // Note: We only perform RCC enabling, not resetingg; resetting will
-                        // cause ADCs that share RCC en/reset registers (eg ADC1/2 on G4) that
-                        // were previously set up to stop working.
-                        paste! {
-                            cfg_if! {
-                                if #[cfg(feature = "f3")] {
-                                    rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
-                                } else if #[cfg(feature = "f4")] {
-                                    rcc_en_reset!(2, [<adc $rcc_num>], rcc);
-                                } else if #[cfg(feature = "h7")] {
-                                    match device {
-                                        AdcDevice::One | AdcDevice::Two => {
-                                            rcc.ahb1enr.modify(|_, w| w.adc12en().set_bit());
-                                        }
-                                        AdcDevice::Three => {
-                                            rcc.ahb4enr.modify(|_, w| w.adc3en().set_bit());
-                                        }
+                    // Note: We only perform RCC enabling, not resetingg; resetting will
+                    // cause ADCs that share RCC en/reset registers (eg ADC1/2 on G4) that
+                    // were previously set up to stop working.
+                    paste! {
+                        cfg_if! {
+                            if #[cfg(feature = "f3")] {
+                                rcc_en_reset!(ahb1, [<adc $rcc_num>], rcc);
+                            } else if #[cfg(feature = "f4")] {
+                                rcc_en_reset!(2, [<adc $rcc_num>], rcc);
+                            } else if #[cfg(feature = "h7")] {
+                                match device {
+                                    AdcDevice::One | AdcDevice::Two => {
+                                        rcc.ahb1enr.modify(|_, w| w.adc12en().set_bit());
                                     }
-                                } else if #[cfg(any(feature = "g4"))] {
-                                    rcc.ahb2enr.modify(|_, w| w.adc12en().set_bit());
-                                    // rcc_en_reset!(ahb2, [<adc $rcc_num>], rcc);
-                                } else {  // ie L4, L5, G0(?)
-                                    rcc_en_reset!(ahb2, adc, rcc);
+                                    AdcDevice::Three => {
+                                        rcc.ahb4enr.modify(|_, w| w.adc3en().set_bit());
+                                    }
                                 }
+                            } else if #[cfg(any(feature = "g4"))] {
+                                rcc.ahb2enr.modify(|_, w| w.adc12en().set_bit());
+                                // rcc_en_reset!(ahb2, [<adc $rcc_num>], rcc);
+                            } else {  // ie L4, L5, G0(?)
+                                rcc_en_reset!(ahb2, adc, rcc);
                             }
                         }
+                    }
 
-                        common_regs.ccr.modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f3", feature = "l4x5")))] // PAC ommission l4x5?
-                            w.presc().bits(result.cfg.prescaler as u8);
-                            return w.ckmode().bits(result.cfg.clock_mode as u8);
-                        });
+                    common_regs.ccr.modify(|_, w| unsafe {
+                        #[cfg(not(any(feature = "f3", feature = "l4x5")))] // PAC ommission l4x5?
+                        w.presc().bits(result.cfg.prescaler as u8);
+                        return w.ckmode().bits(result.cfg.clock_mode as u8);
                     });
 
                     result.set_align(Align::default());

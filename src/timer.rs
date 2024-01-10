@@ -13,7 +13,6 @@ use core::{
 };
 
 use cfg_if::cfg_if;
-use cortex_m::interrupt::free;
 use paste::paste;
 #[cfg(feature = "monotonic")]
 use rtic_monotonic::Monotonic;
@@ -397,12 +396,10 @@ macro_rules! make_timer {
                 /// Initialize a DFSDM peripheral, including  enabling and resetting
                 /// its RCC peripheral clock.
                 pub fn [<new_ $tim>](regs: pac::$TIMX, freq: f32, cfg: TimerConfig, clocks: &Clocks) -> Self {
-                    free(|_| {
-                        let rcc = unsafe { &(*RCC::ptr()) };
+                    let rcc = unsafe { &(*RCC::ptr()) };
 
-                        // `freq` is in Hz.
-                        rcc_en_reset!([<apb $apb>], $tim, rcc);
-                    });
+                    // `freq` is in Hz.
+                    rcc_en_reset!([<apb $apb>], $tim, rcc);
 
                     let clock_speed = match $apb {
                         1 => clocks.apb1_timer(),
@@ -1950,10 +1947,8 @@ cfg_if! {
                 freq: f32,
                 clock_cfg: &Clocks,
             ) -> Self {
-                free(|_| {
-                    let rcc = unsafe { &(*RCC::ptr()) };
-                    R::en_reset(rcc)
-                });
+                let rcc = unsafe { &(*RCC::ptr()) };
+                R::en_reset(rcc);
 
                 // Self { regs, config, clock_speed: clocks.apb1_timer()  }
                 let mut result = Self { regs, clock_speed: clock_cfg.apb1_timer()  };

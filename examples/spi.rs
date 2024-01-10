@@ -9,9 +9,9 @@
 use core::cell::{Cell, RefCell};
 
 use cortex_m::{
-    interrupt::{free, Mutex},
     peripheral::NVIC,
 };
+use critical_section::{with, Mutex};
 use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::Clocks,
@@ -106,7 +106,7 @@ fn main() -> ! {
     defmt::println!("Data: {}", read_buf);
 
     // Assign peripheral structs as global, so we can access them in interrupts.
-    free(|cs| {
+    with(|cs| {
         DMA.borrow(cs).replace(Some(dma));
         SPI.borrow(cs).replace(Some(spi));
     });
@@ -133,7 +133,7 @@ fn DMA1_CH2() {
         DmaChannel::C2,
         DmaInterrupt::TransferComplete,
     );
-    free(|cs| {
+    with(|cs| {
         defmt::println!("SPI DMA read complete");
         access_global!(SPI, spi, cs);
         spi.stop_dma(DmaChannel::C1, Some(DmaChannel::C2), DmaPeriph::Dma2);

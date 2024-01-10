@@ -4,7 +4,6 @@ use core::ops::Deref;
 
 #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "g4")))]
 use cortex_m::delay::Delay;
-use cortex_m::interrupt::free;
 
 use crate::{
     pac::{self, RCC},
@@ -270,10 +269,8 @@ where
     /// Initialize a DAC peripheral, including  enabling and resetting
     /// its RCC peripheral clock. `vref` is in volts.
     pub fn new(regs: R, cfg: DacConfig, vref: f32) -> Self {
-        free(|_| {
-            let rcc = unsafe { &(*RCC::ptr()) };
-            R::en_reset(rcc);
-        });
+        let rcc = unsafe { &(*RCC::ptr()) };
+        R::en_reset(rcc);
 
         // See H743 RM, Table 227 for info on the buffer.
         cfg_if! {

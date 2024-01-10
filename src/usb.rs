@@ -88,29 +88,27 @@ unsafe impl UsbPeripheral for Peripheral {
     fn enable() {
         let rcc = unsafe { &*pac::RCC::ptr() };
 
-        cortex_m::interrupt::free(|_| {
-            cfg_if! {
-                if #[cfg(feature = "l4")] {
-                    cfg_if! {
-                        if #[cfg(feature = "l4x5")] {
-                            rcc_en_reset!(ahb2, otgfs, rcc); // Why does the l4x5 have USB peripheral but OTG names?
-                        } else {
-                            rcc_en_reset!(apb1, usbfs, rcc);
-                        }
+        cfg_if! {
+            if #[cfg(feature = "l4")] {
+                cfg_if! {
+                    if #[cfg(feature = "l4x5")] {
+                        rcc_en_reset!(ahb2, otgfs, rcc); // Why does the l4x5 have USB peripheral but OTG names?
+                    } else {
+                        rcc_en_reset!(apb1, usbfs, rcc);
                     }
-                } else if #[cfg(feature = "l5")] {
-                    rcc.apb1enr2.modify(|_, w| w.usbfsen().set_bit());
-                    rcc.apb1rstr2.modify(|_, w| w.usbfsrst().set_bit());
-                    rcc.apb1rstr2.modify(|_ , w| w.usbfsrst().clear_bit());
-                } else if #[cfg(feature = "wb")] {
-                    rcc.apb1enr1.modify(|_, w| w.usben().set_bit());
-                    rcc.apb1rstr1.modify(|_, w| w.usbfsrst().set_bit());
-                    rcc.apb1rstr1.modify(|_ , w| w.usbfsrst().clear_bit());
-                } else { // G0, G4
-                    rcc_en_reset!(apb1, usb, rcc);
                 }
+            } else if #[cfg(feature = "l5")] {
+                rcc.apb1enr2.modify(|_, w| w.usbfsen().set_bit());
+                rcc.apb1rstr2.modify(|_, w| w.usbfsrst().set_bit());
+                rcc.apb1rstr2.modify(|_ , w| w.usbfsrst().clear_bit());
+            } else if #[cfg(feature = "wb")] {
+                rcc.apb1enr1.modify(|_, w| w.usben().set_bit());
+                rcc.apb1rstr1.modify(|_, w| w.usbfsrst().set_bit());
+                rcc.apb1rstr1.modify(|_ , w| w.usbfsrst().clear_bit());
+            } else { // G0, G4
+                rcc_en_reset!(apb1, usb, rcc);
             }
-        });
+        }
     }
 
     fn startup_delay() {

@@ -4,7 +4,6 @@
 
 use core::ops::Deref;
 
-use cortex_m::interrupt::free;
 #[cfg(feature = "embedded_hal")]
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
@@ -174,10 +173,8 @@ where
     /// Initialize a I2C peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock. `freq` is in Hz.
     pub fn new(regs: R, cfg: I2cConfig, clocks: &Clocks) -> Self {
-        free(|_| {
-            let rcc = unsafe { &(*RCC::ptr()) };
-            R::en_reset(rcc);
-        });
+        let rcc = unsafe { &(*RCC::ptr()) };
+        R::en_reset(rcc);
 
         // Make sure the I2C unit is disabled so we can configure it
         regs.cr1.modify(|_, w| w.pe().clear_bit());

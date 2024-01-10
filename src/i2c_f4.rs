@@ -7,7 +7,7 @@
 
 use core::ops::Deref;
 
-use cortex_m::interrupt::free;
+use critical_section::with;
 #[cfg(feature = "embedded_hal")]
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 use paste::paste;
@@ -48,7 +48,7 @@ where
     R: Deref<Target = i2c1::RegisterBlock>,
 {
     pub fn new(regs: R, device: I2cDevice, speed: u32, clocks: &Clocks) -> Self {
-        free(|_| {
+        with(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
 
             match device {

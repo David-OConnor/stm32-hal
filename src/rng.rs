@@ -1,7 +1,6 @@
 //! Support for the Random Number Generator (RNG) peripheral.
 
 use cfg_if::cfg_if;
-use cortex_m::interrupt::free;
 
 use crate::{
     pac::{RCC, RNG},
@@ -17,19 +16,17 @@ impl Rng {
     /// Initialize a RNG peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock.
     pub fn new(regs: RNG) -> Self {
-        free(|_| {
-            let rcc = unsafe { &(*RCC::ptr()) };
+        let rcc = unsafe { &(*RCC::ptr()) };
 
-            cfg_if! {
-                if #[cfg(feature = "g0")] {
-                    rcc_en_reset!(ahb1, rng, rcc);
-                } else if #[cfg(any(feature = "wb", feature = "wl"))] {
-                    rcc_en_reset!(ahb3, rng, rcc);
-                } else {
-                    rcc_en_reset!(ahb2, rng, rcc);
-                }
+        cfg_if! {
+            if #[cfg(feature = "g0")] {
+                rcc_en_reset!(ahb1, rng, rcc);
+            } else if #[cfg(any(feature = "wb", feature = "wl"))] {
+                rcc_en_reset!(ahb3, rng, rcc);
+            } else {
+                rcc_en_reset!(ahb2, rng, rcc);
             }
-        });
+        }
 
         regs.cr.modify(|_, w| w.rngen().set_bit());
 

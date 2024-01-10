@@ -1,7 +1,7 @@
 //! Hardware semaphore (HSEM)
 //! Used on STM32WB to synchronize processes running on different cores.
 
-use cortex_m::interrupt::free;
+use critical_section::with;
 use paste::paste;
 
 use crate::pac::{self, HSEM, RCC};
@@ -34,7 +34,7 @@ macro_rules! set_register_sem {
 /// Represents an Hardware Semiphore (HSEM) peripheral.
 impl Hsem {
     pub fn new(regs: HSEM) -> Self {
-        free(|cs| {
+        with(|cs| {
             let mut rcc = unsafe { &(*RCC::ptr()) };
 
             rcc.ahb3enr.modify(|_, w| w.hsemen().set_bit());

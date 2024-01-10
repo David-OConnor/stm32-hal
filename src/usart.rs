@@ -10,7 +10,6 @@
 use core::ops::Deref;
 
 use cfg_if::cfg_if;
-use cortex_m::interrupt::free;
 #[cfg(feature = "embedded_hal")]
 use embedded_hal::{
     blocking,
@@ -201,10 +200,8 @@ where
     /// Initialize a U[s]ART peripheral, including configuration register writes, and enabling and
     /// resetting its RCC peripheral clock. `baud` is the baud rate, in bytes-per-second.
     pub fn new(regs: R, baud: u32, config: UsartConfig, clock_cfg: &Clocks) -> Self {
-        free(|_| {
-            let rcc = unsafe { &(*RCC::ptr()) };
-            R::en_reset(rcc);
-        });
+        let rcc = unsafe { &(*RCC::ptr()) };
+        R::en_reset(rcc);
 
         let mut result = Self { regs, baud, config };
 

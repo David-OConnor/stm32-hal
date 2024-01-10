@@ -6,7 +6,7 @@
 use core::ops::Deref;
 
 use cfg_if::cfg_if;
-use cortex_m::interrupt::free;
+use critical_section::with;
 use num_traits::Float; // Float rounding.
 
 use crate::{
@@ -200,7 +200,7 @@ where
     /// Initialize a DFSDM peripheral, including  enabling and resetting
     /// its RCC peripheral clock.
     pub fn new(regs: R, config: DfsdmConfig, clock_cfg: &Clocks) -> Self {
-        free(|_| {
+        with(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
             #[cfg(not(feature = "l4"))]
             rcc_en_reset!(apb2, dfsdm1, rcc);

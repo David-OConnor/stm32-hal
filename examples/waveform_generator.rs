@@ -23,9 +23,9 @@ use core::{
 use cortex_m::{
     self,
     delay::Delay,
-    interrupt::{free, Mutex},
     peripheral::NVIC,
 };
+use critical_section::{with, Mutex};
 use cortex_m_rt::entry;
 use defmt_rtt as _; // global logger
 use panic_probe as _;

@@ -18,8 +18,6 @@ use core::{
     sync::atomic::{self, Ordering},
 };
 
-use cortex_m::interrupt::free;
-
 use crate::{
     pac::{self, RCC},
     util::rcc_en_reset,
@@ -592,18 +590,16 @@ where
     /// its RCC peripheral clock.
     pub fn new(regs: D) -> Self {
         // todo: Enable RCC for DMA 2 etc!
-        free(|_| {
-            let rcc = unsafe { &(*RCC::ptr()) };
-            cfg_if! {
-                if #[cfg(feature = "f3")] {
-                    rcc.ahbenr.modify(|_, w| w.dma1en().set_bit()); // no dmarst on F3.
-                } else if #[cfg(feature = "g0")] {
-                    rcc_en_reset!(ahb1, dma, rcc);
-                } else {
-                    rcc_en_reset!(ahb1, dma1, rcc);
-                }
+        let rcc = unsafe { &(*RCC::ptr()) };
+        cfg_if! {
+            if #[cfg(feature = "f3")] {
+                rcc.ahbenr.modify(|_, w| w.dma1en().set_bit()); // no dmarst on F3.
+            } else if #[cfg(feature = "g0")] {
+                rcc_en_reset!(ahb1, dma, rcc);
+            } else {
+                rcc_en_reset!(ahb1, dma1, rcc);
             }
-        });
+        }
 
         Self { regs }
     }
@@ -1985,20 +1981,18 @@ pub fn mux2(periph: DmaPeriph, channel: DmaChannel, input: DmaInput2, mux: &mut 
 /// for example)
 #[cfg(any(feature = "g4", feature = "wb"))]
 pub fn enable_mux1() {
-    free(|_| {
-        let rcc = unsafe { &(*RCC::ptr()) };
+    let rcc = unsafe { &(*RCC::ptr()) };
 
-        cfg_if! {
-            if #[cfg(feature = "g4")] {
-                // Note inconsistency between `dmamux` and `dmamux`; can't use macro here.
-                rcc.ahb1enr.modify(|_, w| w.dmamuxen().set_bit());
-                rcc.ahb1rstr.modify(|_, w| w.dmamux1rst().set_bit());
-                rcc.ahb1rstr.modify(|_, w| w.dmamux1rst().clear_bit());
-            } else {
-                rcc_en_reset!(ahb1, dmamux, rcc);
-            }
+    cfg_if! {
+        if #[cfg(feature = "g4")] {
+            // Note inconsistency between `dmamux` and `dmamux`; can't use macro here.
+            rcc.ahb1enr.modify(|_, w| w.dmamuxen().set_bit());
+            rcc.ahb1rstr.modify(|_, w| w.dmamux1rst().set_bit());
+            rcc.ahb1rstr.modify(|_, w| w.dmamux1rst().clear_bit());
+        } else {
+            rcc_en_reset!(ahb1, dmamux, rcc);
         }
-    });
+    }
 }
 
 #[cfg(feature = "l4")] // Only required on L4
@@ -2039,18 +2033,16 @@ macro_rules! make_chan_struct {
                 /// constructor.
                 pub fn new() -> Self {
                     // todo: Enable RCC for DMA 2 etc!
-                    free(|_| {
-                        let rcc = unsafe { &(*RCC::ptr()) };
-                        cfg_if! {
-                            if #[cfg(feature = "f3")] {
-                                rcc.ahbenr.modify(|_, w| w.dma1en().set_bit()); // no dmarst on F3.
-                            } else if #[cfg(feature = "g0")] {
-                                rcc_en_reset!(ahb1, dma, rcc);
-                            } else {
-                                rcc_en_reset!(ahb1, [<dma $periph>], rcc);
-                            }
+                    let rcc = unsafe { &(*RCC::ptr()) };
+                    cfg_if! {
+                        if #[cfg(feature = "f3")] {
+                            rcc.ahbenr.modify(|_, w| w.dma1en().set_bit()); // no dmarst on F3.
+                        } else if #[cfg(feature = "g0")] {
+                            rcc_en_reset!(ahb1, dma, rcc);
+                        } else {
+                            rcc_en_reset!(ahb1, [<dma $periph>], rcc);
                         }
-                    });
+                    }
 
                     Self { }
                 }

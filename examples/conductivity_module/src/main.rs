@@ -13,9 +13,9 @@ use core::{
 
 use cortex_m::{
     self,
-    interrupt::{free, Mutex},
     peripheral::NVIC,
 };
+use critical_section::{with, Mutex};
 
 use cortex_m_rt::entry;
 
@@ -141,7 +141,7 @@ fn main() -> ! {
     let sensor = ec::EcSensor::new(dac, pwm_timer, (gain0, gain1, gain2), 1.0);
 
     // Set up the global static variables so we can access them during interrupts.
-    free(|cs| {
+    with(|cs| {
         I2C.borrow(cs).replace(Some(i2c));
         SENSOR.borrow(cs).replace(Some(sensor));
         UART.borrow(cs).replace(Some(uart));
@@ -161,7 +161,7 @@ fn main() -> ! {
 /// what information is requested using a simple protocol, and adjusts setting,
 /// and sends readings over UART as required.
 fn USART1() {
-    free(|cs| {
+    with(|cs| {
         access_global!(UART, uart, cs);
         uart.clear_interrupt(UsartInterrupt::CharDetect(0));
 

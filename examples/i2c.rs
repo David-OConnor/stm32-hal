@@ -9,9 +9,9 @@
 use core::cell::{Cell, RefCell};
 
 use cortex_m::{
-    interrupt::{free, Mutex},
     peripheral::NVIC,
 };
+use critical_section::{with, Mutex};
 use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::Clocks,

@@ -5,7 +5,7 @@
 #![no_main]
 #![no_std]
 
-use cortex_m::{self, interrupt::free, peripheral::NVIC};
+use cortex_m::{self, peripheral::NVIC};
 use cortex_m_rt::entry;
 use stm32_hal2::{
     clocks::{self, Clk48Src, Clocks, CrsSyncSrc},
@@ -66,7 +66,7 @@ fn main() -> ! {
         .device_class(USB_CLASS_CDC)
         .build();
 
-    free(|cs| {
+    with(|cs| {
         USB_DEVICE.borrow(cs).replace(Some(usb_dev));
         USB_SERIAL.borrow(cs).replace(Some(usb_serial));
     });
@@ -105,7 +105,7 @@ fn main() -> ! {
 /// Note that the name of this handler depends on the variant assigned in the associated PAC.
 /// Other examples include `USB_LP` (G4), and `USB_HS` (H7)
 fn USB_FS() {
-    free(|cs| {
+    with(|cs| {
         access_global!(USB_SERIAL, usb_serial, cs);
         access_global!(USB_DEVICE, usb_device, cs);
 

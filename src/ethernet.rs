@@ -6,7 +6,7 @@
 
 use core::ops::Deref;
 
-use cortex_m::interrupt::free;
+use critical_section::with;
 use smoltcp::{
     self,
     phy::{self, Device, DeviceCapabilities, Medium},
@@ -50,7 +50,7 @@ where
     /// Initialize an ethernet peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock.
     pub fn new(regs: R, cfg: EthConfig) -> Self {
-        free(|_| {
+        with(|_| {
             let rcc = unsafe { &(*RCC::ptr()) };
             R::en_reset(rcc);
         });
