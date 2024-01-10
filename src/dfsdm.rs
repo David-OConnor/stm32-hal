@@ -6,7 +6,6 @@
 use core::ops::Deref;
 
 use cfg_if::cfg_if;
-use critical_section::with;
 use num_traits::Float; // Float rounding.
 
 use crate::{
@@ -200,13 +199,11 @@ where
     /// Initialize a DFSDM peripheral, including  enabling and resetting
     /// its RCC peripheral clock.
     pub fn new(regs: R, config: DfsdmConfig, clock_cfg: &Clocks) -> Self {
-        with(|_| {
-            let rcc = unsafe { &(*RCC::ptr()) };
-            #[cfg(not(feature = "l4"))]
-            rcc_en_reset!(apb2, dfsdm1, rcc);
-            #[cfg(feature = "l4")]
-            rcc_en_reset!(apb2, dfsdm, rcc);
-        });
+        let rcc = unsafe { &(*RCC::ptr()) };
+        #[cfg(not(feature = "l4"))]
+        rcc_en_reset!(apb2, dfsdm1, rcc);
+        #[cfg(feature = "l4")]
+        rcc_en_reset!(apb2, dfsdm, rcc);
 
         // The frequency of this CKOUT signal is derived from DFSDM clock or from audio clock (see
         // CKOUTSRC bit in CH0CFGR1 register) divided by a predivider (see CKOUTDIV
