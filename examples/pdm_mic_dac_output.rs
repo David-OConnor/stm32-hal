@@ -28,14 +28,9 @@ use core::{
     sync::atomic::{self, AtomicBool, AtomicU32, AtomicU8, AtomicUsize, Ordering},
 };
 
-use cortex_m::{
-    self, asm,
-    delay::Delay,
-    peripheral::NVIC,
-};
-use critical_section::{with, Mutex};
-
+use cortex_m::{self, asm, delay::Delay, peripheral::NVIC};
 use cortex_m_rt::entry;
+use critical_section::{with, Mutex};
 use defmt_rtt as _; // global logger
 use panic_probe as _;
 use stm32_hal2::{

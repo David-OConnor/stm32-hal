@@ -9,11 +9,7 @@
 
 use core::cell::{Cell, RefCell};
 
-use cortex_m::{
-    delay::Delay,
-    peripheral::NVIC,
-};
-use critical_section::{with, Mutex};
+use cortex_m::{delay::Delay, peripheral::NVIC};
 use cortex_m_rt::entry;
 use critical_section::{with, Mutex};
 use embedded_hal::digital::OutputPin;

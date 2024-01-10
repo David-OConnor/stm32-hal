@@ -5,13 +5,9 @@
 
 use core::cell::{Cell, RefCell};
 
-use cortex_m::{
-    delay::Delay,
-    interrupt,
-    peripheral::NVIC,
-};
-use critical_section::{with, Mutex};
+use cortex_m::{delay::Delay, interrupt, peripheral::NVIC};
 use cortex_m_rt::entry;
+use critical_section::{with, Mutex};
 use fdcan::{
     frame::{FrameFormat, TxFrameHeader},
     id::{ExtendedId, Id},

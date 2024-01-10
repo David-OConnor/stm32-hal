@@ -7,7 +7,6 @@
 
 use core::ops::Deref;
 
-use critical_section::with;
 #[cfg(feature = "embedded_hal")]
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 use paste::paste;
@@ -48,22 +47,20 @@ where
     R: Deref<Target = i2c1::RegisterBlock>,
 {
     pub fn new(regs: R, device: I2cDevice, speed: u32, clocks: &Clocks) -> Self {
-        with(|_| {
-            let rcc = unsafe { &(*RCC::ptr()) };
+        let rcc = unsafe { &(*RCC::ptr()) };
 
-            match device {
-                I2cDevice::One => {
-                    rcc_en_reset!(apb1, i2c1, rcc);
-                }
-                I2cDevice::Two => {
-                    rcc_en_reset!(apb1, i2c2, rcc);
-                }
-                #[cfg(not(feature = "f410"))]
-                I2cDevice::Three => {
-                    rcc_en_reset!(apb1, i2c3, rcc);
-                }
+        match device {
+            I2cDevice::One => {
+                rcc_en_reset!(apb1, i2c1, rcc);
             }
-        });
+            I2cDevice::Two => {
+                rcc_en_reset!(apb1, i2c2, rcc);
+            }
+            #[cfg(not(feature = "f410"))]
+            I2cDevice::Three => {
+                rcc_en_reset!(apb1, i2c3, rcc);
+            }
+        }
 
         let result = Self { regs };
         result.i2c_init(speed, clocks.apb1());
