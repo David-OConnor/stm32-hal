@@ -1,7 +1,6 @@
 //! Hardware semaphore (HSEM)
 //! Used on STM32WB to synchronize processes running on different cores.
 
-use critical_section::with;
 use paste::paste;
 
 use crate::pac::{self, HSEM, RCC};
@@ -34,18 +33,16 @@ macro_rules! set_register_sem {
 /// Represents an Hardware Semiphore (HSEM) peripheral.
 impl Hsem {
     pub fn new(regs: HSEM) -> Self {
-        with(|cs| {
-            let mut rcc = unsafe { &(*RCC::ptr()) };
+        let mut rcc = unsafe { &(*RCC::ptr()) };
 
-            rcc.ahb3enr.modify(|_, w| w.hsemen().set_bit());
-            rcc.ahb3rstr.modify(|_, w| w.hsemrst().set_bit());
-            rcc.ahb3rstr.modify(|_, w| w.hsemrst().clear_bit());
+        rcc.ahb3enr.modify(|_, w| w.hsemen().set_bit());
+        rcc.ahb3rstr.modify(|_, w| w.hsemrst().set_bit());
+        rcc.ahb3rstr.modify(|_, w| w.hsemrst().clear_bit());
 
-            // todo: Why are these missing here and on IPCC `new`?
-            // rcc.ahb4enr.modify(|_, w| w.hsemen().set_bit());
-            // rcc.ahb4rstr.modify(|_, w| w.hsemrst().set_bit());
-            // rcc.ahb4rstr.modify(|_, w| w.hsemrst().clear_bit());
-        });
+        // todo: Why are these missing here and on IPCC `new`?
+        // rcc.ahb4enr.modify(|_, w| w.hsemen().set_bit());
+        // rcc.ahb4rstr.modify(|_, w| w.hsemrst().set_bit());
+        // rcc.ahb4rstr.modify(|_, w| w.hsemrst().clear_bit());
 
         Self { regs }
     }
