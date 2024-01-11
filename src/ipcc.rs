@@ -1,8 +1,6 @@
 //! Inter-processor communication controller (IPCC).
 //! Used on STM32WB for communication between cores.
 
-use critical_section::with;
-
 use crate::pac::{self, IPCC, RCC};
 
 // todo: C1_1 and C2_1 etc for channels instead of separate core enum?
@@ -66,22 +64,20 @@ impl Ipcc {
     /// Initialize the IPCC peripheral, including enabling interrupts, and enabling and resetting
     /// its RCC peripheral clock.
     pub fn new(regs: IPCC) -> Self {
-        with(|cs| {
-            let mut rcc = unsafe { &(*RCC::ptr()) };
-            rcc.ahb3enr.modify(|_, w| w.ipccen().set_bit());
-            rcc.ahb3rstr.modify(|_, w| w.ipccrst().set_bit());
-            rcc.ahb3rstr.modify(|_, w| w.ipccrst().clear_bit());
+        let mut rcc = unsafe { &(*RCC::ptr()) };
+        rcc.ahb3enr.modify(|_, w| w.ipccen().set_bit());
+        rcc.ahb3rstr.modify(|_, w| w.ipccrst().set_bit());
+        rcc.ahb3rstr.modify(|_, w| w.ipccrst().clear_bit());
 
-            // todo?
-            // rcc.ahb4enr.modify(|_, w| w.ipccen().set_bit());
-            // rcc.ahb4rstr.modify(|_, w| w.ipccrst().set_bit());
-            // rcc.ahb4rstr.modify(|_, w| w.ipccrst().clear_bit());
+        // todo?
+        // rcc.ahb4enr.modify(|_, w| w.ipccen().set_bit());
+        // rcc.ahb4rstr.modify(|_, w| w.ipccrst().set_bit());
+        // rcc.ahb4rstr.modify(|_, w| w.ipccrst().clear_bit());
 
-            // todo: Got this line from stm32wb-hal.
-            // Single memory access delay after peripheral is enabled.
-            // This dummy read uses `read_volatile` internally, so it shouldn't be removed by an optimizer.
-            let _ = rcc.ahb3enr.read().ipccen();
-        });
+        // todo: Got this line from stm32wb-hal.
+        // Single memory access delay after peripheral is enabled.
+        // This dummy read uses `read_volatile` internally, so it shouldn't be removed by an optimizer.
+        let _ = rcc.ahb3enr.read().ipccen();
 
         // Enable interrupts.
         let mut result = Self { regs };
