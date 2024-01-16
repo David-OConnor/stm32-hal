@@ -239,10 +239,8 @@ where
     pub fn new(regs: R, prf: Prf) -> Self {
         // (A critical section here prevents race conditions, while preventing
         // the user from needing to pass RCC in explicitly.)
-        with(|cs| {
-            let mut rcc = unsafe { &(*RCC::ptr()) };
-            rcc_en_reset!(apb1, fcradar1, rcc);
-        });
+        let mut rcc = unsafe { &(*RCC::ptr()) };
+        rcc_en_reset!(apb1, fcradar1, rcc);
 
         regs.cr.modify(|_, w| w.prf().bit(prf as u8 != 0));        
 

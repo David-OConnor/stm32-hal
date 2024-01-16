@@ -19,12 +19,12 @@ use rtic_monotonic::Monotonic;
 
 cfg_if! {
     if #[cfg(feature = "embedded_hal")] {
-        use embedded_hal::{
-            blocking::delay::{DelayMs, DelayUs},
-            timer::CountDown,
-        };
-        use embedded_time::{rate::Hertz, duration};
-        use void::Void;
+        // use embedded_hal::{
+        //     blocking::delay::{DelayMs, DelayUs},
+        //     timer::CountDown,
+        // };
+        // use embedded_time::{rate::Hertz, duration};
+        // use void::Void;
     }
 }
 
@@ -920,130 +920,130 @@ macro_rules! make_timer {
             }
         }
 
-        #[cfg(feature = "embedded_hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-        impl DelayMs<u32> for Timer<pac::$TIMX> {
-            fn delay_ms(&mut self, ms: u32) {
-                let ms_to_s = ms as f32 / 1_000.;
-                self.set_freq(1. / (ms_to_s)).ok();
-                self.reset_count();
-                self.enable();
-                while self.get_uif() == false {}
-                self.clear_uif();
-                self.disable();
-            }
-        }
+        // #[cfg(feature = "embedded_hal")]
+        // // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
+        // impl DelayMs<u32> for Timer<pac::$TIMX> {
+        //     fn delay_ms(&mut self, ms: u32) {
+        //         let ms_to_s = ms as f32 / 1_000.;
+        //         self.set_freq(1. / (ms_to_s)).ok();
+        //         self.reset_count();
+        //         self.enable();
+        //         while self.get_uif() == false {}
+        //         self.clear_uif();
+        //         self.disable();
+        //     }
+        // }
+        //
+        // #[cfg(feature = "embedded_hal")]
+        // // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
+        // impl DelayMs<u16> for Timer<pac::$TIMX> {
+        //     fn delay_ms(&mut self, ms: u16) {
+        //         self.delay_ms(ms as u32)
+        //     }
+        // }
+        //
+        // #[cfg(feature = "embedded_hal")]
+        // // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
+        // impl DelayMs<u8> for Timer<pac::$TIMX> {
+        //     fn delay_ms(&mut self, ms: u8) {
+        //         self.delay_ms(ms as u32)
+        //     }
+        // }
+        //
+        // #[cfg(feature = "embedded_hal")]
+        // // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
+        // impl DelayUs<u32> for Timer<pac::$TIMX> {
+        //     fn delay_us(&mut self, us: u32) {
+        //         let us_to_s = us as f32 / 1_000_000.;
+        //         self.set_freq(1. / (us_to_s)).ok();
+        //         self.reset_count();
+        //         self.enable();
+        //         while self.get_uif() == false {}
+        //         self.clear_uif();
+        //         self.disable();
+        //     }
+        // }
+        //
+        // #[cfg(feature = "embedded_hal")]
+        // // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
+        // impl DelayUs<u16> for Timer<pac::$TIMX> {
+        //     fn delay_us(&mut self, us: u16) {
+        //         self.delay_us(us as u32);
+        //     }
+        // }
+        //
+        // #[cfg(feature = "embedded_hal")]
+        // // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
+        // impl DelayUs<u8> for Timer<pac::$TIMX> {
+        //     fn delay_us(&mut self, us: u8) {
+        //         self.delay_us(us as u32);
+        //     }
+        // }
 
-        #[cfg(feature = "embedded_hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-        impl DelayMs<u16> for Timer<pac::$TIMX> {
-            fn delay_ms(&mut self, ms: u16) {
-                self.delay_ms(ms as u32)
-            }
-        }
-
-        #[cfg(feature = "embedded_hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-        impl DelayMs<u8> for Timer<pac::$TIMX> {
-            fn delay_ms(&mut self, ms: u8) {
-                self.delay_ms(ms as u32)
-            }
-        }
-
-        #[cfg(feature = "embedded_hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-        impl DelayUs<u32> for Timer<pac::$TIMX> {
-            fn delay_us(&mut self, us: u32) {
-                let us_to_s = us as f32 / 1_000_000.;
-                self.set_freq(1. / (us_to_s)).ok();
-                self.reset_count();
-                self.enable();
-                while self.get_uif() == false {}
-                self.clear_uif();
-                self.disable();
-            }
-        }
-
-        #[cfg(feature = "embedded_hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-        impl DelayUs<u16> for Timer<pac::$TIMX> {
-            fn delay_us(&mut self, us: u16) {
-                self.delay_us(us as u32);
-            }
-        }
-
-        #[cfg(feature = "embedded_hal")]
-        // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-        impl DelayUs<u8> for Timer<pac::$TIMX> {
-            fn delay_us(&mut self, us: u8) {
-                self.delay_us(us as u32);
-            }
-        }
-
-        /// Implementation of the embedded-hal CountDown trait
-        /// To use Countdown it is prefered to configure new timer in Oneshot mode :
-        ///
-        ///     Example :
-        ///     llet tim16_conf = TimerConfig {
-        ///             one_pulse_mode: true,
-        ///             ..Default::default()
-        ///         };
-        ///
-        ///     Creation of timer. Here the freq arg value is not important, the freq
-        ///         will be changed for each CountDown start timer depends on delay wanted.
-        ///
-        /// let mut tim16: Timer<TIM16> = Timer::new_tim16(dp.TIM16, 1000., tim16_conf, &clocks);
-        ///
-        ///
-        #[cfg(feature = "embedded_hal")]
-        impl CountDown for Timer<pac::$TIMX>
-        {
-            type Time = duration::Generic<u32>;
-
-            fn start<T>(&mut self, timeout: T)
-                where
-                    T: Into<Self::Time>,
-            {
-
-                //Disable timer and clear flag uif
-                self.disable();
-                self.clear_uif();
-
-                //Get timeout
-                let timeout: Self::Time = timeout.into();
-
-                let denom = timeout.scaling_factor().denominator();
-
-                //Prevent a division by zero
-                if *denom != 0 {
-                    //Convert time to seconds
-                    let time_to_s = timeout.integer() as f32 / *denom as f32;
-
-                    //Configure timer
-                    self.set_freq(1. / (time_to_s)).ok();
-                    self.reset_count();
-                    //Update event to setup prescale and reload registers
-                    self.reinitialize();
-                    self.clear_uif();
-
-                    //start the timer
-                    self.enable();
-                }
-
-            }
-
-            /// Wait until the timer has elapsed
-            /// and than clear the event.
-            fn wait(&mut self) -> nb::Result<(), Void> {
-                if !self.get_uif() {
-                    Err(nb::Error::WouldBlock)
-                } else {
-                    self.clear_uif();
-                    self.disable();
-                    Ok(())
-                }
-            }
-        }
+        // /// Implementation of the embedded-hal CountDown trait
+        // /// To use Countdown it is prefered to configure new timer in Oneshot mode :
+        // ///
+        // ///     Example :
+        // ///     llet tim16_conf = TimerConfig {
+        // ///             one_pulse_mode: true,
+        // ///             ..Default::default()
+        // ///         };
+        // ///
+        // ///     Creation of timer. Here the freq arg value is not important, the freq
+        // ///         will be changed for each CountDown start timer depends on delay wanted.
+        // ///
+        // /// let mut tim16: Timer<TIM16> = Timer::new_tim16(dp.TIM16, 1000., tim16_conf, &clocks);
+        // ///
+        // ///
+        // #[cfg(feature = "embedded_hal")]
+        // impl CountDown for Timer<pac::$TIMX>
+        // {
+        //     type Time = duration::Generic<u32>;
+        //
+        //     fn start<T>(&mut self, timeout: T)
+        //         where
+        //             T: Into<Self::Time>,
+        //     {
+        //
+        //         //Disable timer and clear flag uif
+        //         self.disable();
+        //         self.clear_uif();
+        //
+        //         //Get timeout
+        //         let timeout: Self::Time = timeout.into();
+        //
+        //         let denom = timeout.scaling_factor().denominator();
+        //
+        //         //Prevent a division by zero
+        //         if *denom != 0 {
+        //             //Convert time to seconds
+        //             let time_to_s = timeout.integer() as f32 / *denom as f32;
+        //
+        //             //Configure timer
+        //             self.set_freq(1. / (time_to_s)).ok();
+        //             self.reset_count();
+        //             //Update event to setup prescale and reload registers
+        //             self.reinitialize();
+        //             self.clear_uif();
+        //
+        //             //start the timer
+        //             self.enable();
+        //         }
+        //
+        //     }
+        //
+        //     /// Wait until the timer has elapsed
+        //     /// and than clear the event.
+        //     fn wait(&mut self) -> nb::Result<(), Void> {
+        //         if !self.get_uif() {
+        //             Err(nb::Error::WouldBlock)
+        //         } else {
+        //             self.clear_uif();
+        //             self.disable();
+        //             Ok(())
+        //         }
+        //     }
+        // }
     }
 }
 

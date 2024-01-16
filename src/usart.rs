@@ -10,13 +10,14 @@
 use core::ops::Deref;
 
 use cfg_if::cfg_if;
-#[cfg(feature = "embedded_hal")]
-use embedded_hal::{
-    blocking,
-    serial::{Read, Write},
-};
-#[cfg(feature = "embedded_hal")]
-use nb;
+
+// #[cfg(feature = "embedded_hal")]
+// use embedded_hal::{
+//     blocking,
+//     serial::{Read, Write},
+// };
+// #[cfg(feature = "embedded_hal")]
+// use nb;
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
@@ -920,82 +921,82 @@ pub enum Error {
 }
 
 // todo: Use those errors above.
-
-#[cfg(feature = "embedded_hal")]
-impl<R> Read<u8> for Usart<R>
-where
-    R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
-{
-    type Error = Error;
-
-    #[cfg(not(feature = "f4"))]
-    fn read(&mut self) -> nb::Result<u8, Error> {
-        while !isr!(self.regs).read().rxne().bit_is_set() {}
-
-        Ok(self.regs.rdr.read().rdr().bits() as u8)
-    }
-
-    #[cfg(feature = "f4")]
-    fn read(&mut self) -> nb::Result<u8, Error> {
-        Ok(Usart::read_one(self))
-    }
-}
-
-#[cfg(feature = "embedded_hal")]
-impl<R> Write<u8> for Usart<R>
-where
-    R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
-{
-    type Error = Error;
-
-    #[cfg(not(feature = "f4"))]
-    fn write(&mut self, word: u8) -> nb::Result<(), Error> {
-        while !isr!(self.regs).read().txe().bit_is_set() {}
-
-        self.regs
-            .tdr
-            .modify(|_, w| unsafe { w.tdr().bits(word as u16) });
-
-        Ok(())
-    }
-
-    #[cfg(feature = "f4")]
-    fn write(&mut self, word: u8) -> nb::Result<(), Error> {
-        while !self.regs.sr.read().txe().bit_is_set() {}
-
-        self.regs
-            .dr
-            .modify(|_, w| unsafe { w.dr().bits(word as u16) });
-
-        Ok(())
-    }
-
-    fn flush(&mut self) -> nb::Result<(), Error> {
-        #[cfg(not(feature = "f4"))]
-        while !isr!(self.regs).read().tc().bit_is_set() {}
-        #[cfg(feature = "f4")]
-        while !self.regs.sr.read().tc().bit_is_set() {}
-
-        Ok(())
-    }
-}
-
-#[cfg(feature = "embedded_hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-impl<R> blocking::serial::Write<u8> for Usart<R>
-where
-    R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
-{
-    type Error = Error;
-
-    fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Error> {
-        Usart::write(self, buffer);
-        Ok(())
-    }
-
-    fn bflush(&mut self) -> Result<(), Error> {
-        Self::flush(self);
-
-        Ok(())
-    }
-}
+//
+// #[cfg(feature = "embedded_hal")]
+// impl<R> Read<u8> for Usart<R>
+// where
+//     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
+// {
+//     type Error = Error;
+//
+//     #[cfg(not(feature = "f4"))]
+//     fn read(&mut self) -> nb::Result<u8, Error> {
+//         while !isr!(self.regs).read().rxne().bit_is_set() {}
+//
+//         Ok(self.regs.rdr.read().rdr().bits() as u8)
+//     }
+//
+//     #[cfg(feature = "f4")]
+//     fn read(&mut self) -> nb::Result<u8, Error> {
+//         Ok(Usart::read_one(self))
+//     }
+// }
+//
+// #[cfg(feature = "embedded_hal")]
+// impl<R> Write<u8> for Usart<R>
+// where
+//     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
+// {
+//     type Error = Error;
+//
+//     #[cfg(not(feature = "f4"))]
+//     fn write(&mut self, word: u8) -> nb::Result<(), Error> {
+//         while !isr!(self.regs).read().txe().bit_is_set() {}
+//
+//         self.regs
+//             .tdr
+//             .modify(|_, w| unsafe { w.tdr().bits(word as u16) });
+//
+//         Ok(())
+//     }
+//
+//     #[cfg(feature = "f4")]
+//     fn write(&mut self, word: u8) -> nb::Result<(), Error> {
+//         while !self.regs.sr.read().txe().bit_is_set() {}
+//
+//         self.regs
+//             .dr
+//             .modify(|_, w| unsafe { w.dr().bits(word as u16) });
+//
+//         Ok(())
+//     }
+//
+//     fn flush(&mut self) -> nb::Result<(), Error> {
+//         #[cfg(not(feature = "f4"))]
+//         while !isr!(self.regs).read().tc().bit_is_set() {}
+//         #[cfg(feature = "f4")]
+//         while !self.regs.sr.read().tc().bit_is_set() {}
+//
+//         Ok(())
+//     }
+// }
+//
+// #[cfg(feature = "embedded_hal")]
+// // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
+// impl<R> blocking::serial::Write<u8> for Usart<R>
+// where
+//     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
+// {
+//     type Error = Error;
+//
+//     fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Error> {
+//         Usart::write(self, buffer);
+//         Ok(())
+//     }
+//
+//     fn bflush(&mut self) -> Result<(), Error> {
+//         Self::flush(self);
+//
+//         Ok(())
+//     }
+// }

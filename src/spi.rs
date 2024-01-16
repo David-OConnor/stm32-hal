@@ -5,8 +5,8 @@
 use core::{ops::Deref, ptr};
 
 use cfg_if::cfg_if;
-#[cfg(feature = "embedded_hal")]
-use embedded_hal::spi::FullDuplex;
+// #[cfg(feature = "embedded_hal")]
+// use embedded_hal::spi::FullDuplex;
 
 use crate::{
     pac::{self, RCC},
@@ -1197,36 +1197,36 @@ where
     }
 }
 
-#[cfg(feature = "embedded_hal")]
-impl<R> FullDuplex<u8> for Spi<R>
-where
-    R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
-{
-    type Error = SpiError;
-
-    fn read(&mut self) -> nb::Result<u8, SpiError> {
-        match Spi::read(self) {
-            Ok(r) => Ok(r),
-            Err(e) => Err(nb::Error::Other(e)),
-        }
-    }
-
-    fn send(&mut self, byte: u8) -> nb::Result<(), SpiError> {
-        match Spi::write_one(self, byte) {
-            Ok(r) => Ok(r),
-            Err(e) => Err(nb::Error::Other(e)),
-        }
-    }
-}
-
-#[cfg(feature = "embedded_hal")]
-impl<R> embedded_hal::blocking::spi::transfer::Default<u8> for Spi<R> where
-    R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph
-{
-}
-
-#[cfg(feature = "embedded_hal")]
-impl<R> embedded_hal::blocking::spi::write::Default<u8> for Spi<R> where
-    R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph
-{
-}
+// #[cfg(feature = "embedded_hal")]
+// impl<R> FullDuplex<u8> for Spi<R>
+// where
+//     R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
+// {
+//     type Error = SpiError;
+//
+//     fn read(&mut self) -> nb::Result<u8, SpiError> {
+//         match Spi::read(self) {
+//             Ok(r) => Ok(r),
+//             Err(e) => Err(nb::Error::Other(e)),
+//         }
+//     }
+//
+//     fn send(&mut self, byte: u8) -> nb::Result<(), SpiError> {
+//         match Spi::write_one(self, byte) {
+//             Ok(r) => Ok(r),
+//             Err(e) => Err(nb::Error::Other(e)),
+//         }
+//     }
+// }
+//
+// #[cfg(feature = "embedded_hal")]
+// impl<R> embedded_hal::blocking::spi::transfer::Default<u8> for Spi<R> where
+//     R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph
+// {
+// }
+//
+// #[cfg(feature = "embedded_hal")]
+// impl<R> embedded_hal::blocking::spi::write::Default<u8> for Spi<R> where
+//     R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph
+// {
+// }

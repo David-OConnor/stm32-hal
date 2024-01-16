@@ -4,8 +4,8 @@
 
 use core::ops::Deref;
 
-#[cfg(feature = "embedded_hal")]
-use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
+// #[cfg(feature = "embedded_hal")]
+// use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
@@ -736,42 +736,42 @@ where
         unsafe { self.regs.isr.read().bits() }
     }
 }
-
-#[cfg(feature = "embedded_hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-impl<R> Write for I2c<R>
-where
-    R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
-{
-    type Error = Error;
-
-    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
-        I2c::write(self, addr, bytes)
-    }
-}
-
-#[cfg(feature = "embedded_hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-impl<R> Read for I2c<R>
-where
-    R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
-{
-    type Error = Error;
-
-    fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
-        I2c::read(self, addr, bytes)
-    }
-}
-
-#[cfg(feature = "embedded_hal")]
-// #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-impl<R> WriteRead for I2c<R>
-where
-    R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
-{
-    type Error = Error;
-
-    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
-        I2c::write_read(self, addr, bytes, buffer)
-    }
-}
+//
+// #[cfg(feature = "embedded_hal")]
+// // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
+// impl<R> Write for I2c<R>
+// where
+//     R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
+// {
+//     type Error = Error;
+//
+//     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+//         I2c::write(self, addr, bytes)
+//     }
+// }
+//
+// #[cfg(feature = "embedded_hal")]
+// // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
+// impl<R> Read for I2c<R>
+// where
+//     R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
+// {
+//     type Error = Error;
+//
+//     fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
+//         I2c::read(self, addr, bytes)
+//     }
+// }
+//
+// #[cfg(feature = "embedded_hal")]
+// // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
+// impl<R> WriteRead for I2c<R>
+// where
+//     R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
+// {
+//     type Error = Error;
+//
+//     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
+//         I2c::write_read(self, addr, bytes, buffer)
+//     }
+// }

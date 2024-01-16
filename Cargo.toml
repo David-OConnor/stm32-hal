@@ -35,11 +35,11 @@ stm32wl = { version = "0.15.1", optional = true }
 defmt = "^0.3.4"
 
 # Embedded-HAL traits and related libs. Featured-gated with `embedded-hal`.
-embedded-hal = { version = "^0.2.5", features = ["unproven"], optional = true }
+embedded-hal = { version = "^1.0.0", features=["defmt-03"], optional = true }
 # `nb` is only included when using the embedded-hal feature.
-nb = { version = "^1.0.0", optional = true }
-void = { version = "^1.0.2", default-features = false, optional = true }
-embedded-time = { version = "^0.12.1", optional = true }
+#nb = { version = "^1.1.0", optional = true }
+#void = { version = "^1.0.2", default-features = false, optional = true }
+#embedded-time = { version = "^0.12.1", optional = true }
 
 # Enabled with the `monotonic` feature.
 rtic-monotonic = { version = "^1.0.0", optional = true }
@@ -172,7 +172,8 @@ can_bx = ["dep:bxcan"]
 can_fd_g = ["fdcan/fdcan_g0_g4_l5"]
 can_fd_h = ["fdcan/fdcan_h7"]
 net = ["dep:smoltcp"]
-embedded_hal = ["dep:embedded-hal", "dep:nb", "dep:void", "dep:embedded-time"]
+#embedded_hal = ["dep:embedded-hal", "dep:nb", "dep:void", "dep:embedded-time"]
+embedded_hal = ["dep:embedded-hal"]
 monotonic = ["dep:rtic-monotonic"]
 
 # These features are used to featured gate sections of code that apply

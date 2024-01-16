@@ -10,7 +10,7 @@
 use core::convert::Infallible;
 
 #[cfg(feature = "embedded_hal")]
-use embedded_hal::digital::v2::{InputPin, OutputPin, ToggleableOutputPin};
+use embedded_hal::digital::{InputPin, OutputPin, StatefulOutputPin, ErrorType};
 
 use crate::pac::{self, EXTI, RCC};
 #[cfg(not(feature = "h7"))]
@@ -1060,31 +1060,35 @@ impl Pin {
 
     /// Toggle output voltage between low and high. Sets the `BSRR` register. Atomic.
     pub fn toggle(&mut self) {
-        if self.is_high() {
-            self.set_low();
+        // if self.is_high() {
+        if Pin::is_high(self) {
+            Pin::set_low(self);
+            // self.set_low();
         } else {
-            self.set_high();
+            // self.set_high();
+            Pin::set_high(self);
         }
     }
 }
 
 #[cfg(feature = "embedded_hal")]
-impl InputPin for Pin {
+impl ErrorType for Pin {
     type Error = Infallible;
+}
 
-    fn is_high(&self) -> Result<bool, Self::Error> {
+#[cfg(feature = "embedded_hal")]
+impl InputPin for Pin {
+    fn is_high(&mut self) -> Result<bool, Self::Error> {
         Ok(Pin::is_high(self))
     }
 
-    fn is_low(&self) -> Result<bool, Self::Error> {
+    fn is_low(&mut self) -> Result<bool, Self::Error> {
         Ok(Pin::is_low(self))
     }
 }
 
 #[cfg(feature = "embedded_hal")]
 impl OutputPin for Pin {
-    type Error = Infallible;
-
     fn set_low(&mut self) -> Result<(), Self::Error> {
         Pin::set_low(self);
         Ok(())
@@ -1097,8 +1101,14 @@ impl OutputPin for Pin {
 }
 
 #[cfg(feature = "embedded_hal")]
-impl ToggleableOutputPin for Pin {
-    type Error = Infallible;
+impl StatefulOutputPin for Pin {
+    fn is_set_high(&mut self) -> Result<bool, Self::Error> {
+        Ok(Pin::is_high(self))
+    }
+
+    fn is_set_low(&mut self) -> Result<bool, Self::Error> {
+        Ok(Pin::is_low(self))
+    }
 
     fn toggle(&mut self) -> Result<(), Self::Error> {
         Pin::toggle(self);
