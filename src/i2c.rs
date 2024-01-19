@@ -6,7 +6,6 @@ use core::ops::Deref;
 
 // #[cfg(feature = "embedded_hal")]
 // use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
-
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "l552", feature = "h5")))]

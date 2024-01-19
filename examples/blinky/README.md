@@ -269,7 +269,7 @@ This method assumes that you have ST-Link and that it's connected to your board.
 
 ```
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
-runner = "probe-run --chip STM32F401CEUx" # to list chips, run `probe-run --list-chips.`
+runner = "probe-rs run --chip STM32F401CEUx" # to list chips, run `probe-run --list-chips.`
 rustflags = [
   "-C", "link-arg=-Tlink.x",
 ]
@@ -394,7 +394,7 @@ Now if you run the code with `cargo run --release` you will see the following ou
 cargo run --release
    Compiling blinky v0.1.0 (/home/toudi/projects/stm32/blinky)
     Finished release [optimized] target(s) in 0.14s
-     Running `probe-run --chip STM32F401CEUx target/thumbv7em-none-eabihf/release/blinky`
+     Running `probe-rs run --chip STM32F401CEUx target/thumbv7em-none-eabihf/release/blinky`
 (HOST) WARN  insufficient DWARF info; compile your program with `debug = 2` to enable location info
 (HOST) INFO  flashing program (14.56 KiB)
 (HOST) INFO  success!

@@ -10,7 +10,7 @@
 use core::convert::Infallible;
 
 #[cfg(feature = "embedded_hal")]
-use embedded_hal::digital::{InputPin, OutputPin, StatefulOutputPin, ErrorType};
+use embedded_hal::digital::{ErrorType, InputPin, OutputPin, StatefulOutputPin};
 
 use crate::pac::{self, EXTI, RCC};
 #[cfg(not(feature = "h7"))]

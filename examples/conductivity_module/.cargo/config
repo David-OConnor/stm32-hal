@@ -1,6 +1,6 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
-runner = "probe-run --chip STM32L443CCTx" # to list chips, run `probe-run --list-chips.`
-#runner = "probe-run --chip STM32L412KBUx" # actually (442KCU(T?)x for 432) (412KBU6 for 412)
+runner = "probe-rs run --chip STM32L443CCTx" # to list chips, run `probe-run --list-chips.`
+
 rustflags = [
   "-C", "linker=flip-link",
   "-C", "link-arg=-Tlink.x",
@@ -14,3 +14,5 @@ target = "thumbv7em-none-eabihf"
 [alias]
 rb = "run --bin"
 rrb = "run --release --bin"
+rr = "run --release"
+br = "build --release"

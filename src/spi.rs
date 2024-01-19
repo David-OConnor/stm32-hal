@@ -5,9 +5,9 @@
 use core::{ops::Deref, ptr};
 
 use cfg_if::cfg_if;
+
 // #[cfg(feature = "embedded_hal")]
 // use embedded_hal::spi::FullDuplex;
-
 use crate::{
     pac::{self, RCC},
     util::RccPeriph,

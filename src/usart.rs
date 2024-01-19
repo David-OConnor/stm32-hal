@@ -18,7 +18,6 @@ use cfg_if::cfg_if;
 // };
 // #[cfg(feature = "embedded_hal")]
 // use nb;
-
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
