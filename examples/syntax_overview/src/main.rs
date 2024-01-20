@@ -168,7 +168,7 @@ fn main() -> ! {
     let mut adc = Adc::new_adc1(
         dp.ADC1,
         Default::default(),
-        &clock_cfg,
+        clock_cfg.systick(),
     );
 
     // Take a reading from ADC channel 1.

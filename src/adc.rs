@@ -152,7 +152,7 @@ pub enum SampleTime {
 }
 
 impl Default for SampleTime {
-    /// T_1 is the rest value; pick a higher one, as the lower values may cause significantly
+    /// T_1 is the reset value; pick a higher one, as the lower values may cause significantly
     /// lower-than-accurate readings.
     fn default() -> Self {
         SampleTime::T181
@@ -325,7 +325,7 @@ pub struct AdcConfig {
 impl Default for AdcConfig {
     fn default() -> Self {
         Self {
-            clock_mode: ClockMode::SyncDiv2,
+            clock_mode: ClockMode::Async,
             sample_time: Default::default(),
             prescaler: Prescaler::D1,
             operation_mode: OperationMode::OneShot,
@@ -363,7 +363,7 @@ macro_rules! hal {
                     regs: pac::$ADC,
                     device: AdcDevice,
                     cfg: AdcConfig,
-                    clock_cfg: &Clocks,
+                    ahb_freq: u32, // Used for blocking delays in init.
                 ) -> Self {
                     let mut result = Self {
                         regs,
@@ -405,21 +405,22 @@ macro_rules! hal {
                     common_regs.ccr.modify(|_, w| unsafe {
                         #[cfg(not(any(feature = "f3", feature = "l4x5")))] // PAC ommission l4x5?
                         w.presc().bits(result.cfg.prescaler as u8);
+                        w.ckmode().bits(result.cfg.clock_mode as u8);
                         return w.ckmode().bits(result.cfg.clock_mode as u8);
                     });
 
                     result.set_align(Align::default());
 
-                    result.advregen_enable(clock_cfg);
+                    result.advregen_enable(ahb_freq);
 
-                    result.calibrate(InputType::SingleEnded, clock_cfg);
-                    result.calibrate(InputType::Differential, clock_cfg);
+                    result.calibrate(InputType::SingleEnded, ahb_freq);
+                    result.calibrate(InputType::Differential, ahb_freq);
 
                     // Reference Manual: "ADEN bit cannot be set during ADCAL=1
                     // and 4 ADC clock cycle after the ADCAL
                     // bit is cleared by hardware."
                     let adc_per_cpu_cycles = match result.cfg.clock_mode {
-                        ClockMode::Async => unimplemented!(),
+                        ClockMode::Async => 1,
                         ClockMode::SyncDiv1 => 1,
                         ClockMode::SyncDiv2 => 2,
                         ClockMode::SyncDiv4 => 4,
@@ -429,7 +430,7 @@ macro_rules! hal {
                     result.enable();
 
                     // Set up VDDA only after the ADC is otherwise enabled.
-                    result.setup_vdda(clock_cfg);
+                    result.setup_vdda(ahb_freq);
 
                     // Don't set continuous mode until after configuring VDDA, since it needs
                     // to take a oneshot reading.
@@ -538,7 +539,7 @@ macro_rules! hal {
             }
 
             /// Enable the ADC voltage regulator, and exit deep sleep mode (some MCUs)
-            pub fn advregen_enable(&mut self, clock_cfg: &Clocks){
+            pub fn advregen_enable(&mut self, ahb_freq: u32){
                 cfg_if! {
                     if #[cfg(feature = "f3")] {
                         // `F303 RM, 15.3.6:
@@ -555,12 +556,15 @@ macro_rules! hal {
                         // register).
                         // To start ADC operations, it is first needed to exit Deep-power-down mode by setting bit
                         // DEEPPWD=0.""
-                        self.regs.cr.modify(|_, w| w.deeppwd().clear_bit());  // Exit deep sleep mode.
-                        self.regs.cr.modify(|_, w| w.advregen().set_bit());  // Enable voltage regulator.
+                        self.regs.cr.modify(|_, w| {
+                            w.deeppwd().clear_bit();   // Exit deep sleep mode.
+                            w.advregen().set_bit()   // Enable voltage regulator.
+
+                        });
                     }
                 }
 
-                self.wait_advregen_startup(clock_cfg)
+                self.wait_advregen_startup(ahb_freq)
             }
 
             /// Disable power, eg to save power in low power modes. Inferred from RM,
@@ -592,20 +596,19 @@ macro_rules! hal {
             /// Wait for the advregen to startup.
             ///
             /// This is based on the MAX_ADVREGEN_STARTUP_US of the device.
-            fn wait_advregen_startup(&self, clock_cfg: &Clocks) {
+            fn wait_advregen_startup(&self, ahb_freq: u32) {
                 let cp = unsafe { cortex_m::Peripherals::steal() };
-                let mut delay = Delay::new(cp.SYST, clock_cfg.systick());
-                delay.delay_us(MAX_ADVREGEN_STARTUP_US)
+                crate::delay_us(MAX_ADVREGEN_STARTUP_US, ahb_freq)
             }
 
             /// Calibrate. See L4 RM, 16.5.8, or F404 RM, section 15.3.8.
             /// Stores calibration values, which can be re-inserted later,
             /// eg after entering ADC deep sleep mode, or MCU STANDBY or VBAT.
-            pub fn calibrate(&mut self, input_type: InputType, clock_cfg: &Clocks) {
+            pub fn calibrate(&mut self, input_type: InputType, ahb_freq: u32) {
                 // 1. Ensure DEEPPWD=0, ADVREGEN=1 and that ADC voltage regulator startup time has
                 // elapsed.
                 if !self.is_advregen_enabled() {
-                    self.advregen_enable(clock_cfg);
+                    self.advregen_enable(ahb_freq);
                 }
 
                 let was_enabled = self.is_enabled();
@@ -811,7 +814,7 @@ macro_rules! hal {
 
             /// Find and store the internal voltage reference, to improve conversion from reading
             /// to voltage accuracy. See L44 RM, section 16.4.34: "Monitoring the internal voltage reference"
-            fn setup_vdda(&mut self, clock_cfg: &Clocks) {
+            fn setup_vdda(&mut self, ahb_freq: u32) {
                 let common_regs = unsafe { &*pac::$ADC_COMMON::ptr() };
                 // RM: It is possible to monitor the internal voltage reference (VREFINT) to have a reference point for
                 // evaluating the ADC VREF+ voltage level.
@@ -846,7 +849,7 @@ macro_rules! hal {
                     //     // We use self cfg, in case ADC1 is on the same common regs as this; we don't
                     //     // want it overwriting prescaler and clock cfg.
                     //     self.cfg.clone(),
-                    //     clock_cfg,
+                    //     ahb_freq,
                     // );
                     // adc1.disable();
 
@@ -864,7 +867,7 @@ macro_rules! hal {
 
                     // todo: Not sure what to set this delay to and how to change it based on variant, so picking
                     // todo something conservative.
-                    crate::delay_us(100, clock_cfg.systick());
+                    crate::delay_us(100, ahb_freq);
 
                     // This sample time is overkill.
                     // Note that you will need to reset the sample time if you use this channel on this
@@ -922,6 +925,11 @@ macro_rules! hal {
             pub fn start_conversion(&mut self, sequence: &[u8]) {
                 // todo: You should call this elsewhere, once, to prevent unneded reg writes.
                 for (i, channel) in sequence.iter().enumerate() {
+                    // todo: TS H7 ADC. DMA too A/R.
+                    #[cfg(feature = "h7")]
+                    self.regs.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << channel)) });
+                    // self.regs.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << (channel - 1))) });
+
                     self.set_sequence(*channel, i as u8 + 1); // + 1, since sequences start at 1.
                 }
 
@@ -942,6 +950,10 @@ macro_rules! hal {
             /// Read data from a conversion. In OneShot mode, this will generally be run right
             /// after `start_conversion`.
             pub fn read_result(&mut self) -> u16 {
+                let ch = 18; // todo temp!!
+                #[cfg(feature = "h7")]
+                self.regs.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() & !(1 << ch)) });
+
                 #[cfg(feature = "l4")]
                 return self.regs.dr.read().bits() as u16;
                 #[cfg(not(feature = "l4"))]

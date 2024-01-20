@@ -42,7 +42,12 @@ fn main() -> ! {
     // but not all)
     let _adc_pin = Pin::new(Port::B, 0, PinMode::Analog);
 
-    let mut adc = Adc::new_adc1(dp.ADC1, AdcDevice::One, Default::default(), &clock_cfg);
+    let mut adc = Adc::new_adc1(
+        dp.ADC1,
+        AdcDevice::One,
+        Default::default(),
+        clock_cfg.systick(),
+    );
 
     // 1: Configuration options:
 
@@ -118,7 +123,7 @@ fn main() -> ! {
         ..Default::default()
     };
 
-    let mut batt_curr_adc = Adc::new_adc2(dp.ADC2, AdcDevice::Two, adc_cfg, &clock_cfg);
+    let mut batt_curr_adc = Adc::new_adc2(dp.ADC2, AdcDevice::Two, adc_cfg, clock_cfg.systick());
 
     unsafe {
         batt_curr_adc.read_dma(

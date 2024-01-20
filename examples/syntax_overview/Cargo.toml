@@ -15,7 +15,7 @@ cortex-m-rt = "0.7.3"
 # and if this program is meant to be run and flashed directly (ie it's not a library),
 # the runtime feature for that
 # family, eg `l4rt`.
-stm32-hal2 = { version = "^1.4.7", features = ["l4x3", "l4rt"]}
+stm32-hal2 = { version = "^1.8.0", features = ["l4x3", "l4rt"]}
 
 # cargo build/run
 [profile.dev]
