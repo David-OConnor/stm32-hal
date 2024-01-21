@@ -37,7 +37,7 @@
 //! ```toml
 //! cortex-m = { version = "^0.7.7", features = ["critical-section-single-core"] }
 //! cortex-m-rt = "0.7.2"
-//! stm32-hal2 = { version = "^1.5.5", features = ["l4x3", "l4rt"]}
+//! hal = { package = "stm32-hal2", version = "^1.5.5", features = ["l4x3", "l4rt"]}
 //! ```
 //!
 //! If you need `embedded-hal` traits, include the `embedded-hal` feature.

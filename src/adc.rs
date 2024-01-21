@@ -427,6 +427,13 @@ macro_rules! hal {
                     };
                     asm::delay(adc_per_cpu_cycles * 4 * 2); // additional x2 is a pad;
 
+                    // "Must be used when ADC clock > 20 MHz
+                    // ...The software is allowed to write this bit only when ADSTART=0 and JADSTART=0 (which
+                    // ensures that no conversion is ongoing)."
+                    // todo: On H7, allow disabling boost, either manually, or by checking the clock speed.
+                    #[cfg(feature = "h7")]
+                    result.regs.cr.modify(|_, w| w.boost().bits(1));
+
                     result.enable();
 
                     // Set up VDDA only after the ADC is otherwise enabled.
@@ -447,6 +454,11 @@ macro_rules! hal {
                     result
                 }
             }
+
+            // /// Get the current ADC effective clock speed, in Mhz.
+            // pub fn speed(clocks: &ClockCfg) -> u32 {
+            //     0 // todo
+            // }
 
             /// Set the ADC conversion sequence length, between 1 and 16.
             pub fn set_sequence_len(&mut self, len: u8) {

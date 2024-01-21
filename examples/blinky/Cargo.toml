@@ -12,7 +12,7 @@ panic-probe = { version = "0.3.0", features = ["print-defmt"] }
 
 cortex-m = { version = "^0.7.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7.3"
-stm32-hal2 = { version = "^1.8.0", features = ["f401", "f4rt"]}
+hal = { package = "stm32-hal2", version = "^1.8.0", features = ["f401", "f4rt"]}
 
 # cargo build/run
 [profile.dev]
