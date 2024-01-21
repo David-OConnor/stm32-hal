@@ -11,7 +11,7 @@ use cortex_m_rt::entry;
 use defmt_rtt as _;
 use panic_probe as _;
 // Importing library
-use stm32_hal2::{
+use hal::{
     clocks::Clocks,
     comp::{self, Comp, CompConfig, CompDevice},
     gpio::{Pin, PinMode, Port},

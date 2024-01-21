@@ -14,7 +14,7 @@ use core::cell::{Cell, RefCell};
 use cortex_m::peripheral::NVIC;
 use cortex_m_rt::entry;
 use critical_section::{with, Mutex};
-use stm32_hal2::{
+use hal::{
     clocks::Clocks,
     dma::{self, Dma, DmaChannel, DmaConfig, DmaPeriph},
     gpio::{Pin, PinMode, Port},

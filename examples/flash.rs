@@ -8,7 +8,7 @@ use core::cell::{Cell, RefCell};
 use cortex_m::peripheral::NVIC;
 use cortex_m_rt::entry;
 use critical_section::{with, Mutex};
-use stm32_hal2::{
+use hal::{
     clocks::Clocks,
     flash::{Bank, Flash},
     low_power,

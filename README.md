@@ -105,7 +105,7 @@ to see which MCU and runtime features are available.
 ```rust
 use cortex_m;
 use cortex_m_rt::entry;
-use stm32_hal2::{
+use hal::{
     clocks::Clocks,
     gpio::{Pin, Port, PinMode, OutputType},
     i2c::I2c,

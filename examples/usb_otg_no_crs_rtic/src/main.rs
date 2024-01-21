@@ -12,7 +12,7 @@ use defmt_rtt as _;
 use panic_probe as _;
 
 pub mod usb {
-    use stm32_hal2::pac::{PWR, RCC};
+    use hal::pac::{PWR, RCC};
 
     /// Enables VddUSB power supply
     pub fn enable_usb_pwr() {
@@ -31,15 +31,15 @@ mod app {
 
     use cortex_m::asm;
 
-    use stm32_hal2::{
+    use hal::{
         self,
         clocks::Clocks,
         gpio::{Pin, PinMode, Port},
         pac,
     };
 
-    use stm32_hal2::clocks::Clk48Src;
-    use stm32_hal2::usb_otg::{Usb1, UsbBus};
+    use hal::clocks::Clk48Src;
+    use hal::usb_otg::{Usb1, UsbBus};
 
     use usb_device::prelude::*;
 

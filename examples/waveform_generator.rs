@@ -25,7 +25,7 @@ use cortex_m_rt::entry;
 use critical_section::{with, Mutex};
 use defmt_rtt as _; // global logger
 use panic_probe as _;
-use stm32_hal2::{
+use hal::{
     self,
     clocks::Clocks,
     dac::{Dac, DacBits, DacChannel, Trigger},

@@ -8,7 +8,7 @@
 use cortex_m::delay::Delay;
 use cortex_m_rt::entry; // The runtime
 
-use stm32_hal2::{
+use hal::{
     self,
     clocks::{Clocks},
     gpio::{Pin, PinMode, Port},

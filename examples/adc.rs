@@ -9,7 +9,7 @@ use core::cell::{Cell, RefCell};
 use cortex_m::{delay::Delay, peripheral::NVIC};
 use cortex_m_rt::entry;
 use critical_section::{with, Mutex};
-use stm32_hal2::{
+use hal::{
     adc::{
         Adc, AdcChannel, AdcDevice, AdcInterrupt, Align, ClockMode, InputType, OperationMode,
         SampleTime,

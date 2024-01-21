@@ -175,7 +175,7 @@ Oops! Remember how I mentioned that there is no meaningful code in src? That's t
 use core::panic::PanicInfo;
 use cortex_m::delay::Delay;
 use cortex_m_rt::entry; // The runtime
-use stm32_hal2::{
+use hal::{
     self,
     clocks::{Clocks, InputSrc},
     gpio::{Pin, PinMode, Port},
@@ -329,7 +329,7 @@ finally, modify your src/main.rs:
 use core::panic::PanicInfo;
 use cortex_m::delay::Delay;
 use cortex_m_rt::entry; // The runtime
-use stm32_hal2::{
+use hal::{
     self,
     clocks::{Clocks},
     gpio::{Pin, PinMode, Port},

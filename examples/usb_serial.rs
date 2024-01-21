@@ -7,7 +7,7 @@
 
 use cortex_m::{self, peripheral::NVIC};
 use cortex_m_rt::entry;
-use stm32_hal2::{
+use hal::{
     clocks::{self, Clk48Src, Clocks, CrsSyncSrc},
     gpio::{Pin, PinMode, Port},
     pac,

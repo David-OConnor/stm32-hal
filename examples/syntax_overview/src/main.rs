@@ -22,7 +22,7 @@ use panic_probe as _;
 
 // Import parts of this library we use. You could use this style, or perhaps import
 // less here.
-use stm32_hal2::{
+use hal::{
     self,
     adc::{self, Adc, AdcChannel},
     clocks::Clocks,

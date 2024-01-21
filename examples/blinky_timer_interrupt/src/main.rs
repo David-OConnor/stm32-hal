@@ -7,7 +7,7 @@
 
 use cortex_m::asm;
 
-use stm32_hal2::{
+use hal::{
     self,
     clocks::{Clocks},
     gpio::{Pin, PinMode, Port},

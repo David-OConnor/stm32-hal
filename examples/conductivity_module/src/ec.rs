@@ -10,7 +10,7 @@
 //! https://wiki.analog.com/resources/eval/user-guides/eval-adicup360/reference_designs/demo_cn0411
 //! https://github.com/analogdevicesinc/EVAL-ADICUP360/blob/master/projects/ADuCM360_demo_cn0411/src/CN0411.c
 
-use stm32_hal2::{
+use hal::{
     dac::{Dac, DacChannel},
     gpio::Pin,
     i2c::I2c,

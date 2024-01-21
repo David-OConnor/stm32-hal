@@ -11,7 +11,7 @@ use cortex_m::{self, asm, delay::Delay};
 use defmt::println;
 use defmt_rtt as _; // global logger
 use panic_probe as _;
-use stm32_hal2::{
+use hal::{
     clocks::{self, Clocks},
     dma::{self, ChannelCfg, Dma, DmaChannel, DmaInterrupt, DmaPeriph},
     gpio::{self, Edge, OutputSpeed, OutputType, Pin, PinMode, Port, Pull},
@@ -35,7 +35,7 @@ unsafe impl Send for IirInstWrapper {}
 mod imu {
     use cortex_m::delay::Delay;
     ///! Module for TDK ICM-426xx IMUs. Stripped down in this example to include only what we need.
-    use stm32_hal2::{
+    use hal::{
         dma::{Dma, DmaChannel, DmaPeriph},
         gpio::Pin,
         pac::{DMA1, SPI1},

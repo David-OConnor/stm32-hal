@@ -11,7 +11,7 @@ use cortex_m::delay::Delay;
 use cortex_m_rt::entry; // The runtime
 use defmt_rtt as _;
 use nb::block;
-use stm32_hal2::{
+use hal::{
     self,
     can::Can,
     clocks::{self, ApbPrescaler, Clocks, InputSrc, PllSrc, Pllp},

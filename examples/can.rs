@@ -14,7 +14,7 @@ use fdcan::{
     interrupt::{Interrupt, InterruptLine},
     FdCan, NormalOperationMode,
 };
-use stm32_hal2::{
+use hal::{
     can::{self, Can},
     clocks::Clocks,
     gpio::{self, Edge, OutputSpeed, Pin, PinMode, PinState, Port},

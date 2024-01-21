@@ -19,7 +19,7 @@ use critical_section::{with, Mutex};
 
 use cortex_m_rt::entry;
 
-use stm32_hal2::{
+use hal::{
     self,
     clocks::Clocks,
     dac::{Dac, DacBits, DacChannel},

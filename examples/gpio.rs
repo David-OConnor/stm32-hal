@@ -13,7 +13,7 @@ use cortex_m::{delay::Delay, peripheral::NVIC};
 use cortex_m_rt::entry;
 use critical_section::{with, Mutex};
 use embedded_hal::digital::OutputPin;
-use stm32_hal2::{
+use hal::{
     adc::{Adc, AdcChannel, Align, CkMode, InputType, OperationMode},
     clocks::Clocks,
     gpio::{self, Edge, OutputSpeed, Pin, PinMode, PinState, Port},
