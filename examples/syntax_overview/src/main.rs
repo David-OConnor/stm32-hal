@@ -49,7 +49,7 @@ fn main() -> ! {
     // This line is required to prevent the debugger from disconnecting on entering WFI.
     // This appears to be a limitation of many STM32 families. Not required in production code,
     // and significantly increases power consumption in low-power modes.
-    stm32_hal2::debug_workaround();
+    hal::debug_workaround();
 
     // Create an initial clock configuration that uses the MCU's internal oscillator (HSI),
     // sets the MCU to its maximum system clock speed.

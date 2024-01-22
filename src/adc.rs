@@ -325,7 +325,9 @@ pub struct AdcConfig {
 impl Default for AdcConfig {
     fn default() -> Self {
         Self {
-            clock_mode: ClockMode::Async,
+            // todo: What should this be? Async seems to be having trouble.
+            // clock_mode: ClockMode::Async,
+            clock_mode: ClockMode::SyncDiv1,
             sample_time: Default::default(),
             prescaler: Prescaler::D1,
             operation_mode: OperationMode::OneShot,
@@ -405,11 +407,11 @@ macro_rules! hal {
                     common_regs.ccr.modify(|_, w| unsafe {
                         #[cfg(not(any(feature = "f3", feature = "l4x5")))] // PAC ommission l4x5?
                         w.presc().bits(result.cfg.prescaler as u8);
-                        w.ckmode().bits(result.cfg.clock_mode as u8);
                         return w.ckmode().bits(result.cfg.clock_mode as u8);
                     });
 
                     result.set_align(Align::default());
+
 
                     result.advregen_enable(ahb_freq);
 

@@ -31,7 +31,7 @@ fn main() -> ! {
     let mut rcc = dp.RCC;
 
     // this line is required if you want to take advantage of ST-Link
-    stm32_hal2::debug_workaround();
+    hal::debug_workaround();
 
     // Configure the clocks accordingly with your hardware [its docs](https://docs.rs/stm32-hal2/0.2.0/stm32_hal2/clocks/index.html).
     // In this configuration we have an external crystal of 8MHz.

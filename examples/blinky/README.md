@@ -349,7 +349,7 @@ fn main() -> ! {
     let mut dp = pac::Peripherals::take().unwrap();
 
     // this line is required if you want to take advantage of ST-Link
-    stm32_hal2::debug_workaround();
+    hal::debug_workaround();
 
     defmt::println!("Hello, world!");
 
