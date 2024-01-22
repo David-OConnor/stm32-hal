@@ -781,6 +781,9 @@ macro_rules! hal {
                     16 => self.regs.sqr4.modify(|_, w| unsafe { w.sq16().bits(chan) }),
                     _ => panic!("Sequence out of bounds. Only 16 positions are available, starting at 1."),
                 }
+
+                #[cfg(feature = "h7")]
+                self.regs.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
             }
 
             /// Select the sample time for a given channel.
@@ -832,6 +835,8 @@ macro_rules! hal {
                 // evaluating the ADC VREF+ voltage level.
                 // The internal voltage reference is internally connected to the input channel 0 of the ADC1
                 // (ADC1_INP0).
+
+                // todo: On H7, you may need to use ADC3 for this...
 
                 // Regardless of which ADC we're on, we take this reading using ADC1.
                 self.vdda_calibrated = if self.device != AdcDevice::One {
@@ -937,11 +942,6 @@ macro_rules! hal {
             pub fn start_conversion(&mut self, sequence: &[u8]) {
                 // todo: You should call this elsewhere, once, to prevent unneded reg writes.
                 for (i, channel) in sequence.iter().enumerate() {
-                    // todo: TS H7 ADC. DMA too A/R.
-                    #[cfg(feature = "h7")]
-                    self.regs.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << channel)) });
-                    // self.regs.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << (channel - 1))) });
-
                     self.set_sequence(*channel, i as u8 + 1); // + 1, since sequences start at 1.
                 }
 
@@ -1003,11 +1003,7 @@ macro_rules! hal {
                 dma_channel: DmaChannel,
                 channel_cfg: ChannelCfg,
                 dma_periph: dma::DmaPeriph,
-                // dma: &mut Dma<D>
             ) {
-            // where
-            //     D: Deref<Target = dma_p::RegisterBlock>,
-            // {
                 let (ptr, len) = (buf.as_mut_ptr(), buf.len());
                 // The software is allowed to write (dmaen and dmacfg) only when ADSTART=0 and JADSTART=0 (which
                 // ensures that no conversion is ongoing)

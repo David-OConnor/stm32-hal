@@ -165,9 +165,9 @@ Supports the RTIC `Monotonic` trait. To enable, use the `monotonic` feature.
 - Explicit clock config
 - Detailed, consistent code documentation, with reference manual excerpts and references
 
-
 If you'd like to learn more about the other HALs, check them out on the [stm32-rs Github](https://github.com/stm32-rs).
-You may prefer them if you prioritize strict type checks on GPIO pins, for example.
+You may prefer them if you prioritize strict type checks on GPIO pins and other hardware, for example.
+
 
 ## Docs caveat
 The Rust docs page is built for `STM32H735`, and some aspects are not accurate for other
