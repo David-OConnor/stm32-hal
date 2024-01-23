@@ -182,7 +182,7 @@ cfg_if! {
             }
         }
 
-        #[cfg(feature = "h7")]
+        #[cfg(any(feature = "h7", feature = "f401"))]
         impl BaudPeriph for pac::USART6 {
             fn baud(clock_cfg: &Clocks) -> u32 {
                 clock_cfg.apb2()
@@ -837,7 +837,7 @@ cfg_if! {
             }
         }
 
-        #[cfg(feature = "h7")]
+        #[cfg(any(feature = "h7", feature = "f401"))]
         impl RccPeriph for pac::USART6 {
             fn en_reset(rcc: &RegisterBlock) {
                 rcc_en_reset!(apb2, usart6, rcc);
