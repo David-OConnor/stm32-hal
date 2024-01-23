@@ -1,6 +1,6 @@
 [package]
 authors = ["David O'Connor <david.alan.oconnor@gmail.com>"]
-name = "STM32 HAL syntax overview"
+name = "syntax_overview"
 edition = "2018"
 version = "0.1.0"
 
