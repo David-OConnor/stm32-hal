@@ -1,6 +1,11 @@
-use std::ops::Deref;
+use core::{ops::Deref, ptr};
 
-use super::Spi;
+use super::*;
+use crate::{
+    pac::{self, RCC},
+    util::RccPeriph,
+    MAX_ITERS,
+};
 
 /// Possible interrupt types. Enable these in SPIx_CR2. Check and clear with SR. There is no explicit
 /// way to clear these.
@@ -34,8 +39,8 @@ pub enum DataSize {
 }
 
 impl<R> Spi<R>
-    where
-        R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
+where
+    R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
 {
     /// Initialize an SPI peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock.
@@ -81,19 +86,22 @@ impl<R> Spi<R>
 
         // 3. Write to SPI_CR2 register:
         #[cfg(feature = "f4")]
-        regs.cr2.modify(|_, w| w.ssoe().bit(cfg.slave_select == SlaveSelect::HardwareOutEnable));
+        regs.cr2.modify(|_, w| {
+            w.ssoe()
+                .bit(cfg.slave_select == SlaveSelect::HardwareOutEnable)
+        });
 
         #[cfg(not(feature = "f4"))]
-        regs.cr2
-            .modify(|_, w| unsafe {
-                // a) Configure the DS[3:0] bits to select the data length for the transfer.
-                w.ds().bits(cfg.data_size as u8);
-                // b) Configure SSOE (Notes: 1 & 2 & 3).
-                w.ssoe().bit(cfg.slave_select == SlaveSelect::HardwareOutEnable);
-                // e) Configure the FRXTH bit. The RXFIFO threshold must be aligned to the read
-                // access size for the SPIx_DR register.
-                w.frxth().bit(cfg.fifo_reception_thresh as u8 != 0)
-            });
+        regs.cr2.modify(|_, w| unsafe {
+            // a) Configure the DS[3:0] bits to select the data length for the transfer.
+            w.ds().bits(cfg.data_size as u8);
+            // b) Configure SSOE (Notes: 1 & 2 & 3).
+            w.ssoe()
+                .bit(cfg.slave_select == SlaveSelect::HardwareOutEnable);
+            // e) Configure the FRXTH bit. The RXFIFO threshold must be aligned to the read
+            // access size for the SPIx_DR register.
+            w.frxth().bit(cfg.fifo_reception_thresh as u8 != 0)
+        });
 
         // c) Set the FRF bit if the TI protocol is required (keep NSSP bit cleared in TI mode).
         // d) Set the NSSP bit if the NSS pulse mode between two data units is required (keep

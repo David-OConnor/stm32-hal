@@ -32,7 +32,6 @@ use cortex_m::{self, asm, delay::Delay, peripheral::NVIC};
 use cortex_m_rt::entry;
 use critical_section::{with, Mutex};
 use defmt_rtt as _; // global logger
-use panic_probe as _;
 use hal::{
     self,
     clocks::{Clocks, HclkPrescaler, InputSrc, PllCfg, PllSrc, SaiSrc, VosRange},
@@ -45,6 +44,7 @@ use hal::{
     prelude::*,
     timer::{BasicTimer, MasterModeSelection, Timer, TimerInterrupt},
 };
+use panic_probe as _;
 
 const FS: u32 = 48_000;
 

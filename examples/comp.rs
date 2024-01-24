@@ -9,7 +9,6 @@
 use cortex_m::delay::Delay;
 use cortex_m_rt::entry;
 use defmt_rtt as _;
-use panic_probe as _;
 // Importing library
 use hal::{
     clocks::Clocks,
@@ -17,6 +16,7 @@ use hal::{
     gpio::{Pin, PinMode, Port},
     pac,
 };
+use panic_probe as _;
 
 #[entry]
 fn main() -> ! {

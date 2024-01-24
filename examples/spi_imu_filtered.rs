@@ -10,7 +10,6 @@ use cmsis_dsp_sys as dsp_sys;
 use cortex_m::{self, asm, delay::Delay};
 use defmt::println;
 use defmt_rtt as _; // global logger
-use panic_probe as _;
 use hal::{
     clocks::{self, Clocks},
     dma::{self, ChannelCfg, Dma, DmaChannel, DmaInterrupt, DmaPeriph},
@@ -18,6 +17,7 @@ use hal::{
     pac::{self, DMA1, SPI1},
     spi::{BaudRate, Spi, SpiConfig, SpiMode},
 };
+use panic_probe as _;
 
 static mut WRITE_BUF: [u8; 13] = [0; 13];
 

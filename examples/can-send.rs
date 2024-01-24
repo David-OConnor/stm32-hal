@@ -10,7 +10,6 @@ use bxcan::{filter::Mask32, Frame, StandardId};
 use cortex_m::delay::Delay;
 use cortex_m_rt::entry; // The runtime
 use defmt_rtt as _;
-use nb::block;
 use hal::{
     self,
     can::Can,
@@ -18,6 +17,7 @@ use hal::{
     gpio::{OutputType, Pin, PinMode, Port},
     pac,
 };
+use nb::block;
 
 // This marks the entrypoint of our application. The cortex_m_rt creates some
 // startup code before this, but we don't need to worry about this

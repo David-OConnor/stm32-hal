@@ -2,6 +2,8 @@
 //! Provides APIs to configure, read, and write from
 //! SPI, with blocking, nonblocking, and DMA functionality.
 
+use core::{ops::Deref, ptr};
+
 cfg_if::cfg_if! {
     if #[cfg(any(feature = "h5", feature = "h7"))] {
         mod h;
@@ -12,17 +14,9 @@ cfg_if::cfg_if! {
     }
 }
 
-use core::{ops::Deref, ptr};
-
 use cfg_if::cfg_if;
 
-// #[cfg(feature = "embedded_hal")]
-// use embedded_hal::spi::FullDuplex;
-use crate::{
-    pac::{self, RCC},
-    util::RccPeriph,
-    MAX_ITERS,
-};
+use crate::{pac, util::RccPeriph};
 
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
@@ -51,7 +45,6 @@ pub enum SpiError {
     Crc,
     Hardware,
 }
-
 
 /// Set the factor to divide the APB clock by to set baud rate. Sets `SPI_CR1` register, `BR` field.
 /// On H7, sets CFG1 register, `MBR` field.
@@ -231,13 +224,10 @@ pub struct Spi<R> {
     pub cfg: SpiConfig,
 }
 
-
 impl<R> Spi<R>
-    where
-        R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
+where
+    R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
 {
-
-
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
     /// Note that the `channel` argument is unused on F3 and L4, since it is hard-coded,
     /// and can't be configured using the DMAMUX peripheral. (`dma::mux()` fn).
@@ -271,21 +261,21 @@ impl<R> Spi<R>
 
         // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
         #[cfg(any(feature = "f3", feature = "l4"))]
-            let channel = R::write_chan();
+        let channel = R::write_chan();
         #[cfg(feature = "l4")]
-            let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
+        let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
         #[cfg(any(feature = "h5", feature = "h7"))]
-            let periph_addr = &self.regs.txdr as *const _ as u32;
+        let periph_addr = &self.regs.txdr as *const _ as u32;
         #[cfg(not(any(feature = "h5", feature = "h7")))]
-            let periph_addr = &self.regs.dr as *const _ as u32;
+        let periph_addr = &self.regs.dr as *const _ as u32;
 
         #[cfg(any(feature = "h5", feature = "h7"))]
-            let num_data = len as u32;
+        let num_data = len as u32;
         #[cfg(not(any(feature = "h5", feature = "h7")))]
-            let num_data = len as u16;
+        let num_data = len as u16;
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
@@ -351,21 +341,21 @@ impl<R> Spi<R>
         self.regs.cfg1.modify(|_, w| w.rxdmaen().set_bit());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
-            let channel = R::read_chan();
+        let channel = R::read_chan();
         #[cfg(feature = "l4")]
-            let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
+        let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
         #[cfg(any(feature = "h5", feature = "h7"))]
-            let periph_addr = &self.regs.rxdr as *const _ as u32;
+        let periph_addr = &self.regs.rxdr as *const _ as u32;
         #[cfg(not(any(feature = "h5", feature = "h7")))]
-            let periph_addr = &self.regs.dr as *const _ as u32;
+        let periph_addr = &self.regs.dr as *const _ as u32;
 
         #[cfg(any(feature = "h5", feature = "h7"))]
-            let num_data = len as u32;
+        let num_data = len as u32;
         #[cfg(not(any(feature = "h5", feature = "h7")))]
-            let num_data = len as u16;
+        let num_data = len as u16;
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
@@ -424,24 +414,24 @@ impl<R> Spi<R>
         // todo: DRY here, with `write_dma`, and `read_dma`.
 
         #[cfg(any(feature = "h5", feature = "h7"))]
-            let periph_addr_write = &self.regs.txdr as *const _ as u32;
+        let periph_addr_write = &self.regs.txdr as *const _ as u32;
         #[cfg(any(feature = "h5", not(feature = "h7")))]
-            let periph_addr_write = &self.regs.dr as *const _ as u32;
+        let periph_addr_write = &self.regs.dr as *const _ as u32;
 
         #[cfg(any(feature = "h5", feature = "h7"))]
-            let periph_addr_read = &self.regs.rxdr as *const _ as u32;
+        let periph_addr_read = &self.regs.rxdr as *const _ as u32;
         #[cfg(any(feature = "h5", not(feature = "h7")))]
-            let periph_addr_read = &self.regs.dr as *const _ as u32;
+        let periph_addr_read = &self.regs.dr as *const _ as u32;
 
         #[cfg(any(feature = "h5", feature = "h7"))]
-            let num_data_write = len_write as u32;
+        let num_data_write = len_write as u32;
         #[cfg(any(feature = "h5", not(feature = "h7")))]
-            let num_data_write = len_write as u16;
+        let num_data_write = len_write as u16;
 
         #[cfg(any(feature = "h5", feature = "h7"))]
-            let num_data_read = len_read as u32;
+        let num_data_read = len_read as u32;
         #[cfg(any(feature = "h5", not(feature = "h7")))]
-            let num_data_read = len_read as u16;
+        let num_data_read = len_read as u16;
 
         // Be careful - order of enabling Rx and Tx may matter, along with other things like when we
         // enable the channels, and the SPI periph.
@@ -451,16 +441,16 @@ impl<R> Spi<R>
         self.regs.cfg1.modify(|_, w| w.rxdmaen().set_bit());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
-            let channel_write = R::write_chan();
+        let channel_write = R::write_chan();
         #[cfg(feature = "l4")]
-            let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
+        let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
         #[cfg(any(feature = "f3", feature = "l4"))]
-            let channel_read = R::read_chan();
+        let channel_read = R::read_chan();
         #[cfg(feature = "l4")]
-            let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
+        let mut dma_regs = unsafe { &(*DMA1::ptr()) }; // todo: Hardcoded DMA1
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
         match dma_periph {
@@ -586,7 +576,6 @@ impl<R> Spi<R>
         self.stop_dma(channel_tx, channel_rx, dma_periph);
     }
 
-
     /// Print the (raw) contents of the status register.
     pub fn read_status(&self) -> u32 {
         unsafe { self.regs.sr.read().bits() }
@@ -626,11 +615,6 @@ impl<R> Spi<R>
 //     R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph
 // {
 // }
-
-
-
-
-
 
 // #[cfg(any(feature = "h5", feature = "h7"))]
 // fn read_one(&mut self) -> Result<u8, SpiError> {
