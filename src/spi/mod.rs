@@ -33,6 +33,24 @@ use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel}; // todo temp
 
+#[macro_export]
+macro_rules! check_errors {
+    ($sr:expr) => {
+        #[cfg(feature = "h7")]
+        let crc_error = $sr.crce().bit_is_set();
+        #[cfg(not(feature = "h7"))]
+        let crc_error = $sr.crcerr().bit_is_set();
+
+        if $sr.ovr().bit_is_set() {
+            return Err(SpiError::Overrun);
+        } else if $sr.modf().bit_is_set() {
+            return Err(SpiError::ModeFault);
+        } else if crc_error {
+            return Err(SpiError::Crc);
+        }
+    };
+}
+
 /// SPI error
 #[non_exhaustive]
 #[derive(Copy, Clone, Debug)]

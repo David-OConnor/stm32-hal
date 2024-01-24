@@ -2,6 +2,7 @@ use core::{cell::UnsafeCell, ops::Deref, ptr};
 
 use super::*;
 use crate::{
+    check_errors,
     pac::{self, RCC},
     util::RccPeriph,
     MAX_ITERS,
@@ -187,6 +188,8 @@ where
     /// * Assumes the transaction has started (CSTART handled externally)
     /// * Assumes at least one word has already been written to the Tx FIFO
     fn exchange_duplex_internal(&mut self, word: u8) -> Result<u8, SpiError> {
+        check_errors!(self.regs.sr.read());
+
         // NOTE(write_volatile/read_volatile) write/read only 1 word
         unsafe {
             let txdr = &self.regs.txdr as *const _ as *const UnsafeCell<u8>;
@@ -209,18 +212,10 @@ where
     /// * Assumes the transaction has started (CSTART handled externally)
     /// * Assumes at least one word has already been written to the Tx FIFO
     fn read_duplex_internal(&mut self) -> Result<u8, SpiError> {
+        check_errors!(self.regs.sr.read());
+
         // NOTE(read_volatile) read only 1 word
         return Ok(unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) });
-
-        // let sr = self.regs.sr.read(); // Read SR again on a subsequent PCLK cycle
-        //
-        // if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
-        //     // The Tx FIFO completed, but no words were
-        //     // available in the Rx FIFO. This is a duplex failure
-        //     nb::Error::Other(Error::DuplexFailed)
-        // } else {
-        //     nb::Error::WouldBlock
-        // }
     }
 
     /// Internal implementation for blocking::spi::Write
@@ -288,11 +283,15 @@ where
     }
 
     fn read(&mut self) -> Result<u8, SpiError> {
+        check_errors!(self.regs.sr.read());
+
         // NOTE(read_volatile) read only 1 word
         return Ok(unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) });
     }
 
     fn send(&mut self, word: u8) -> Result<(), SpiError> {
+        check_errors!(self.regs.sr.read());
+
         // NOTE(write_volatile) see note above
         unsafe {
             let txdr = &self.regs.txdr as *const _ as *const UnsafeCell<u8>;
@@ -303,6 +302,75 @@ where
         self.regs.cr1.modify(|_, w| w.cstart().started());
 
         return Ok(());
+    }
+
+    // todo: H7xx c+p above. Baseline code below.
+
+    /// Read a single byte if available, or block until it's available.
+    pub fn read2(&mut self) -> Result<u8, SpiError> {
+        check_errors!(self.regs.sr.read());
+
+        let mut i = 0;
+        while !self.regs.sr.read().rxwne().bit_is_set() {
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(SpiError::Hardware);
+            }
+        }
+
+        Ok(unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) })
+    }
+
+    /// Write a single byte if available, or block until it's available.
+    pub fn write_one(&mut self, byte: u8) -> Result<(), SpiError> {
+        check_errors!(self.regs.sr.read());
+
+        let mut i = 0;
+        while !self.regs.sr.read().txc().bit_is_set() {
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(SpiError::Hardware);
+            }
+        }
+
+        #[allow(invalid_reference_casting)]
+        unsafe {
+            ptr::write_volatile(&self.regs.txdr as *const _ as *mut u8, byte)
+        };
+
+        Ok(())
+    }
+
+    /// Write multiple bytes on the SPI line, blocking until complete.
+    pub fn write(&mut self, words: &[u8]) -> Result<(), SpiError> {
+        // for word in words {
+        //     self.write_one(*word)?;
+        //     self.read()?;
+        // }
+
+        // for word in words {
+        //     self.send(*word)?;
+        //     // self.read()?;
+        // }
+
+        self.transfer_internal_w(words)?;
+
+        Ok(())
+    }
+
+    /// Read multiple bytes to a buffer, blocking until complete.
+    pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<(), SpiError> {
+        // for word in words.iter_mut() {
+        //     self.write_one(*word)?;
+        //     *word = self.read()?;
+        // }
+
+        for word in words.iter_mut() {
+            self.write_one(*word)?;
+            *word = self.read2()?;
+        }
+
+        Ok(())
     }
 
     /// Enable an interrupt.

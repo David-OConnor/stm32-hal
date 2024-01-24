@@ -2,6 +2,7 @@ use core::{ops::Deref, ptr};
 
 use super::*;
 use crate::{
+    check_errors,
     pac::{self, RCC},
     util::RccPeriph,
     MAX_ITERS,
@@ -155,16 +156,7 @@ where
 
     /// Read a single byte if available, or block until it's available.
     pub fn read(&mut self) -> Result<u8, SpiError> {
-        let sr = self.regs.sr.read();
-        let crce = sr.crcerr().bit_is_set();
-
-        if sr.ovr().bit_is_set() {
-            return Err(SpiError::Overrun);
-        } else if sr.modf().bit_is_set() {
-            return Err(SpiError::ModeFault);
-        } else if crce {
-            return Err(SpiError::Crc);
-        }
+        check_errors!(self.regs.sr.read());
 
         let mut i = 0;
         while !self.regs.sr.read().rxne().bit_is_set() {
@@ -180,16 +172,7 @@ where
     /// Write a single byte if available, or block until it's available.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
     pub fn write_one(&mut self, byte: u8) -> Result<(), SpiError> {
-        let sr = self.regs.sr.read();
-        let crce = sr.crcerr().bit_is_set();
-
-        if sr.ovr().bit_is_set() {
-            return Err(SpiError::Overrun);
-        } else if sr.modf().bit_is_set() {
-            return Err(SpiError::ModeFault);
-        } else if crce {
-            return Err(SpiError::Crc);
-        }
+        check_errors!(self.regs.sr.read());
 
         let mut i = 0;
         while !self.regs.sr.read().txe().bit_is_set() {
