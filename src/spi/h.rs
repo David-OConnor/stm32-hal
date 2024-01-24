@@ -1,4 +1,4 @@
-use core::{ops::Deref, ptr};
+use core::{cell::UnsafeCell, ops::Deref, ptr};
 
 use super::*;
 use crate::{
@@ -186,95 +186,48 @@ where
     ///
     /// * Assumes the transaction has started (CSTART handled externally)
     /// * Assumes at least one word has already been written to the Tx FIFO
-    fn exchange_duplex_internal(&mut self, word: u8) -> nb::Result<u8, Error> {
-        check_status_error!(self.spi;
-        {    // else if sr.dxp().is_available() {
-        dxp, is_available,
-        {
+    fn exchange_duplex_internal(&mut self, word: u8) -> Result<u8, SpiError> {
         // NOTE(write_volatile/read_volatile) write/read only 1 word
         unsafe {
-        let txdr = &self.spi.txdr as *const _ as *const UnsafeCell<u8>;
-        ptr::write_volatile(
-        UnsafeCell::raw_get(txdr),
-        word,
-        );
-        return Ok(ptr::read_volatile(
-        &self.spi.rxdr as *const _ as *const u8,
-        ));
+            let txdr = &self.regs.txdr as *const _ as *const UnsafeCell<u8>;
+            ptr::write_volatile(UnsafeCell::raw_get(txdr), word);
+            return Ok(ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8));
+            //
+            // let sr = self.regs.sr.read(); // Read SR again on a subsequent PCLK cycle
+            //
+            // if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
+            //     // The Tx FIFO completed, but no words were
+            //     // available in the Rx FIFO. This is a duplex failure
+            //     Err(SpiError::DuplexFailed)
+            // } else {
+            //     Ok(())
+            // }
         }
-        }
-        }, { // else if sr.txc().is_completed() {
-        txc, is_completed,
-        {
-        let sr = self.spi.sr.read(); // Read SR again on a subsequent PCLK cycle
-
-        if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
-        // The Tx FIFO completed, but no words were
-        // available in the Rx FIFO. This is a duplex failure
-        nb::Error::Other(Error::DuplexFailed)
-        } else {
-        nb::Error::WouldBlock
-        }
-        }
-        })
     }
     /// Internal implementation for reading a word
     ///
     /// * Assumes the transaction has started (CSTART handled externally)
     /// * Assumes at least one word has already been written to the Tx FIFO
-    fn read_duplex_internal(&mut self) -> nb::Result<u8, Error> {
-        check_status_error!(self.spi;
-        {    // else if sr.rxp().is_not_empty()
-        rxp, is_not_empty,
-        {
+    fn read_duplex_internal(&mut self) -> Result<u8, SpiError> {
         // NOTE(read_volatile) read only 1 word
-        return Ok(unsafe {
-        ptr::read_volatile(
-        &self.spi.rxdr as *const _ as *const u8,
-        )
-        });
-        }
-        }, { // else if sr.txc().is_completed()
-        txc, is_completed,
-        {
-        let sr = self.spi.sr.read(); // Read SR again on a subsequent PCLK cycle
+        return Ok(unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) });
 
-        if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
-        // The Tx FIFO completed, but no words were
-        // available in the Rx FIFO. This is a duplex failure
-        nb::Error::Other(Error::DuplexFailed)
-        } else {
-        nb::Error::WouldBlock
-        }
-        }
-        })
+        // let sr = self.regs.sr.read(); // Read SR again on a subsequent PCLK cycle
+        //
+        // if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
+        //     // The Tx FIFO completed, but no words were
+        //     // available in the Rx FIFO. This is a duplex failure
+        //     nb::Error::Other(Error::DuplexFailed)
+        // } else {
+        //     nb::Error::WouldBlock
+        // }
     }
 
     /// Internal implementation for blocking::spi::Write
-    fn transfer_internal_w(&mut self, write_words: &[u8]) -> Result<(), Error> {
-        use hal::spi::FullDuplex;
-
+    fn transfer_internal_w(&mut self, write_words: &[u8]) -> Result<(), SpiError> {
         // both buffers are the same length
         if write_words.is_empty() {
             return Ok(());
-        }
-
-        // Are we in frame mode?
-        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
-            const MAX_WORDS: usize = 0xFFFF;
-
-            // Can we send
-            if write_words.len() > MAX_WORDS {
-                return Err(Error::BufferTooBig {
-                    max_size: MAX_WORDS,
-                });
-            }
-
-            // Setup that we're going to send this amount of bits
-            // SAFETY: We already checked that `write_words` is not empty
-            self.setup_transaction(unsafe {
-                core::num::NonZeroU16::new_unchecked(write_words.len() as u16)
-            })?;
         }
 
         // Depth of FIFO to use. All current SPI implementations
@@ -286,52 +239,26 @@ where
         let len = write_words.len();
         let mut write = write_words.iter();
         for _ in 0..core::cmp::min(FIFO_WORDS, len) {
-            nb::block!(self.send(*write.next().unwrap()))?;
+            self.send(*write.next().unwrap());
         }
 
         // Continue filling write FIFO and emptying read FIFO
         for word in write {
-            let _ = nb::block!(self.exchange_duplex_internal(*word))?;
+            let _ = self.exchange_duplex_internal(*word);
         }
 
         // Dummy read from the read FIFO
         for _ in 0..core::cmp::min(FIFO_WORDS, len) {
-            let _ = nb::block!(self.read_duplex_internal())?;
-        }
-
-        // Are we in frame mode?
-        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
-            // Clean up
-            self.end_transaction()?;
+            let _ = self.read_duplex_internal();
         }
 
         Ok(())
     }
 
     /// Internal implementation for blocking::spi::Transfer
-    fn transfer_internal_rw(&mut self, words: &mut [u8]) -> Result<(), Error> {
-        use hal::spi::FullDuplex;
-
+    fn transfer_internal_rw(&mut self, words: &mut [u8]) -> Result<(), SpiError> {
         if words.is_empty() {
             return Ok(());
-        }
-
-        // Are we in frame mode?
-        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
-            const MAX_WORDS: usize = 0xFFFF;
-
-            // Can we send
-            if words.len() > MAX_WORDS {
-                return Err(Error::BufferTooBig {
-                    max_size: MAX_WORDS,
-                });
-            }
-
-            // Setup that we're going to send this amount of bits
-            // SAFETY: We already checked that `write_words` is not empty
-            self.setup_transaction(unsafe {
-                core::num::NonZeroU16::new_unchecked(words.len() as u16)
-            })?;
         }
 
         // Depth of FIFO to use. All current SPI implementations
@@ -342,28 +269,40 @@ where
         // Fill the first half of the write FIFO
         let len = words.len();
         for i in 0..core::cmp::min(FIFO_WORDS, len) {
-            nb::block!(self.send(words[i]))?;
+            self.send(words[i]);
         }
 
         for i in FIFO_WORDS..len + FIFO_WORDS {
             if i < len {
                 // Continue filling write FIFO and emptying read FIFO
-                let read_value = nb::block!(self.exchange_duplex_internal(words[i]))?;
+                let read_value = self.exchange_duplex_internal(words[i])?;
 
                 words[i - FIFO_WORDS] = read_value;
             } else {
                 // Finish emptying the read FIFO
-                words[i - FIFO_WORDS] = nb::block!(self.read_duplex_internal())?;
+                words[i - FIFO_WORDS] = self.read_duplex_internal()?;
             }
         }
 
-        // Are we in frame mode?
-        if matches!(self.hardware_cs_mode, HardwareCSMode::FrameTransaction) {
-            // Clean up
-            self.end_transaction()?;
-        }
-
         Ok(())
+    }
+
+    fn read(&mut self) -> Result<u8, SpiError> {
+        // NOTE(read_volatile) read only 1 word
+        return Ok(unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) });
+    }
+
+    fn send(&mut self, word: u8) -> Result<(), SpiError> {
+        // NOTE(write_volatile) see note above
+        unsafe {
+            let txdr = &self.regs.txdr as *const _ as *const UnsafeCell<u8>;
+            ptr::write_volatile(UnsafeCell::raw_get(txdr), word)
+        }
+        // write CSTART to start a transaction in
+        // master mode
+        self.regs.cr1.modify(|_, w| w.cstart().started());
+
+        return Ok(());
     }
 
     /// Enable an interrupt.

@@ -44,6 +44,7 @@ pub enum SpiError {
     /// CRC error
     Crc,
     Hardware,
+    DuplexFailed, // todo temp?
 }
 
 /// Set the factor to divide the APB clock by to set baud rate. Sets `SPI_CR1` register, `BR` field.
