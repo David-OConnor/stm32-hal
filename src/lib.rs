@@ -517,6 +517,7 @@ cfg_if! {
 // For use with timers; converting ticks to real time.
 pub mod instant;
 mod util;
+mod spi;
 
 // todo: should these helper macros be removed from this library? It has nothing to do with STM32.
 
