@@ -1,3 +1,5 @@
+// Note: This module contains lots of C+P from stm32h7xx-hal.
+
 use core::{cell::UnsafeCell, ops::Deref, ptr};
 
 use super::*;
@@ -71,8 +73,8 @@ pub enum DataSize {
 }
 
 impl<R> Spi<R>
-where
-    R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
+    where
+        R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
 {
     /// Initialize an SPI peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock.
@@ -112,15 +114,20 @@ where
             w.crcen().clear_bit()
         });
 
+        // Specifies minimum time delay (expressed in SPI clock cycles periods) inserted between two
+        // consecutive data frames in master mode. In clock cycles; 0 - 15. (hardware CS)
+        let inter_word_delay = 0;
+
         regs.cfg2.modify(|_, w| {
             w.cpol().bit(cfg.mode.polarity as u8 != 0);
             w.cpha().bit(cfg.mode.phase as u8 != 0);
             w.master().set_bit();
             w.ssm().bit(cfg.slave_select == SlaveSelect::Software);
             w.ssoe().bit(cfg.slave_select != SlaveSelect::Software);
+            w.midi().bits(inter_word_delay);
             w.comm().bits(0b00) // Full-duplex mode
-                                // w.comm().lsbfrst().clear_bit() // MSB first
-                                // w.ssoe().bit(cfg.slave_select != SlaveSelect::Software)
+            // w.comm().lsbfrst().clear_bit() // MSB first
+            // w.ssoe().bit(cfg.slave_select != SlaveSelect::Software)
         });
 
         // todo: You may not need this master line separate. TSing SS config issues.
@@ -131,7 +138,7 @@ where
         // 3. Write to the SPI_CR2 register to select length of the transfer, if it is not known TSIZE
         // has to be programmed to zero.
         // Resetting this here; will be set to the appropriate value at each transaction.
-        regs.cr2.modify(|_, w| w.tsize().bits(0));
+        regs.cr2.modify(|_, w| w.tsize().bits(1));
 
         // 4. Write to SPI_CRCPOLY and into TCRCINI, RCRCINI and CRC33_17 bits at
         // SPI2S_CR1 register to configure the CRC polynomial and CRC calculation if needed.
@@ -187,39 +194,83 @@ where
     ///
     /// * Assumes the transaction has started (CSTART handled externally)
     /// * Assumes at least one word has already been written to the Tx FIFO
-    fn exchange_duplex_internal(&mut self, word: u8) -> Result<u8, SpiError> {
-        check_errors!(self.regs.sr.read());
+    fn exchange_duplex(&mut self, word: u8) -> Result<u8, SpiError> {
+        let status = self.regs.sr.read();
+        check_errors!(status);
+
+        // todo: Experimenting
+        let mut i = 0;
+        while !self.regs.sr.read().dxp().is_available() {
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(SpiError::Hardware);
+            }
+        }
 
         // NOTE(write_volatile/read_volatile) write/read only 1 word
         unsafe {
             let txdr = &self.regs.txdr as *const _ as *const UnsafeCell<u8>;
             ptr::write_volatile(UnsafeCell::raw_get(txdr), word);
             return Ok(ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8));
-            //
-            // let sr = self.regs.sr.read(); // Read SR again on a subsequent PCLK cycle
-            //
-            // if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
-            //     // The Tx FIFO completed, but no words were
-            //     // available in the Rx FIFO. This is a duplex failure
-            //     Err(SpiError::DuplexFailed)
-            // } else {
-            //     Ok(())
-            // }
         }
+
+
+
+        // if status.dxp().is_available() {
+        //     // NOTE(write_volatile/read_volatile) write/read only 1 word
+        //     unsafe {
+        //         let txdr = &self.regs.txdr as *const _ as *const UnsafeCell<u8>;
+        //         ptr::write_volatile(UnsafeCell::raw_get(txdr), word);
+        //         return Ok(ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8));
+        //     }
+        // } else if status.txc().is_completed() {
+        //     if !status.rxp().is_not_empty() {
+        //         // The Tx FIFO completed, but no words were
+        //         // available in the Rx FIFO. This is a duplex failure
+        //         return Err(SpiError::Hardware) // todo placeholder
+        //     } else {
+        //         // todo: poll
+        //     }
+        // } else {
+        //     // todo: poll?
+        // }
     }
     /// Internal implementation for reading a word
     ///
     /// * Assumes the transaction has started (CSTART handled externally)
     /// * Assumes at least one word has already been written to the Tx FIFO
-    fn read_duplex_internal(&mut self) -> Result<u8, SpiError> {
+    fn read_duplex(&mut self) -> Result<u8, SpiError> {
         check_errors!(self.regs.sr.read());
+
+        // todo: Experimenting
+        let mut i = 0;
+        while !self.regs.sr.read().rxp().is_not_empty() {
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(SpiError::Hardware);
+            }
+        }
 
         // NOTE(read_volatile) read only 1 word
         return Ok(unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) });
+
+        // else if sr.txc().is_completed() {
+        //         let sr = self.spi.sr.read(); // Read SR again on a subsequent PCLK cycle
+        //
+        //         if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
+        //             // The Tx FIFO completed, but no words were
+        //             // available in the Rx FIFO. This is a duplex failure
+        //             nb::Error::Other(Error::DuplexFailed)
+        //         } else {
+        //             nb::Error::WouldBlock
+        //         }
+        //     } else {
+        //         nb::Error::WouldBlock
+        //     })
     }
 
-    /// Internal implementation for blocking::spi::Write
-    fn transfer_internal_w(&mut self, write_words: &[u8]) -> Result<(), SpiError> {
+    /// Write multiple bytes on the SPI line, blocking until complete.
+    pub fn write(&mut self, write_words: &[u8]) -> Result<(), SpiError> {
         // both buffers are the same length
         if write_words.is_empty() {
             return Ok(());
@@ -239,19 +290,19 @@ where
 
         // Continue filling write FIFO and emptying read FIFO
         for word in write {
-            let _ = self.exchange_duplex_internal(*word);
+            let _ = self.exchange_duplex(*word);
         }
 
         // Dummy read from the read FIFO
         for _ in 0..core::cmp::min(FIFO_WORDS, len) {
-            let _ = self.read_duplex_internal();
+            let _ = self.read_duplex();
         }
 
         Ok(())
     }
 
-    /// Internal implementation for blocking::spi::Transfer
-    fn transfer_internal_rw(&mut self, words: &mut [u8]) -> Result<(), SpiError> {
+    /// Read multiple bytes to a buffer, blocking until complete.
+    pub fn transfer(&mut self, words: &mut [u8]) -> Result<(), SpiError> {
         if words.is_empty() {
             return Ok(());
         }
@@ -270,12 +321,12 @@ where
         for i in FIFO_WORDS..len + FIFO_WORDS {
             if i < len {
                 // Continue filling write FIFO and emptying read FIFO
-                let read_value = self.exchange_duplex_internal(words[i])?;
+                let read_value = self.exchange_duplex(words[i])?;
 
                 words[i - FIFO_WORDS] = read_value;
             } else {
                 // Finish emptying the read FIFO
-                words[i - FIFO_WORDS] = self.read_duplex_internal()?;
+                words[i - FIFO_WORDS] = self.read_duplex()?;
             }
         }
 
@@ -337,38 +388,6 @@ where
         unsafe {
             ptr::write_volatile(&self.regs.txdr as *const _ as *mut u8, byte)
         };
-
-        Ok(())
-    }
-
-    /// Write multiple bytes on the SPI line, blocking until complete.
-    pub fn write(&mut self, words: &[u8]) -> Result<(), SpiError> {
-        // for word in words {
-        //     self.write_one(*word)?;
-        //     self.read()?;
-        // }
-
-        // for word in words {
-        //     self.send(*word)?;
-        //     // self.read()?;
-        // }
-
-        self.transfer_internal_w(words)?;
-
-        Ok(())
-    }
-
-    /// Read multiple bytes to a buffer, blocking until complete.
-    pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<(), SpiError> {
-        // for word in words.iter_mut() {
-        //     self.write_one(*word)?;
-        //     *word = self.read()?;
-        // }
-
-        for word in words.iter_mut() {
-            self.write_one(*word)?;
-            *word = self.read2()?;
-        }
 
         Ok(())
     }
