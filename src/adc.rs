@@ -433,7 +433,7 @@ macro_rules! hal {
                     // ...The software is allowed to write this bit only when ADSTART=0 and JADSTART=0 (which
                     // ensures that no conversion is ongoing)."
                     // todo: On H7, allow disabling boost, either manually, or by checking the clock speed.
-                    #[cfg(any(feature = "h7", not(feature = "h753")))]
+                    #[cfg(all(feature = "h7", not(feature = "h753")))]
                     result.regs.cr.modify(|_, w| w.boost().bits(1));
 
                     #[cfg(feature = "h753")]
