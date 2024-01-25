@@ -663,11 +663,9 @@ impl Clocks {
             w.fdcansel().bits(self.can_src as u8)
         });
 
-        // Set USART2 to HSI; temp hardcoded.
         // todo: Add config enums for these, and add them as Clocks fields.
         #[cfg(not(any(feature = "h7b3", feature = "h5")))]
         rcc.d2ccip2r.modify(|_, w| unsafe {
-            w.usart234578sel().bits(0b111);
             w.usbsel().bits(self.usb_src as u8)
         });
 

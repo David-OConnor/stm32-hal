@@ -353,7 +353,7 @@ where
         }
 
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
-        self.regs.cr1.modify(|_, w| w.cstart().started());
+        self.regs.cr1.modify(|_, w| w.cstart().set_bit()); // Must be separate from SPE enable.
     }
 
     pub unsafe fn write_dma(
@@ -422,7 +422,7 @@ where
 
         // 4. Enable the SPI by setting the SPE bit.
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
-        self.regs.cr1.modify(|_, w| w.cstart().started());
+        self.regs.cr1.modify(|_, w| w.cstart().set_bit()); // Must be separate from SPE enable.
     }
 
     /// Transfer data from DMA; this is the basic reading API, using both write and read transfers:
@@ -512,8 +512,9 @@ where
         }
 
         self.regs.cfg1.modify(|_, w| w.txdmaen().set_bit());
+
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
-        self.regs.cr1.modify(|_, w| w.cstart().started());
+        self.regs.cr1.modify(|_, w| w.cstart().set_bit()); // Must be separate from SPE enable.
     }
 
     /// Enable an interrupt.
