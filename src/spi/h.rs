@@ -73,8 +73,8 @@ pub enum DataSize {
 }
 
 impl<R> Spi<R>
-    where
-        R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
+where
+    R: Deref<Target = pac::spi1::RegisterBlock> + RccPeriph,
 {
     /// Initialize an SPI peripheral, including configuration register writes, and enabling and resetting
     /// its RCC peripheral clock.
@@ -84,7 +84,7 @@ impl<R> Spi<R>
 
         // H743 RM, section 50.4.8: Configuration of SPI.
         // 1. Write the proper GPIO registers: Configure GPIO for MOSI, MISO and SCK pins.
-        // ( Handled in application code)
+        // (Handled in application code)
 
         // 2. Write to the SPI_CFG1 and SPI_CFG2 registers to set up proper values of all not
         // reserved bits and bit fields included there with next exceptions:
@@ -125,20 +125,14 @@ impl<R> Spi<R>
             w.ssm().bit(cfg.slave_select == SlaveSelect::Software);
             w.ssoe().bit(cfg.slave_select != SlaveSelect::Software);
             w.midi().bits(inter_word_delay);
+            w.master().set_bit();
             w.comm().bits(0b00) // Full-duplex mode
-            // w.comm().lsbfrst().clear_bit() // MSB first
-            // w.ssoe().bit(cfg.slave_select != SlaveSelect::Software)
         });
-
-        // todo: You may not need this master line separate. TSing SS config issues.
-        // regs.cfg2.modify(|_, w| w.master().set_bit());
-
-        // todo: CR2.tsize should be > 0.
 
         // 3. Write to the SPI_CR2 register to select length of the transfer, if it is not known TSIZE
         // has to be programmed to zero.
         // Resetting this here; will be set to the appropriate value at each transaction.
-        regs.cr2.modify(|_, w| w.tsize().bits(1));
+        regs.cr2.modify(|_, w| w.tsize().bits(0));
 
         // 4. Write to SPI_CRCPOLY and into TCRCINI, RCRCINI and CRC33_17 bits at
         // SPI2S_CR1 register to configure the CRC polynomial and CRC calculation if needed.
@@ -151,9 +145,6 @@ impl<R> Spi<R>
 
         regs.cr1.modify(|_, w| w.spe().set_bit());
 
-        // todo: It sounds like you should enable and disable spi during writes, not on init!
-        // todo: This lets you use hardware CS management, and seems to be teh way the RM
-        // todo steers you towards regardless.
         Self { regs, cfg }
     }
 
@@ -198,11 +189,10 @@ impl<R> Spi<R>
         let status = self.regs.sr.read();
         check_errors!(status);
 
-        // todo: Experimenting
         let mut i = 0;
         while !self.regs.sr.read().dxp().is_available() {
             i += 1;
-            if i >= MAX_ITERS {
+            if i >= MAX_ITERS * 10 {
                 return Err(SpiError::Hardware);
             }
         }
@@ -213,27 +203,6 @@ impl<R> Spi<R>
             ptr::write_volatile(UnsafeCell::raw_get(txdr), word);
             return Ok(ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8));
         }
-
-
-
-        // if status.dxp().is_available() {
-        //     // NOTE(write_volatile/read_volatile) write/read only 1 word
-        //     unsafe {
-        //         let txdr = &self.regs.txdr as *const _ as *const UnsafeCell<u8>;
-        //         ptr::write_volatile(UnsafeCell::raw_get(txdr), word);
-        //         return Ok(ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8));
-        //     }
-        // } else if status.txc().is_completed() {
-        //     if !status.rxp().is_not_empty() {
-        //         // The Tx FIFO completed, but no words were
-        //         // available in the Rx FIFO. This is a duplex failure
-        //         return Err(SpiError::Hardware) // todo placeholder
-        //     } else {
-        //         // todo: poll
-        //     }
-        // } else {
-        //     // todo: poll?
-        // }
     }
     /// Internal implementation for reading a word
     ///
@@ -242,31 +211,16 @@ impl<R> Spi<R>
     fn read_duplex(&mut self) -> Result<u8, SpiError> {
         check_errors!(self.regs.sr.read());
 
-        // todo: Experimenting
         let mut i = 0;
         while !self.regs.sr.read().rxp().is_not_empty() {
             i += 1;
-            if i >= MAX_ITERS {
+            if i >= MAX_ITERS * 10 {
                 return Err(SpiError::Hardware);
             }
         }
 
         // NOTE(read_volatile) read only 1 word
         return Ok(unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) });
-
-        // else if sr.txc().is_completed() {
-        //         let sr = self.spi.sr.read(); // Read SR again on a subsequent PCLK cycle
-        //
-        //         if sr.txc().is_completed() && !sr.rxp().is_not_empty() {
-        //             // The Tx FIFO completed, but no words were
-        //             // available in the Rx FIFO. This is a duplex failure
-        //             nb::Error::Other(Error::DuplexFailed)
-        //         } else {
-        //             nb::Error::WouldBlock
-        //         }
-        //     } else {
-        //         nb::Error::WouldBlock
-        //     })
     }
 
     /// Write multiple bytes on the SPI line, blocking until complete.
