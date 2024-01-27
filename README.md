@@ -148,6 +148,20 @@ fn main() -> ! {
 }
 ```
 
+## API 
+
+The API for most peripherals has these methods:
+
+- `new()` This accepts a PAC register struct, and usually a Config struct.
+- `enable_interrupt()` Accepts an enum of interrupt types.
+- `clear_interrupt()` Accepts an enum of interrupt types.
+- `read_status()` Returns the peripheral's status register as an integer. Compare to the Reference manual, eg after converting to binary.
+- `read()`, `write()` etc as required: Blocking
+- `read_dma()`, `write_dma()`, etc as required: Starts a DMA transfer that should be cleaned up in an ISR
+
+Specific peripherals have different functionality, as required. Reference the docs for details.
+
+
 ## Compatible with RTIC
 [Real-Time Interrupt-driven Concurrency](https://rtic.rs/0.5/book/en/) is
 a light-weight framework that manages safely sharing state between contexts. Eg between ISRs and the main loop.

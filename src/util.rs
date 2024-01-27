@@ -133,7 +133,7 @@ macro_rules! rcc_en_reset {
 
 pub(crate) use rcc_en_reset;
 
-// todo: This trait is currently a one-off for usart
+/// Uart only. Important: This assumes we use the default UART clock.
 pub trait BaudPeriph {
     fn baud(clock_cfg: &Clocks) -> u32;
 }

@@ -91,6 +91,21 @@ pub enum IrdaMode {
     LowPower,
 }
 
+/// Serial error
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum UartError {
+    /// Framing error
+    Framing,
+    /// Noise error
+    Noise,
+    /// RX buffer overrun
+    Overrun,
+    /// Parity check error
+    Parity,
+    Hardware,
+}
+
 #[cfg(not(feature = "f4"))]
 #[derive(Clone, Copy)]
 /// The type of USART interrupt to configure. Reference the USART_ISR register.
@@ -126,7 +141,7 @@ pub struct UsartConfig {
     pub parity: Parity,
     /// IrDA mode: Enables this protocol, which is used to communicate with IR devices.
     pub irda_mode: IrdaMode,
-    #[cfg(any(feature = "g4", feature = "h7"))] // todo: Which others have FIFO?
+    #[cfg(any(feature = "g4", feature = "h7"))]
     /// The first-in, first-out buffer is enabled. Defaults to enabled.
     pub fifo_enabled: bool,
     #[cfg(not(feature = "f4"))]
@@ -149,8 +164,6 @@ impl Default for UsartConfig {
         }
     }
 }
-
-// todo: FIFO enabled versions of these H5 etc helper macros/fns
 
 // Sep macros due to too many feature-gates.
 // todo: Use functions?
@@ -313,7 +326,7 @@ where
 
     /// Set the BAUD rate. Called during init, and can be called later to change BAUD
     /// during program execution.
-    pub fn set_baud(&mut self, baud: u32, clock_cfg: &Clocks) -> Result<(), Error> {
+    pub fn set_baud(&mut self, baud: u32, clock_cfg: &Clocks) -> Result<(), UartError> {
         let originally_enabled = cr1!(self.regs).read().ue().bit_is_set();
 
         if originally_enabled {
@@ -322,7 +335,7 @@ where
             while cr1!(self.regs).read().ue().bit_is_set() {
                 i += 1;
                 if i >= MAX_ITERS {
-                    return Err(Error::Hardware);
+                    return Err(UartError::Hardware);
                 }
             }
         }
@@ -358,7 +371,7 @@ where
     }
 
     /// Transmit data, as a sequence of u8. See L44 RM, section 38.5.2: "Character transmission procedure"
-    pub fn write(&mut self, data: &[u8]) -> Result<(), Error> {
+    pub fn write(&mut self, data: &[u8]) -> Result<(), UartError> {
         // todo: how does this work with a 9 bit words? Presumably you'd need to make `data`
         // todo take `&u16`.
 
@@ -371,11 +384,10 @@ where
                     let mut i = 0;
 
                     #[cfg(feature = "h5")]
-                    // todo: Fifo vs non-fifo for f5.
                     while isr!(self.regs).read().txfe().bit_is_clear() {
                         i += 1;
                         if i >= MAX_ITERS {
-                            // return Err(Error::Hardware);
+                            // return Err(UartError::Hardware);
                         }
                     }
 
@@ -385,7 +397,7 @@ where
                     while isr!(self.regs).read().txe().bit_is_clear() {
                         i += 1;
                         if i >= MAX_ITERS {
-                            return Err(Error::Hardware);
+                            return Err(UartError::Hardware);
                         }
                     }
 
@@ -401,7 +413,7 @@ where
                 while isr!(self.regs).read().tc().bit_is_clear() {
                         i += 1;
                         if i >= MAX_ITERS {
-                            return Err(Error::Hardware);
+                            return Err(UartError::Hardware);
                         }
                 }
             } else {
@@ -410,7 +422,7 @@ where
                     while self.regs.sr.read().txe().bit_is_clear() {
                         i += 1;
                         if i >= MAX_ITERS {
-                            return Err(Error::Hardware);
+                            return Err(UartUartError::Hardware);
                         }
                     }
                     self.regs
@@ -422,7 +434,7 @@ where
                 while self.regs.sr.read().tc().bit_is_clear() {
                                             i += 1;
                         if i >= MAX_ITERS {
-                            return Err(Error::Hardware);
+                            return Err(UartUartError::Hardware);
                         }
                 }
             }
@@ -450,7 +462,7 @@ where
     }
 
     /// Receive data into a u8 buffer. See L44 RM, section 38.5.3: "Character reception procedure"
-    pub fn read(&mut self, buf: &mut [u8]) -> Result<(), Error> {
+    pub fn read(&mut self, buf: &mut [u8]) -> Result<(), UartError> {
         for i in 0..buf.len() {
             let mut i_ = 0;
             cfg_if! {
@@ -461,7 +473,7 @@ where
                     while isr!(self.regs).read().rxfne().bit_is_clear() {
                         i_ += 1;
                         if i_ >= MAX_ITERS {
-                            return Err(Error::Hardware);
+                            return Err(UartError::Hardware);
                         }
                     }
 
@@ -469,7 +481,7 @@ where
                     while isr!(self.regs).read().rxne().bit_is_clear() {
                         i_ += 1;
                         if i_ >= MAX_ITERS {
-                            return Err(Error::Hardware);
+                            return Err(UartError::Hardware);
                         }
                     }
 
@@ -478,7 +490,7 @@ where
                     while self.regs.sr.read().rxne().bit_is_clear() {
                         i_ += 1;
                         if i_ >= MAX_ITERS {
-                            return Err(Error::Hardware);
+                            return Err(UartUartError::Hardware);
                         }
                     }
                     buf[i] = self.regs.dr.read().dr().bits() as u8;
@@ -692,14 +704,14 @@ where
         // When the number of data transfers programmed in the DMA Controller is reached, the DMA
         // controller generates an interrupt on the DMA channel interrupt vector.
     }
-
-    /// Flush the transmit buffer.
-    pub fn flush(&self) {
-        #[cfg(not(feature = "f4"))]
-        while isr!(self.regs).read().tc().bit_is_clear() {}
-        #[cfg(feature = "f4")]
-        while self.regs.sr.read().tc().bit_is_clear() {}
-    }
+    //
+    // /// Flush the transmit buffer.
+    // pub fn flush(&self) {
+    //     #[cfg(not(feature = "f4"))]
+    //     while isr!(self.regs).read().tc().bit_is_clear() {}
+    //     #[cfg(feature = "f4")]
+    //     while self.regs.sr.read().tc().bit_is_clear() {}
+    // }
 
     #[cfg(not(feature = "f4"))]
     /// Enable a specific type of interrupt. See G4 RM, Table 349: USART interrupt requests.
@@ -904,21 +916,6 @@ where
     }
 }
 
-/// Serial error
-#[non_exhaustive]
-#[derive(Debug)]
-pub enum Error {
-    /// Framing error
-    Framing,
-    /// Noise error
-    Noise,
-    /// RX buffer overrun
-    Overrun,
-    /// Parity check error
-    Parity,
-    Hardware,
-}
-
 // todo: Use those errors above.
 //
 // #[cfg(feature = "embedded_hal")]
@@ -929,14 +926,14 @@ pub enum Error {
 //     type Error = Error;
 //
 //     #[cfg(not(feature = "f4"))]
-//     fn read(&mut self) -> nb::Result<u8, Error> {
+//     fn read(&mut self) -> nb::Result<u8, UartError> {
 //         while !isr!(self.regs).read().rxne().bit_is_set() {}
 //
 //         Ok(self.regs.rdr.read().rdr().bits() as u8)
 //     }
 //
 //     #[cfg(feature = "f4")]
-//     fn read(&mut self) -> nb::Result<u8, Error> {
+//     fn read(&mut self) -> nb::Result<u8, UartError> {
 //         Ok(Usart::read_one(self))
 //     }
 // }
@@ -949,7 +946,7 @@ pub enum Error {
 //     type Error = Error;
 //
 //     #[cfg(not(feature = "f4"))]
-//     fn write(&mut self, word: u8) -> nb::Result<(), Error> {
+//     fn write(&mut self, word: u8) -> nb::Result<(), UartError> {
 //         while !isr!(self.regs).read().txe().bit_is_set() {}
 //
 //         self.regs
@@ -960,7 +957,7 @@ pub enum Error {
 //     }
 //
 //     #[cfg(feature = "f4")]
-//     fn write(&mut self, word: u8) -> nb::Result<(), Error> {
+//     fn write(&mut self, word: u8) -> nb::Result<(), UartError> {
 //         while !self.regs.sr.read().txe().bit_is_set() {}
 //
 //         self.regs
@@ -970,7 +967,7 @@ pub enum Error {
 //         Ok(())
 //     }
 //
-//     fn flush(&mut self) -> nb::Result<(), Error> {
+//     fn flush(&mut self) -> nb::Result<(), UartError> {
 //         #[cfg(not(feature = "f4"))]
 //         while !isr!(self.regs).read().tc().bit_is_set() {}
 //         #[cfg(feature = "f4")]
@@ -988,12 +985,12 @@ pub enum Error {
 // {
 //     type Error = Error;
 //
-//     fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), Error> {
+//     fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), UartError> {
 //         Usart::write(self, buffer);
 //         Ok(())
 //     }
 //
-//     fn bflush(&mut self) -> Result<(), Error> {
+//     fn bflush(&mut self) -> Result<(), UartError> {
 //         Self::flush(self);
 //
 //         Ok(())
