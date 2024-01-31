@@ -8,6 +8,10 @@ use crate::{
     MAX_ITERS,
 };
 
+// Depth of FIFO to use. See G4 RM, table 359.
+#[cfg(feature = "g4")]
+const FIFO_LEN: usize = 4;
+
 /// Possible interrupt types. Enable these in SPIx_CR2. Check and clear with SR. There is no explicit
 /// way to clear these.
 #[derive(Copy, Clone)]
@@ -158,6 +162,8 @@ where
     pub fn read(&mut self) -> Result<u8, SpiError> {
         check_errors!(self.regs.sr.read());
 
+        // todo: Use fIFO like in H7 code?
+
         let mut i = 0;
         while !self.regs.sr.read().rxne().bit_is_set() {
             i += 1;
@@ -193,6 +199,7 @@ where
     /// Write multiple bytes on the SPI line, blocking until complete.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
     pub fn write(&mut self, words: &[u8]) -> Result<(), SpiError> {
+        // todo: Take advantage of the FIFO, like H7?
         for word in words {
             self.write_one(*word)?;
             self.read()?;

@@ -189,7 +189,7 @@ where
     ///
     /// * Assumes the transaction has started (CSTART handled externally)
     /// * Assumes at least one word has already been written to the Tx FIFO
-    fn exchange_duplex(&mut self, word: u8) -> Result<u8, SpiError> {
+    fn exchange(&mut self, word: u8) -> Result<u8, SpiError> {
         let status = self.regs.sr.read();
         check_errors!(status);
 
@@ -208,11 +208,11 @@ where
             return Ok(ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8));
         }
     }
-    /// Internal implementation for reading a word
+    /// Read a single byte if available, or block until it's available.
     ///
-    /// * Assumes the transaction has started (CSTART handled externally)
-    /// * Assumes at least one word has already been written to the Tx FIFO
-    fn read_duplex(&mut self) -> Result<u8, SpiError> {
+    /// Assumes the transaction has started (CSTART handled externally)
+    /// Assumes at least one word has already been written to the Tx FIFO
+    pub fn read(&mut self) -> Result<u8, SpiError> {
         check_errors!(self.regs.sr.read());
 
         let mut i = 0;
@@ -248,7 +248,7 @@ where
 
         // Dummy read from the read FIFO
         for _ in 0..core::cmp::min(FIFO_LEN, len) {
-            let _ = self.read_duplex();
+            let _ = self.read();
         }
 
         Ok(())
@@ -274,18 +274,11 @@ where
                 words[i - FIFO_LEN] = read_value;
             } else {
                 // Finish emptying the read FIFO
-                words[i - FIFO_LEN] = self.read_duplex()?;
+                words[i - FIFO_LEN] = self.read()?;
             }
         }
 
         Ok(())
-    }
-
-    fn read(&mut self) -> Result<u8, SpiError> {
-        check_errors!(self.regs.sr.read());
-
-        // NOTE(read_volatile) read only 1 word
-        return Ok(unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) });
     }
 
     fn send(&mut self, word: u8) -> Result<(), SpiError> {

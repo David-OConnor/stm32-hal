@@ -529,6 +529,11 @@ macro_rules! make_timer {
                 self.regs.cr1.read().cen().bit_is_set()
             }
 
+            /// Print the (raw) contents of the status register.
+            pub fn read_status(&self) -> u32 {
+                unsafe { self.regs.sr.read().bits() }
+            }
+
             /// Set the timer frequency, in Hz. Overrides the period or frequency set
             /// in the constructor.
             pub fn set_freq(&mut self, mut freq: f32) -> Result<(), ValueError> {
