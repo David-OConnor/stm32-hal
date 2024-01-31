@@ -422,7 +422,7 @@ where
                     while self.regs.sr.read().txe().bit_is_clear() {
                         i += 1;
                         if i >= MAX_ITERS {
-                            return Err(UartUartError::Hardware);
+                            return Err(UartError::Hardware);
                         }
                     }
                     self.regs
@@ -434,7 +434,7 @@ where
                 while self.regs.sr.read().tc().bit_is_clear() {
                                             i += 1;
                         if i >= MAX_ITERS {
-                            return Err(UartUartError::Hardware);
+                            return Err(UartError::Hardware);
                         }
                 }
             }
@@ -490,7 +490,7 @@ where
                     while self.regs.sr.read().rxne().bit_is_clear() {
                         i_ += 1;
                         if i_ >= MAX_ITERS {
-                            return Err(UartUartError::Hardware);
+                            return Err(UartError::Hardware);
                         }
                     }
                     buf[i] = self.regs.dr.read().dr().bits() as u8;
