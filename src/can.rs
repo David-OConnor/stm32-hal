@@ -62,7 +62,13 @@ impl Can {
 
     /// Print the (raw) contents of the status register.
     pub fn read_status(&self) -> u32 {
-        unsafe { self.regs.psr.read().bits() }
+        cfg_if! {
+            if #[cfg(any(feature = "h7", feature = "l5", feature = "g4"))] {
+                unsafe { self.regs.psr.read().bits() }
+            } else {
+                unsafe { self.regs.msr.read().bits() }
+            }
+        }
     }
 }
 
