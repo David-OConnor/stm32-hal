@@ -64,3 +64,10 @@ pub fn read() -> i32 {
     let regs = unsafe { &(*RNG::ptr()) };
     regs.dr.read().bits() as i32
 }
+
+/// Return true if a reading is available.
+pub fn reading_ready() -> bool {
+    let regs = unsafe { &(*RNG::ptr()) };
+    regs.sr.read().drdy().bit_is_set()
+}
+
