@@ -1,6 +1,6 @@
-//! This module allows for serial communication using the STM32 USART module.
-//! Provides APIs to configure, read, and write from
-//! USART, with blocking, nonblocking, and DMA functionality.
+//! This module allows for serial communication using the STM32 U[S]ART peripheral
+//! It provides APIs to configure, read, and write from
+//! U[S]ART, with blocking, nonblocking, and DMA functionality.
 
 // todo: Synchronous mode.
 // todo: Auto baud

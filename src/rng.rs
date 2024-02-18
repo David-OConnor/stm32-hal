@@ -1,4 +1,8 @@
-//! Support for the Random Number Generator (RNG) peripheral.
+//! Support for the Random Number Generator (RNG) peripheral. This provides a simple
+//! API for accessing hardware-generated 32-bit random numbers, where constructing a `Rng` peripheral enables its
+//! peripheral clock, and provides some methods.
+//! Once this struct is constructed, the freestanding functions `read()`, and `reading_ready()` may be
+//! used to get a random number number, and check if a new one is available.
 
 use cfg_if::cfg_if;
 

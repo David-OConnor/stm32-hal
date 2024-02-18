@@ -1,6 +1,9 @@
 //! This module provides functionality for General Purpose Input and Output (GPIO) pins,
 //! including all GPIOx register functions. It also configures GPIO interrupts using SYSCFG and EXTI
-//! registers as appropriate.
+//! registers as appropriate. It allows pin mode configuration, interrupts, and DMA.
+//!
+//! The primary API uses a `Pin` struct, with its methods. There are also standalone functions
+//! available to set and read pin state, and clear interrupts, without access to a `Pin`.
 
 // todo: WL is missing port C here due to some pins being missing, and this being tough
 // todo to change with our current model. Note sure if PAC, or MCU limitation

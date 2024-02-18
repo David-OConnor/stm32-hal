@@ -1,7 +1,8 @@
-//! Provides support for timers. Includes initialization, interrupts,
-//! and PWM features.
+//! Provides support for basic timer functionality. Includes initialization, interrupts,
+//! and PWM features. Also supports capture compare, output compare, burst DMA, and getting the current uptime using
+//! an overflowing wrapper. (In seconds, milliseconds, or microseconds)
 //!
-//! Low-power timers (LPTIM) are not yet supported.
+//! Low-power timers (LPTIM) and high-presolution timers (HRTIM) are not yet supported.
 
 // todo: WB and WL should support pwm features
 

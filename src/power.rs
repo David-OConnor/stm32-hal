@@ -1,4 +1,5 @@
-//! Manage STM32H7 supply configuration.
+//! Manage STM32H7 supply configuration. This is required on some H7 variants, to specify
+//! which regulator to use. This must match the way the MCU power pins are wired on the hardware design.
 
 use crate::pac::PWR;
 
