@@ -866,12 +866,22 @@ macro_rules! make_timer {
                 TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as f32 * self.period + elapsed
             }
 
-            /// An alternative to `get_timestamp` that returns the result in microseconds. It avoids
+            /// An alternative to `get_timestamp` that returns the result in milliseconds. It avoids
             /// floating point problems on longer runs.
             pub fn get_timestamp_ms(&mut self) -> u64 {
-                let elapsed = self.time_elapsed().count_ns as u64 * 1_000;
+                let elapsed_ms = self.time_elapsed().count_ns as u64 / 1_000_000;
+                let period_ms = (self.period * 1_000.) as u64;
 
-                TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as u64 * (self.period * 1_000_000.) as u64 + elapsed
+                TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as u64 * period_ms + elapsed_ms
+            }
+
+            /// An alternative to `get_timestamp` that returns the result in microseconds. It avoids
+            /// floating point problems on longer runs.
+            pub fn get_timestamp_us(&mut self) -> u64 {
+                let elapsed_us = self.time_elapsed().count_ns as u64 / 1_000;
+                let period_us = (self.period * 1_000_000.) as u64;
+
+                TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as u64 * period_us as u64 + elapsed_us
             }
         }
 
