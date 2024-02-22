@@ -243,7 +243,7 @@ where
 
         // Continue filling write FIFO and emptying read FIFO
         for word in write {
-            let _ = self.exchange_duplex(*word);
+            let _ = self.exchange(*word);
         }
 
         // Dummy read from the read FIFO
@@ -269,7 +269,7 @@ where
         for i in FIFO_LEN..len + FIFO_LEN {
             if i < len {
                 // Continue filling write FIFO and emptying read FIFO
-                let read_value = self.exchange_duplex(words[i])?;
+                let read_value = self.exchange(words[i])?;
 
                 words[i - FIFO_LEN] = read_value;
             } else {

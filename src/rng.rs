@@ -74,4 +74,3 @@ pub fn reading_ready() -> bool {
     let regs = unsafe { &(*RNG::ptr()) };
     regs.sr.read().drdy().bit_is_set()
 }
-

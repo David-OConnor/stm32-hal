@@ -665,9 +665,8 @@ impl Clocks {
 
         // todo: Add config enums for these, and add them as Clocks fields.
         #[cfg(not(any(feature = "h7b3", feature = "h5")))]
-        rcc.d2ccip2r.modify(|_, w| unsafe {
-            w.usbsel().bits(self.usb_src as u8)
-        });
+        rcc.d2ccip2r
+            .modify(|_, w| unsafe { w.usbsel().bits(self.usb_src as u8) });
 
         #[cfg(not(any(feature = "h7b3", feature = "h5")))]
         rcc.d3ccipr.modify(|_, w| unsafe {
