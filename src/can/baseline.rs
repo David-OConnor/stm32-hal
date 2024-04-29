@@ -1,32 +1,8 @@
-//! Support for Controller Area Network (CAN) bus. Thinly wraps the [bxCAN](https://docs.rs/bxcan/0.5.0/bxcan/)
-//! or [can-fd](https://crates.io/keywords/can-fd) libraries.
-//!
-//! Requires the `can_bx` or `can_fd_g[h]` features. F3, F4, and L4 use BX CAN. G0, G4, L5, and H7 use FD CAN.
-
 use cfg_if::cfg_if;
 
+use crate::pac::FDCAN1 as CAN;
 use crate::{pac::RCC, util::rcc_en_reset};
-
-// todo: H5 support.
-
-cfg_if! {
-    if #[cfg(feature = "f3")] {
-        use bxcan;
-        use crate::pac::{can, CAN};
-
-    } else if #[cfg(any(feature = "f4", feature = "l4"))] {
-        use bxcan;
-        // todo: F4 has CAN2 as well.
-        use crate::pac::{CAN1 as CAN};
-    } else if #[cfg(feature = "g4")]{
-        use fdcan;
-        use crate::pac::{FDCAN1 as CAN};
-    } else { // eg G0, H7
-        use fdcan;
-        // todo: CAN2 on H7.
-        use crate::pac::{FDCAN1 as CAN};
-    }
-}
+use fdcan;
 
 /// Interface to the CAN peripheral.
 pub struct Can {
@@ -39,36 +15,14 @@ impl Can {
     pub fn new(regs: CAN) -> Self {
         let rcc = unsafe { &*RCC::ptr() };
 
-        cfg_if! {
-            if #[cfg(feature = "f3")] {
-                rcc_en_reset!(apb1, can, rcc);
-            } else if #[cfg(any(feature = "f4", feature = "l4"))] {
-                rcc_en_reset!(apb1, can1, rcc);
-            } else if #[cfg(feature = "h7")]{
-                // We don't yet have apb1h support in `rcc_en_reset`.
-                rcc.apb1henr.modify(|_, w| w.fdcanen().set_bit());
-                rcc.apb1hrstr.modify(|_, w| w.fdcanrst().set_bit());
-                rcc.apb1hrstr.modify(|_, w| w.fdcanrst().clear_bit());
-
-                // set_message_ram_layout();
-
-            } else {
-                rcc_en_reset!(apb1, fdcan, rcc);
-            }
-        }
+        rcc_en_reset!(apb1, fdcan, rcc);
 
         Self { regs }
     }
 
     /// Print the (raw) contents of the status register.
     pub fn read_status(&self) -> u32 {
-        cfg_if! {
-            if #[cfg(any(feature = "h7", feature = "l5", feature = "g4"))] {
-                unsafe { self.regs.psr.read().bits() }
-            } else {
-                unsafe { self.regs.msr.read().bits() }
-            }
-        }
+        unsafe { self.regs.msr.read().bits() }
     }
 }
 
@@ -160,38 +114,15 @@ pub fn set_message_ram_layout() {
 }
 
 // Implement the traits required for the `bxcan` or `fdcan` library.
-cfg_if! {
-    if #[cfg(feature = "can_bx")] {
-        unsafe impl bxcan::Instance for Can {
-            const REGISTERS: *mut bxcan::RegisterBlock = CAN::ptr() as *mut _;
-        }
+unsafe impl fdcan::Instance for Can {
+    const REGISTERS: *mut fdcan::RegisterBlock = FDCAN::ptr() as *mut _;
+}
 
-        unsafe impl bxcan::FilterOwner for Can {
-            #[cfg(any(feature = "f3", feature = "f4"))]
-            const NUM_FILTER_BANKS: u8 = 28;
-            #[cfg(any(feature = "l4"))]
-            const NUM_FILTER_BANKS: u8 = 14;
-        }
-
-        unsafe impl bxcan::MasterInstance for Can {}
-    } else {
-        unsafe impl fdcan::Instance for Can {
-            const REGISTERS: *mut fdcan::RegisterBlock = CAN::ptr() as *mut _;
-        }
-
-        unsafe impl fdcan::message_ram::Instance for Can {
-            #[cfg(feature = "g4")]
-            // G4 RM, table 3. "Series memory map and peripheral register boundary
-            // addresses". CAN message RAM: 3 listings, 1kb each:
-            const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_a400 as *mut _);
-            // const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_a800 as *mut _); // todo ts
-            // const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_ac00 as *mut _); // todo ts
-            #[cfg(feature = "h7")]
-            // H743 RM, table 8. "Register boundary addresses". 0x4000_AC00 - 0x4000_D3FF". CAN message RAM.
-            const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_ac00 as *mut _);
-            // todo: (0x4000_ac00 + 0x1000) for H7, CAN2.
-            // todo: (0x4000_a750 as *mut _) for G4, CAN2
-            // todo: (0x4000_aaa0 as *mut _) fir G4 CAN3.
-        }
-    }
+unsafe impl fdcan::message_ram::Instance for Can {
+    #[cfg(feature = "h7")]
+    // H743 RM, table 8. "Register boundary addresses". 0x4000_AC00 - 0x4000_D3FF". CAN message RAM.
+    const MSG_RAM: *mut fdcan::message_ram::RegisterBlock = (0x4000_ac00 as *mut _);
+    // todo: (0x4000_ac00 + 0x1000) for H7, CAN2.
+    // todo: (0x4000_a750 as *mut _) for G4, CAN2
+    // todo: (0x4000_aaa0 as *mut _) fir G4 CAN3.
 }
