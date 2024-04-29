@@ -1,5 +1,7 @@
-use crate::pac::{FDCAN1, FDCAN2, FDCAN3};
-use crate::{pac::RCC, util::rcc_en_reset};
+use crate::{
+    pac::{FDCAN1, FDCAN2, FDCAN3, RCC},
+    util::rcc_en_reset,
+};
 use fdcan;
 
 macro_rules! create_cans {
