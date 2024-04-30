@@ -581,6 +581,26 @@ macro_rules! make_simple_globals {
     };
 }
 
+/// Syntax helper for parsing multi-byte fields into primitives.
+///
+/// Example: `parse_le!(bytes, i32, 5..9);`
+#[macro_export]
+macro_rules! parse_le {
+    ($bytes:expr, $t:ty, $range:expr) => {{
+        <$t>::from_le_bytes($bytes[$range].try_into().unwrap())
+    }};
+}
+
+/// Syntax helper for parsing multi-byte fields into primitives.
+///
+/// Example: `parse_be!(bytes, i32, 5..9);`
+#[macro_export]
+macro_rules! parse_be {
+    ($bytes:expr, $t:ty, $range:expr) => {{
+        <$t>::from_be_bytes($bytes[$range].try_into().unwrap())
+    }};
+}
+
 // todo: Remove this debug_workaroudn function on MCUs that don't require it. Ie, is this required on G4? G0?
 #[cfg(not(any(feature = "g0")))]
 /// Workaround due to debugger disconnecting in WFI (and low-power) modes.
