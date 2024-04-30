@@ -601,6 +601,25 @@ macro_rules! parse_be {
     }};
 }
 
+/// Syntax helper for converting primitives to multi-byte fields.
+///
+/// Example: `copy_le!(bytes, &self.position, 5..9);`
+#[macro_export]
+macro_rules! copy_le {
+    ($dest:expr, $src:expr, $range:expr) => {{
+        $dest[$range].copy_from_slice(&$src.to_le_bytes())
+    }};
+}
+/// Syntax helper for converting primitives to multi-byte fields.
+///
+/// Example: `copy_be!(bytes, &self.position, i32, 5..9);`
+#[macro_export]
+macro_rules! copy_be {
+    ($dest:expr, $src:expr, $range:expr) => {{
+        $dest[$range].copy_from_slice(&$src.to_be_bytes())
+    }};
+}
+
 // todo: Remove this debug_workaroudn function on MCUs that don't require it. Ie, is this required on G4? G0?
 #[cfg(not(any(feature = "g0")))]
 /// Workaround due to debugger disconnecting in WFI (and low-power) modes.
