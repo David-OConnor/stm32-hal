@@ -603,16 +603,17 @@ macro_rules! parse_be {
 
 /// Syntax helper for converting primitives to multi-byte fields.
 ///
-/// Example: `copy_le!(bytes, &self.position, 5..9);`
+/// Example: `copy_le!(bytes, self.position, 5..9);`
 #[macro_export]
 macro_rules! copy_le {
     ($dest:expr, $src:expr, $range:expr) => {{
         $dest[$range].copy_from_slice(&$src.to_le_bytes())
     }};
 }
+
 /// Syntax helper for converting primitives to multi-byte fields.
 ///
-/// Example: `copy_be!(bytes, &self.position, i32, 5..9);`
+/// Example: `copy_be!(bytes, self.position, i32, 5..9);`
 #[macro_export]
 macro_rules! copy_be {
     ($dest:expr, $src:expr, $range:expr) => {{

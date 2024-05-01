@@ -327,5 +327,5 @@ STM32WL radio support is WIP, and will be provided through interaction with newA
 you must manually set the `TIMx_BDTR` register, `MOE` bit.
 - Octospi implementation is broken
 - DFSDM on L4x6 is missing Filter 1.
-- Only FDCAN1 is implemented; not FDCAN2 or 3 (G0, G4, H7).
+- G0 and H7: Only FDCAN1 is implemented.
 - H5 is missing a lot of functionality, including DMA.

@@ -1,8 +1,9 @@
+use fdcan;
+
 use crate::{
     pac::{FDCAN1, FDCAN2, FDCAN3, RCC},
     util::rcc_en_reset,
 };
-use fdcan;
 
 const MESSAGE_RAM_BASE_ADDRESS: u32 = 0x4000_a400;
 
