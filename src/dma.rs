@@ -260,8 +260,8 @@ impl DmaInput {
     pub fn dma1_channel(&self) -> DmaChannel {
         match self {
             Self::Adc1 => DmaChannel::C1,
-            // Self::Dac1Ch1 => 6,
-            // Self::Dac1Ch2 => 7,
+            Self::Dac1Ch1 => DmaChannel::C3,
+            Self::Dac1Ch2 => DmaChannel::C4,
             // Self::Tim6Up => 8,
             // Self::Tim7Up => 9,
             Self::Spi1Rx => DmaChannel::C2,
@@ -311,8 +311,8 @@ impl DmaInput {
     pub fn dma1_channel_select(&self) -> u8 {
         match self {
             Self::Adc1 => 0b000,
-            // Self::Dac1Ch1 => 6,
-            // Self::Dac1Ch2 => 7,
+            Self::Dac1Ch1 => 0b0110,
+            Self::Dac1Ch2 => 0b0101,
             // Self::Tim6Up => 8,
             // Self::Tim7Up => 9,
             Self::Spi1Rx => 0b001,
