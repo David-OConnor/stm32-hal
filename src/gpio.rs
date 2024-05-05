@@ -478,6 +478,7 @@ macro_rules! set_exti_g0 {
     }
 }
 
+#[derive(Clone)]
 /// Represents a single GPIO pin. Allows configuration, and reading/setting state.
 pub struct Pin {
     /// The GPIO Port letter. Eg A, B, C.
