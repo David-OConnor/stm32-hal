@@ -49,8 +49,9 @@ chrono = { version = "^0.4.23", default-features = false }
 
 # These USB and CAN crates are only imported if one of the `can`, `usb`, `usbotg_fs`, or `usbotg_hs`
 # features are used.
-#stm32-usbd = { version = "^0.6.0", optional = true }
-stm32-usbd = { git = "https://github.com/stm32-rs/stm32-usbd", optional = true }
+# Workaround using a fork of stm32-usbd until the main one is released on crates.
+stm32-usbd = { package = "stm32-usbd2", version = "^0.7.0", optional = true }
+#stm32-usbd = { version = "^0.7.0", optional = true }
 synopsys-usb-otg = { version = "^0.3.2", features = ["cortex-m"], optional = true }
 bxcan = { version = "^0.7.0", optional = true }
 fdcan = { version = "^0.2.0", optional = true }
