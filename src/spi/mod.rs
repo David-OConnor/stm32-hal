@@ -200,6 +200,7 @@ cfg_if! {
     }
 }
 
+#[derive(Clone)]
 /// Configuration data for SPI.
 pub struct SpiConfig {
     /// SPI mode associated with Polarity and Phase. Defaults to Mode0: Idle low, capture on first transition.

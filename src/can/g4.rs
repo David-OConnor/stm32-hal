@@ -1,7 +1,9 @@
 use fdcan;
 
+#[cfg(not(feature = "g431"))]
+use crate::pac::{FDCAN2, FDCAN3};
 use crate::{
-    pac::{FDCAN1, FDCAN2, FDCAN3, RCC},
+    pac::{FDCAN1, RCC},
     util::rcc_en_reset,
 };
 
@@ -47,6 +49,8 @@ macro_rules! create_cans {
     };
 }
 
-create_cans!(Can1, FDCAN1, FDCAN1_MESSAGE_RAM_ADDRESS);
+create_cans!(Can, FDCAN1, FDCAN1_MESSAGE_RAM_ADDRESS);
+#[cfg(not(feature = "g431"))]
 create_cans!(Can2, FDCAN2, FDCAN2_MESSAGE_RAM_ADDRESS);
+#[cfg(not(feature = "g431"))]
 create_cans!(Can3, FDCAN3, FDCAN3_MESSAGE_RAM_ADDRESS);
