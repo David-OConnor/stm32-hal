@@ -127,7 +127,7 @@ pub enum ResetState {
 }
 
 // todo: If you get rid of Port struct, rename this enum Port
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 /// GPIO port letter
 pub enum Port {
     A,
