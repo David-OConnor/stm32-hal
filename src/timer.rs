@@ -2054,33 +2054,40 @@ cfg_if! {
 
 /// A freestanding function that does not require access to a `Timer` struct. Clears the Update interrupt.
 pub fn clear_update_interrupt(tim_num: u8) {
-    let tim_pac = unsafe { match tim_num {
-        1 => pac::Peripherals::steal().TIM3,
-        2 => pac::Peripherals::steal().TIM3,
-        3 => pac::Peripherals::steal().TIM3,
-        4 => pac::Peripherals::steal().TIM3,
-        5 => pac::Peripherals::steal().TIM3,
-        6 => pac::Peripherals::steal().TIM3,
-        7 => pac::Peripherals::steal().TIM3,
-        _ => unimplemented!(),
-    }};
-
     unsafe {
-        // pt.sr
-        tim_pac.sr
-            .write(|w| w.bits(0xffff_ffff).uif().clear_bit());
-    }
-}
+        let periphs = pac::Peripherals::steal();
 
-// pub enum TimerNum {
-// Tim1,
-// Tim2,
-// Tim3,
-// }
-// impl TimerNum {
-// pub fn regs(&self) -> {
-// todo probably macro
-// }
+        // todo: This is likely to fail on some variants, and it's missing a number of timer periphs.
+
+        match tim_num {
+            1 => periphs
+                .TIM1
+                .sr
+                .write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
+            2 => periphs
+                .TIM2
+                .sr
+                .write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
+            3 => periphs
+                .TIM3
+                .sr
+                .write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
+            6 => periphs
+                .TIM6
+                .sr
+                .write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
+            7 => periphs
+                .TIM7
+                .sr
+                .write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
+            8 => periphs
+                .TIM8
+                .sr
+                .write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
+            _ => unimplemented!(),
+        }
+    };
+}
 
 // /// Experimental approach where we set frequency without taking ownership.
 // pub fn set_freq(timer: TimerNum, mut freq: f32) -> Result<(), ValueError> {
