@@ -853,7 +853,7 @@ macro_rules! make_timer {
                 // Instant { count_us }
 
                 let count_ns = ((self.read_count() as u64 + self.wrap_count as u64 *
-                    self.get_max_duty() as u64) * self.ns_per_tick) as i64;
+                    self.get_max_duty() as u64) * self.ns_per_tick) as i128;
 
                 Instant { count_ns }
             }
@@ -2062,26 +2062,11 @@ pub fn clear_update_interrupt(tim_num: u8) {
         let bits = 0xffff_ffff;
 
         match tim_num {
-            1 => periphs
-                .TIM1
-                .sr
-                .write(|w| w.bits(bits).uif().clear_bit()),
-            2 => periphs
-                .TIM2
-                .sr
-                .write(|w| w.bits(bits).uif().clear_bit()),
-            3 => periphs
-                .TIM3
-                .sr
-                .write(|w| w.bits(bits).uif().clear_bit()),
-            4 => periphs
-                .TIM4
-                .sr
-                .write(|w| w.bits(bits).uif().clear_bit()),
-            8 => periphs
-                .TIM8
-                .sr
-                .write(|w| w.bits(bits).uif().clear_bit()),
+            1 => periphs.TIM1.sr.write(|w| w.bits(bits).uif().clear_bit()),
+            2 => periphs.TIM2.sr.write(|w| w.bits(bits).uif().clear_bit()),
+            3 => periphs.TIM3.sr.write(|w| w.bits(bits).uif().clear_bit()),
+            4 => periphs.TIM4.sr.write(|w| w.bits(bits).uif().clear_bit()),
+            // 8 => periphs.TIM8.sr.write(|w| w.bits(bits).uif().clear_bit()),
             _ => unimplemented!(),
         }
     };
