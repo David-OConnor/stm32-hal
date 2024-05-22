@@ -2059,31 +2059,29 @@ pub fn clear_update_interrupt(tim_num: u8) {
 
         // todo: This is likely to fail on some variants, and it's missing a number of timer periphs.
 
+        let bits = 0xffff_ffff;
+
         match tim_num {
             1 => periphs
                 .TIM1
                 .sr
-                .write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
+                .write(|w| w.bits(bits).uif().clear_bit()),
             2 => periphs
                 .TIM2
                 .sr
-                .write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
+                .write(|w| w.bits(bits).uif().clear_bit()),
             3 => periphs
                 .TIM3
                 .sr
-                .write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
-            6 => periphs
-                .TIM6
+                .write(|w| w.bits(bits).uif().clear_bit()),
+            4 => periphs
+                .TIM4
                 .sr
-                .write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
-            7 => periphs
-                .TIM7
-                .sr
-                .write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
+                .write(|w| w.bits(bits).uif().clear_bit()),
             8 => periphs
                 .TIM8
                 .sr
-                .write(|w| w.bits(0xffff_ffff).uif().clear_bit()),
+                .write(|w| w.bits(bits).uif().clear_bit()),
             _ => unimplemented!(),
         }
     };
