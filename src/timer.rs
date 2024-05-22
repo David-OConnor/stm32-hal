@@ -2052,6 +2052,26 @@ cfg_if! {
     }
 }
 
+/// A freestanding function that does not require access to a `Timer` struct. Clears the Update interrupt.
+pub fn clear_update_interrupt(tim_num: u8) {
+    let tim_pac = unsafe { match tim_num {
+        1 => pac::Peripherals::steal().TIM3,
+        2 => pac::Peripherals::steal().TIM3,
+        3 => pac::Peripherals::steal().TIM3,
+        4 => pac::Peripherals::steal().TIM3,
+        5 => pac::Peripherals::steal().TIM3,
+        6 => pac::Peripherals::steal().TIM3,
+        7 => pac::Peripherals::steal().TIM3,
+        _ => unimplemented!(),
+    }};
+
+    unsafe {
+        // pt.sr
+        tim_pac.sr
+            .write(|w| w.bits(0xffff_ffff).uif().clear_bit());
+    }
+}
+
 // pub enum TimerNum {
 // Tim1,
 // Tim2,
