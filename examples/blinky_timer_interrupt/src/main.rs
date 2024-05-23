@@ -65,6 +65,7 @@ mod app {
     /// When the timer's counter expires, toggle the pin connected to the LED.
     fn blink_isr(mut cx: blink_isr::Context) {
         cx.local.timer.clear_interrupt(TimerInterrupt::Update);
+        // Or: timer::clear_update_interrupt(5);
 
         if cx.local.led_pin.is_low() {
             cx.local.led_pin.set_high();

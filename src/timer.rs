@@ -11,6 +11,7 @@ use core;
 use core::{
     ops::Deref,
     sync::atomic::{AtomicU32, Ordering},
+    time::Duration,
 };
 
 use cfg_if::cfg_if;
@@ -379,13 +380,12 @@ pub struct Timer<TIM> {
     /// Associated timer clock speed in Hz.
     clock_speed: u32,
     // #[cfg(feature = "monotonic")]
-    /// Used to indicate the timer has expired, and running time counts (eg the `time_elapsed()` method) properly
-    /// increment.
-    pub wrap_count: u32,
+    // /// Used to indicate the timer has expired, and running time counts (eg the `time_elapsed()` method) properly
+    // /// increment.
+    // pub wrap_count: u32,
     // #[cfg(feature = "monotonic")]
     /// Updated in the constructor and `set_freq` fns. Used for mapping timer ticks to time (eg in
     /// seconds, us etc)
-    // pub us_per_tick: f32,
     ns_per_tick: u64,
     period: f32, // In seconds. Used for overflow tracking. Updated when `ns_per_tick` is.
 }
@@ -425,9 +425,8 @@ macro_rules! make_timer {
                         cfg,
                         regs,
                         // #[cfg(feature = "monotonic")]
-                        wrap_count: 0,
+                        // wrap_count: 0,
                         // #[cfg(feature = "monotonic")]
-                        // us_per_tick: 0., // set below
                         ns_per_tick: 0, // set below
                         period: 0., // set below.
                     };
@@ -557,7 +556,6 @@ macro_rules! make_timer {
                 // the requested frequency or period.
                 let arr_f32 = arr as f32;
                 let period_secs = (psc as f32 + 1.) * ( arr_f32 + 1.) / self.clock_speed as f32;
-                // self.us_per_tick = period_secs  / (arr_f32) * 1_000_000.;
                 self.ns_per_tick = (period_secs / arr_f32 * 1_000_000_000.) as u64;
                 self.period = period_secs;
 
@@ -838,25 +836,33 @@ macro_rules! make_timer {
                 }
             }
 
-            /// Get the time elapsed since the start of the timer.
-            /// Used by `Monotonic` if enabled using the `monotonic` feature, but usable
-            /// on its own.
+            /// Get the time elapsed since the start of the timer, taking overflow wraps into account.
+            ///
             /// Important: the value returned here will only be correct if the ARR and PSC are set
-            /// only using the constructor, `set_freq`, or `set_period` methods; if the timer
-            /// doesn't expire prior to calling this, rel to the time being measured (or if it expires,
-            /// the ISR manually updates the wrap count), if system clock time is changed, if the timer
-            /// is stopped, started etc, or if low power modes are entered.
+            /// only using the constructor, `set_freq`, or `set_period` methods.
             pub fn elapsed(&mut self) -> Instant {
-                // let count_us = ((self.read_count() as f32 + self.wrap_count as f32 *
-                //     self.get_max_duty() as f32) * self.us_per_tick) as i64;
-                //
-                // Instant { count_us }
+                // let wrap_count = self.wrap_count;
+                let wrap_count = TICK_OVERFLOW_COUNT.load(Ordering::Acquire);
 
-                let count_ns = ((self.read_count() as u64 + self.wrap_count as u64 *
-                    self.get_max_duty() as u64) * self.ns_per_tick) as i128;
+                let ticks = (self.read_count() as u64 + wrap_count as u64 *
+                    self.get_max_duty() as u64);
+                let count_ns = ticks as i128 * self.ns_per_tick as i128;
 
-                Instant { count_ns }
+                Instant::new(count_ns)
             }
+
+            /// Get time elapsed since the timer start, as a `core::Duration`.
+            pub fn elapsed2(&mut self) -> Duration {
+                // let wrap_count = self.wrap_count;
+                let wrap_count = TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as u64;
+
+                let ticks = (self.read_count() as u64 + wrap_count as u64 *
+                    self.get_max_duty() as u64);
+                let count_ns = ticks as i128 * self.ns_per_tick as i128;
+
+                Duration::from_nanos(count_ns as u64)
+            }
+
 
             // /// Get the current timestamp, while keeping track of overflows. You must increment `TICK_OVERFLOW_COUNT`
             // /// in firmware using an ISR, and the timer must be kept running. This is useful for tracking
@@ -867,23 +873,23 @@ macro_rules! make_timer {
             //     TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as f32 * self.period + elapsed
             // }
 
-            /// An alternative to `get_timestamp` that returns the result in milliseconds. It avoids
-            /// floating point problems on longer runs.
-            pub fn get_timestamp_ms(&mut self) -> u64 {
-                let elapsed_ms = self.elapsed().count_ns as u64 / 1_000_000;
-                let period_ms = (self.period * 1_000.) as u64;
-
-                TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as u64 * period_ms + elapsed_ms
-            }
-
-            /// An alternative to `get_timestamp` that returns the result in microseconds. It avoids
-            /// floating point problems on longer runs.
-            pub fn get_timestamp_us(&mut self) -> u64 {
-                let elapsed_us = self.elapsed().count_ns as u64 / 1_000;
-                let period_us = (self.period * 1_000_000.) as u64;
-
-                TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as u64 * period_us as u64 + elapsed_us
-            }
+            // /// An alternative to `get_timestamp` that returns the result in milliseconds. It avoids
+            // /// floating point problems on longer runs.
+            // pub fn get_timestamp_ms(&mut self) -> u64 {
+            //     let elapsed_ms = self.elapsed().count_ns as u64 / 1_000_000;
+            //     let period_ms = (self.period * 1_000.) as u64;
+            //
+            //     TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as u64 * period_ms + elapsed_ms
+            // }
+            //
+            // /// An alternative to `get_timestamp` that returns the result in microseconds. It avoids
+            // /// floating point problems on longer runs.
+            // pub fn get_timestamp_us(&mut self) -> u64 {
+            //     let elapsed_us = self.elapsed().count_ns as u64 / 1_000;
+            //     let period_us = (self.period * 1_000_000.) as u64;
+            //
+            //     TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as u64 * period_us as u64 + elapsed_us
+            // }
         }
 
         #[cfg(feature = "monotonic")]
@@ -917,11 +923,12 @@ macro_rules! make_timer {
 
             unsafe fn reset(&mut self) {
                 self.reset_count();
-                self.wrap_count = 0;
+                TICK_OVERFLOW_COUNT.store(0, Ordering::Release);
             }
 
             fn on_interrupt(&mut self) {
-                self.wrap_count += 1;
+                // self.wrap_count += 1;
+                TICK_OVERFLOW_COUNT.fetch_add(1, Ordering::Relaxed);
             }
             fn enable_timer(&mut self) {
                 self.enable();
@@ -2065,8 +2072,34 @@ pub fn clear_update_interrupt(tim_num: u8) {
             1 => periphs.TIM1.sr.write(|w| w.bits(bits).uif().clear_bit()),
             2 => periphs.TIM2.sr.write(|w| w.bits(bits).uif().clear_bit()),
             3 => periphs.TIM3.sr.write(|w| w.bits(bits).uif().clear_bit()),
+            #[cfg(not(any(
+                feature = "f301",
+                feature = "f3x4",
+                feature = "f410",
+                feature = "l4x1",
+                feature = "l4x2",
+                feature = "l412",
+                feature = "l4x3",
+                feature = "l5", // todo PAC bug?
+                feature = "g0",
+                feature = "wb",
+                feature = "wl"
+            )))]
             4 => periphs.TIM4.sr.write(|w| w.bits(bits).uif().clear_bit()),
-            // 8 => periphs.TIM8.sr.write(|w| w.bits(bits).uif().clear_bit()),
+            #[cfg(any(
+                feature = "f373",
+                feature = "l4x5",
+                feature = "l4x6",
+            // feature = "l562", // todo: PAC bug?
+                feature = "h5",
+                feature = "h7",
+                feature = "g473",
+                feature = "g474",
+                feature = "g483",
+                feature = "g484",
+                all(feature = "f4", not(feature = "f410")),
+            ))]
+            5 => periphs.TIM5.sr.write(|w| w.bits(bits).uif().clear_bit()),
             _ => unimplemented!(),
         }
     };

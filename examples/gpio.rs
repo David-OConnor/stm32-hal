@@ -195,6 +195,7 @@ fn EXTI4() {
 #[interrupt]
 /// We use tim15 for button debounce.
 fn TIM15() {
+    // Or, to clear interrupt without a CS: timer::clear_update_interrupt(15);
     with(|cs| {
         access_global!(DEBOUNCE_TIMER, debounce_timer, cs);
         // Clear the interrupt flag. If you ommit this, it will fire repeatedly.

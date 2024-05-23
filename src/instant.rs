@@ -7,33 +7,43 @@ use core::{
     time::Duration,
 };
 
-/// A time instant, from the start of a timer, for use with `rtic-monotonic`. Currently only
-/// has microsecond precision.
+/// A time instant, from the start of a timer, with nanosecond precision. Has  methods similar
+/// to that found in `core::Duration`.
 #[derive(Eq, PartialEq, PartialOrd, Copy, Clone, Default)]
 pub struct Instant {
-    /// Total count, in microseconds.
-    pub count_ns: i128, // todo: u128?
+    /// Total count, in microseconds. We use a signed integer for use with Durations.
+    count_ns: i128,
+    // todo: Count ticks instead?
 }
 
 impl Instant {
+    pub fn new(count_ns: i128) -> Self {
+        Self { count_ns }
+    }
+
     /// The time, in seconds.
     pub fn as_secs(&self) -> f32 {
         self.count_ns as f32 / 1_000_000_000.
     }
 
     /// The time, in milliseconds.
-    pub fn as_ms(&self) -> u64 {
-        (self.count_ns / 1_000_000) as u64
+    pub fn as_millis(&self) -> u32 {
+        (self.count_ns / 1_000_000) as u32
+    }
+
+    /// The time, in milliseconds as an f32.
+    pub fn as_millis_f32(&self) -> f32 {
+        self.count_ns as f32 / 1_000_000.
     }
 
     /// The time, in microseconds
-    pub fn as_us(&self) -> u64 {
+    pub fn as_micros(&self) -> u64 {
         (self.count_ns / 1_000) as u64
     }
 
     /// The time, in nanoseconds
-    pub fn as_ns(&self) -> i128 {
-        self.count_ns
+    pub fn as_nanos(&self) -> u128 {
+        self.count_ns as u128
     }
 }
 

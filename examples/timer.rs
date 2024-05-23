@@ -135,14 +135,7 @@ fn main() -> ! {
 #[interrupt]
 /// Timer interrupt handler; runs when the countdown period expires.
 fn TIM3() {
-    with(|cs| {
-        // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
-        unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().clear_bit()) }
-        // If you have access to the timer variable, eg through a Mutex, you can do this instead:
-        // countdown_timer_clear_interrupt(TimerInterrupt::Update);
-
-        defmt::println!("Countdown expired");
-    });
+    timer::clear_update_interrupt(3);
 
     // Do something.
 }
