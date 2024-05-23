@@ -840,7 +840,7 @@ macro_rules! make_timer {
             ///
             /// Important: the value returned here will only be correct if the ARR and PSC are set
             /// only using the constructor, `set_freq`, or `set_period` methods.
-            pub fn elapsed(&mut self) -> Instant {
+            pub fn now(&mut self) -> Instant {
                 // let wrap_count = self.wrap_count;
                 let wrap_count = TICK_OVERFLOW_COUNT.load(Ordering::Acquire);
 
@@ -851,45 +851,9 @@ macro_rules! make_timer {
                 Instant::new(count_ns)
             }
 
-            /// Get time elapsed since the timer start, as a `core::Duration`.
-            pub fn elapsed2(&mut self) -> Duration {
-                // let wrap_count = self.wrap_count;
-                let wrap_count = TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as u64;
-
-                let ticks = (self.read_count() as u64 + wrap_count as u64 *
-                    self.get_max_duty() as u64);
-                let count_ns = ticks as i128 * self.ns_per_tick as i128;
-
-                Duration::from_nanos(count_ns as u64)
+            pub fn elapsed(&mut self, since: Instant) -> Duration {
+                self.now() - since
             }
-
-
-            // /// Get the current timestamp, while keeping track of overflows. You must increment `TICK_OVERFLOW_COUNT`
-            // /// in firmware using an ISR, and the timer must be kept running. This is useful for tracking
-            // /// longer periods of time, such as system uptime.
-            // pub fn get_timestamp(&mut self) -> f32 {
-            //     let elapsed = self.time_elapsed().as_secs();
-            //
-            //     TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as f32 * self.period + elapsed
-            // }
-
-            // /// An alternative to `get_timestamp` that returns the result in milliseconds. It avoids
-            // /// floating point problems on longer runs.
-            // pub fn get_timestamp_ms(&mut self) -> u64 {
-            //     let elapsed_ms = self.elapsed().count_ns as u64 / 1_000_000;
-            //     let period_ms = (self.period * 1_000.) as u64;
-            //
-            //     TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as u64 * period_ms + elapsed_ms
-            // }
-            //
-            // /// An alternative to `get_timestamp` that returns the result in microseconds. It avoids
-            // /// floating point problems on longer runs.
-            // pub fn get_timestamp_us(&mut self) -> u64 {
-            //     let elapsed_us = self.elapsed().count_ns as u64 / 1_000;
-            //     let period_us = (self.period * 1_000_000.) as u64;
-            //
-            //     TICK_OVERFLOW_COUNT.load(Ordering::Acquire) as u64 * period_us as u64 + elapsed_us
-            // }
         }
 
         #[cfg(feature = "monotonic")]

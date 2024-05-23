@@ -16,8 +16,11 @@ pub struct Instant {
     // todo: Count ticks instead?
 }
 
+/// An instant. Designed to be, in its most basic sense, similar to `std::time::Instant`. Created
+/// from the `now()` method on a `Timer`. Can be compared to create a `core::Duration`. Standalone
+/// methods on this struct are similar to those on `Duration`, but return timestamps since the timer start.
 impl Instant {
-    pub fn new(count_ns: i128) -> Self {
+    pub(crate) fn new(count_ns: i128) -> Self {
         Self { count_ns }
     }
 
