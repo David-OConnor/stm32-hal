@@ -539,7 +539,7 @@ impl Clocks {
                 // 3. Reset the ODEN bit in the SYSCFG_PWRCR register to disable VOS0.
             }
             _ => {
-                #[cfg(feature = "h7")]
+                #[cfg(all(feature = "h7", not(feature = "h7b3")))]
                 pwr.d3cr
                     .modify(|_, w| unsafe { w.vos().bits(self.vos_range as u8) });
                 #[cfg(feature = "h5")]
@@ -627,20 +627,20 @@ impl Clocks {
             w.stopwuck().bit(self.stop_wuck as u8 != 0)
         });
 
-        #[cfg(feature = "h7")]
+        #[cfg(all(feature = "h7", not(feature = "h7b3")))]
         rcc.d1cfgr.modify(|_, w| unsafe {
             w.d1cpre().bits(self.d1_core_prescaler as u8);
             w.d1ppre().bits(self.d1_prescaler as u8);
             w.hpre().bits(self.hclk_prescaler as u8)
         });
 
-        #[cfg(feature = "h7")]
+        #[cfg(all(feature = "h7", not(feature = "h7b3")))]
         rcc.d2cfgr.modify(|_, w| unsafe {
             w.d2ppre1().bits(self.d2_prescaler1 as u8);
             w.d2ppre2().bits(self.d2_prescaler2 as u8)
         });
 
-        #[cfg(feature = "h7")]
+        #[cfg(all(feature = "h7", not(feature = "h7b3")))]
         rcc.d3cfgr
             .modify(|_, w| unsafe { w.d3ppre().bits(self.d3_prescaler as u8) });
 
