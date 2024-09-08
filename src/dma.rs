@@ -61,7 +61,7 @@ pub enum DmaPeriph {
 
 #[derive(Copy, Clone)]
 #[repr(usize)]
-#[cfg(not(feature = "h7"))]
+#[cfg(not(any(feature = "h7", feature = "wl")))]
 /// A list of DMA input sources. The integer values represent their DMAMUX register value, on
 /// MCUs that use this. G4 RM, Table 91: DMAMUX: Assignment of multiplexer inputs to resources.
 pub enum DmaInput {
@@ -144,6 +144,52 @@ pub enum DmaInput {
     Dfsdm1F1 = 201,
     Dfsdm1F2 = 205,
     Dfsdm1F3 = 206,
+}
+
+#[derive(Copy, Clone)]
+#[repr(usize)]
+#[cfg(feature = "wl")]
+/// WL RM, 14.3.2: DMAMUX1 mapping
+pub enum DmaInput {
+    Adc = 5,
+    DacOut1 = 6,
+    Dac1Ch2 = 7,
+    Spi1Rx = 7,
+    Spi1Tx = 8,
+    Spi2Rx = 9,
+    Spi2Tx = 10,
+    I2c1Rx = 11,
+    I2c1Tx = 12,
+    I2c2Rx = 13,
+    I2c2Tx = 14,
+    I2c3Rx = 15,
+    I2c3Tx = 16,
+    Usart1Rx = 17,
+    Usart1Tx = 18,
+    Usart2Rx = 19,
+    Usart2Tx = 20,
+    Lpuart1Rx = 21,
+    Lpuart1Tx = 22,
+    Tim1Ch1 = 23,
+    Tim1Ch2 = 24,
+    Tim1Ch3 = 25,
+    Tim1Ch4 = 26,
+    TimUp = 27,
+    Tim1Trig = 28,
+    Tim1Com = 29,
+    Tim2Ch1 = 30,
+    Tim2Ch2 = 31,
+    Tim2Ch3 = 32,
+    Tim2Ch4 = 33,
+    Tim2Up = 34,
+    Tim16Ch1 = 35,
+    Tim16Up = 36,
+    Tim17Ch1 = 37,
+    Tim17Up = 38,
+    AesIn = 39,
+    AesOut = 40,
+    SubghzSpiRx = 41,
+    SubghzSpiTx = 42,
 }
 
 // todo: Trigger, synchronization etc mappings. Perhaps DmaTrigger, DmaSync enums etc.
