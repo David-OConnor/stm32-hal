@@ -1,7 +1,8 @@
 [package]
 name = "stm32-hal2"
 version = "1.8.3"
-authors = ["David O'Connor <david.alan.oconnor@gmail.com>"]
+edition = "2021"
+authors = ["David O'Connor <the_alchemist@fastmail.com>"]
 description = "Hardware abstraction layer for the STM32 MCUs"
 keywords = ["no-std", "stm32", "embedded", "embedded-hal"]
 categories = [
@@ -14,7 +15,7 @@ documentation = "https://docs.rs/stm32-hal2"
 readme = "README.md"
 license = "MIT"
 exclude = [".gitignore"]
-edition = "2021"
+
 
 [dependencies]
 cortex-m = "^0.7.7"

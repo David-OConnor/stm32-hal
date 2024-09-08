@@ -2035,6 +2035,7 @@ pub fn clear_update_interrupt(tim_num: u8) {
         match tim_num {
             1 => periphs.TIM1.sr.write(|w| w.bits(bits).uif().clear_bit()),
             2 => periphs.TIM2.sr.write(|w| w.bits(bits).uif().clear_bit()),
+            #[cfg(not(any(feature = "wl")))]
             3 => periphs.TIM3.sr.write(|w| w.bits(bits).uif().clear_bit()),
             #[cfg(not(any(
                 feature = "f301",
