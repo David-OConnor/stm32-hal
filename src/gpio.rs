@@ -48,7 +48,7 @@ use crate::dma::{self, ChannelCfg, DmaChannel};
 pub enum PinMode {
     /// An input pin; read by firmware; set by something connected to the pin.
     Input,
-    /// An input pin; set by firmware; read by something connected to the pin.
+    /// An output pin; set by firmware; read by something connected to the pin.
     Output,
     /// An alternate function, as defined in the MCU's user manual. Used for various
     /// onboard peripherals like buses, timers etc.
