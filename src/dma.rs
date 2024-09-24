@@ -1965,6 +1965,9 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
     unsafe {
         let mux = unsafe { &(*DMAMUX::ptr()) };
 
+        #[cfg(feature = "g4")]
+        enable_mux1();
+
         match periph {
             DmaPeriph::Dma1 => {
                 #[cfg(not(feature = "h7"))]
