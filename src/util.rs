@@ -416,6 +416,13 @@ impl RccPeriph for pac::I2C3 {
     }
 }
 
+#[cfg(feature = "h7")]
+impl RccPeriph for pac::I2C4 {
+    fn en_reset(rcc: &RegisterBlock) {
+        rcc_en_reset!(apb4, i2c4, rcc);
+    }
+}
+
 #[cfg(not(feature = "f301"))] // todo: Not sure what's going on  here.
 impl RccPeriph for pac::SPI1 {
     fn en_reset(rcc: &RegisterBlock) {
