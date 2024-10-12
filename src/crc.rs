@@ -29,7 +29,7 @@ impl CrcExt for CRC {
                 rcc.ahb1enr.modify(|_, w| w.crcen().set_bit());
                 rcc.ahb1rstr.modify(|_, w| w.crcrst().set_bit());
                 rcc.ahb1rstr.modify(|_, w| w.crcrst().clear_bit());
-            } else { // H7
+            } else if #[cfg(not(feature = "h7b3"))] { // H7
                 rcc.ahb4enr.modify(|_, w| w.crcen().set_bit());
                 rcc.ahb4rstr.modify(|_, w| w.crcrst().set_bit());
                 rcc.ahb4rstr.modify(|_, w| w.crcrst().clear_bit());
