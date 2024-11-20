@@ -515,7 +515,7 @@ where
         Ok(())
     }
 
-    /// Read a single word, without waiting  until ready for the next. Compared to the `read()` function, this
+    /// Read a single word, without waiting until ready for the next. Compared to the `read()` function, this
     /// does not block.
     pub fn read_one(&mut self) -> u8 {
         cfg_if! {
@@ -914,85 +914,150 @@ where
             UsartInterrupt::TransmitEmpty => status.txe().bit_is_set(),
         }
     }
+
+    fn check_for_errors(&mut self) -> Result<(), UartError> {
+        cfg_if! {
+            if #[cfg(feature = "f4")] {
+                let status = self.regs.sr.read();
+            } else {
+                let status = self.regs.isr.read();
+            }
+        }
+        if status.pe().bit_is_set()
+            || status.fe().bit_is_set()
+            || status.nf().bit_is_set()
+            || status.ore().bit_is_set()
+        {
+            // Clear error flags by reading DR/RDR
+            cfg_if! {
+                if #[cfg(feature = "f4")] {
+                    let _ = self.regs.dr.read();
+                } else {
+                    let _ = self.regs.rdr.read();
+                }
+            }
+        }
+        if status.pe().bit_is_set() {
+            Err(UartError::Parity)
+        } else if status.fe().bit_is_set() {
+            Err(UartError::Framing)
+        } else if status.nf().bit_is_set() {
+            Err(UartError::Noise)
+        } else if status.ore().bit_is_set() {
+            Err(UartError::Overrun)
+        } else {
+            Ok(())
+        }
+    }
 }
 
-// todo: Use those errors above.
-//
-// #[cfg(feature = "embedded_hal")]
-// impl<R> Read<u8> for Usart<R>
-// where
-//     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
-// {
-//     type Error = Error;
-//
-//     #[cfg(not(feature = "f4"))]
-//     fn read(&mut self) -> nb::Result<u8, UartError> {
-//         while !isr!(self.regs).read().rxne().bit_is_set() {}
-//
-//         Ok(self.regs.rdr.read().rdr().bits() as u8)
-//     }
-//
-//     #[cfg(feature = "f4")]
-//     fn read(&mut self) -> nb::Result<u8, UartError> {
-//         Ok(Usart::read_one(self))
-//     }
-// }
-//
-// #[cfg(feature = "embedded_hal")]
-// impl<R> Write<u8> for Usart<R>
-// where
-//     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
-// {
-//     type Error = Error;
-//
-//     #[cfg(not(feature = "f4"))]
-//     fn write(&mut self, word: u8) -> nb::Result<(), UartError> {
-//         while !isr!(self.regs).read().txe().bit_is_set() {}
-//
-//         self.regs
-//             .tdr
-//             .modify(|_, w| unsafe { w.tdr().bits(word as u16) });
-//
-//         Ok(())
-//     }
-//
-//     #[cfg(feature = "f4")]
-//     fn write(&mut self, word: u8) -> nb::Result<(), UartError> {
-//         while !self.regs.sr.read().txe().bit_is_set() {}
-//
-//         self.regs
-//             .dr
-//             .modify(|_, w| unsafe { w.dr().bits(word as u16) });
-//
-//         Ok(())
-//     }
-//
-//     fn flush(&mut self) -> nb::Result<(), UartError> {
-//         #[cfg(not(feature = "f4"))]
-//         while !isr!(self.regs).read().tc().bit_is_set() {}
-//         #[cfg(feature = "f4")]
-//         while !self.regs.sr.read().tc().bit_is_set() {}
-//
-//         Ok(())
-//     }
-// }
-//
-// #[cfg(feature = "embedded_hal")]
-// // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-// impl<R> blocking::serial::Write<u8> for Usart<R>
-// where
-//     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
-// {
-//     type Error = Error;
-//
-//     fn bwrite_all(&mut self, buffer: &[u8]) -> Result<(), UartError> {
-//         Usart::write(self, buffer);
-//         Ok(())
-//     }
-//
-//     fn bflush(&mut self) -> Result<(), UartError> {
-//         Self::flush(self);
-//
-//         Ok(())
-//     }
-// }
+#[cfg(feature = "embedded_hal")]
+mod embedded_io_impl {
+    use super::*;
+    use embedded_io::*;
+
+    impl Error for UartError {
+        fn kind(&self) -> ErrorKind {
+            match self {
+                UartError::Framing => ErrorKind::Other,
+                UartError::Noise => ErrorKind::Other,
+                UartError::Overrun => ErrorKind::OutOfMemory,
+                UartError::Parity => ErrorKind::InvalidData,
+                UartError::Hardware => ErrorKind::TimedOut,
+            }
+        }
+    }
+
+    impl<R> ErrorType for Usart<R>
+    where
+        R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
+    {
+        type Error = UartError;
+    }
+
+    impl<R> Read for Usart<R>
+    where
+        R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
+        Usart<R>: ReadReady + ErrorType<Error = UartError>,
+    {
+        fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Self::Error> {
+            // Block until at least one byte can be read:
+            while !self.read_ready()? {
+                cortex_m::asm::nop();
+            }
+
+            let buf_len = buf.len();
+            while !buf.is_empty() && self.read_ready()? {
+                let (first, remaining) = buf.split_first_mut().unwrap();
+                self.check_for_errors()?;
+                *first = self.read_one();
+                buf = remaining;
+            }
+            Ok(buf_len - buf.len())
+        }
+    }
+
+    impl<R> ReadReady for Usart<R>
+    where
+        R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
+    {
+        fn read_ready(&mut self) -> Result<bool, Self::Error> {
+            cfg_if! {
+                if #[cfg(feature = "h5")] {
+                    let ready = self.regs.isr.read().rxfne().bit_is_set();
+                } else if #[cfg(feature = "f4")] {
+                    let ready = self.regs.sr.read().rxne().bit_is_set();
+                } else {
+                    let ready = self.regs.isr.read().rxne().bit_is_set();
+                }
+            };
+            Ok(ready)
+        }
+    }
+
+    impl<R> Write for Usart<R>
+    where
+        R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
+    {
+        fn write(&mut self, mut buf: &[u8]) -> Result<usize, Self::Error> {
+            // Block until at least one byte can be written:
+            while !self.write_ready()? {
+                cortex_m::asm::nop();
+            }
+
+            let buf_len = buf.len();
+            while !buf.is_empty() && self.write_ready()? {
+                let (byte, remaining) = buf.split_first().unwrap();
+                self.write_one(*byte);
+                buf = remaining;
+            }
+            Ok(buf_len - buf.len())
+        }
+
+        fn flush(&mut self) -> Result<(), Self::Error> {
+            #[cfg(not(feature = "f4"))]
+            while isr!(self.regs).read().tc().bit_is_clear() {}
+            #[cfg(feature = "f4")]
+            while self.regs.sr.read().tc().bit_is_clear() {}
+            Ok(())
+        }
+    }
+
+    impl<R> WriteReady for Usart<R>
+    where
+        R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
+    {
+        fn write_ready(&mut self) -> Result<bool, Self::Error> {
+            cfg_if! {
+                if #[cfg(feature = "h5")] {
+                    let ready = self.regs.isr.read().txfe().bit_is_set();
+                } else if #[cfg(feature = "f4")] {
+                    let ready = self.regs.sr.read().txe().bit_is_set();
+                } else {
+                    let ready = self.regs.isr.read().txe().bit_is_set();
+                }
+            };
+            Ok(ready)
+        }
+    }
+}
