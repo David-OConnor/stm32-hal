@@ -311,19 +311,12 @@ where
 
         result
     }
+}
 
-    /// Enable this U[s]ART peripheral.
-    pub fn enable(&mut self) {
-        cr1!(self.regs).modify(|_, w| w.ue().set_bit());
-        while cr1!(self.regs).read().ue().bit_is_clear() {}
-    }
-
-    /// Disable this U[s]ART peripheral.
-    pub fn disable(&mut self) {
-        cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
-        while cr1!(self.regs).read().ue().bit_is_set() {}
-    }
-
+impl<R> Usart<R>
+where
+    R: Deref<Target = pac::usart1::RegisterBlock> + BaudPeriph,
+{
     /// Set the BAUD rate. Called during init, and can be called later to change BAUD
     /// during program execution.
     pub fn set_baud(&mut self, baud: u32, clock_cfg: &Clocks) -> Result<(), UartError> {
@@ -368,6 +361,23 @@ where
         }
 
         Ok(())
+    }
+}
+
+impl<R> Usart<R>
+where
+    R: Deref<Target = pac::usart1::RegisterBlock>,
+{
+    /// Enable this U[s]ART peripheral.
+    pub fn enable(&mut self) {
+        cr1!(self.regs).modify(|_, w| w.ue().set_bit());
+        while cr1!(self.regs).read().ue().bit_is_clear() {}
+    }
+
+    /// Disable this U[s]ART peripheral.
+    pub fn disable(&mut self) {
+        cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
+        while cr1!(self.regs).read().ue().bit_is_set() {}
     }
 
     /// Transmit data, as a sequence of u8. See L44 RM, section 38.5.2: "Character transmission procedure"
@@ -968,17 +978,14 @@ mod embedded_io_impl {
         }
     }
 
-    impl<R> ErrorType for Usart<R>
-    where
-        R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
-    {
+    impl<R> ErrorType for Usart<R> {
         type Error = UartError;
     }
 
     impl<R> Read for Usart<R>
     where
         R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
-        Usart<R>: ReadReady + ErrorType<Error = UartError>,
+        Usart<R>: ReadReady,
     {
         fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Self::Error> {
             // Block until at least one byte can be read:
