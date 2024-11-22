@@ -915,7 +915,7 @@ where
         }
     }
 
-    fn check_for_errors(&mut self) -> Result<(), UartError> {
+    fn check_status(&mut self) -> Result<(), UartError> {
         cfg_if! {
             if #[cfg(feature = "f4")] {
                 let status = self.regs.sr.read();
@@ -989,7 +989,6 @@ mod embedded_io_impl {
             let buf_len = buf.len();
             while !buf.is_empty() && self.read_ready()? {
                 let (first, remaining) = buf.split_first_mut().unwrap();
-                self.check_for_errors()?;
                 *first = self.read_one();
                 buf = remaining;
             }
@@ -1002,6 +1001,7 @@ mod embedded_io_impl {
         R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
     {
         fn read_ready(&mut self) -> Result<bool, Self::Error> {
+            self.check_status()?;
             cfg_if! {
                 if #[cfg(feature = "h5")] {
                     let ready = self.regs.isr.read().rxfne().bit_is_set();
