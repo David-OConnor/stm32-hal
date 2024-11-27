@@ -2033,7 +2033,14 @@ pub fn clear_update_interrupt(tim_num: u8) {
         let bits = 0xffff_ffff;
 
         match tim_num {
+            #[cfg(not(any(feature = "f373")))]
             1 => periphs.TIM1.sr.write(|w| w.bits(bits).uif().clear_bit()),
+            #[cfg(not(any(
+                 feature = "f410",
+                 feature = "g070",
+                 feature = "l5", // todo PAC bug?
+                 feature = "wb55", // todo PAC bug?
+            )))]
             2 => periphs.TIM2.sr.write(|w| w.bits(bits).uif().clear_bit()),
             #[cfg(not(any(feature = "wl")))]
             3 => periphs.TIM3.sr.write(|w| w.bits(bits).uif().clear_bit()),
