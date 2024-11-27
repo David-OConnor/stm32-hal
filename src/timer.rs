@@ -2042,7 +2042,16 @@ pub fn clear_update_interrupt(tim_num: u8) {
                  feature = "wb55", // todo PAC bug?
             )))]
             2 => periphs.TIM2.sr.write(|w| w.bits(bits).uif().clear_bit()),
-            #[cfg(not(any(feature = "wl")))]
+            #[cfg(not(any(
+                feature = "f301",
+                feature = "l4x1",
+                // feature = "l412",
+                feature = "l5", // todo PAC bug?
+                feature = "l4x3",
+                feature = "f410",
+                feature = "wb",
+                feature = "wl"
+            )))]
             3 => periphs.TIM3.sr.write(|w| w.bits(bits).uif().clear_bit()),
             #[cfg(not(any(
                 feature = "f301",
