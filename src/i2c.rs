@@ -454,6 +454,7 @@ where
             // Slave address to be sent: SADD[9:0]
             // SADD0: "This bit is don’t care"
             // SADD[7:1]: "These bits should be written with the 7-bit slave address to be sent"
+            #[cfg(not(any(feature = "wb", feature = "l5")))]
             w.sadd().bits((addr << 1) as u16);
             // Transfer direction: RD_WRN
             w.rd_wrn().write();
