@@ -26,7 +26,7 @@ pub enum RtcClockSource {
 }
 
 /// RTC error type
-#[derive(Debug)]
+#[derive(Debug, defmt::Format)]
 pub enum Error {
     /// Invalid input error
     InvalidInputData,

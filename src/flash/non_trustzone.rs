@@ -32,7 +32,7 @@ pub enum Bank {
     B2 = 1,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, defmt::Format)]
 /// Possible error states for flash operations.
 pub enum Error {
     /// Flash controller is not done yet

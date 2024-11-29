@@ -25,7 +25,7 @@ pub enum I2cDevice {
     Three,
 }
 
-#[derive(Debug)]
+#[derive(Debug, defmt::Format)]
 pub enum Error {
     OVERRUN,
     NACK,
