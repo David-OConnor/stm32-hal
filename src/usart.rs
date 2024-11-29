@@ -93,7 +93,7 @@ pub enum IrdaMode {
 
 /// Serial error
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, defmt::Format)]
 pub enum UartError {
     /// Framing error
     Framing,

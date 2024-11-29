@@ -53,7 +53,7 @@ pub static TICK_OVERFLOW_COUNT: AtomicU32 = AtomicU32::new(0);
 
 // todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, defmt::Format)]
 /// Used for when attempting to set a timer period that is out of range.
 pub struct ValueError {}
 

@@ -89,7 +89,7 @@ pub enum SamplingEdge {
 }
 
 /// Indicates an error with the QSPI peripheral.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, defmt::Format)]
 pub enum QspiError {
     Busy,
     Underflow,

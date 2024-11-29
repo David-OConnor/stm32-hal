@@ -63,7 +63,7 @@ macro_rules! busy_wait {
 
 /// I2C error
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, defmt::Format)]
 pub enum Error {
     /// Bus error
     Bus,
