@@ -53,7 +53,7 @@ pub static TICK_OVERFLOW_COUNT: AtomicU32 = AtomicU32::new(0);
 
 // todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, defmt::Format)]
 /// Used for when attempting to set a timer period that is out of range.
 pub struct ValueError {}
 
@@ -2033,9 +2033,25 @@ pub fn clear_update_interrupt(tim_num: u8) {
         let bits = 0xffff_ffff;
 
         match tim_num {
+            #[cfg(not(any(feature = "f373")))]
             1 => periphs.TIM1.sr.write(|w| w.bits(bits).uif().clear_bit()),
+            #[cfg(not(any(
+                 feature = "f410",
+                 feature = "g070",
+                 feature = "l5", // todo PAC bug?
+                 feature = "wb55", // todo PAC bug?
+            )))]
             2 => periphs.TIM2.sr.write(|w| w.bits(bits).uif().clear_bit()),
-            #[cfg(not(any(feature = "wl")))]
+            #[cfg(not(any(
+                feature = "f301",
+                feature = "l4x1",
+                // feature = "l412",
+                feature = "l5", // todo PAC bug?
+                feature = "l4x3",
+                feature = "f410",
+                feature = "wb",
+                feature = "wl"
+            )))]
             3 => periphs.TIM3.sr.write(|w| w.bits(bits).uif().clear_bit()),
             #[cfg(not(any(
                 feature = "f301",

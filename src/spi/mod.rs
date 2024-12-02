@@ -53,7 +53,7 @@ macro_rules! check_errors {
 
 /// SPI error
 #[non_exhaustive]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, defmt::Format)]
 pub enum SpiError {
     /// Overrun occurred
     Overrun,

@@ -4,8 +4,6 @@
 
 use core::ops::Deref;
 
-// #[cfg(feature = "embedded_hal")]
-// use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "l552", feature = "h5")))]
@@ -20,6 +18,8 @@ use crate::{
     util::RccPeriph,
     MAX_ITERS,
 };
+#[cfg(feature = "embedded_hal")]
+use embedded_hal::i2c;
 
 macro_rules! busy_wait {
     ($regs:expr, $flag:ident) => {
@@ -63,7 +63,7 @@ macro_rules! busy_wait {
 
 /// I2C error
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, defmt::Format)]
 pub enum Error {
     /// Bus error
     Bus,
@@ -399,12 +399,8 @@ where
         Ok(())
     }
 
-    /// Read multiple words to a buffer. Can return an error due to Bus, Arbitration, or NACK.
-    pub fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
-        // Wait for any previous address sequence to end
-        // automatically. This could be up to 50% of a bus
-        // cycle (ie. up to 0.5/freq)
-
+    /// Wait for any previous address sequence to end automatically. This could be up to 50% of a bus cycle (ie. up to 0.5/freq).
+    fn wait_for_idle(&self) -> Result<(), Error> {
         let mut i = 0;
         while self.regs.cr2.read().start().bit_is_set() {
             i += 1;
@@ -412,123 +408,71 @@ where
                 return Err(Error::Hardware);
             }
         }
+        Ok(())
+    }
 
-        // Set START and prepare to receive bytes into
-        // `buffer`. The START bit can be set even if the bus
-        // is BUSY or I2C is in slave mode.
-        self.set_cr2_read(addr, bytes.len() as u8);
-
-        for byte in bytes {
-            // Wait until we have received something
-            busy_wait!(self.regs, rxne);
-
-            *byte = self.regs.rxdr.read().rxdata().bits();
-        }
+    /// Read multiple words to a buffer. Can return an error due to Bus, Arbitration, or NACK.
+    pub fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
+        self.wait_for_idle()?;
+        self.set_cr2_read(addr, bytes.len(), true);
+        self.read_bytes(bytes)?;
 
         Ok(())
     }
 
     /// Write an array of words. Can return an error due to Bus, Arbitration, or NACK.
     pub fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
-        // Wait for any previous address sequence to end
-        // automatically. This could be up to 50% of a bus
-        // cycle (ie. up to 0.5/freq)
-        let mut i = 0;
-        while self.regs.cr2.read().start().bit_is_set() {
-            i += 1;
-            if i >= MAX_ITERS {
-                return Err(Error::Hardware);
-            }
-        }
-
-        self.set_cr2_write(addr, bytes.len() as u8, true);
-
-        for byte in bytes {
-            // Wait until we are allowed to send data
-            // (START has been ACKed or last byte when
-            // through)
-            busy_wait!(self.regs, txis); // TXDR register is empty
-
-            // Put byte on the wire
-            self.regs.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
-        }
+        self.wait_for_idle()?;
+        self.set_cr2_write(addr, bytes.len(), true);
+        self.write_bytes(bytes)?;
 
         Ok(())
     }
 
     /// Write and read an array of words. Can return an error due to Bus, Arbitration, or NACK.
     pub fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
-        // Wait for any previous address sequence to end
-        // automatically. This could be up to 50% of a bus
-        // cycle (ie. up to 0.5/freq)
-        let mut i = 0;
-        while self.regs.cr2.read().start().bit_is_set() {
-            i += 1;
-            if i >= MAX_ITERS {
-                return Err(Error::Hardware);
-            }
-        }
+        self.wait_for_idle()?;
 
-        self.set_cr2_write(addr, bytes.len() as u8, false);
-
-        for byte in bytes {
-            // Wait until we are allowed to send data
-            // (START has been ACKed or last byte went through)
-
-            busy_wait!(self.regs, txis); // TXDR register is empty
-
-            // Put byte on the wire
-            self.regs.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
-        }
-
-        // Wait until the write finishes before beginning to read.
-        busy_wait!(self.regs, tc); // transfer is complete
+        self.set_cr2_write(addr, bytes.len(), false);
+        self.write_bytes(bytes)?;
 
         // reSTART and prepare to receive bytes into `buffer`
-
-        self.set_cr2_read(addr, buffer.len() as u8);
-
-        for byte in buffer {
-            // Wait until we have received something
-            busy_wait!(self.regs, rxne);
-
-            *byte = self.regs.rxdr.read().rxdata().bits();
-        }
+        self.set_cr2_read(addr, buffer.len(), true);
+        self.read_bytes(buffer)?;
 
         Ok(())
     }
 
     /// Helper function to prevent repetition between `write`, `write_read`, and `write_dma`.
-    fn set_cr2_write(&mut self, addr: u8, len: u8, autoend: bool) {
+    fn set_cr2_write(&mut self, addr: u8, len: usize, autoend: bool) {
         // L44 RM: "Master communication initialization (address phase)
         // In order to initiate the communication, the user must program the following parameters for
         // the addressed slave in the I2C_CR2 register:
         self.regs.cr2.write(|w| {
-            unsafe {
-                // Addressing mode (7-bit or 10-bit): ADD10
-                w.add10().bit(self.cfg.address_bits as u8 != 0);
-                // Slave address to be sent: SADD[9:0]
-                // SADD0: "This bit is don’t care"
-                // SADD[7:1]: "These bits should be written with the 7-bit slave address to be sent"
-                w.sadd().bits((addr << 1) as u16);
-                // Transfer direction: RD_WRN
-                w.rd_wrn().clear_bit(); // write
-                                        // The number of bytes to be transferred: NBYTES[7:0]. If the number of bytes is equal to
-                                        // or greater than 255 bytes, NBYTES[7:0] must initially be filled with 0xFF.
-                w.nbytes().bits(len);
-                w.autoend().bit(autoend); // software end mode
-                                          // The user must then set the START bit in I2C_CR2 register. Changing all the above bits is
-                                          // not allowed when START bit is set.
-                                          // When the SMBus master wants to transmit the PEC, the PECBYTE bit must be set and the
-                                          // number of bytes must be programmed in the NBYTES[7:0] field, before setting the START
-                                          // bit. In this case the total number of TXIS interrupts is NBYTES-1. So if the PECBYTE bit is
-                                          // set when NBYTES=0x1, the content of the I2C_PECR register is automatically transmitted.
-                                          // If the SMBus master wants to send a STOP condition after the PEC, automatic end mode
-                                          // must be selected (AUTOEND=1). In this case, the STOP condition automatically follows the
-                                          // PEC transmission.
-                w.pecbyte().bit(self.cfg.smbus);
-                w.start().set_bit()
-            }
+            // Addressing mode (7-bit or 10-bit): ADD10
+            w.add10().bit(self.cfg.address_bits as u8 != 0);
+            // Slave address to be sent: SADD[9:0]
+            // SADD0: "This bit is don’t care"
+            // SADD[7:1]: "These bits should be written with the 7-bit slave address to be sent"
+            #[cfg(not(any(feature = "wb", feature = "l5")))]
+            w.sadd().bits((addr << 1) as u16);
+            // Transfer direction: RD_WRN
+            w.rd_wrn().write();
+            // The number of bytes to be transferred: NBYTES[7:0]. If the number of bytes is equal to
+            // or greater than 255 bytes, NBYTES[7:0] must initially be filled with 0xFF.
+            w.nbytes().bits(len as u8);
+            w.autoend().bit(autoend); // software end mode
+                                      // The user must then set the START bit in I2C_CR2 register. Changing all the above bits is
+                                      // not allowed when START bit is set.
+                                      // When the SMBus master wants to transmit the PEC, the PECBYTE bit must be set and the
+                                      // number of bytes must be programmed in the NBYTES[7:0] field, before setting the START
+                                      // bit. In this case the total number of TXIS interrupts is NBYTES-1. So if the PECBYTE bit is
+                                      // set when NBYTES=0x1, the content of the I2C_PECR register is automatically transmitted.
+                                      // If the SMBus master wants to send a STOP condition after the PEC, automatic end mode
+                                      // must be selected (AUTOEND=1). In this case, the STOP condition automatically follows the
+                                      // PEC transmission.
+            w.pecbyte().bit(self.cfg.smbus);
+            w.start().set_bit()
         });
         // Note on start bit (RM):
         // If the I2C is already in master mode with AUTOEND = 0, setting this bit generates a
@@ -538,24 +482,53 @@ where
     }
 
     /// Helper function to prevent repetition between `read`, `write_read`, and `read_dma`.
-    fn set_cr2_read(&mut self, addr: u8, len: u8) {
+    fn set_cr2_read(&mut self, addr: u8, len: usize, autoend: bool) {
+        // Set START and prepare to receive bytes into
+        // `buffer`. The START bit can be set even if the bus
+        // is BUSY or I2C is in slave mode.
         self.regs.cr2.write(|w| {
-            unsafe {
-                w.add10().bit(self.cfg.address_bits as u8 != 0);
-                w.sadd().bits((addr << 1) as u16);
-                w.rd_wrn().set_bit(); // read
-                w.nbytes().bits(len);
-                w.autoend().set_bit(); // automatic end mode
-                                       // When the SMBus master wants to receive the PEC followed by a STOP at the end of the
-                                       // transfer, automatic end mode can be selected (AUTOEND=1). The PECBYTE bit must be
-                                       // set and the slave address must be programmed, before setting the START bit. In this case,
-                                       // after NBYTES-1 data have been received, the next received byte is automatically checked
-                                       // versus the I2C_PECR register content. A NACK response is given to the PEC byte, followed
-                                       // by a STOP condition.
-                w.pecbyte().bit(self.cfg.smbus);
-                w.start().set_bit()
-            }
+            w.add10().bit(self.cfg.address_bits as u8 != 0);
+            w.sadd().bits((addr << 1) as u16);
+            w.rd_wrn().read();
+            w.nbytes().bits(len as u8);
+            w.autoend().bit(autoend); // automatic end mode
+                                      // When the SMBus master wants to receive the PEC followed by a STOP at the end of the
+                                      // transfer, automatic end mode can be selected (AUTOEND=1). The PECBYTE bit must be
+                                      // set and the slave address must be programmed, before setting the START bit. In this case,
+                                      // after NBYTES-1 data have been received, the next received byte is automatically checked
+                                      // versus the I2C_PECR register content. A NACK response is given to the PEC byte, followed
+                                      // by a STOP condition.
+            w.pecbyte().bit(self.cfg.smbus);
+            w.start().set_bit()
         });
+    }
+
+    fn read_bytes(&mut self, buf: &mut [u8]) -> Result<(), Error> {
+        for byte in buf {
+            // Wait until we have received something
+            busy_wait!(self.regs, rxne);
+            *byte = self.regs.rxdr.read().rxdata().bits();
+        }
+        Ok(())
+    }
+
+    fn write_bytes(&mut self, buf: &[u8]) -> Result<(), Error> {
+        for byte in buf {
+            // Wait until we are allowed to send data
+            // (START has been ACKed or last byte went through)
+            busy_wait!(self.regs, txis); // TXDR register is empty
+
+            // Put byte on the wire
+            self.regs.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
+        }
+        // Wait until the write finishes.
+        busy_wait!(self.regs, tc);
+        Ok(())
+    }
+
+    fn stop(&mut self) {
+        self.regs.cr2.write(|w| w.stop().set_bit());
+        while self.regs.isr.read().busy().is_busy() {}
     }
 
     #[cfg(not(feature = "g0"))]
@@ -597,7 +570,7 @@ where
         // initialized before setting the START bit. The end of transfer is managed with the
         // NBYTES counter. Refer to Master transmitter on page 1151.
         // (The steps above are handled in the write this function performs.)
-        self.set_cr2_write(addr, len as u8, autoend);
+        self.set_cr2_write(addr, len, autoend);
 
         // • In slave mode:
         // – With NOSTRETCH=0, when all data are transferred using DMA, the DMA must be
@@ -682,7 +655,7 @@ where
         // START bit are programmed by software. When all data are transferred using DMA, the
         // DMA must be initialized before setting the START bit. The end of transfer is managed
         // with the NBYTES counter.
-        self.set_cr2_read(addr, len as u8);
+        self.set_cr2_read(addr, len, true);
 
         // • In slave mode with NOSTRETCH=0, when all data are transferred using DMA, the
         // DMA must be initialized before the address match event, or in the ADDR interrupt
@@ -735,42 +708,77 @@ where
         unsafe { self.regs.isr.read().bits() }
     }
 }
-//
-// #[cfg(feature = "embedded_hal")]
-// // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-// impl<R> Write for I2c<R>
-// where
-//     R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
-// {
-//     type Error = Error;
-//
-//     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
-//         I2c::write(self, addr, bytes)
-//     }
-// }
-//
-// #[cfg(feature = "embedded_hal")]
-// // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-// impl<R> Read for I2c<R>
-// where
-//     R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
-// {
-//     type Error = Error;
-//
-//     fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
-//         I2c::read(self, addr, bytes)
-//     }
-// }
-//
-// #[cfg(feature = "embedded_hal")]
-// // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-// impl<R> WriteRead for I2c<R>
-// where
-//     R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
-// {
-//     type Error = Error;
-//
-//     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
-//         I2c::write_read(self, addr, bytes, buffer)
-//     }
-// }
+
+#[cfg(feature = "embedded_hal")]
+impl i2c::Error for Error {
+    fn kind(&self) -> i2c::ErrorKind {
+        use i2c::{ErrorKind, NoAcknowledgeSource};
+
+        match self {
+            Error::Bus => ErrorKind::Bus,
+            Error::Arbitration => ErrorKind::ArbitrationLoss,
+            Error::Nack => ErrorKind::NoAcknowledge(NoAcknowledgeSource::Unknown),
+            Error::Hardware => ErrorKind::Other,
+        }
+    }
+}
+
+#[cfg(feature = "embedded_hal")]
+impl<R> i2c::ErrorType for I2c<R>
+where
+    R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
+{
+    type Error = Error;
+}
+
+#[cfg(feature = "embedded_hal")]
+impl<R> i2c::I2c for I2c<R>
+where
+    R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
+{
+    fn transaction(
+        &mut self,
+        addr: u8,
+        operations: &mut [i2c::Operation<'_>],
+    ) -> Result<(), Self::Error> {
+        let mut ops = operations.iter_mut();
+        let Some(mut prev_op) = ops.next() else {
+            return Ok(());
+        };
+        // Generate ST
+        self.wait_for_idle()?;
+        match &prev_op {
+            i2c::Operation::Write(rb) => self.set_cr2_write(addr, rb.len(), false),
+            i2c::Operation::Read(wb) => self.set_cr2_read(addr, wb.len(), false),
+        }
+        // Execute the first operation
+        match &mut prev_op {
+            i2c::Operation::Write(rb) => self.write_bytes(rb),
+            i2c::Operation::Read(wb) => self.read_bytes(wb),
+        }?;
+
+        for op in ops {
+            // If operation type changes, generate SR and SAD+R/W
+            match (&prev_op, &op) {
+                (i2c::Operation::Read(_), i2c::Operation::Write(wb)) => {
+                    self.wait_for_idle()?;
+                    self.set_cr2_write(addr, wb.len(), false);
+                }
+                (i2c::Operation::Write(_), i2c::Operation::Read(rb)) => {
+                    self.wait_for_idle()?;
+                    self.set_cr2_read(addr, rb.len(), false);
+                }
+                _ => {}
+            }
+
+            // Execute the operation
+            match op {
+                i2c::Operation::Write(rb) => self.write_bytes(rb),
+                i2c::Operation::Read(wb) => self.read_bytes(wb),
+            }?;
+        }
+
+        self.stop();
+        Ok(())
+    }
+}
