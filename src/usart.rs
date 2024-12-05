@@ -933,21 +933,7 @@ where
                 let status = self.regs.isr.read();
             }
         }
-        if status.pe().bit_is_set()
-            || status.fe().bit_is_set()
-            || status.nf().bit_is_set()
-            || status.ore().bit_is_set()
-        {
-            // Clear error flags by reading DR/RDR
-            cfg_if! {
-                if #[cfg(feature = "f4")] {
-                    let _ = self.regs.dr.read();
-                } else {
-                    let _ = self.regs.rdr.read();
-                }
-            }
-        }
-        if status.pe().bit_is_set() {
+        let result = if status.pe().bit_is_set() {
             Err(UartError::Parity)
         } else if status.fe().bit_is_set() {
             Err(UartError::Framing)
@@ -957,7 +943,25 @@ where
             Err(UartError::Overrun)
         } else {
             Ok(())
+        };
+        if result.is_err() {
+            // For F4, clear error flags by reading SR and DR
+            // For others, clear error flags by reading ISR, clearing ICR, then reading RDR
+            cfg_if! {
+                if #[cfg(feature = "f4")] {
+                    let _ = self.regs.dr.read();
+                } else {
+                    self.regs.icr.write(|w| {
+                        w.pecf().set_bit();
+                        w.fecf().set_bit();
+                        w.ncf().set_bit();
+                        w.orecf().set_bit()
+                    });
+                    let _ = self.regs.rdr.read();
+                }
+            }
         }
+        result
     }
 }
 
