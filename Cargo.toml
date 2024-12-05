@@ -37,6 +37,7 @@ defmt = "^0.3.4"
 
 # Embedded-HAL traits and related libs. Featured-gated with `embedded-hal`.
 embedded-hal = { version = "^1.0.0", features=["defmt-03"], optional = true }
+embedded-io = { version = "0.6", features=["defmt-03"], optional = true }
 # `nb` is only included when using the embedded-hal feature.
 #nb = { version = "^1.1.0", optional = true }
 #void = { version = "^1.0.2", default-features = false, optional = true }
@@ -177,7 +178,7 @@ can_fd_g = ["fdcan/fdcan_g0_g4_l5"]
 can_fd_h = ["fdcan/fdcan_h7"]
 net = ["dep:smoltcp"]
 #embedded_hal = ["dep:embedded-hal", "dep:nb", "dep:void", "dep:embedded-time"]
-embedded_hal = ["dep:embedded-hal"]
+embedded_hal = ["dep:embedded-hal", "dep:embedded-io"]
 monotonic = ["dep:rtic-monotonic"]
 
 # These features are used to featured gate sections of code that apply
@@ -199,4 +200,3 @@ wl = []
 #features = ["h7rt", "h743v", "can_fd_h", "usbotg_hs"]
 
 # todo: w feature to combine wb and wl since they often have feature parity?
-
