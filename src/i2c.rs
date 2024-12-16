@@ -358,7 +358,12 @@ where
 
         result
     }
+}
 
+impl<R> I2c<R>
+where
+    R: Deref<Target = pac::i2c1::RegisterBlock>,
+{
     /// Enable SMBus support. See L44 RM, section 37.4.11: SMBus initialization
     pub fn enable_smbus(&mut self) -> Result<(), Error> {
         // todo: Roll this into an init setting or I2cConfig struct etc.
@@ -724,17 +729,14 @@ impl i2c::Error for Error {
 }
 
 #[cfg(feature = "embedded_hal")]
-impl<R> i2c::ErrorType for I2c<R>
-where
-    R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
-{
+impl<R> i2c::ErrorType for I2c<R> {
     type Error = Error;
 }
 
 #[cfg(feature = "embedded_hal")]
 impl<R> i2c::I2c for I2c<R>
 where
-    R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
+    R: Deref<Target = pac::i2c1::RegisterBlock>,
 {
     fn transaction(
         &mut self,
