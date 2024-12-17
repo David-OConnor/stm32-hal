@@ -505,7 +505,9 @@ impl Clocks {
                         w.pllsrc().bit(pll_src.bits() != 0);
                         w.plln().bits(self.plln);
                         w.pllm().bits(self.pllm);
-                        w.pllp().bits(self.pllp as u8)
+                        w.pllp().bits(self.pllp as u8);
+                        w.pllq().bits(self.pllq.value());
+                        w
                     });
                 }
             }
@@ -645,7 +647,16 @@ impl Clocks {
         #[cfg(feature = "f3")]
         return self.sysclk() / self.usb_pre.value() as u32;
         #[cfg(feature = "f4")]
-        return 0; // todo
+        match self.input_src {
+            InputSrc::Pll(pll_src) => {
+                let input_freq = match pll_src {
+                    PllSrc::Hsi => 16_000_000,
+                    PllSrc::Hse(freq) => freq,
+                };
+                input_freq / self.pllm as u32 * self.plln as u32 / self.pllq.value() as u32
+            }
+            _ => 0
+        }
     }
 
     pub fn apb1(&self) -> u32 {
