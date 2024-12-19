@@ -69,6 +69,7 @@ paste = "^1.0.4"  # Token pasting, to make macros easier
 
 [package.metadata.docs.rs]
 features = ["h735", "h7rt", "usbotg_hs", "can_fd_h", "embedded_hal"]
+#features = ["g641", "g4rt", "usb", "can_fd_g", "embedded_hal"]
 targets = ["thumbv7em-none-eabihf"]
 
 

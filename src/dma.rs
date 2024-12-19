@@ -1973,6 +1973,8 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
         let mux = unsafe { &(*DMAMUX::ptr()) };
 
         #[cfg(feature = "g4")]
+        let rcc = unsafe { &(*RCC::ptr()) };
+        #[cfg(feature = "g4")]
         rcc.ahb1enr.modify(|_, w| w.dmamuxen().set_bit());
 
         match periph {
