@@ -448,7 +448,7 @@ where
         // L44 RM: "Master communication initialization (address phase)
         // In order to initiate the communication, the user must program the following parameters for
         // the addressed slave in the I2C_CR2 register:
-        self.regs.cr2.write(|w| {
+        self.regs.cr2.write(|w| unsafe {
             // Addressing mode (7-bit or 10-bit): ADD10
             w.add10().bit(self.cfg.address_bits as u8 != 0);
             // Slave address to be sent: SADD[9:0]
@@ -457,7 +457,7 @@ where
             #[cfg(not(any(feature = "wb", feature = "l5")))]
             w.sadd().bits((addr << 1) as u16);
             // Transfer direction: RD_WRN
-            w.rd_wrn().write();
+            w.rd_wrn().clear_bit();
             // The number of bytes to be transferred: NBYTES[7:0]. If the number of bytes is equal to
             // or greater than 255 bytes, NBYTES[7:0] must initially be filled with 0xFF.
             w.nbytes().bits(len as u8);
@@ -486,10 +486,10 @@ where
         // Set START and prepare to receive bytes into
         // `buffer`. The START bit can be set even if the bus
         // is BUSY or I2C is in slave mode.
-        self.regs.cr2.write(|w| {
+        self.regs.cr2.write(|w| unsafe {
             w.add10().bit(self.cfg.address_bits as u8 != 0);
             w.sadd().bits((addr << 1) as u16);
-            w.rd_wrn().read();
+            w.rd_wrn().set_bit();
             w.nbytes().bits(len as u8);
             w.autoend().bit(autoend); // automatic end mode
                                       // When the SMBus master wants to receive the PEC followed by a STOP at the end of the
@@ -528,7 +528,7 @@ where
 
     fn stop(&mut self) {
         self.regs.cr2.write(|w| w.stop().set_bit());
-        while self.regs.isr.read().busy().is_busy() {}
+        while self.regs.isr.read().busy().bit_is_set() {}
     }
 
     #[cfg(not(feature = "g0"))]

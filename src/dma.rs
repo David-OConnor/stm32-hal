@@ -2033,7 +2033,7 @@ pub fn enable_mux1() {
     let rcc = unsafe { &(*RCC::ptr()) };
 
     cfg_if! {
-        if #[cfg(feature = "g4")] {
+        if #[cfg(all(feature = "g4", not(feature = "g473")))] {
             // Note inconsistency between `dmamux` and `dmamux`; can't use macro here.
             rcc.ahb1enr.modify(|_, w| w.dmamuxen().set_bit());
             rcc.ahb1rstr.modify(|_, w| w.dmamux1rst().set_bit());
