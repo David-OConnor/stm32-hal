@@ -106,15 +106,16 @@ pub enum UartError {
     Hardware,
 }
 
-#[cfg(not(feature = "f4"))]
 #[derive(Clone, Copy)]
 /// The type of USART interrupt to configure. Reference the USART_ISR register.
 pub enum UsartInterrupt {
+    #[cfg(not(feature = "f4"))]
     /// If the inner value of this is `Some`, its inner value will set
     /// the character to match on `enable_interrupt`. The option's value doesn't
     /// affect anything when stopping or clearing interrupts.
     CharDetect(Option<u8>),
     Cts,
+    #[cfg(not(feature = "f4"))]
     EndOfBlock,
     Idle,
     FramingError,
@@ -122,8 +123,9 @@ pub enum UsartInterrupt {
     Overrun,
     ParityError,
     ReadNotEmpty,
+    #[cfg(not(feature = "f4"))]
     ReceiverTimeout,
-    #[cfg(not(any(feature = "f3", feature = "l4")))] // todo: PAC ommission?
+    #[cfg(not(any(feature = "f3", feature = "l4", feature = "f4")))] // todo: PAC ommission?
     Tcbgt,
     TransmissionComplete,
     TransmitEmpty,
@@ -196,6 +198,13 @@ macro_rules! isr {
 macro_rules! isr {
     ($regs:expr) => {
         $regs.isr
+    };
+}
+
+#[cfg(feature = "f4")]
+macro_rules! isr {
+    ($regs:expr) => {
+        $regs.sr
     };
 }
 
@@ -723,12 +732,12 @@ where
     //     while self.regs.sr.read().tc().bit_is_clear() {}
     // }
 
-    #[cfg(not(feature = "f4"))]
     /// Enable a specific type of interrupt. See G4 RM, Table 349: USART interrupt requests.
     /// If `Some`, the inner value of `CharDetect` sets the address of the char to match.
     /// If `None`, the interrupt is enabled without changing the char to match.
     pub fn enable_interrupt(&mut self, interrupt: UsartInterrupt) {
         match interrupt {
+            #[cfg(not(feature = "f4"))]
             UsartInterrupt::CharDetect(char_wrapper) => {
                 if let Some(char) = char_wrapper {
                     // Disable the UART to allow writing the `add` and `addm7` bits
@@ -764,6 +773,7 @@ where
             UsartInterrupt::Cts => {
                 self.regs.cr3.modify(|_, w| w.ctsie().set_bit());
             }
+            #[cfg(not(feature = "f4"))]
             UsartInterrupt::EndOfBlock => {
                 cr1!(self.regs).modify(|_, w| w.eobie().set_bit());
             }
@@ -788,10 +798,11 @@ where
                 #[cfg(not(feature = "h5"))]
                 cr1!(self.regs).modify(|_, w| w.rxneie().set_bit());
             }
+            #[cfg(not(feature = "f4"))]
             UsartInterrupt::ReceiverTimeout => {
                 cr1!(self.regs).modify(|_, w| w.rtoie().set_bit());
             }
-            #[cfg(not(any(feature = "f3", feature = "l4")))]
+            #[cfg(not(any(feature = "f3", feature = "l4", feature = "f4")))]
             UsartInterrupt::Tcbgt => {
                 self.regs.cr3.modify(|_, w| w.tcbgtie().set_bit());
                 self.regs.cr3.modify(|_, w| w.tcbgtie().set_bit());
@@ -808,17 +819,18 @@ where
         }
     }
 
-    #[cfg(not(feature = "f4"))]
     /// Disable a specific type of interrupt. See G4 RM, Table 349: USART interrupt requests.
     /// Note that the inner value of `CharDetect` doesn't do anything here.
     pub fn disable_interrupt(&mut self, interrupt: UsartInterrupt) {
         match interrupt {
+            #[cfg(not(feature = "f4"))]
             UsartInterrupt::CharDetect(_) => {
                 cr1!(self.regs).modify(|_, w| w.cmie().clear_bit());
             }
             UsartInterrupt::Cts => {
                 self.regs.cr3.modify(|_, w| w.ctsie().clear_bit());
             }
+            #[cfg(not(feature = "f4"))]
             UsartInterrupt::EndOfBlock => {
                 cr1!(self.regs).modify(|_, w| w.eobie().clear_bit());
             }
@@ -843,10 +855,11 @@ where
                 #[cfg(not(feature = "h5"))]
                 cr1!(self.regs).modify(|_, w| w.rxneie().clear_bit());
             }
+            #[cfg(not(feature = "f4"))]
             UsartInterrupt::ReceiverTimeout => {
                 cr1!(self.regs).modify(|_, w| w.rtoie().clear_bit());
             }
-            #[cfg(not(any(feature = "f3", feature = "l4")))]
+            #[cfg(not(any(feature = "f3", feature = "l4", feature = "f4")))]
             UsartInterrupt::Tcbgt => {
                 self.regs.cr3.modify(|_, w| w.tcbgtie().clear_bit());
                 self.regs.cr3.modify(|_, w| w.tcbgtie().clear_bit());
@@ -863,7 +876,6 @@ where
         }
     }
 
-    #[cfg(not(feature = "f4"))]
     /// Print the (raw) contents of the status register.
     pub fn read_status(&self) -> u32 {
         unsafe { isr!(self.regs).read().bits() }
@@ -895,27 +907,71 @@ where
         }
     }
 
-    #[cfg(not(feature = "f4"))]
+    #[cfg(feature = "f4")]
+    /// Clears the interrupt pending flag for a specific type of interrupt. Note that
+    /// it can also clear error flags, like Overrun and framing errors. See G4 RM,
+    /// Table 349: USART interrupt requests.
+    /// Note that the inner value of `CharDetect` doesn't do anything here.
+    pub fn clear_interrupt(&mut self, interrupt: UsartInterrupt) {
+        match interrupt {
+            UsartInterrupt::Cts => self.regs.sr.write(|w| w.cts().clear_bit()),
+            UsartInterrupt::Idle | UsartInterrupt::FramingError | UsartInterrupt::Overrun => {
+                // RM0090 rev 21: Cleared by a software sequence (an read to the
+                // USART_SR register followed by a read to the USART_DR
+                // register.
+                let _ = self.regs.sr.read();
+                let _ = self.regs.dr.read();
+            }
+            UsartInterrupt::LineBreak => self.regs.sr.write(|w| w.lbd().clear_bit()),
+            UsartInterrupt::ParityError => {
+                // RM0090 rev 21: Cleared by a software sequence (a read from
+                // the status register followed by a read or write access to the
+                // USART_DR data register). The software must wait for the RXNE
+                // flag to be set before clearing the PE bit.
+                while !self.regs.sr.read().rxne().bit_is_set() {
+                    let _ = self.regs.dr.read();
+                }
+            }
+            UsartInterrupt::ReadNotEmpty => {
+                let _ = self.regs.dr.read();
+            }
+            UsartInterrupt::TransmissionComplete => {
+                let _ = self.regs.sr.read();
+                self.regs.dr.modify(|_, w| unsafe { w.dr().bits(0 as u16) });
+            }
+            UsartInterrupt::TransmitEmpty => {
+                self.regs.dr.modify(|_, w| unsafe { w.dr().bits(0 as u16) })
+            }
+        }
+    }
+
+
     /// Checks if a given status flag is set. Returns `true` if the status flag is set. Note that this preforms
     /// a read each time called. If checking multiple flags, this isn't optimal.
     pub fn check_status_flag(&mut self, flag: UsartInterrupt) -> bool {
         let status = isr!(self.regs).read();
 
         match flag {
+            #[cfg(not(feature = "f4"))]
             UsartInterrupt::CharDetect(_) => status.cmf().bit_is_set(),
             UsartInterrupt::Cts => status.cts().bit_is_set(),
+            #[cfg(not(feature = "f4"))]
             UsartInterrupt::EndOfBlock => status.eobf().bit_is_set(),
             UsartInterrupt::Idle => status.idle().bit_is_set(),
             UsartInterrupt::FramingError => status.fe().bit_is_set(),
+            #[cfg(not(feature = "f4"))]
             UsartInterrupt::LineBreak => status.lbdf().bit_is_set(),
+            #[cfg(feature = "f4")]
+            UsartInterrupt::LineBreak => status.lbd().bit_is_set(),
             UsartInterrupt::Overrun => status.ore().bit_is_set(),
             UsartInterrupt::ParityError => status.pe().bit_is_set(),
             #[cfg(feature = "h5")]
             UsartInterrupt::ReadNotEmpty => status.rxfne().bit_is_set(),
             #[cfg(not(feature = "h5"))]
             UsartInterrupt::ReadNotEmpty => status.rxne().bit_is_set(),
+            #[cfg(not(feature = "f4"))]
             UsartInterrupt::ReceiverTimeout => status.rtof().bit_is_set(),
-            #[cfg(not(any(feature = "f3", feature = "l4")))]
+            #[cfg(not(any(feature = "f3", feature = "l4", feature = "f4")))]
             UsartInterrupt::Tcbgt => status.tcbgt().bit_is_set(),
             UsartInterrupt::TransmissionComplete => status.tc().bit_is_set(),
             #[cfg(feature = "h5")]
@@ -926,13 +982,8 @@ where
     }
 
     fn check_status(&mut self) -> Result<(), UartError> {
-        cfg_if! {
-            if #[cfg(feature = "f4")] {
-                let status = self.regs.sr.read();
-            } else {
-                let status = self.regs.isr.read();
-            }
-        }
+        let status = isr!(self.regs).read();
+
         let result = if status.pe().bit_is_set() {
             Err(UartError::Parity)
         } else if status.fe().bit_is_set() {
