@@ -363,7 +363,7 @@ where
 
 impl<R> I2c<R>
 where
-    R: Deref<Target = pac::i2c1::RegisterBlock>,
+    R: Deref<Target = pac::i2c1::RegisterBlock> + RccPeriph,
 {
     /// Enable SMBus support. See L44 RM, section 37.4.11: SMBus initialization
     pub fn enable_smbus(&mut self) -> Result<(), Error> {
