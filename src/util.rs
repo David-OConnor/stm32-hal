@@ -170,12 +170,14 @@ impl BaudPeriph for pac::USART3 {
 
 cfg_if! {
     if #[cfg(any(feature = "l4x6", feature = "h7", feature = "f401", feature = "f407"))] {
+        #[cfg(not(feature = "f401"))]
         impl BaudPeriph for pac::UART4 {
             fn baud(clock_cfg: &Clocks) -> u32 {
                 clock_cfg.apb1()
             }
         }
 
+        #[cfg(not(feature = "f401"))]
         impl BaudPeriph for pac::UART5 {
             fn baud(clock_cfg: &Clocks) -> u32 {
                 clock_cfg.apb1()
@@ -792,6 +794,7 @@ impl RccPeriph for pac::USART3 {
 
 cfg_if! {
     if #[cfg(any(feature = "l4x6", feature = "g473", feature = "g474", feature = "g483", feature = "g484", feature = "h7", feature = "f401", feature = "f407"))] {
+        #[cfg(not(feature = "f401"))]
         impl RccPeriph for pac::UART4 {
             fn en_reset(rcc: &RegisterBlock) {
                 rcc_en_reset!(apb1, uart4, rcc);
@@ -818,6 +821,7 @@ cfg_if! {
             }
         }
 
+        #[cfg(not(feature = "f401"))]
         impl RccPeriph for pac::UART5 {
             fn en_reset(rcc: &RegisterBlock) {
                 rcc_en_reset!(apb1, uart5, rcc);

@@ -355,7 +355,6 @@ where
 
                         // Wait for the STOP to be sent.
                         while self.regs.cr1.read().stop().bit_is_set() {}
-
                     } else {
                         return Err(Error::OVERRUN);
                     }

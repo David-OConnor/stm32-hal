@@ -4,6 +4,9 @@
 
 use core::ops::Deref;
 
+#[cfg(feature = "embedded_hal")]
+use embedded_hal::i2c;
+
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "l552", feature = "h5")))]
@@ -18,8 +21,6 @@ use crate::{
     util::RccPeriph,
     MAX_ITERS,
 };
-#[cfg(feature = "embedded_hal")]
-use embedded_hal::i2c;
 
 macro_rules! busy_wait {
     ($regs:expr, $flag:ident) => {

@@ -655,7 +655,7 @@ impl Clocks {
                 };
                 input_freq / self.pllm as u32 * self.plln as u32 / self.pllq.value() as u32
             }
-            _ => 0
+            _ => 0,
         }
     }
 
