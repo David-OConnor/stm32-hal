@@ -742,8 +742,9 @@ impl Clocks {
             // 0: Wide VCO range: 192 to 836 MHz (default after reset)
             // 1: Medium VCO range: 150 to 420 MHz
             let pll1_vco = match self.pll_input_speed(self.pll_src, 1) {
-                0..=2_000_000 => 0,
-                _ => 1,
+                1_000_000..=2_000_000 => 1,
+                2_000_001..=16_000_000 => 0,
+                _ => panic!("PLL1 input source must be between 1Mhz and 16Mhz."),
             };
 
             // The user application can then configure the proper VCO: if the frequency of the reference
