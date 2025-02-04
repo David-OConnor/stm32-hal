@@ -366,7 +366,7 @@ where
 
 impl<R> Usart<R>
 where
-    R: Deref<Target = pac::usart1::RegisterBlock>,
+    R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph,
 {
     /// Enable this U[s]ART peripheral.
     pub fn enable(&mut self) {
