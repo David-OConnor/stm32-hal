@@ -153,7 +153,7 @@ pub enum DmaInput {
 pub enum DmaInput {
     Adc = 5,
     DacOut1 = 6,
-    Dac1Ch2 = 7,
+    // Dac1Ch2 = 7,
     Spi1Rx = 7,
     Spi1Tx = 8,
     Spi2Rx = 9,

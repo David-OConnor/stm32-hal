@@ -933,17 +933,21 @@ where
                 let status = self.regs.isr.read();
             }
         }
-        let result = if status.pe().bit_is_set() {
+        let mut result = if status.pe().bit_is_set() {
             Err(UartError::Parity)
         } else if status.fe().bit_is_set() {
             Err(UartError::Framing)
-        } else if status.nf().bit_is_set() {
-            Err(UartError::Noise)
         } else if status.ore().bit_is_set() {
             Err(UartError::Overrun)
         } else {
             Ok(())
         };
+
+        #[cfg(not(feature = "wl"))]
+        if status.nf().bit_is_set() {
+            result = Err(UartError::Noise);
+        }
+
         if result.is_err() {
             // For F4, clear error flags by reading SR and DR
             // For others, clear error flags by reading ISR, clearing ICR, then reading RDR
