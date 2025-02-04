@@ -92,7 +92,7 @@ f4rt = ["stm32f4/rt"]
 Amazing! Let's put that to our own `Cargo.toml`:
 
 ```
-hal = { package = "stm32-hal2", version = "^0.2.11", features = ["f401", "f4rt"]}
+hal = { package = "stm32-hal2", version = "^1.9.0", features = ["f401", "f4rt"]}
 ```
 
 Great! Now, we've told cargo that we want to install stm32-hal2 with these particular features. Just so that we're on the same page here, here's a complete `Cargo.toml` to this point:
@@ -108,7 +108,7 @@ edition = "2018"
 [dependencies]
 cortex-m = "0.7.3"
 cortex-m-rt = "0.7.0"
-hal = { package = "stm32-hal2", version = "^0.2.11", features = ["f401", "f4rt"]}
+hal = { package = "stm32-hal2", version = "^1.9.0", features = ["f401", "f4rt"]}
 ```
 
 Let's do `cargo build` now, just to make sure that everything is set up correctly. (Mind you, there isn't any meaingful code in `src` directory just yet!)

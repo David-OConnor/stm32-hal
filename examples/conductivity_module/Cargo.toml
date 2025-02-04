@@ -15,7 +15,7 @@ path = "src/main.rs"
 [dependencies]
 cortex-m = { version = "^0.7.7", features = ["critical-section-single-core"] }
 cortex-m-rt = { version = "0.7.0", optional = true }
-hal = { package = "stm32-hal2", version = "^1.8.0", features = ["l4x3", "l4rt"] }
+hal = { package = "stm32-hal2", version = "^1.9.0", features = ["l4x3", "l4rt"] }
 defmt = "0.3.0"
 defmt-rtt = "0.4.0"
 panic-probe = { version = "0.4.0", features = ["print-defmt"] }

@@ -52,7 +52,7 @@ Tested on the following devices:
 - Install flash and debug tools: `cargo install flip-link`, `cargo install probe-rs --features cli`.
 - Clone the [quickstart repo](https://github.com/David-OConnor/stm32-hal-quickstart1): `git clone https://github.com/David-OConnor/stm32-hal-quickstart1`.
 - Change the following lines to match your MCU. Post an issue if you need help with this:
-    - `Cargo.toml`: `hal = { package = "stm32-hal2", version = "^1.5.0", features = ["l4x3", "l4rt"]}`
+    - `Cargo.toml`: `hal = { package = "stm32-hal2", version = "^1.9.0", features = ["l4x3", "l4rt"]}`
     - `memory.x`: `FLASH` and `RAM` lines
     - `.cargo/config.toml`: `runner` and `target` lines.
 - Connect your device. Run `cargo run --release` to compile and flash.
@@ -93,7 +93,7 @@ include a run-time feature, following the template `l4rt`. For example:
 ```toml
 cortex-m = { version = "^0.7.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7.2"
-hal = { package = "stm32-hal2", version = "^1.5.5", features = ["l4x3", "l4rt"]}
+hal = { package = "stm32-hal2", version = "^1.9.0", features = ["l4x3", "l4rt"]}
 ```
 
 If you need `embedded-hal` traits, include the `embedded_hal` feature.
