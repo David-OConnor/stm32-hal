@@ -4,10 +4,9 @@ use core::{cell::UnsafeCell, ops::Deref, ptr};
 
 use super::*;
 use crate::{
-    check_errors,
+    MAX_ITERS, check_errors,
     pac::{self, RCC},
     util::RccPeriph,
-    MAX_ITERS,
 };
 
 // Depth of FIFO to use. See RM0433 Rev 7, Table 409. Note that 16 is acceptable on this MCU,

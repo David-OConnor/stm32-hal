@@ -9,10 +9,10 @@ use cfg_if::cfg_if;
 #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]
 use crate::pac::CRS;
 use crate::{
+    MAX_ITERS,
     clocks::RccError,
     pac::{self, FLASH, RCC},
     util::rcc_en_reset,
-    MAX_ITERS,
 };
 
 // todo: WB is missing second LSI2, and perhaps other things.

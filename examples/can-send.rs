@@ -6,7 +6,7 @@
 
 use core::panic::PanicInfo;
 
-use bxcan::{filter::Mask32, Frame, StandardId};
+use bxcan::{Frame, StandardId, filter::Mask32};
 use cortex_m::delay::Delay;
 use cortex_m_rt::entry; // The runtime
 use defmt_rtt as _;

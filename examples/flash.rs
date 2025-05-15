@@ -7,7 +7,7 @@ use core::cell::{Cell, RefCell};
 
 use cortex_m::peripheral::NVIC;
 use cortex_m_rt::entry;
-use critical_section::{with, Mutex};
+use critical_section::{Mutex, with};
 use hal::{
     clocks::Clocks,
     flash::{Bank, Flash},

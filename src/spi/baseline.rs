@@ -2,10 +2,9 @@ use core::{ops::Deref, ptr};
 
 use super::*;
 use crate::{
-    check_errors,
+    MAX_ITERS, check_errors,
     pac::{self, RCC},
     util::RccPeriph,
-    MAX_ITERS,
 };
 
 // Depth of FIFO to use. See G4 RM, table 359.

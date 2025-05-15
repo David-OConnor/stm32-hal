@@ -935,11 +935,7 @@ impl Pin {
             self.pin,
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
         );
-        if val {
-            PinState::High
-        } else {
-            PinState::Low
-        }
+        if val { PinState::High } else { PinState::Low }
     }
 
     /// Set a pin state (ie set high or low output voltage level). See also `set_high()` and

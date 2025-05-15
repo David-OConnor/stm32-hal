@@ -45,7 +45,7 @@ use crate::{
     clocks::Clocks,
     instant::Instant,
     pac::{self, RCC},
-    util::{rcc_en_reset, RccPeriph},
+    util::{RccPeriph, rcc_en_reset},
 };
 
 // This `TICK_OVERFLOW_COUNT` must be incremented in firmware in the timer's update interrupt.

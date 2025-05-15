@@ -693,9 +693,9 @@ where
             w.muteval().clear_bit(); // xmitter only
             w.mute().clear_bit(); // xmitter only
             w.tris().clear_bit(); // xmitter only
-                                  // The FIFO pointers can be reinitialized when the SAI is disabled by setting bit FFLUSH in the
-                                  // SAI_xCR2 register. If FFLUSH is set when the SAI is enabled the data present in the FIFO
-                                  // will be lost automatically.
+            // The FIFO pointers can be reinitialized when the SAI is disabled by setting bit FFLUSH in the
+            // SAI_xCR2 register. If FFLUSH is set when the SAI is enabled the data present in the FIFO
+            // will be lost automatically.
             w.fflush().set_bit();
             // FIFO threshold
             w.fth().bits(config_a.fifo_thresh as u8)

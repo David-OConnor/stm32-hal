@@ -27,10 +27,10 @@ use crate::pac::DMA as DMA1;
 #[cfg(not(any(feature = "g0", feature = "h5")))]
 use crate::pac::DMA1;
 use crate::{
+    MAX_ITERS,
     clocks::Clocks,
     pac::{self, RCC},
     util::{BaudPeriph, RccPeriph},
-    MAX_ITERS,
 };
 
 // todo: Prescaler (USART_PRESC) register on v3 (L5, G, H etc)
@@ -971,8 +971,9 @@ where
 
 #[cfg(feature = "embedded_hal")]
 mod embedded_io_impl {
-    use super::*;
     use embedded_io::*;
+
+    use super::*;
 
     impl Error for UartError {
         fn kind(&self) -> ErrorKind {

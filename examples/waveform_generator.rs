@@ -22,7 +22,7 @@ use core::{
 
 use cortex_m::{self, delay::Delay, peripheral::NVIC};
 use cortex_m_rt::entry;
-use critical_section::{with, Mutex};
+use critical_section::{Mutex, with};
 use defmt_rtt as _; // global logger
 use hal::{
     self,

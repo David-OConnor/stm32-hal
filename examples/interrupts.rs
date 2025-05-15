@@ -7,13 +7,13 @@ use core::cell::{Cell, RefCell};
 
 use cortex_m::peripheral::NVIC;
 use cortex_m_rt::entry;
-use critical_section::{with, Mutex};
+use critical_section::{Mutex, with};
 use stm32_hal::{
     adc::{Adc, AdcChannel, AdcDevice},
     clocks::Clocks,
     gpio::{Edge, Pin, PinMode, Port},
     low_power,
-    pac::{self, interrupt, ADC1, EXTI},
+    pac::{self, ADC1, EXTI, interrupt},
     rtc::{Rtc, RtcClockSource, RtcConfig},
     timer::{Timer, TimerInterrupt},
 };

@@ -9,9 +9,9 @@ use cfg_if::cfg_if;
 #[cfg(not(any(feature = "h5", feature = "h7b3", feature = "h735")))]
 use crate::pac::SYSCFG;
 use crate::{
+    MAX_ITERS,
     clocks::RccError,
     pac::{CRS, FLASH, PWR, RCC},
-    MAX_ITERS,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -326,7 +326,9 @@ impl VosRange {
                 185_000_001..=210_000_000 => (2, 2),
                 210_000_001..=225_000_000 => (3, 2),
                 225_000_001..=240_000_000 => (4, 2),
-                _ => panic!("Can't set higher than 240Mhz HCLK with VSO0 range. (Try changing the `vos_range` setting)."),
+                _ => panic!(
+                    "Can't set higher than 240Mhz HCLK with VSO0 range. (Try changing the `vos_range` setting)."
+                ),
             },
             Self::VOS1 => match hclk {
                 0..=70_000_000 => (0, 0),
@@ -334,14 +336,18 @@ impl VosRange {
                 140_000_001..=185_000_000 => (2, 1),
                 185_000_001..=210_000_000 => (2, 2),
                 210_000_001..=225_000_000 => (3, 2),
-                _ => panic!("Can't set higher than 225Mhz HCLK with VOS1 range. (Try changing the `vos_range` setting)."),
+                _ => panic!(
+                    "Can't set higher than 225Mhz HCLK with VOS1 range. (Try changing the `vos_range` setting)."
+                ),
             },
             Self::VOS2 => match hclk {
                 0..=55_000_000 => (0, 0),
                 55_000_001..=110_000_000 => (1, 1),
                 110_000_001..=165_000_000 => (2, 1),
                 165_000_001..=225_000_000 => (3, 2),
-                _ => panic!("Can't set higher than 225Mhz HCLK with VSO2 range. (Try changing the `vos_range` setting)."),
+                _ => panic!(
+                    "Can't set higher than 225Mhz HCLK with VSO2 range. (Try changing the `vos_range` setting)."
+                ),
             },
             Self::VOS3 => match hclk {
                 0..=45_000_000 => (0, 0),
@@ -349,7 +355,9 @@ impl VosRange {
                 90_000_001..=135_000_000 => (2, 1),
                 135_000_001..=180_000_000 => (3, 2),
                 180_000_001..=225_000_000 => (4, 2),
-                _ => panic!("Can't set higher than 225Mhz HCLK with VSO3 range. (Try changing the `vos_range` setting)."),
+                _ => panic!(
+                    "Can't set higher than 225Mhz HCLK with VSO3 range. (Try changing the `vos_range` setting)."
+                ),
             },
         }
 
@@ -360,25 +368,33 @@ impl VosRange {
                 70_000_001..=140_000_000 => (1, 0b01),
                 140_000_001..=210_000_000 => (2, 0b10),
                 210_000_001..=275_000_000 => (3, 0b11),
-                _ => panic!("Can't set higher than 275Mhz HCLK with VSO0 range. (Try changing the `vos_range` setting)."),
+                _ => panic!(
+                    "Can't set higher than 275Mhz HCLK with VSO0 range. (Try changing the `vos_range` setting)."
+                ),
             },
             Self::VOS1 => match hclk {
                 0..=67_000_000 => (0, 0b00),
                 67_000_001..=133_000_000 => (1, 0b01),
                 133_000_001..=200_000_000 => (2, 0b10),
-                _ => panic!("Can't set higher than 200Mhz HCLK with VOS1 range. (Try changing the `vos_range` setting)."),
+                _ => panic!(
+                    "Can't set higher than 200Mhz HCLK with VOS1 range. (Try changing the `vos_range` setting)."
+                ),
             },
             Self::VOS2 => match hclk {
                 0..=50_000_000 => (0, 0b00),
                 50_000_001..=100_000_000 => (1, 0b01),
                 100_000_001..=150_000_000 => (2, 0b10),
-                _ => panic!("Can't set higher than 150Mhz HCLK with VSO2 range. (Try changing the `vos_range` setting)."),
+                _ => panic!(
+                    "Can't set higher than 150Mhz HCLK with VSO2 range. (Try changing the `vos_range` setting)."
+                ),
             },
             Self::VOS3 => match hclk {
                 0..=35_000_000 => (0, 0b00),
                 35_000_001..=70_000_000 => (1, 0b01),
                 70_000_001..=85_000_000 => (2, 0b10),
-                _ => panic!("Can't set higher than 85Mhz HCLK with VSO3 range. (Try changing the `vos_range` setting)."),
+                _ => panic!(
+                    "Can't set higher than 85Mhz HCLK with VSO3 range. (Try changing the `vos_range` setting)."
+                ),
             },
         }
     }

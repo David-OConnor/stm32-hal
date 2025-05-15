@@ -13,7 +13,7 @@ use paste::paste;
 
 use crate::{
     clocks::Clocks,
-    pac::{self, i2c1, RCC},
+    pac::{self, RCC, i2c1},
     util::rcc_en_reset,
 };
 
@@ -108,11 +108,7 @@ where
         if speed <= 100_000 {
             let ccr = {
                 let ccr = clock / (speed * 2);
-                if ccr < 4 {
-                    4
-                } else {
-                    ccr
-                }
+                if ccr < 4 { 4 } else { ccr }
             };
 
             // Set clock to standard mode with appropriate parameters for selected speed

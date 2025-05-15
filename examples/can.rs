@@ -7,12 +7,12 @@ use core::cell::{Cell, RefCell};
 
 use cortex_m::{delay::Delay, interrupt, peripheral::NVIC};
 use cortex_m_rt::entry;
-use critical_section::{with, Mutex};
+use critical_section::{Mutex, with};
 use fdcan::{
+    FdCan, NormalOperationMode,
     frame::{FrameFormat, TxFrameHeader},
     id::{ExtendedId, Id},
     interrupt::{Interrupt, InterruptLine},
-    FdCan, NormalOperationMode,
 };
 use hal::{
     can::{self, Can},

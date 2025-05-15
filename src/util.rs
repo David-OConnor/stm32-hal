@@ -8,10 +8,10 @@ use cfg_if::cfg_if;
 // todo: L5 has a PAC bug on CCR registers past 1.
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::{self, Dma, DmaChannel, DmaInput};
-#[cfg(feature = "l4")]
-use crate::pac::dma1;
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::pac::DMA1;
+#[cfg(feature = "l4")]
+use crate::pac::dma1;
 use crate::{
     clocks::Clocks,
     pac::{self, rcc::RegisterBlock},

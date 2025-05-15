@@ -10,7 +10,7 @@ use core::{
 
 use cortex_m::{self, peripheral::NVIC};
 use cortex_m_rt::entry;
-use critical_section::{with, Mutex};
+use critical_section::{Mutex, with};
 use stm32_hal::{
     clocks::Clocks,
     low_power::{self, StopMode},

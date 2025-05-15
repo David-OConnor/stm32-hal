@@ -2,7 +2,7 @@
 //! Reference section 5.3.3: `Low power modes` of the L4 Reference Manual.
 
 use cfg_if::cfg_if;
-use cortex_m::{asm::wfi, Peripherals};
+use cortex_m::{Peripherals, asm::wfi};
 
 #[cfg(any(feature = "l4", feature = "l5"))]
 use crate::clocks::{Clocks, MsiRange};

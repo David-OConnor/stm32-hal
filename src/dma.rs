@@ -19,9 +19,9 @@ use core::{
 };
 
 use crate::{
+    MAX_ITERS,
     pac::{self, RCC},
     util::rcc_en_reset,
-    MAX_ITERS,
 };
 
 cfg_if! {

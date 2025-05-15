@@ -202,6 +202,8 @@ compile_error!("This crate requires an MCU-specifying feature to be enabled. eg 
 // todo: U5 once SVD is out.
 use cfg_if::cfg_if;
 use cortex_m::{self, delay::Delay};
+#[cfg(feature = "f3x4")]
+pub use stm32f3::stm32f3x4 as pac;
 #[cfg(feature = "f301")]
 pub use stm32f3::stm32f301 as pac;
 #[cfg(feature = "f302")]
@@ -210,8 +212,6 @@ pub use stm32f3::stm32f302 as pac;
 pub use stm32f3::stm32f303 as pac;
 #[cfg(feature = "f373")]
 pub use stm32f3::stm32f373 as pac;
-#[cfg(feature = "f3x4")]
-pub use stm32f3::stm32f3x4 as pac;
 // F4 PAC
 #[cfg(feature = "f401")]
 pub use stm32f4::stm32f401 as pac;
@@ -235,6 +235,12 @@ pub use stm32f4::stm32f429 as pac;
 pub use stm32f4::stm32f446 as pac;
 #[cfg(feature = "f469")]
 pub use stm32f4::stm32f469 as pac;
+#[cfg(feature = "g0b0")]
+pub use stm32g0::stm32g0b0 as pac;
+#[cfg(feature = "g0b1")]
+pub use stm32g0::stm32g0b1 as pac;
+#[cfg(feature = "g0c1")]
+pub use stm32g0::stm32g0c1 as pac;
 // todo: Test and make accomodations for recently added G0 variants 50, 51, 61, B0, B1 and C1, in
 // todo the individual modules.
 
@@ -257,12 +263,8 @@ pub use stm32g0::stm32g070 as pac;
 pub use stm32g0::stm32g071 as pac;
 #[cfg(feature = "g081")]
 pub use stm32g0::stm32g081 as pac;
-#[cfg(feature = "g0b0")]
-pub use stm32g0::stm32g0b0 as pac;
-#[cfg(feature = "g0b1")]
-pub use stm32g0::stm32g0b1 as pac;
-#[cfg(feature = "g0c1")]
-pub use stm32g0::stm32g0c1 as pac;
+#[cfg(feature = "g4a1")]
+pub use stm32g4::stm32g4a1 as pac;
 // G4 PAC
 #[cfg(feature = "g431")]
 pub use stm32g4::stm32g431 as pac;
@@ -280,8 +282,6 @@ pub use stm32g4::stm32g483 as pac;
 pub use stm32g4::stm32g484 as pac;
 #[cfg(feature = "g491")]
 pub use stm32g4::stm32g491 as pac;
-#[cfg(feature = "g4a1")]
-pub use stm32g4::stm32g4a1 as pac;
 // H5 PAC
 #[cfg(feature = "h503")]
 pub use stm32h5::stm32h503 as pac;
@@ -291,6 +291,8 @@ pub use stm32h5::stm32h562 as pac;
 pub use stm32h5::stm32h563 as pac;
 #[cfg(feature = "h573")]
 pub use stm32h5::stm32h573 as pac;
+#[cfg(feature = "h7b3")]
+pub use stm32h7::stm32h7b3 as pac;
 // H7 PAC
 #[cfg(feature = "h735")]
 pub use stm32h7::stm32h735 as pac;
@@ -306,10 +308,6 @@ pub use stm32h7::stm32h747cm7 as pac;
 pub use stm32h7::stm32h753 as pac;
 #[cfg(feature = "h753v")]
 pub use stm32h7::stm32h753v as pac;
-#[cfg(feature = "h7b3")]
-pub use stm32h7::stm32h7b3 as pac;
-#[cfg(feature = "l412")]
-pub use stm32l4::stm32l412 as pac;
 // L4 PAC
 #[cfg(feature = "l4x1")]
 pub use stm32l4::stm32l4x1 as pac;
@@ -321,6 +319,8 @@ pub use stm32l4::stm32l4x3 as pac;
 pub use stm32l4::stm32l4x5 as pac;
 #[cfg(feature = "l4x6")]
 pub use stm32l4::stm32l4x6 as pac;
+#[cfg(feature = "l412")]
+pub use stm32l4::stm32l412 as pac;
 // L5 PAC
 #[cfg(feature = "l552")]
 pub use stm32l5::stm32l552 as pac;
@@ -582,14 +582,38 @@ macro_rules! make_simple_globals {
     };
 }
 
+/// Automates Cortex-M NVIC setup. The second value is NVIC priority; lower
+/// is higher priority. Example use:
+/// setup_nvic!([
+///     (TIM2, 6),
+///     (TIM3, 7),
+///     (EXTI0, 4),
+/// ], cp)
+#[macro_export]
+macro_rules! setup_nvic {
+    (
+        [ $( ($int:ident, $prio:expr) ),* $(,)? ],
+        $cp:ident
+    ) => {
+        unsafe {
+            // unmask all interrupts
+            $(
+                NVIC::unmask(pac::Interrupt::$int);
+            )*
+            // then set their priorities
+            $(
+                $cp.NVIC.set_priority(pac::Interrupt::$int, $prio);
+            )*
+        }
+    };
+}
+
 /// Syntax helper for parsing multi-byte fields into primitives.
 ///
 /// Example: `parse_le!(bytes, i32, 5..9);`
 #[macro_export]
 macro_rules! parse_le {
-    ($bytes:expr, $t:ty, $range:expr) => {{
-        <$t>::from_le_bytes($bytes[$range].try_into().unwrap())
-    }};
+    ($bytes:expr, $t:ty, $range:expr) => {{ <$t>::from_le_bytes($bytes[$range].try_into().unwrap()) }};
 }
 
 /// Syntax helper for parsing multi-byte fields into primitives.
@@ -597,9 +621,7 @@ macro_rules! parse_le {
 /// Example: `parse_be!(bytes, i32, 5..9);`
 #[macro_export]
 macro_rules! parse_be {
-    ($bytes:expr, $t:ty, $range:expr) => {{
-        <$t>::from_be_bytes($bytes[$range].try_into().unwrap())
-    }};
+    ($bytes:expr, $t:ty, $range:expr) => {{ <$t>::from_be_bytes($bytes[$range].try_into().unwrap()) }};
 }
 
 /// Syntax helper for converting primitives to multi-byte fields.
@@ -607,9 +629,7 @@ macro_rules! parse_be {
 /// Example: `copy_le!(bytes, self.position, 5..9);`
 #[macro_export]
 macro_rules! copy_le {
-    ($dest:expr, $src:expr, $range:expr) => {{
-        $dest[$range].copy_from_slice(&$src.to_le_bytes())
-    }};
+    ($dest:expr, $src:expr, $range:expr) => {{ $dest[$range].copy_from_slice(&$src.to_le_bytes()) }};
 }
 
 /// Syntax helper for converting primitives to multi-byte fields.
@@ -617,9 +637,7 @@ macro_rules! copy_le {
 /// Example: `copy_be!(bytes, self.position, i32, 5..9);`
 #[macro_export]
 macro_rules! copy_be {
-    ($dest:expr, $src:expr, $range:expr) => {{
-        $dest[$range].copy_from_slice(&$src.to_be_bytes())
-    }};
+    ($dest:expr, $src:expr, $range:expr) => {{ $dest[$range].copy_from_slice(&$src.to_be_bytes()) }};
 }
 
 // todo: Remove this debug_workaroudn function on MCUs that don't require it. Ie, is this required on G4? G0?

@@ -25,12 +25,12 @@
 
 use core::{
     cell::{Cell, RefCell},
-    sync::atomic::{self, AtomicBool, AtomicU32, AtomicU8, AtomicUsize, Ordering},
+    sync::atomic::{self, AtomicBool, AtomicU8, AtomicU32, AtomicUsize, Ordering},
 };
 
 use cortex_m::{self, asm, delay::Delay, peripheral::NVIC};
 use cortex_m_rt::entry;
-use critical_section::{with, Mutex};
+use critical_section::{Mutex, with};
 use defmt_rtt as _; // global logger
 use hal::{
     self,
@@ -40,7 +40,7 @@ use hal::{
     dfsdm::{self, Dfsdm, DfsdmChannel, DfsdmConfig, Filter},
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaPeriph},
     gpio::{OutputType, Pin, PinMode, Port, Pull},
-    pac::{self, interrupt, DAC, DFSDM, DMA1, SAI1},
+    pac::{self, DAC, DFSDM, DMA1, SAI1, interrupt},
     prelude::*,
     timer::{BasicTimer, MasterModeSelection, Timer, TimerInterrupt},
 };
