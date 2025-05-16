@@ -112,6 +112,7 @@ use hal::{
     low_power,
     pac,
     timer::{Timer, TimerInterrupt},
+    setup_nvic,
 };
 
 #[entry]
@@ -138,6 +139,10 @@ fn main() -> ! {
   
     let i2c = I2c::new(dp.I2C1, Default::default(), &clock_cfg);
 
+    setup_nvic!([
+        (TIM3, 1),   
+    ], cp)
+
     loop {
         i2c.write(0x50, &[1, 2, 3]);
         // Or:       
@@ -145,6 +150,13 @@ fn main() -> ! {
       
         low_power::sleep_now();
     }
+}
+
+#[interrupt]
+/// Timer interrupt
+fn TIM3() {
+    timer::clear_update_interrupt(3);
+    // Perform an action here.
 }
 ```
 
