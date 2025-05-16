@@ -81,8 +81,8 @@ pub fn setup_pins() {
     dn_btn.enable_interrupt(Edge::Falling);
 }
 
-#[entry]
-fn main() -> ! {
+/// Initialize peripherals; run this once at startup. Move to a dedicated module as required.
+fn init() {
     // Set up CPU peripherals
     let mut cp = cortex_m::Peripherals::take().unwrap();
     // Set up microcontroller peripherals
@@ -125,20 +125,19 @@ fn main() -> ! {
     delay.delay_ms(500);
     example_output.set_low();
 
-    // Unmask interrupt lines associated with the input pins we've configured interrupts
-    // for in `setup_pins`.
-    unsafe {
-        // EXTI line 3 is associated with pins numbered 0 (PA3, PB3 etc)
-        NVIC::unmask(pac::Interrupt::EXTI3);
-        NVIC::unmask(pac::Interrupt::EXTI4);
-        NVIC::unmask(pac::Interrupt::TIM15);
-    }
-
     // Make the debounce timer global, so we can acccess it in interrupt contexts.
     with(|cs| {
         EXAMPLE_OUTPUT.borrow(cs).replace(Some(example_output));
         DEBOUNCE_TIMER.borrow(cs).replace(Some(debounce_timer));
     });
+
+    // Unmask interrupt lines, and set priority. Lower values are higher priority.
+    setup_nvic!([(EXTI3, 3), (EXTI4, 2), (TIM15, 3),], cp);
+}
+
+#[entry]
+fn main() -> ! {
+    init();
 
     loop {
         low_power::sleep_now();
@@ -149,7 +148,6 @@ fn main() -> ! {
 /// Interrupt handler for PB3. This ISR is called when this push button goes low.
 fn EXTI3() {
     with(|cs| {
-        // with(|cs| {
         // Clear the interrupt flag, to prevent continous firing.
         gpio::clear_exti_interrupt(3);
 

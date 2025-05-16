@@ -288,7 +288,7 @@ mod app {
 
     #[task(binds = TIM3, priority = 1)]
     fn timer_isr(cx: timer_isr::Context) {
-        unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().clear_bit()) }
+        timer::clear_update_interrupt(3);
 
         // Try pasting this output into Python etc to plot!
         unsafe {

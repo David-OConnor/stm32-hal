@@ -596,11 +596,9 @@ macro_rules! setup_nvic {
         $cp:ident
     ) => {
         unsafe {
-            // unmask all interrupts
             $(
                 NVIC::unmask(pac::Interrupt::$int);
             )*
-            // then set their priorities
             $(
                 $cp.NVIC.set_priority(pac::Interrupt::$int, $prio);
             )*
@@ -703,4 +701,5 @@ pub mod prelude {
     pub use access_globals;
     pub use make_globals;
     pub use make_simple_globals;
+    pub use setup_nvic;
 }

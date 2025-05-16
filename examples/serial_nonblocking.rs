@@ -20,6 +20,7 @@ use hal::{
     gpio::{Pin, PinMode, Port},
     low_power,
     pac::{self, interrupt},
+    setup_nvic,
     usart::{Usart, UsartConfig, UsartDevice, UsartInterrupt},
 };
 
@@ -61,15 +62,13 @@ fn main() -> ! {
 
     uart.enable_interrupt(UsartInterrupt::ReadNotEmpty);
 
-    unsafe {
-        // Unmask interrupt lines associated with the USART1.
-        NVIC::unmask(interrupt::USART1);
-    }
-
     with(|cs| {
         // Now that we've initialized the USART peripheral, make it global.
         UART.borrow(cs).replace(Some(uart));
     });
+
+    // Unmask interrupt lines associated with the USART1, and set its priority.
+    setup_nvic!([(USART1, 1),], cp);
 
     // Alternative approach using DMA. Note that the specifics of how you implement this
     // will depend on the format of data you are reading and writing. Specifically, pay

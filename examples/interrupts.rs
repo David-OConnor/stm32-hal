@@ -12,19 +12,19 @@ use stm32_hal::{
     adc::{Adc, AdcChannel, AdcDevice},
     clocks::Clocks,
     gpio::{Edge, Pin, PinMode, Port},
-    low_power,
+    low_power, make_simple_globals,
     pac::{self, ADC1, EXTI, interrupt},
     rtc::{Rtc, RtcClockSource, RtcConfig},
+    setup_nvic,
     timer::{Timer, TimerInterrupt},
 };
 
-// Copy type variables can go in `Cell`s, which are easier to access.
-static SENSOR_READING: Mutex<Cell<f32>> = Mutex::new(Cell::new(335.));
-static BOUNCING: Mutex<Cell<bool>> = Mutex::new(Cell::new(false));
+// We can use this macro for setting up Global `Copy` types, as `Mutext<Cell>s`.
+make_simple_globals!((SENSOR_READING, f32, 335.), (BOUNCING, bool, false));
 
 // More complex values go in `RefCell`s. Use an option, since we need to set this up
 // before we initialize the peripheral it stores.
-static ADC: Mutex<RefCell<Option<ADC<ADC1>>>> = Mutex::new(RefCell::new(None));
+make_globals!((ADC, ADC<ADC1>),);
 
 #[entry]
 fn main() -> ! {
@@ -75,17 +75,8 @@ fn main() -> ! {
         ADC.borrow(cs).replace(Some(adc));
     });
 
-    // Unmask the interrupt lines.
-    unsafe {
-        NVIC::unmask(pac::Interrupt::EXTI0); // GPIO
-        NVIC::unmask(pac::Interrupt::TIM3); // Timer
-        NVIC::unmask(pac::Interrupt::TIM15); // Timer
-        NVIC::unmask(pac::Interrupt::RTC_WKUP); // RTC
-
-        // Set interrupt priority. See the reference manual's NVIC section for details.
-        cp.NVIC.set_priority(pac::Interrupt::EXTI0, 0);
-        cp.NVIC.set_priority(pac::Interrupt::TIM3, 1);
-    }
+    // Unmask NVIC lines, and set priority.
+    setup_nvic!([(EXTI0, 0), (TIM3, 1), (TIM15, 2), (RTC_WKUP, 2),], cp);
 
     // todo: UART interrupts.
 
@@ -156,14 +147,8 @@ fn RTC_WKUP() {
 #[interrupt]
 /// Timer interrupt handler
 fn TIM3() {
-    with(|cs| {
-        // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
-        unsafe { (*pac::TIM3::ptr()).sr.modify(|_, w| w.uif().clear_bit()) }
-
-        // Alternatively, if you have the timer set up in a global mutex:
-        // access_global!(TIMER, timer, cs);
-        // timer.clear_interrupt(TimerInterrupt::Update);
-    });
+    // Clear the interrupt flag. If you ommit this, it will fire repeatedly.
+    timer::clear_update_interrupt(3);
 
     // Do something.
 }
@@ -171,9 +156,8 @@ fn TIM3() {
 #[interrupt]
 /// We use this timer for button debounce.
 fn TIM15() {
+    timer::clear_update_interrupt(15);
     with(|cs| {
-        unsafe { (*pac::TIM15::ptr()).sr.modify(|_, w| w.uif().clear_bit()) }
-
         BOUNCING.borrow(cs).set(false);
 
         // Disable the timer until next time you press a button.

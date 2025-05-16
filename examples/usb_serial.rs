@@ -71,6 +71,8 @@ fn main() -> ! {
         USB_SERIAL.borrow(cs).replace(Some(usb_serial));
     });
 
+    setup_nvic!([(USB_FS, 1),], cp);
+
     unsafe {
         // USB failing to respond can lead to it being disconnected by software; use
         // a high priority.

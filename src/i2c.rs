@@ -15,10 +15,10 @@ use crate::pac::DMA as DMA1;
 #[cfg(not(any(feature = "g0", feature = "h5")))]
 use crate::pac::DMA1;
 use crate::{
+    MAX_ITERS,
     clocks::Clocks,
     pac::{self, RCC},
     util::RccPeriph,
-    MAX_ITERS,
 };
 
 macro_rules! busy_wait {
@@ -513,19 +513,19 @@ where
                 w.sadd().bits((addr << 1) as u16);
                 // Transfer direction: RD_WRN
                 w.rd_wrn().clear_bit(); // write
-                                        // The number of bytes to be transferred: NBYTES[7:0]. If the number of bytes is equal to
-                                        // or greater than 255 bytes, NBYTES[7:0] must initially be filled with 0xFF.
+                // The number of bytes to be transferred: NBYTES[7:0]. If the number of bytes is equal to
+                // or greater than 255 bytes, NBYTES[7:0] must initially be filled with 0xFF.
                 w.nbytes().bits(len);
                 w.autoend().bit(autoend); // software end mode
-                                          // The user must then set the START bit in I2C_CR2 register. Changing all the above bits is
-                                          // not allowed when START bit is set.
-                                          // When the SMBus master wants to transmit the PEC, the PECBYTE bit must be set and the
-                                          // number of bytes must be programmed in the NBYTES[7:0] field, before setting the START
-                                          // bit. In this case the total number of TXIS interrupts is NBYTES-1. So if the PECBYTE bit is
-                                          // set when NBYTES=0x1, the content of the I2C_PECR register is automatically transmitted.
-                                          // If the SMBus master wants to send a STOP condition after the PEC, automatic end mode
-                                          // must be selected (AUTOEND=1). In this case, the STOP condition automatically follows the
-                                          // PEC transmission.
+                // The user must then set the START bit in I2C_CR2 register. Changing all the above bits is
+                // not allowed when START bit is set.
+                // When the SMBus master wants to transmit the PEC, the PECBYTE bit must be set and the
+                // number of bytes must be programmed in the NBYTES[7:0] field, before setting the START
+                // bit. In this case the total number of TXIS interrupts is NBYTES-1. So if the PECBYTE bit is
+                // set when NBYTES=0x1, the content of the I2C_PECR register is automatically transmitted.
+                // If the SMBus master wants to send a STOP condition after the PEC, automatic end mode
+                // must be selected (AUTOEND=1). In this case, the STOP condition automatically follows the
+                // PEC transmission.
                 w.pecbyte().bit(self.cfg.smbus);
                 w.start().set_bit()
             }
@@ -546,12 +546,12 @@ where
                 w.rd_wrn().set_bit(); // read
                 w.nbytes().bits(len);
                 w.autoend().set_bit(); // automatic end mode
-                                       // When the SMBus master wants to receive the PEC followed by a STOP at the end of the
-                                       // transfer, automatic end mode can be selected (AUTOEND=1). The PECBYTE bit must be
-                                       // set and the slave address must be programmed, before setting the START bit. In this case,
-                                       // after NBYTES-1 data have been received, the next received byte is automatically checked
-                                       // versus the I2C_PECR register content. A NACK response is given to the PEC byte, followed
-                                       // by a STOP condition.
+                // When the SMBus master wants to receive the PEC followed by a STOP at the end of the
+                // transfer, automatic end mode can be selected (AUTOEND=1). The PECBYTE bit must be
+                // set and the slave address must be programmed, before setting the START bit. In this case,
+                // after NBYTES-1 data have been received, the next received byte is automatically checked
+                // versus the I2C_PECR register content. A NACK response is given to the PEC byte, followed
+                // by a STOP condition.
                 w.pecbyte().bit(self.cfg.smbus);
                 w.start().set_bit()
             }

@@ -10,7 +10,7 @@ use critical_section::{Mutex, with};
 use hal::{
     clocks::Clocks,
     gpio::{Edge, Pin, PinMode, Port},
-    low_power, pac,
+    low_power, pac, setup_nvic,
     timer::{
         Alignment, BasicTimer, CaptureCompare, CountDir, InputSlaveMode, InputTrigger,
         MasterModeSelection, OutputCompare, TimChannel, Timer, TimerConfig, TimerInterrupt,
@@ -122,10 +122,8 @@ fn main() -> ! {
 
     // todo: realistic examples of various uses of timers etc.
 
-    // Unmask the interrupt line.
-    unsafe {
-        NVIC::unmask(pac::Interrupt::TIM3);
-    }
+    // Unmask the interrupt line, and set its priority.
+    setup_nvic!([(TIM3, 1)], cp);
 
     loop {
         low_power::sleep_now();

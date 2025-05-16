@@ -16,6 +16,7 @@ use stm32_hal::{
     low_power::{self, StopMode},
     pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
+    setup_nvic,
 };
 
 make_globals!((RTC, Rtc));
@@ -52,10 +53,8 @@ fn main() -> ! {
         RTC.borrow(cs).replace(Some(rtc));
     });
 
-    // Unmask the interrupt line.
-    unsafe {
-        NVIC::unmask(pac::Interrupt::RTC_WKUP);
-    }
+    // Unmask the interrupt line, and set its priority.
+    setup_nvic!([(RTC_WKUP, 2),], cp);
 
     loop {
         // The RTC uses Chrono for dates, times, and datetimes. All of these are naive.
