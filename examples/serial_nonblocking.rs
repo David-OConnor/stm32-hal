@@ -27,10 +27,14 @@ use hal::{
 const BUF_SIZE: usize = 10;
 
 // Set up static global variables, for sharing state between interrupt contexts and the main loop.
-// Initialize `UART` to `NONE`, since we need to declare the global before setting up the peripheral.
-static UART: Mutex<RefCell<Option<Usart<pac::USART1>>>> = Mutex::new(RefCell::new(None));
-static READ_BUF: Mutex<RefCell<[u8; BUF_SIZE]>> = Mutex::new(RefCell::new([0; BUF_SIZE]));
-static READ_I: Mutex<Cell<usize>> = Mutex::new(Cell::new(0));
+make_globals!(
+    (UART, USART1),
+    (READ_BUF, [u8; BUF_SIZE]),
+);
+
+make_simple_globals!(
+    (READ_I, usize, 0)
+);
 
 // If using DMA, we use a static buffer to avoid lifetime problems.
 static mut RX_BUF: [u8; BUF_SIZE] = [0; BUF_SIZE];
@@ -93,8 +97,7 @@ fn main() -> ! {
 /// at a time as we receive them.
 fn USART1() {
     with(|cs| {
-        let mut u = UART.borrow(cs).borrow_mut();
-        let uart = u.as_mut().unwrap();
+        access_global!(UART, uart, cs);
 
         // Clear the interrupt flag, to prevent this ISR from repeatedly firing
         uart.clear_interrupt(UsartInterrupt::ReadNotEmpty);
@@ -117,8 +120,7 @@ fn USART1() {
 /// using DMA, you may want to use a UART interrupt to end the transfer.
 fn DMA1_CH1() {
     with(|cs| {
-        let mut u = UART.borrow(cs).borrow_mut();
-        let uart = u.as_mut().unwrap();
+        access_global!(UART, uart, cs);
 
         // Clear the interrupt flag, to prevent this ISR from repeatedly firing
         dma::clear_interrupt(DMA_PERIPH, DMA_CH, DmaInterrupt::TransferComplete);
