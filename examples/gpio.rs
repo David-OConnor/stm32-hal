@@ -125,11 +125,8 @@ fn init() {
     delay.delay_ms(500);
     example_output.set_low();
 
-    // Make the debounce timer global, so we can acccess it in interrupt contexts.
-    with(|cs| {
-        EXAMPLE_OUTPUT.borrow(cs).replace(Some(example_output));
-        DEBOUNCE_TIMER.borrow(cs).replace(Some(debounce_timer));
-    });
+    // Make the debounce timer global, so we can access it in interrupt contexts.
+    init_globals!((EXAMPLE_OUTPUT, example_output), (DEBOUNCE_TIMER, debounce_timer));
 
     // Unmask interrupt lines, and set priority. Lower values are higher priority.
     setup_nvic!([(EXTI3, 3), (EXTI4, 2), (TIM15, 3),], cp);

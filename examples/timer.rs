@@ -15,10 +15,12 @@ use hal::{
         Alignment, BasicTimer, CaptureCompare, CountDir, InputSlaveMode, InputTrigger,
         MasterModeSelection, OutputCompare, TimChannel, Timer, TimerConfig, TimerInterrupt,
     },
+    prelude::*,
 };
 
 #[entry]
 fn main() -> ! {
+    let mut cp = cortex_m::Peripherals::take().unwrap();
     // Set up microcontroller peripherals
     let mut dp = pac::Peripherals::take().unwrap();
 

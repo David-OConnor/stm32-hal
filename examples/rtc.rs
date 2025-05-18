@@ -11,12 +11,13 @@ use core::{
 use cortex_m::{self, peripheral::NVIC};
 use cortex_m_rt::entry;
 use critical_section::{Mutex, with};
-use stm32_hal::{
+use hal::{
     clocks::Clocks,
     low_power::{self, StopMode},
     pac,
     rtc::{Rtc, RtcClockSource, RtcConfig},
     setup_nvic,
+    prelude::*,
 };
 
 make_globals!((RTC, Rtc));
@@ -49,9 +50,7 @@ fn main() -> ! {
 
     // Store the RTC in a global variable that we can access in interrupts, using
     // critical sections.
-    with(|cs| {
-        RTC.borrow(cs).replace(Some(rtc));
-    });
+    init_globals!((RTC, rtc));
 
     // Unmask the interrupt line, and set its priority.
     setup_nvic!([(RTC_WKUP, 2),], cp);

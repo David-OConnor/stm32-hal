@@ -141,13 +141,13 @@ fn main() -> ! {
     let sensor = ec::EcSensor::new(dac, pwm_timer, (gain0, gain1, gain2), 1.0);
 
     // Set up the global static variables so we can access them during interrupts.
-    with(|cs| {
-        I2C.borrow(cs).replace(Some(i2c));
-        SENSOR.borrow(cs).replace(Some(sensor));
-        UART.borrow(cs).replace(Some(uart));
-    });
+    init_globals!(
+        (I2C, i2c),
+        (SENSOR, sensor),
+        (UART, uart),
+    );
 
-    unsafe { NVIC::unmask(pac::Interrupt::USART1) }
+    setup_nvic!([(USART1, 2)], cp);
 
     loop {
         // Wait until we receive communication over UART; code to handle readings are handled in

@@ -104,16 +104,11 @@ fn main() -> ! {
     defmt::println!("Data: {}", read_buf);
 
     // Assign peripheral structs as global, so we can access them in interrupts.
-    with(|cs| {
-        DMA.borrow(cs).replace(Some(dma));
-        SPI.borrow(cs).replace(Some(spi));
-    });
+    init_globals!((DMA, dma), (SPI, spi));
 
-    // Unmask the interrupt line for DMA read complete. See the `DMA_CH3` interrupt handlers below,
+    // Unmask the interrupt line for DMA read complete. See the `DMA_CH2` interrupt handlers below,
     // where we set CS high, terminal the DMA read, and display the data read.
-    unsafe {
-        NVIC::unmask(pac::Interrupt::DMA1_CH2);
-    }
+    setup_nvic!([(DMA1_CH2, 1)], cp);
 
     // Alternatively, we can take readings without DMA. This provides a simpler, memory-safe API,
     // and is compatible with the `embedded_hal::blocking::i2c traits.

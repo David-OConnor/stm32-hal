@@ -86,7 +86,7 @@
 //!
 //!    setup_nvic!([
 //!        (TIM3, 1),   
-//!    ], cp)
+//!    ], cp);
 //!
 //!    loop {
 //!        i2c.write(0x50, &[1, 2, 3]);
@@ -564,7 +564,7 @@ macro_rules! access_globals {
 
 /// Syntax helper for setting global variables of the form `Mutex<RefCell<Option>>>`.
 /// eg in interrupt handlers. Ideal for non-copy-type variables that can't be initialized
-/// immediatiately.
+/// immediatiately. `Mutex` and `cell::RefCell` must be imported.
 ///
 /// Example: `make_globals!(
 ///     (USB_SERIAL, SerialPort<UsbBusType>),
@@ -580,7 +580,7 @@ macro_rules! make_globals {
 }
 
 /// Syntax helper for setting global variables of the form `Mutex<Cell<>>>`.
-/// eg in interrupt handlers. Ideal for copy-type variables.
+/// eg in interrupt handlers. Ideal for copy-type variables. `Mutex` and `cell::Cell` must be imported.
 ///
 /// Example: `make_simple_globals!(
 ///     (VALUE, f32, 2.),
@@ -595,13 +595,36 @@ macro_rules! make_simple_globals {
     };
 }
 
+/// Initialize one or more globals inside a critical section. `critical_section::with`
+/// must be imported.
+/// 
+/// Usage:
+/// ```rust
+/// init_globals!(
+///     (FLASH, flash),
+///     (SPI_IMU, spi1),
+///     (I2C_MAG, i2c1),
+///     // …
+/// );
+/// ```
+#[macro_export]
+macro_rules! init_globals {
+    ($(($NAME:ident, $val:expr)),* $(,)?) => {
+        with(|cs| {
+            $(
+                $NAME.borrow(cs).replace(Some($val));
+            )*
+        });
+    };
+}
+
 /// Automates Cortex-M NVIC setup. The second value is NVIC priority; lower
 /// is higher priority. Example use:
 /// setup_nvic!([
 ///     (TIM2, 6),
 ///     (TIM3, 7),
 ///     (EXTI0, 4),
-/// ], cp)
+/// ], cp);
 #[macro_export]
 macro_rules! setup_nvic {
     (
@@ -714,5 +737,6 @@ pub mod prelude {
     pub use access_globals;
     pub use make_globals;
     pub use make_simple_globals;
+    pub use init_globals;
     pub use setup_nvic;
 }

@@ -20,7 +20,7 @@ use hal::{
     gpio::{Pin, PinMode, Port},
     low_power,
     pac::{self, interrupt},
-    setup_nvic,
+    prelude::*,
     usart::{Usart, UsartConfig, UsartDevice, UsartInterrupt},
 };
 
@@ -66,10 +66,7 @@ fn main() -> ! {
 
     uart.enable_interrupt(UsartInterrupt::ReadNotEmpty);
 
-    with(|cs| {
-        // Now that we've initialized the USART peripheral, make it global.
-        UART.borrow(cs).replace(Some(uart));
-    });
+    init_globals!((UART, uart));
 
     // Unmask interrupt lines associated with the USART1, and set its priority.
     setup_nvic!([(USART1, 1),], cp);

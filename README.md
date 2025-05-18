@@ -141,7 +141,7 @@ fn main() -> ! {
 
     setup_nvic!([
         (TIM3, 1),   
-    ], cp)
+    ], cp);
 
     loop {
         i2c.write(0x50, &[1, 2, 3]);

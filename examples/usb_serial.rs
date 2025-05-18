@@ -12,6 +12,7 @@ use hal::{
     gpio::{Pin, PinMode, Port},
     pac,
     usb::{Peripheral, UsbBus, UsbBusType},
+    prelude::*,
 };
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
@@ -66,19 +67,9 @@ fn main() -> ! {
         .device_class(USB_CLASS_CDC)
         .build();
 
-    with(|cs| {
-        USB_DEVICE.borrow(cs).replace(Some(usb_dev));
-        USB_SERIAL.borrow(cs).replace(Some(usb_serial));
-    });
+    init_globals!((USB_DEVICE, usb_device), (USB_SERIAL, usb_serial));
 
     setup_nvic!([(USB_FS, 1),], cp);
-
-    unsafe {
-        // USB failing to respond can lead to it being disconnected by software; use
-        // a high priority.
-        // Note that the interrupt name varies based on STM32 family and device.
-        cp.NVIC.set_priority(pac::Interrupt::USB_FS, 1);
-    }
 
     loop {
         // It's probably better to do this with an interrupt than polling. Polling here
