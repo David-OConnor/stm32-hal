@@ -117,7 +117,8 @@ use hal::{
 
 #[entry]
 fn main() -> ! {
-    let mut dp = pac::Peripherals::take().unwrap();
+    let mut cp = cortex_m::Peripherals::take().unwrap();
+    let dp = pac::Peripherals::take().unwrap();
 
     let clock_cfg = Clocks::default();
     clock_cfg.setup().unwrap();
