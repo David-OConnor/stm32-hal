@@ -18,7 +18,7 @@ exclude = [".gitignore"]
 
 
 [dependencies]
-cortex-m = "^0.7.7"
+cortex-m = "0.7.7"
 
 # Peripheral Access Crates
 stm32f3 = { version = "0.15.1", optional = true }
@@ -33,40 +33,36 @@ stm32h7 = { version = "0.15.1", optional = true }
 stm32wb = { version = "0.15.1", optional = true }
 stm32wl = { version = "0.15.1", optional = true }
 
-defmt = "^1.0.1"
+defmt = "1.0.1"
 
 # Embedded-HAL traits and related libs. Featured-gated with `embedded-hal`.
-embedded-hal = { version = "^1.0.0", features=["defmt-03"], optional = true }
-embedded-io = { version = "^0.6.1", features=["defmt-03"], optional = true }
-# `nb` is only included when using the embedded-hal feature.
-#nb = { version = "^1.1.0", optional = true }
-#void = { version = "^1.0.2", default-features = false, optional = true }
-#embedded-time = { version = "^0.12.1", optional = true }
+embedded-hal = { version = "1.0.0", features=["defmt-03"], optional = true }
+embedded-io = { version = "0.6.1", features=["defmt-03"], optional = true }
 
 # Enabled with the `monotonic` feature.
-rtic-monotonic = { version = "^1.0.0", optional = true }
+rtic-monotonic = { version = "1.0.0", optional = true }
 
 # Chrono allows for basic time and date functionality, for use with the RTC.
-chrono = { version = "^0.4.23", default-features = false }
+chrono = { version = "0.4.23", default-features = false }
 
 # These USB and CAN crates are only imported if one of the `can`, `usb`, `usbotg_fs`, or `usbotg_hs`
 # features are used.
 # Workaround using a fork of stm32-usbd until the main one is released on crates.
-stm32-usbd = { package = "stm32-usbd2", version = "^0.7.0", optional = true }
-#stm32-usbd = { version = "^0.7.0", optional = true }
-synopsys-usb-otg = { version = "^0.3.2", features = ["cortex-m"], optional = true }
-bxcan = { version = "^0.7.0", optional = true }
-fdcan = { version = "^0.2.0", optional = true }
+#stm32-usbd = { package = "stm32-usbd2", version = "0.7.0", optional = true }
+stm32-usbd = { version = "0.7.0", optional = true }
+synopsys-usb-otg = { version = "0.4.0", features = ["cortex-m"], optional = true }
+bxcan = { version = "0.8.0", optional = true }
+fdcan = { version = "0.2.1", optional = true }
 
 # TCP stack for use with the Ethernet peripheral.
-smoltcp = { version = "^0.8.1", optional = true }
+smoltcp = { version = "0.12.0", optional = true }
 
 # Misc features
-num-traits = { version = "^0.2.15", default-features = false, features = ["libm"] }  # For sqrt in timers
+num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }  # For sqrt in timers
 
 # Meta-programming; mainly used for feature-gating
-cfg-if = "^1.0.0"  # if/else blocks for feature-gating
-paste = "^1.0.4"  # Token pasting, to make macros easier
+cfg-if = "1.0.0"  # if/else blocks for feature-gating
+paste = "1.0.15"  # Token pasting, to make macros easier
 
 [package.metadata.docs.rs]
 features = ["h735", "h7rt", "usbotg_hs", "can_fd_h", "embedded_hal"]

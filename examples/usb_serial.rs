@@ -11,8 +11,8 @@ use hal::{
     clocks::{self, Clk48Src, Clocks, CrsSyncSrc},
     gpio::{Pin, PinMode, Port},
     pac,
-    usb::{Peripheral, UsbBus, UsbBusType},
     prelude::*,
+    usb::{Peripheral, UsbBus, UsbBusType},
 };
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 

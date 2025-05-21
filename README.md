@@ -60,9 +60,6 @@ Tested on the following devices:
 
 ### Details
 Review the [syntax overview example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/syntax_overview)
-for example uses of many of this library's features. Copy and paste its whole folder (It's set up
-using [Knurling's app template](https://github.com/knurling-rs/app-template)), or copy parts of `Cargo.toml`
-and `main.rs` as required.
 
 The [blinky example](https://github.com/David-OConnor/stm32-hal/tree/main/examples/blinky) provides a detailed example and instructions for how to set up a blinking
 light (ie hello world) using an STM32F411 "blackpill" board. Its readme provides instructions for how to get

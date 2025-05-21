@@ -27,14 +27,9 @@ use hal::{
 const BUF_SIZE: usize = 10;
 
 // Set up static global variables, for sharing state between interrupt contexts and the main loop.
-make_globals!(
-    (UART, USART1),
-    (READ_BUF, [u8; BUF_SIZE]),
-);
+make_globals!((UART, USART1), (READ_BUF, [u8; BUF_SIZE]),);
 
-make_simple_globals!(
-    (READ_I, usize, 0)
-);
+make_simple_globals!((READ_I, usize, 0));
 
 // If using DMA, we use a static buffer to avoid lifetime problems.
 static mut RX_BUF: [u8; BUF_SIZE] = [0; BUF_SIZE];

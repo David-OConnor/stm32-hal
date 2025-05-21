@@ -15,9 +15,9 @@ use hal::{
     clocks::Clocks,
     low_power::{self, StopMode},
     pac,
+    prelude::*,
     rtc::{Rtc, RtcClockSource, RtcConfig},
     setup_nvic,
-    prelude::*,
 };
 
 make_globals!((RTC, Rtc));

@@ -1,4 +1,6 @@
-//! This module allows for serial communication using the STM32 U[S]ART peripheral
+//! C+P from the `usart` module. todo: Reduce DRY.
+//!
+//! This module allows for serial communication using the STM32 LPUART peripheral
 //! It provides APIs to configure, read, and write from
 //! U[S]ART, with blocking, nonblocking, and DMA functionality.
 
@@ -23,145 +25,9 @@ use crate::{
     MAX_ITERS,
     clocks::Clocks,
     pac::{self, RCC},
+    usart::{OverSampling, Parity, StopBits, UartError, UsartConfig, UsartInterrupt},
     util::{BaudPeriph, RccPeriph},
 };
-
-// todo: Prescaler (USART_PRESC) register on v3 (L5, G, H etc)
-
-#[derive(Clone, Copy)]
-#[repr(u8)]
-/// The number of stop bits. (USART_CR2, STOP)
-pub enum StopBits {
-    S1 = 0b00,
-    S0_5 = 0b01,
-    S2 = 0b10,
-    S1_5 = 0b11,
-}
-
-#[derive(Clone, Copy, PartialEq)]
-/// Parity control enable/disable, and even/odd selection (USART_CR1, PCE and PS)
-pub enum Parity {
-    EnabledEven,
-    EnabledOdd,
-    Disabled,
-}
-
-#[derive(Clone, Copy)]
-/// The length of word to transmit and receive. (USART_CR1, M)
-pub enum WordLen {
-    W8,
-    W9,
-    W7,
-}
-
-impl WordLen {
-    /// We use this function due to the M field being split into 2 separate bits.
-    /// Returns M1 val, M0 val
-    pub fn bits(&self) -> (u8, u8) {
-        match self {
-            Self::W8 => (0, 0),
-            Self::W9 => (0, 1),
-            Self::W7 => (1, 0),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-#[repr(u8)]
-/// Set Oversampling16 or Oversampling8 modes.
-pub enum OverSampling {
-    O16 = 0,
-    O8 = 1,
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum IrdaMode {
-    /// "IrDA mode disabled
-    None,
-    /// "IrDA SIR rx/tx enabled in 'normal' mode"
-    Normal,
-    /// "IrDA SIR 'low-power' mode"
-    LowPower,
-}
-
-/// Serial error
-#[non_exhaustive]
-#[derive(Debug, defmt::Format)]
-pub enum UartError {
-    /// Framing error
-    Framing,
-    /// Noise error
-    Noise,
-    /// RX buffer overrun
-    Overrun,
-    /// Parity check error
-    Parity,
-    Hardware,
-}
-
-#[cfg(not(feature = "f4"))]
-#[derive(Clone, Copy)]
-/// The type of USART interrupt to configure. Reference the USART_ISR register.
-pub enum UsartInterrupt {
-    /// If the inner value of this is `Some`, its inner value will set
-    /// the character to match on `enable_interrupt`. The option's value doesn't
-    /// affect anything when stopping or clearing interrupts.
-    CharDetect(Option<u8>),
-    Cts,
-    EndOfBlock,
-    Idle,
-    FramingError,
-    LineBreak,
-    Overrun,
-    ParityError,
-    ReadNotEmpty,
-    ReceiverTimeout,
-    #[cfg(not(any(feature = "f3", feature = "l4")))] // todo: PAC ommission?
-    Tcbgt,
-    TransmissionComplete,
-    TransmitEmpty,
-}
-
-/// Configuration for Usart. Can be used with default::Default.
-pub struct UsartConfig {
-    /// Word length. Defaults to 8-bits.
-    pub word_len: WordLen,
-    /// Stop bits: Defaults to 1.
-    pub stop_bits: StopBits,
-    /// Oversampling rate. Defaults to 16x.
-    pub oversampling: OverSampling,
-    /// Enable or disable parity control. Defaults to disabled.
-    pub parity: Parity,
-    /// IrDA mode: Enables this protocol, which is used to communicate with IR devices.
-    pub irda_mode: IrdaMode,
-    #[cfg(any(feature = "g4", feature = "h7"))]
-    /// The first-in, first-out buffer is enabled. Defaults to enabled.
-    pub fifo_enabled: bool,
-    #[cfg(not(feature = "f4"))]
-    /// Optionally, disable the overrun functionality. Defaults to `false`.
-    pub overrun_disabled: bool,
-}
-
-impl Default for UsartConfig {
-    fn default() -> Self {
-        Self {
-            word_len: WordLen::W8,
-            stop_bits: StopBits::S1,
-            oversampling: OverSampling::O16,
-            parity: Parity::Disabled,
-            irda_mode: IrdaMode::None,
-            #[cfg(any(feature = "g4", feature = "h7"))]
-            fifo_enabled: true,
-            #[cfg(not(feature = "f4"))]
-            overrun_disabled: false,
-        }
-    }
-}
-
-// Sep macros due to too many feature-gates.
-// todo: Use functions?
-
-// todo: Support fifo_disabled regs.
 
 #[cfg(feature = "h5")]
 macro_rules! cr1 {
@@ -193,15 +59,15 @@ macro_rules! isr {
 }
 
 /// Represents the USART peripheral, for serial communications.
-pub struct Usart<R> {
+pub struct LpUart<R> {
     pub regs: R,
     baud: u32,
     config: UsartConfig,
 }
 
-impl<R> Usart<R>
+impl<R> LpUart<R>
 where
-    R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
+    R: Deref<Target = pac::lpuart1::RegisterBlock> + RccPeriph + BaudPeriph,
 {
     /// Initialize a U[s]ART peripheral, including configuration register writes, and enabling and
     /// resetting its RCC peripheral clock. `baud` is the baud rate, in bytes-per-second.
@@ -221,7 +87,6 @@ where
 
         let word_len_bits = result.config.word_len.bits();
         cr1!(result.regs).modify(|_, w| {
-            w.over8().bit(result.config.oversampling as u8 != 0);
             w.pce().bit(result.config.parity != Parity::Disabled);
             cfg_if! {
                 if #[cfg(not(any(feature = "f3", feature = "f4", feature = "wl")))] {
@@ -279,36 +144,13 @@ where
             w.re().set_bit()
         });
 
-        match result.config.irda_mode {
-            // See G4 RM, section 37.5.18: USART IrDA SIR ENDEC block
-            // " IrDA mode is selected by setting the IREN bit in the USART_CR3 register. In IrDA mode,
-            // the following bits must be kept cleared:
-            // • LINEN, STOP and CLKEN bits in the USART_CR2 register,
-            IrdaMode::None => (),
-            _ => {
-                result.regs.cr2.modify(|_, w| unsafe {
-                    w.linen().clear_bit();
-                    w.stop().bits(0);
-                    w.clken().clear_bit()
-                });
-
-                // • SCEN and HDSEL bits in the USART_CR3 register."
-                result.regs.cr3.modify(|_, w| {
-                    w.scen().clear_bit();
-                    w.hdsel().clear_bit();
-                    w.irlp().bit(result.config.irda_mode == IrdaMode::LowPower);
-                    w.iren().set_bit()
-                });
-            }
-        }
-
         result
     }
 }
 
-impl<R> Usart<R>
+impl<R> LpUart<R>
 where
-    R: Deref<Target = pac::usart1::RegisterBlock> + BaudPeriph,
+    R: Deref<Target = pac::lpuart1::RegisterBlock> + BaudPeriph,
 {
     /// Set the BAUD rate. Called during init, and can be called later to change BAUD
     /// during program execution.
@@ -357,9 +199,9 @@ where
     }
 }
 
-impl<R> Usart<R>
+impl<R> LpUart<R>
 where
-    R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph,
+    R: Deref<Target = pac::lpuart1::RegisterBlock> + RccPeriph,
 {
     /// Enable this U[s]ART peripheral.
     pub fn enable(&mut self) {
@@ -757,17 +599,11 @@ where
             UsartInterrupt::Cts => {
                 self.regs.cr3.modify(|_, w| w.ctsie().set_bit());
             }
-            UsartInterrupt::EndOfBlock => {
-                cr1!(self.regs).modify(|_, w| w.eobie().set_bit());
-            }
             UsartInterrupt::Idle => {
                 cr1!(self.regs).modify(|_, w| w.idleie().set_bit());
             }
             UsartInterrupt::FramingError => {
                 self.regs.cr3.modify(|_, w| w.eie().set_bit());
-            }
-            UsartInterrupt::LineBreak => {
-                self.regs.cr2.modify(|_, w| w.lbdie().set_bit());
             }
             UsartInterrupt::Overrun => {
                 self.regs.cr3.modify(|_, w| w.eie().set_bit());
@@ -781,14 +617,6 @@ where
                 #[cfg(not(feature = "h5"))]
                 cr1!(self.regs).modify(|_, w| w.rxneie().set_bit());
             }
-            UsartInterrupt::ReceiverTimeout => {
-                cr1!(self.regs).modify(|_, w| w.rtoie().set_bit());
-            }
-            #[cfg(not(any(feature = "f3", feature = "l4")))]
-            UsartInterrupt::Tcbgt => {
-                self.regs.cr3.modify(|_, w| w.tcbgtie().set_bit());
-                self.regs.cr3.modify(|_, w| w.tcbgtie().set_bit());
-            }
             UsartInterrupt::TransmissionComplete => {
                 cr1!(self.regs).modify(|_, w| w.tcie().set_bit());
             }
@@ -798,6 +626,7 @@ where
                 #[cfg(not(feature = "h5"))]
                 cr1!(self.regs).modify(|_, w| w.txeie().set_bit());
             }
+            _ => panic!(), // UART interrupts not avail on LPUART
         }
     }
 
@@ -812,17 +641,11 @@ where
             UsartInterrupt::Cts => {
                 self.regs.cr3.modify(|_, w| w.ctsie().clear_bit());
             }
-            UsartInterrupt::EndOfBlock => {
-                cr1!(self.regs).modify(|_, w| w.eobie().clear_bit());
-            }
             UsartInterrupt::Idle => {
                 cr1!(self.regs).modify(|_, w| w.idleie().clear_bit());
             }
             UsartInterrupt::FramingError => {
                 self.regs.cr3.modify(|_, w| w.eie().clear_bit());
-            }
-            UsartInterrupt::LineBreak => {
-                self.regs.cr2.modify(|_, w| w.lbdie().clear_bit());
             }
             UsartInterrupt::Overrun => {
                 self.regs.cr3.modify(|_, w| w.eie().clear_bit());
@@ -836,14 +659,7 @@ where
                 #[cfg(not(feature = "h5"))]
                 cr1!(self.regs).modify(|_, w| w.rxneie().clear_bit());
             }
-            UsartInterrupt::ReceiverTimeout => {
-                cr1!(self.regs).modify(|_, w| w.rtoie().clear_bit());
-            }
             #[cfg(not(any(feature = "f3", feature = "l4")))]
-            UsartInterrupt::Tcbgt => {
-                self.regs.cr3.modify(|_, w| w.tcbgtie().clear_bit());
-                self.regs.cr3.modify(|_, w| w.tcbgtie().clear_bit());
-            }
             UsartInterrupt::TransmissionComplete => {
                 cr1!(self.regs).modify(|_, w| w.tcie().clear_bit());
             }
@@ -853,6 +669,7 @@ where
                 #[cfg(not(feature = "h5"))]
                 cr1!(self.regs).modify(|_, w| w.txeie().clear_bit());
             }
+            _ => panic!(), // UART interrupts not avail on LPUART
         }
     }
 
@@ -871,20 +688,14 @@ where
         match interrupt {
             UsartInterrupt::CharDetect(_) => self.regs.icr.write(|w| w.cmcf().set_bit()),
             UsartInterrupt::Cts => self.regs.icr.write(|w| w.ctscf().set_bit()),
-            UsartInterrupt::EndOfBlock => self.regs.icr.write(|w| w.eobcf().set_bit()),
             UsartInterrupt::Idle => self.regs.icr.write(|w| w.idlecf().set_bit()),
             UsartInterrupt::FramingError => self.regs.icr.write(|w| w.fecf().set_bit()),
-            UsartInterrupt::LineBreak => self.regs.icr.write(|w| w.lbdcf().set_bit()),
             UsartInterrupt::Overrun => self.regs.icr.write(|w| w.orecf().set_bit()),
             UsartInterrupt::ParityError => self.regs.icr.write(|w| w.pecf().set_bit()),
             UsartInterrupt::ReadNotEmpty => self.regs.rqr.write(|w| w.rxfrq().set_bit()),
-            UsartInterrupt::ReceiverTimeout => self.regs.icr.write(|w| w.rtocf().set_bit()),
-            #[cfg(not(any(feature = "f3", feature = "l4", feature = "h7")))]
-            UsartInterrupt::Tcbgt => self.regs.icr.write(|w| w.tcbgtcf().set_bit()),
-            #[cfg(feature = "h7")]
-            UsartInterrupt::Tcbgt => self.regs.icr.write(|w| w.tcbgtc().set_bit()),
             UsartInterrupt::TransmissionComplete => self.regs.icr.write(|w| w.tccf().set_bit()),
             UsartInterrupt::TransmitEmpty => self.regs.rqr.write(|w| w.txfrq().set_bit()),
+            _ => panic!(), // UART interrupts not avail on LPUART
         }
     }
 
@@ -897,24 +708,20 @@ where
         match flag {
             UsartInterrupt::CharDetect(_) => status.cmf().bit_is_set(),
             UsartInterrupt::Cts => status.cts().bit_is_set(),
-            UsartInterrupt::EndOfBlock => status.eobf().bit_is_set(),
             UsartInterrupt::Idle => status.idle().bit_is_set(),
             UsartInterrupt::FramingError => status.fe().bit_is_set(),
-            UsartInterrupt::LineBreak => status.lbdf().bit_is_set(),
             UsartInterrupt::Overrun => status.ore().bit_is_set(),
             UsartInterrupt::ParityError => status.pe().bit_is_set(),
             #[cfg(feature = "h5")]
             UsartInterrupt::ReadNotEmpty => status.rxfne().bit_is_set(),
             #[cfg(not(feature = "h5"))]
             UsartInterrupt::ReadNotEmpty => status.rxne().bit_is_set(),
-            UsartInterrupt::ReceiverTimeout => status.rtof().bit_is_set(),
-            #[cfg(not(any(feature = "f3", feature = "l4")))]
-            UsartInterrupt::Tcbgt => status.tcbgt().bit_is_set(),
             UsartInterrupt::TransmissionComplete => status.tc().bit_is_set(),
             #[cfg(feature = "h5")]
             UsartInterrupt::TransmitEmpty => status.txfe().bit_is_set(),
             #[cfg(not(feature = "h5"))]
             UsartInterrupt::TransmitEmpty => status.txe().bit_is_set(),
+            _ => panic!(), // UART interrupts not avail on LPUART
         }
     }
 
@@ -980,14 +787,14 @@ mod embedded_io_impl {
         }
     }
 
-    impl<R> ErrorType for Usart<R> {
+    impl<R> ErrorType for LpUart<R> {
         type Error = UartError;
     }
 
-    impl<R> Read for Usart<R>
+    impl<R> Read for LpUart<R>
     where
-        R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
-        Usart<R>: ReadReady,
+        R: Deref<Target = pac::lpuart1::RegisterBlock> + RccPeriph + BaudPeriph,
+        LpUart<R>: ReadReady,
     {
         fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Self::Error> {
             // Block until at least one byte can be read:
@@ -1005,9 +812,9 @@ mod embedded_io_impl {
         }
     }
 
-    impl<R> ReadReady for Usart<R>
+    impl<R> ReadReady for LpUart<R>
     where
-        R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
+        R: Deref<Target = pac::lpuart1::RegisterBlock> + RccPeriph + BaudPeriph,
     {
         fn read_ready(&mut self) -> Result<bool, Self::Error> {
             self.check_status()?;
@@ -1024,9 +831,9 @@ mod embedded_io_impl {
         }
     }
 
-    impl<R> Write for Usart<R>
+    impl<R> Write for LpUart<R>
     where
-        R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
+        R: Deref<Target = pac::lpuart1::RegisterBlock> + RccPeriph + BaudPeriph,
     {
         fn write(&mut self, mut buf: &[u8]) -> Result<usize, Self::Error> {
             // Block until at least one byte can be written:
@@ -1052,9 +859,9 @@ mod embedded_io_impl {
         }
     }
 
-    impl<R> WriteReady for Usart<R>
+    impl<R> WriteReady for LpUart<R>
     where
-        R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
+        R: Deref<Target = pac::lpuart1::RegisterBlock> + RccPeriph + BaudPeriph,
     {
         fn write_ready(&mut self) -> Result<bool, Self::Error> {
             cfg_if! {

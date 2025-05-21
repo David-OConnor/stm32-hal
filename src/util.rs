@@ -70,6 +70,7 @@ macro_rules! rcc_en_reset {
             }
             // todo: apb1enr2 on L5? Currently we only use it with USB, which is handled in
             // todo `usb.rs`.
+            // todo: apb1enr2
         }}
     };
     (apb2, $periph:expr, $rcc:expr) => {
@@ -128,6 +129,16 @@ macro_rules! rcc_en_reset {
                 $rcc.ahb3rstr.modify(|_, w| w.[<$periph rst>]().clear_bit());
             }
         }}
+    };
+}
+
+macro_rules! rcc_en_reset_apb1enr2 {
+    ($periph:expr, $rcc:expr) => {
+        paste::paste! {
+            $rcc.apb1enr2.modify(|_, w| w.[<$periph en>]().set_bit());
+            $rcc.apb1rstr2.modify(|_, w| w.[<$periph rst>]().set_bit());
+            $rcc.apb1rstr2.modify(|_, w| w.[<$periph rst>]().clear_bit());
+        }
     };
 }
 
@@ -219,6 +230,20 @@ cfg_if! {
             }
         }
 
+    }
+}
+
+#[cfg(not(any(feature = "f")))]
+impl BaudPeriph for pac::LPUART1 {
+    fn baud(clock_cfg: &Clocks) -> u32 {
+        clock_cfg.apb2()
+    }
+}
+
+#[cfg(not(any(feature = "wb", feature = "wl", feature = "g431")))]
+impl BaudPeriph for pac::LPUART2 {
+    fn baud(clock_cfg: &Clocks) -> u32 {
+        clock_cfg.apb1()
     }
 }
 
@@ -882,7 +907,60 @@ cfg_if! {
                 rcc_en_reset!(apb2, usart10, rcc);
             }
         }
+    }
+}
 
+#[cfg(not(any(feature = "f")))]
+impl RccPeriph for pac::LPUART1 {
+    fn en_reset(rcc: &RegisterBlock) {
+        rcc_en_reset_apb1enr2!(lpuart1, rcc);
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {
+        DmaInput::LPuart1Rx.dma1_channel()
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {
+        DmaInput::Lpuart1Tx.dma1_channel()
+    }
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(regs: &mut D) {
+        dma::channel_select(regs, DmaInput::Lpuart1Rx);
+    }
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(regs: &mut D) {
+        dma::channel_select(regs, DmaInput::Lpuart1Tx);
+    }
+}
+
+#[cfg(not(any(feature = "wb", feature = "wl", feature = "g431")))]
+impl RccPeriph for pac::LPUART2 {
+    fn en_reset(rcc: &RegisterBlock) {
+        rcc_en_reset_apb1enr2!(lpuart2, rcc);
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn read_chan() -> DmaChannel {
+        DmaInput::LPuart2Rx.dma1_channel()
+    }
+
+    #[cfg(any(feature = "f3", feature = "l4"))]
+    fn write_chan() -> DmaChannel {
+        DmaInput::Lpuart2Tx.dma1_channel()
+    }
+
+    #[cfg(feature = "l4")]
+    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(regs: &mut D) {
+        dma::channel_select(regs, DmaInput::Lpuart2Rx);
+    }
+
+    #[cfg(feature = "l4")]
+    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(regs: &mut D) {
+        dma::channel_select(regs, DmaInput::Lpuart2Tx);
     }
 }
 

@@ -489,6 +489,10 @@ pub mod timer;
 // #[cfg(not(feature = "h5"))] // todo temp. Needs CR1 and ISR added, among other things.
 pub mod usart;
 
+// todo: More MCUs A/R.
+#[cfg(not(any(feature = "f")))]
+pub mod lpuart;
+
 #[cfg(any(
     feature = "l4",
     // feature = "g4",
@@ -597,7 +601,7 @@ macro_rules! make_simple_globals {
 
 /// Initialize one or more globals inside a critical section. `critical_section::with`
 /// must be imported.
-/// 
+///
 /// Usage:
 /// ```rust
 /// init_globals!(
@@ -735,8 +739,8 @@ pub fn delay_us(num_us: u32, ahb_freq: u32) {
 pub mod prelude {
     pub use access_global;
     pub use access_globals;
+    pub use init_globals;
     pub use make_globals;
     pub use make_simple_globals;
-    pub use init_globals;
     pub use setup_nvic;
 }

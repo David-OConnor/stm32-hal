@@ -18,8 +18,8 @@ use hal::{
     dma::{self, Dma, DmaChannel, DmaInput, DmaInterrupt, DmaPeriph, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
     low_power, pac,
-    timer::{BasicTimer, MasterModeSelection},
     prelude::*,
+    timer::{BasicTimer, MasterModeSelection},
 };
 
 static mut ADC_READ_BUF: [u16; 2] = [0; 2];

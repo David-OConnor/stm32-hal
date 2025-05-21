@@ -10,12 +10,13 @@ use critical_section::{Mutex, with};
 use hal::{
     clocks::Clocks,
     gpio::{Edge, Pin, PinMode, Port},
-    low_power, pac, setup_nvic,
+    low_power, pac,
+    prelude::*,
+    setup_nvic,
     timer::{
         Alignment, BasicTimer, CaptureCompare, CountDir, InputSlaveMode, InputTrigger,
         MasterModeSelection, OutputCompare, TimChannel, Timer, TimerConfig, TimerInterrupt,
     },
-    prelude::*,
 };
 
 #[entry]
