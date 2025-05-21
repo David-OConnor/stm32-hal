@@ -540,6 +540,19 @@ pub enum CanSrc {
     Pclk = 0b10,
 }
 
+// todo: Impl this. RCC_CCIPR.
+#[cfg(not(feature = "f"))]
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// LpUart clock sources. Defaults to Pclk.
+pub enum LpUartSrc {
+    Pclk = 0b00,
+    Sysclk = 0b01,
+    Hsi16 = 0b10,
+    Lse = 0b11,
+}
+
+
 /// Settings used to configure clocks. Create this struct by using its `Default::default()`
 /// implementation, then modify as required, referencing your RM's clock tree,
 /// or Stm32Cube IDE's interactive clock manager. Apply settings by running `.setup()`.
@@ -574,6 +587,8 @@ pub struct Clocks {
     #[cfg(not(any(feature = "g0", feature = "wl")))]
     /// The input source for the 48Mhz clock used by USB.
     pub clk48_src: Clk48Src,
+    #[cfg(not(any(feature = "f")))]
+    pub lpuart_src: LpUartSrc,
     /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     /// frees up the pin for use as GPIO.
     pub hse_bypass: bool,
@@ -1103,6 +1118,11 @@ impl Clocks {
         #[cfg(feature = "l5")]
         rcc.ccipr1
             .modify(|_, w| unsafe { w.clk48msel().bits(self.clk48_src as u8) });
+
+        #[cfg(not(feature = "f"))]
+        rcc.ccipr
+            // todo: Don't hard-code.
+            .modify(|_, w| unsafe { w.lpuart1sel().bits(self.lpuart_src as u8) });
 
         // If we're not using the default clock source as input source or for PLL, turn it off.
         cfg_if! {
@@ -1640,6 +1660,8 @@ impl Default for Clocks {
             apb2_prescaler: ApbPrescaler::Div1,
             #[cfg(not(any(feature = "g0", feature = "wl")))]
             clk48_src: Clk48Src::Hsi48,
+            #[cfg(not(any(feature = "f")))]
+            lpuart_src: LpUartSrc::Pclk,
             hse_bypass: false,
             security_system: false,
             #[cfg(not(any(feature = "g0", feature = "wl")))]

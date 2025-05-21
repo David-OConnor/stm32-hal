@@ -327,7 +327,7 @@ STM32WL radio support is WIP, and will be provided through interaction with newA
 - H5 GPDMA unimplemented
 - USART interrupts unimplemented on F4
 - CRC unimplemented for F4
-- High-resolution timers (HRTIM), Low power timers (LPTIM), and low power usart (LPUSART) unimplemented
+- High-resolution timers (HRTIM) and Low power timers (LPTIM) unimplemented
 - ADC unimplemented on F4
 - Low power modes beyond csleep and cstop aren't implemented for H7
 - WB and WL are missing features relating to second core operations and RF
