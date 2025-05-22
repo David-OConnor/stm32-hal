@@ -122,17 +122,18 @@ pub enum UsartInterrupt {
     TransmitEmpty,
 }
 
-/// Configuration for Usart. Can be used with default::Default.
+/// Configuration for U[s]art. and LpUart. Can be used with default::Default.
 pub struct UsartConfig {
     /// Word length. Defaults to 8-bits.
     pub word_len: WordLen,
     /// Stop bits: Defaults to 1.
     pub stop_bits: StopBits,
-    /// Oversampling rate. Defaults to 16x.
+    /// Oversampling rate. Defaults to 16x. N/A for LpUart.
     pub oversampling: OverSampling,
     /// Enable or disable parity control. Defaults to disabled.
     pub parity: Parity,
     /// IrDA mode: Enables this protocol, which is used to communicate with IR devices.
+    /// N/A for LpUart.
     pub irda_mode: IrdaMode,
     #[cfg(any(feature = "g4", feature = "h7"))]
     /// The first-in, first-out buffer is enabled. Defaults to enabled.
@@ -224,7 +225,7 @@ where
             w.over8().bit(result.config.oversampling as u8 != 0);
             w.pce().bit(result.config.parity != Parity::Disabled);
             cfg_if! {
-                if #[cfg(not(any(feature = "f3", feature = "f4", feature = "wl")))] {
+                if #[cfg(not(any(feature = "f", feature = "wl")))] {
                     w.m1().bit(word_len_bits.0 != 0);
                     w.m0().bit(word_len_bits.1 != 0);
                     return w.ps().bit(result.config.parity == Parity::EnabledOdd);
@@ -235,7 +236,7 @@ where
         });
 
         // todo: Workaround due to a PAC bug, where M0 is missing.
-        #[cfg(any(feature = "f3", feature = "f4"))]
+        #[cfg(feature = "f")]
         result.regs.cr1.write(|w| unsafe {
             w.bits(
                 result.regs.cr1.read().bits()

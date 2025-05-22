@@ -364,8 +364,7 @@ pub mod can;
 pub mod clocks;
 // todo: You could get CRC working on these.
 #[cfg(not(any(
-    feature = "f3",
-    feature = "f4",
+    feature = "f",
     feature = "wb",
     feature = "wl",
     feature = "h5", // todo: COme back to
@@ -384,8 +383,7 @@ pub mod crc;
 pub mod dac;
 
 #[cfg(not(any(
-    feature = "f3",
-    feature = "f4",
+    feature = "f",
     feature = "l4x1",
     feature = "l4x2",
     feature = "l412",
@@ -439,8 +437,7 @@ pub mod power;
 // F3, F4, G0, and WL don't have Quad SPI. L5 and newer H variants (eg H735) use OctoSPI,
 // also supported by this module.
 #[cfg(not(any(
-feature = "f3",
-feature = "f4",
+feature = "f",
 feature = "l4x3", // todo: PAC bug?
 feature = "g0",
 feature = "g431",
@@ -456,8 +453,7 @@ pub mod qspi;
 
 // Note: Some F4 variants support RNG, but we haven't figured out the details yet. Send a PR if interested.
 #[cfg(not(any(
-    feature = "f3",
-    feature = "f4",
+    feature = "f",
     feature = "g030",
     feature = "g031",
     feature = "g070",
@@ -470,8 +466,7 @@ pub mod rng;
 pub mod rtc;
 
 #[cfg(not(any(
-    feature = "f3",
-    feature = "f4",
+    feature = "f",
     feature = "g0",
     // feature = "g4", // todo: G4 PAC issue re getting channel-specific reg blocks.
     feature = "h7b3",
@@ -489,8 +484,8 @@ pub mod timer;
 // #[cfg(not(feature = "h5"))] // todo temp. Needs CR1 and ISR added, among other things.
 pub mod usart;
 
-// todo: More MCUs A/R.
-#[cfg(not(any(feature = "f", feature = "g0")))]
+// todo: More MCUs A/R. They will need modifications in the module.
+#[cfg(not(any(feature = "f", feature = "g0", feature = "wl")))]
 pub mod lpuart;
 
 #[cfg(any(

@@ -89,7 +89,7 @@ where
         cr1!(result.regs).modify(|_, w| {
             w.pce().bit(result.config.parity != Parity::Disabled);
             cfg_if! {
-                if #[cfg(not(any(feature = "f3", feature = "f4", feature = "wl")))] {
+                if #[cfg(not(any(feature = "f", feature = "wl")))] {
                     w.m1().bit(word_len_bits.0 != 0);
                     w.m0().bit(word_len_bits.1 != 0);
                     return w.ps().bit(result.config.parity == Parity::EnabledOdd);
@@ -100,7 +100,7 @@ where
         });
 
         // todo: Workaround due to a PAC bug, where M0 is missing.
-        #[cfg(any(feature = "f3", feature = "f4"))]
+        #[cfg(any(feature = "f"))]
         result.regs.cr1.write(|w| unsafe {
             w.bits(
                 result.regs.cr1.read().bits()
@@ -168,25 +168,12 @@ where
             }
         }
 
-        // To set BAUD rate, see L4 RM section 38.5.4: "USART baud rate generation".
-        // todo: This assumes the USART clock is APB1 or 2 depending on which USART.
+        // To set BAUD rate, see G4 RM, section 38.4.7: LPUART baud rate generation.
+        // The computation is different here from normal UART.
         // todo: Take into account the selectable USART clock in both
         // todo util::baud implementation, and `clocks` module.
         let fclk = R::baud(clock_cfg);
-
-        let usart_div = match self.config.oversampling {
-            OverSampling::O16 => fclk / baud,
-            OverSampling::O8 => 2 * fclk / baud,
-        };
-
-        // USARTDIV is an unsigned fixed point number that is coded on the USART_BRR register.
-        // • When OVER8 = 0, BRR = USARTDIV.
-        // • When OVER8 = 1
-        // – BRR[2:0] = USARTDIV[3:0] shifted 1 bit to the right.
-        // – BRR[3] must be kept cleared.
-        // – BRR[15:4] = USARTDIV[15:4]
-        // todo: BRR needs to be modified per the above if on oversampling 8.
-
+        let usart_div = 256 * fclk / baud;
         self.regs.brr.write(|w| unsafe { w.bits(usart_div as u32) });
 
         self.baud = baud;
@@ -743,8 +730,12 @@ where
             Ok(())
         };
 
-        #[cfg(not(feature = "wl"))]
+        #[cfg(not(any(feature = "wl", feature = "h7")))]
         if status.nf().bit_is_set() {
+            result = Err(UartError::Noise);
+        }
+        #[cfg(feature = "h7")]
+        if status.ne().bit_is_set() { // todo: QC
             result = Err(UartError::Noise);
         }
 

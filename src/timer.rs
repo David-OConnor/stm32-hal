@@ -652,7 +652,7 @@ macro_rules! make_timer {
              /// software overhead, but it can also be used to read several registers in a row, at regular
              /// intervals." This may be used to create arbitrary waveforms by modifying the CCR register
              /// (base address = 13-16, for CCR1-4), or for implementing duty-cycle based digital protocols.
-            #[cfg(not(any(feature = "g0", feature = "f4", feature = "l552", feature = "f3", feature = "l4")))]
+            #[cfg(not(any(feature = "g0", feature = "f", feature = "l552", feature = "l4")))]
             pub unsafe fn write_dma_burst(
                 &mut self,
                 buf: &[u16],
@@ -771,7 +771,7 @@ macro_rules! make_timer {
 
             }
 
-            #[cfg(not(any(feature = "g0", feature = "f4", feature = "l552", feature = "f3", feature = "l4")))]
+            #[cfg(not(any(feature = "g0", feature = "f", feature = "l552", feature = "l4")))]
             pub unsafe fn read_dma_burst(
                 // todo: Experimenting with input capture.
                 &mut self,
@@ -1050,7 +1050,7 @@ macro_rules! cc_4_channels {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
-            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l4x5", feature = "l5", feature = "g0", feature = "wb")))]
+            #[cfg(not(any(feature = "f", feature = "l4x5", feature = "l5", feature = "g0", feature = "wb")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1173,14 +1173,14 @@ macro_rules! cc_4_channels {
                 match channel {
                     TimChannel::C1 => {
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "wb")))]
+                            #[cfg(not(any(feature = "f", feature = "l5", feature = "wb")))]
                             w.oc1m_3().bit((mode as u8) >> 3 != 0);
                             w.oc1m().bits((mode as u8) & 0b111)
                         });
                     }
                     TimChannel::C2 => {
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "wb")))]
+                            #[cfg(not(any(feature = "f", feature = "l5", feature = "wb")))]
                             w.oc2m_3().bit((mode as u8) >> 3 != 0);
                             w.oc2m().bits((mode as u8) & 0b111)
 
@@ -1188,7 +1188,7 @@ macro_rules! cc_4_channels {
                     }
                     TimChannel::C3 => {
                         self.regs.ccmr2_output().modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "wb")))]
+                            #[cfg(not(any(feature = "f", feature = "l5", feature = "wb")))]
                             w.oc3m_3().bit((mode as u8) >> 3 != 0);
                             w.oc3m().bits((mode as u8) & 0b111)
 
@@ -1435,7 +1435,7 @@ macro_rules! cc_2_channels {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
-            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l4x5", feature = "l5", feature = "g0")))]
+            #[cfg(not(any(feature = "f", feature = "l4x5", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1675,7 +1675,7 @@ macro_rules! cc_1_channel {
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
-            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l4x5", feature = "l5", feature = "g0")))]
+            #[cfg(not(any(feature = "f", feature = "l4x5", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1720,7 +1720,7 @@ macro_rules! cc_1_channel {
                         #[cfg(not(feature = "g070"))] // todo: PAC bug?
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
                             // todo: L5/WB is probably due to a PAC error. Has oc1m_2.
-                            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l4",
+                            #[cfg(not(any(feature = "f", feature = "l4",
                                 feature = "l5", feature = "wb", feature = "g0")))]
                             w.oc1m_3().bit((mode as u8) >> 3 != 0);
                             w.oc1m().bits((mode as u8) & 0b111)

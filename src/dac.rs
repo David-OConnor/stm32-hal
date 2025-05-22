@@ -2,7 +2,7 @@
 
 use core::ops::Deref;
 
-#[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "g4")))]
+#[cfg(not(any(feature = "f", feature = "l5", feature = "g4")))]
 use cortex_m::delay::Delay;
 
 use crate::{

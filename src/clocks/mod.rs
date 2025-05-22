@@ -14,7 +14,7 @@
 //! See the Reference Manuals for non-interactive visualizations.
 
 cfg_if::cfg_if! {
-    if #[cfg(any(feature = "f3", feature = "f4"))] {
+    if #[cfg(feature = "f")] {
         mod f;
         pub use f::*;
     } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g0", feature = "g4", feature = "wb", feature = "wl"))] {
