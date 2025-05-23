@@ -132,7 +132,7 @@ macro_rules! rcc_en_reset {
     };
 }
 
-#[cfg(not(any(feature = "f", feature = "g0")))]
+#[cfg(not(any(feature = "f", feature = "g0", feature = "l")))]
 macro_rules! rcc_en_reset_apb1enr2 {
     ($periph:expr, $rcc:expr) => {
         paste::paste! {
@@ -233,7 +233,7 @@ cfg_if! {
     }
 }
 
-#[cfg(not(any(feature = "f", feature = "g0", feature = "wl")))]
+#[cfg(not(any(feature = "f", feature = "g0", feature = "wl", feature = "l")))]
 impl BaudPeriph for pac::LPUART1 {
     fn baud(clock_cfg: &Clocks) -> u32 {
         clock_cfg.apb1()
@@ -242,6 +242,7 @@ impl BaudPeriph for pac::LPUART1 {
 
 #[cfg(not(any(
     feature = "f",
+    feature = "l",
     feature = "g0",
     feature = "h7",
     feature = "wb",
@@ -918,7 +919,7 @@ cfg_if! {
     }
 }
 
-#[cfg(not(any(feature = "f", feature = "g0", feature = "wl")))]
+#[cfg(not(any(feature = "f", feature = "g0", feature = "wl", feature = "l")))]
 impl RccPeriph for pac::LPUART1 {
     fn en_reset(rcc: &RegisterBlock) {
         #[cfg(not(feature = "h7"))]
@@ -951,6 +952,7 @@ impl RccPeriph for pac::LPUART1 {
 
 #[cfg(not(any(
     feature = "f",
+    feature = "l",
     feature = "g0",
     feature = "h7",
     feature = "wb",

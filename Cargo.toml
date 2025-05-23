@@ -181,10 +181,11 @@ monotonic = ["dep:rtic-monotonic"]
 # These features are used to featured gate sections of code that apply
 # to an entire family.
 f = []
+l = []
 f3 = ["f"]
 f4 = ["f"]
-l4 = []
-l5 = []
+l4 = ["l"]
+l5 = ["l"]
 g0 = []
 g4 = []
 h5 = []

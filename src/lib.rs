@@ -485,7 +485,7 @@ pub mod timer;
 pub mod usart;
 
 // todo: More MCUs A/R. They will need modifications in the module.
-#[cfg(not(any(feature = "f", feature = "g0", feature = "wl")))]
+#[cfg(not(any(feature = "f", feature = "l", feature = "g0", feature = "wl")))]
 pub mod lpuart;
 
 #[cfg(any(

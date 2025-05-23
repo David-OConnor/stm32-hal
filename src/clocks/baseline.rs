@@ -541,7 +541,7 @@ pub enum CanSrc {
 }
 
 // todo: Impl this. RCC_CCIPR.
-#[cfg(not(any(feature = "f", feature = "g0")))]
+#[cfg(not(any(feature = "f", feature = "l", feature = "g0")))]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 /// LpUart clock sources. Defaults to Pclk.
@@ -586,7 +586,7 @@ pub struct Clocks {
     #[cfg(not(any(feature = "g0", feature = "wl")))]
     /// The input source for the 48Mhz clock used by USB.
     pub clk48_src: Clk48Src,
-    #[cfg(not(any(feature = "f", feature = "g0")))]
+    #[cfg(not(any(feature = "f", feature = "l", feature = "g0")))]
     pub lpuart_src: LpUartSrc,
     /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     /// frees up the pin for use as GPIO.
@@ -1118,7 +1118,7 @@ impl Clocks {
         rcc.ccipr1
             .modify(|_, w| unsafe { w.clk48msel().bits(self.clk48_src as u8) });
 
-        #[cfg(not(any(feature = "f", feature = "g0")))]
+        #[cfg(not(any(feature = "f", feature = "l", feature = "g0")))]
         rcc.ccipr
             // todo: Don't hard-code.
             .modify(|_, w| unsafe { w.lpuart1sel().bits(self.lpuart_src as u8) });
@@ -1659,7 +1659,7 @@ impl Default for Clocks {
             apb2_prescaler: ApbPrescaler::Div1,
             #[cfg(not(any(feature = "g0", feature = "wl")))]
             clk48_src: Clk48Src::Hsi48,
-            #[cfg(not(any(feature = "f", feature = "g0")))]
+            #[cfg(not(any(feature = "f", feature = "l", feature = "g0")))]
             lpuart_src: LpUartSrc::Pclk,
             hse_bypass: false,
             security_system: false,
