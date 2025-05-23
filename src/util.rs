@@ -240,21 +240,22 @@ impl BaudPeriph for pac::LPUART1 {
     }
 }
 
-#[cfg(not(any(
-    feature = "f",
-    feature = "l",
-    feature = "g0",
-    feature = "h7",
-    feature = "wb",
-    feature = "wl",
-    feature = "g431"
-)))]
-impl BaudPeriph for pac::LPUART2 {
-    fn baud(clock_cfg: &Clocks) -> u32 {
-        // todo: QC this; it's a guess.
-        clock_cfg.apb1()
-    }
-}
+// #[cfg(not(any(
+//     feature = "f",
+//     feature = "l",
+//     feature = "g0",
+//     feature = "h7",
+//     feature = "wb",
+//     feature = "wl",
+//     feature = "g431",
+//     // todo: Which families have LPUART2?
+// )))]
+// impl BaudPeriph for pac::LPUART2 {
+//     fn baud(clock_cfg: &Clocks) -> u32 {
+//         // todo: QC this; it's a guess.
+//         clock_cfg.apb1()
+//     }
+// }
 
 // todo: This trait is currently a one-off for adc, and isn't currently used.
 pub trait VrefPeriph {
@@ -950,40 +951,40 @@ impl RccPeriph for pac::LPUART1 {
     }
 }
 
-#[cfg(not(any(
-    feature = "f",
-    feature = "l",
-    feature = "g0",
-    feature = "h7",
-    feature = "wb",
-    feature = "wl",
-    feature = "g431"
-)))]
-impl RccPeriph for pac::LPUART2 {
-    fn en_reset(rcc: &RegisterBlock) {
-        rcc_en_reset_apb1enr2!(lpuart2, rcc);
-    }
+// #[cfg(not(any(
+//     feature = "f",
+//     feature = "l",
+//     feature = "g0",
+//     feature = "h7",
+//     feature = "wb",
+//     feature = "wl",
+//     feature = "g431"
+// )))]
+// impl RccPeriph for pac::LPUART2 {
+//     fn en_reset(rcc: &RegisterBlock) {
+//         rcc_en_reset_apb1enr2!(lpuart2, rcc);
+//     }
 
-    #[cfg(feature = "l4")]
-    fn read_chan() -> DmaChannel {
-        DmaInput::LPuart2Rx.dma1_channel()
-    }
+//     #[cfg(feature = "l4")]
+//     fn read_chan() -> DmaChannel {
+//         DmaInput::LPuart2Rx.dma1_channel()
+//     }
 
-    #[cfg(feature = "l4")]
-    fn write_chan() -> DmaChannel {
-        DmaInput::Lpuart2Tx.dma1_channel()
-    }
+//     #[cfg(feature = "l4")]
+//     fn write_chan() -> DmaChannel {
+//         DmaInput::Lpuart2Tx.dma1_channel()
+//     }
 
-    #[cfg(feature = "l4")]
-    fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(regs: &mut D) {
-        dma::channel_select(regs, DmaInput::Lpuart2Rx);
-    }
+//     #[cfg(feature = "l4")]
+//     fn read_sel<D: Deref<Target = dma1::RegisterBlock>>(regs: &mut D) {
+//         dma::channel_select(regs, DmaInput::Lpuart2Rx);
+//     }
 
-    #[cfg(feature = "l4")]
-    fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(regs: &mut D) {
-        dma::channel_select(regs, DmaInput::Lpuart2Tx);
-    }
-}
+//     #[cfg(feature = "l4")]
+//     fn write_sel<D: Deref<Target = dma1::RegisterBlock>>(regs: &mut D) {
+//         dma::channel_select(regs, DmaInput::Lpuart2Tx);
+//     }
+// }
 
 #[cfg(not(any(
     feature = "f401",
