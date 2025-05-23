@@ -173,7 +173,19 @@ where
         // todo: Take into account the selectable USART clock in both
         // todo util::baud implementation, and `clocks` module.
         let fclk = R::baud(clock_cfg);
-        let usart_div = 256 * fclk / baud;
+
+        // This is a 20-bit register, so the value can easily overflow, e.g. with 9.6kHz baud.
+        // So, we set the prescaler. 10 keeps it under 20 bits at 9.6kHz baud, and 170Mhz fclock.
+        let prescaler = 10;
+        let prescaler_value = 0b101;
+        self.regs
+            .presc
+            .write(|w| unsafe { w.bits(prescaler_value) });
+
+        // Be careful about overflowing here; this order of operations can prevent overflowing 32-bit integers.
+        // mid-operations. This is a subtly different overflow type than why we use the prescaler.
+        let usart_div = (fclk / baud) * 256 / prescaler;
+
         self.regs.brr.write(|w| unsafe { w.bits(usart_div as u32) });
 
         self.baud = baud;
@@ -735,7 +747,8 @@ where
             result = Err(UartError::Noise);
         }
         #[cfg(feature = "h7")]
-        if status.ne().bit_is_set() { // todo: QC
+        if status.ne().bit_is_set() {
+            // todo: QC
             result = Err(UartError::Noise);
         }
 

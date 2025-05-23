@@ -240,7 +240,14 @@ impl BaudPeriph for pac::LPUART1 {
     }
 }
 
-#[cfg(not(any(feature = "f", feature = "g0", feature = "h7", feature = "wb", feature = "wl", feature = "g431")))]
+#[cfg(not(any(
+    feature = "f",
+    feature = "g0",
+    feature = "h7",
+    feature = "wb",
+    feature = "wl",
+    feature = "g431"
+)))]
 impl BaudPeriph for pac::LPUART2 {
     fn baud(clock_cfg: &Clocks) -> u32 {
         // todo: QC this; it's a guess.
@@ -921,7 +928,6 @@ impl RccPeriph for pac::LPUART1 {
         rcc_en_reset!(apb4, lpuart1, rcc);
     }
 
-
     #[cfg(feature = "l4")]
     fn read_chan() -> DmaChannel {
         DmaInput::LPuart1Rx.dma1_channel()
@@ -943,7 +949,14 @@ impl RccPeriph for pac::LPUART1 {
     }
 }
 
-#[cfg(not(any(feature = "f", feature = "g0", feature = "h7", feature = "wb", feature = "wl", feature = "g431")))]
+#[cfg(not(any(
+    feature = "f",
+    feature = "g0",
+    feature = "h7",
+    feature = "wb",
+    feature = "wl",
+    feature = "g431"
+)))]
 impl RccPeriph for pac::LPUART2 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset_apb1enr2!(lpuart2, rcc);
