@@ -779,17 +779,7 @@ mod embedded_io_impl {
 
     use super::*;
 
-    impl Error for UartError {
-        fn kind(&self) -> ErrorKind {
-            match self {
-                UartError::Framing => ErrorKind::Other,
-                UartError::Noise => ErrorKind::Other,
-                UartError::Overrun => ErrorKind::OutOfMemory,
-                UartError::Parity => ErrorKind::InvalidData,
-                UartError::Hardware => ErrorKind::TimedOut,
-            }
-        }
-    }
+    // (Error for Uart implemented in the usart module)
 
     impl<R> ErrorType for LpUart<R> {
         type Error = UartError;

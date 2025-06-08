@@ -353,10 +353,7 @@ pub mod adc;
 // fdCAN families: L5, U5, G4, H7
 // H7 suppords fd and can_ccu. (What's that?)
 // WB and WL?
-#[cfg(all(
-    any(feature = "can_bx", feature = "can_fd_g", feature = "can_fd_h"),
-    // not(any(feature = "f301", feature = "f401", feature = "f410", feature = "f411"))
-))]
+#[cfg(all(any(feature = "can_bx", feature = "can_fd_g", feature = "can_fd_h"),))]
 pub mod can;
 
 // For now, we're using the `fdcan` crate

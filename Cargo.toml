@@ -1,6 +1,6 @@
 [package]
 name = "stm32-hal2"
-version = "1.9.4"
+version = "1.9.5"
 edition = "2024"
 authors = ["David O'Connor <the_alchemist@fastmail.com>"]
 description = "Hardware abstraction layer for the STM32 MCUs"
@@ -65,8 +65,8 @@ cfg-if = "1.0.0"  # if/else blocks for feature-gating
 paste = "1.0.15"  # Token pasting, to make macros easier
 
 [package.metadata.docs.rs]
-features = ["h735", "h7rt", "usbotg_hs", "can_fd_h", "embedded_hal"]
-#features = ["g641", "g4rt", "usb", "can_fd_g", "embedded_hal"]
+#features = ["h735", "h7rt", "usbotg_hs", "can_fd_h", "embedded_hal"]
+features = ["g431", "g4rt", "usb", "can_fd_g", "embedded_hal"]
 targets = ["thumbv7em-none-eabihf"]
 
 
