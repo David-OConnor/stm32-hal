@@ -387,13 +387,12 @@ macro_rules! hal {
                             } else if #[cfg(feature = "f4")] {
                                 rcc_en_reset!(2, [<adc $rcc_num>], rcc);
                             } else if #[cfg(feature = "h7")] {
-                                match device {
-                                    AdcDevice::One | AdcDevice::Two => {
-                                        rcc.ahb1enr.modify(|_, w| w.adc12en().set_bit());
-                                    }
-                                    AdcDevice::Three => {
-                                        rcc.ahb4enr.modify(|_, w| w.adc3en().set_bit());
-                                    }
+                                if device == AdcDevice::One || device == AdcDevice::Two {
+                                    rcc.ahb1enr.modify(|_, w| w.adc12en().set_bit());
+                                }
+                            } else if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
+                                if device == AdcDevice::Three {
+                                    rcc.ahb4enr.modify(|_, w| w.adc3en().set_bit());
                                 }
                             } else if #[cfg(any(feature = "g4"))] {
                                 rcc.ahb2enr.modify(|_, w| w.adc12en().set_bit());
@@ -1228,11 +1227,16 @@ hal!(ADC3, ADC_COMMON, adc3, _);
 #[cfg(any(feature = "l5"))]
 hal!(ADC, ADC_COMMON, adc1, _);
 
-// todo Implement ADC3 on H7. The issue is the enable / reset being on ahb4.
 cfg_if! {
     if #[cfg(feature = "h7")] {
         hal!(ADC1, ADC12_COMMON, adc1, 12);
         hal!(ADC2, ADC12_COMMON, adc2, 12);
+    }
+}
+
+// todo Implement ADC3 on H7. The issue is the enable / reset being on ahb4.
+cfg_if! {
+    if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {
         hal!(ADC3, ADC3_COMMON, adc3, 3);
     }
 }

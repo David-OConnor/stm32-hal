@@ -633,7 +633,7 @@ impl RccPeriph for pac::SAI2 {
     }
 }
 
-#[cfg(all(feature = "h7", not(feature = "h735")))]
+#[cfg(all(feature = "h7", not(any(feature = "h735", feature = "h7b3"))))]
 impl RccPeriph for pac::SAI3 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb2, sai3, rcc);
@@ -660,7 +660,7 @@ impl RccPeriph for pac::SAI3 {
     }
 }
 
-#[cfg(feature = "h7")]
+#[cfg(all(feature = "h7", not(feature = "h7b3")))]
 impl RccPeriph for pac::SAI4 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb4, sai4, rcc);
