@@ -61,7 +61,7 @@ pub enum DmaPeriph {
 
 #[derive(Copy, Clone)]
 #[repr(usize)]
-#[cfg(not(any(feature = "h7", feature = "wl", feature = "wb")))]
+#[cfg(not(any(feature = "h7", feature = "wl", feature = "wb", feature = "g0")))]
 /// A list of DMA input sources. The integer values represent their DMAMUX register value, on
 /// MCUs that use this. G4 RM, Table 91: DMAMUX: Assignment of multiplexer inputs to resources.
 pub enum DmaInput {
@@ -144,6 +144,87 @@ pub enum DmaInput {
     Dfsdm1F1 = 201,
     Dfsdm1F2 = 205,
     Dfsdm1F3 = 206,
+}
+
+#[derive(Copy, Clone)]
+#[repr(usize)]
+#[cfg(feature = "g0")]
+/// G0x0 RM, 10.3.2: DMAMUX mapping
+/// G0x1 RM, 11.3.2: DMAMUX mapping
+pub enum DmaInput {
+    Adc = 5,
+    AesIn = 6,
+    AesOut = 7,
+    Dac1Ch1 = 8,
+    Dac1Ch2 = 9,
+    I2c1Rx = 10,
+    I2c1Tx = 11,
+    I2c2Rx = 12,
+    I2c2Tx = 13,
+    Lpuart1Rx = 14,
+    Lpuart1Tx = 15,
+    Spi1Rx = 16,
+    Spi1Tx = 17,
+    Spi2Rx = 18,
+    Spi2Tx = 19,
+    Tim1Ch1 = 20,
+    Tim1Ch2 = 21,
+    Tim1Ch3 = 22,
+    Tim1Ch4 = 23,
+    Tim1TrigCom = 24,
+    Tim1Up = 25,
+    Tim2Ch1 = 26,
+    Tim2Ch2 = 27,
+    Tim2Ch3 = 28,
+    Tim2Ch4 = 29,
+    Tim2Trig = 30,
+    Tim2Up = 31,
+    Tim3Ch1 = 32,
+    Tim3Ch2 = 33,
+    Tim3Ch3 = 34,
+    Tim3Ch4 = 35,
+    Tim3Trig = 36,
+    Tim3Up = 37,
+    Tim6Up = 38,
+    Tim7Up = 39,
+    Tim15Ch1 = 40,
+    Tim15Ch2 = 41,
+    Tim15TrigCom = 42,
+    Tim15Up = 43,
+    Tim16Ch1 = 44,
+    Tim16Com = 45,
+    Tim16Up = 46,
+    Tim17Ch1 = 47,
+    Tim17Com = 48,
+    Tim17Up = 49,
+    Usart1Rx = 50,
+    Usart1Tx = 51,
+    Usart2Rx = 52,
+    Usart2Tx = 53,
+    Usart3Rx = 54,
+    Usart3Tx = 55,
+    Usart4Rx = 56,
+    Usart4Tx = 57,
+    Ucpd1Rx = 58,
+    Ucpd1Tx = 59,
+    Ucpd2Rx = 60,
+    Ucpd2Tx = 61,
+    I2c3Rx = 62,
+    I2c3Tx = 63,
+    Lpuart2Rx = 64,
+    Lpuart2Tx = 65,
+    Spi3Rx = 66,
+    Spi3Tx = 67,
+    Tim4Ch1 = 68,
+    Tim4Ch2 = 69,
+    Tim4Ch3 = 70,
+    Tim4Ch4 = 71,
+    Tim4Trig = 72,
+    Tim4Up = 73,
+    Usart5Rx = 74,
+    Usart5Tx = 75,
+    Usart6Rx = 76,
+    Usart6Tx = 77,
 }
 
 #[derive(Copy, Clone)]
