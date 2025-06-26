@@ -161,7 +161,7 @@ impl Default for SampleTime {
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
-/// Select single-ended, or differential inputs. Sets bits in the ADC[x]_DIFSEL register.
+/// Select single-ended, or differential inputs. Sets bits in the ADC\[x\]_DIFSEL register.
 pub enum InputType {
     SingleEnded = 0,
     Differential = 1,
@@ -188,18 +188,18 @@ pub enum OperationMode {
 /// – The system clock
 /// – PLLSAI1 (single ADC implementation)
 /// Refer to RCC Section for more information on how to generate ADC dedicated clock.
-/// To select this scheme, bits CKMODE[1:0] of the ADCx_CCR register must be reset.
+/// To select this scheme, bits CKMODE\[1:0\] of the ADCx_CCR register must be reset.
 /// 2. The ADC clock can be derived from the AHB clock of the ADC bus interface, divided by
 /// a programmable factor (1, 2 or 4). In this mode, a programmable divider factor can be
-/// selected (/1, 2 or 4 according to bits CKMODE[1:0]).
-/// To select this scheme, bits CKMODE[1:0] of the ADCx_CCR register must be different
+/// selected (/1, 2 or 4 according to bits CKMODE\[1:0\]).
+/// To select this scheme, bits CKMODE\[1:0\] of the ADCx_CCR register must be different
 /// from “00”.
 pub enum ClockMode {
     /// Use Kernel Clock adc_ker_ck_input divided by PRESC. Asynchronous to AHB clock
     Async = 0b00,
     /// Use AHB clock rcc_hclk3 (or just hclk depending on variant).
-    /// "For option 2), a prescaling factor of 1 (CKMODE[1:0]=01) can be used only if the AHB
-    /// prescaler is set to 1 (HPRE[3:0] = 0xxx in RCC_CFGR register)."
+    /// "For option 2), a prescaling factor of 1 (CKMODE\[1:0\]=01) can be used only if the AHB
+    /// prescaler is set to 1 (HPRE\[3:0\] = 0xxx in RCC_CFGR register)."
     SyncDiv1 = 0b01,
     /// Use AHB clock rcc_hclk3 (or just hclk depending on variant) divided by 2
     SyncDiv2 = 0b10,
@@ -560,8 +560,8 @@ macro_rules! hal {
                 cfg_if! {
                     if #[cfg(feature = "f3")] {
                         // `F303 RM, 15.3.6:
-                        // 1. Change ADVREGEN[1:0] bits from ‘10’ (disabled state, reset state) into ‘00’.
-                        // 2. Change ADVREGEN[1:0] bits from ‘00’ into ‘01’ (enabled state).
+                        // 1. Change ADVREGEN\[1:0\] bits from ‘10’ (disabled state, reset state) into ‘00’.
+                        // 2. Change ADVREGEN\[1:0\] bits from ‘00’ into ‘01’ (enabled state).
                         self.regs.cr.modify(|_, w| unsafe { w.advregen().bits(0b00)});
                         self.regs.cr.modify(|_, w| unsafe { w.advregen().bits(0b01)});
                     } else {
@@ -591,8 +591,8 @@ macro_rules! hal {
                 cfg_if! {
                     if #[cfg(feature = "f3")] {
                         // `F303 RM, 15.3.6:
-                        // 1. Change ADVREGEN[1:0] bits from ‘01’ (enabled state) into ‘00’.
-                        // 2. Change ADVREGEN[1:0] bits from ‘00’ into ‘10’ (disabled state)
+                        // 1. Change ADVREGEN\[1:0\] bits from ‘01’ (enabled state) into ‘00’.
+                        // 2. Change ADVREGEN\[1:0\] bits from ‘00’ into ‘10’ (disabled state)
                         self.regs.cr.modify(|_, w| unsafe { w.advregen().bits(0b00) });
                         self.regs.cr.modify(|_, w| unsafe { w.advregen().bits(0b10) });
                     } else {
@@ -652,7 +652,7 @@ macro_rules! hal {
                 // ADCAL bit stays at 1 during all the
                 // calibration sequence. It is then cleared by hardware as soon the calibration completes. At
                 // this time, the associated calibration factor is stored internally in the analog ADC and also in
-                // the bits CALFACT_S[6:0] or CALFACT_D[6:0] of ADC_CALFACT register (depending on
+                // the bits CALFACT_S\[6:0\] or CALFACT_D\[6:0\] of ADC_CALFACT register (depending on
                 // single-ended or differential input calibration)
                 // 5. Wait until ADCAL=0.
                 while self.regs.cr.read().adcal().bit_is_set() {}
@@ -711,8 +711,8 @@ macro_rules! hal {
             pub fn set_input_type(&mut self, channel: u8, input_type: InputType) {
                 // L44 RM, 16.4.7:
                 // Channels can be configured to be either single-ended input or differential input by writing
-                // into bits DIFSEL[15:1] in the ADC_DIFSEL register. This configuration must be written while
-                // the ADC is disabled (ADEN=0). Note that DIFSEL[18:16,0] are fixed to single ended
+                // into bits DIFSEL\[15:1\] in the ADC_DIFSEL register. This configuration must be written while
+                // the ADC is disabled (ADEN=0). Note that DIFSEL\[18:16,0\] are fixed to single ended
                 // channels and are always read as 0.
                 let was_enabled = self.is_enabled();
                 if was_enabled {

@@ -389,7 +389,7 @@ pub struct Clocks {
 impl Clocks {
     /// Setup common and return a `Valid` status if the config is valid. Return
     /// `Invalid`, and don't setup if not.
-    /// https://docs.rs/stm32f3xx-hal/0.5.0/stm32f3xx_hal/rcc/struct.CFGR.html
+    /// <https://docs.rs/stm32f3xx-hal/0.5.0/stm32f3xx_hal/rcc/struct.CFGR.html>
     /// Use the STM32CubeIDE Clock Configuration tab to help.
     pub fn setup(&self) -> Result<(), RccError> {
         if let Err(e) = self.validate_speeds() {

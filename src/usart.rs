@@ -1,6 +1,6 @@
-//! This module allows for serial communication using the STM32 U[S]ART peripheral
+//! This module allows for serial communication using the STM32 U(S)ART peripheral
 //! It provides APIs to configure, read, and write from
-//! U[S]ART, with blocking, nonblocking, and DMA functionality.
+//! U(S)ART, with blocking, nonblocking, and DMA functionality.
 
 // todo: Synchronous mode.
 // todo: Auto baud
@@ -122,7 +122,7 @@ pub enum UsartInterrupt {
     TransmitEmpty,
 }
 
-/// Configuration for U[s]art. and LpUart. Can be used with default::Default.
+/// Configuration for U(S)ART. and LpUart. Can be used with default::Default.
 pub struct UsartConfig {
     /// Word length. Defaults to 8-bits.
     pub word_len: WordLen,
@@ -204,7 +204,7 @@ impl<R> Usart<R>
 where
     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph + BaudPeriph,
 {
-    /// Initialize a U[s]ART peripheral, including configuration register writes, and enabling and
+    /// Initialize a U(S)ART peripheral, including configuration register writes, and enabling and
     /// resetting its RCC peripheral clock. `baud` is the baud rate, in bytes-per-second.
     pub fn new(regs: R, baud: u32, config: UsartConfig, clock_cfg: &Clocks) -> Self {
         let rcc = unsafe { &(*RCC::ptr()) };
@@ -362,13 +362,13 @@ impl<R> Usart<R>
 where
     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph,
 {
-    /// Enable this U[s]ART peripheral.
+    /// Enable this U(S)ART peripheral.
     pub fn enable(&mut self) {
         cr1!(self.regs).modify(|_, w| w.ue().set_bit());
         while cr1!(self.regs).read().ue().bit_is_clear() {}
     }
 
-    /// Disable this U[s]ART peripheral.
+    /// Disable this U(S)ART peripheral.
     pub fn disable(&mut self) {
         cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
         while cr1!(self.regs).read().ue().bit_is_set() {}

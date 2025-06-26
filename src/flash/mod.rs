@@ -2,7 +2,7 @@
 //! and read data.
 //!
 //! Before using this module, check the datasheet and/or RM for your specific
-//! STM32 variant for page [sector] size, and number of pages [sectors] available.
+//! STM32 variant for page \[sector\] size, and number of pages \[sectors\] available.
 //! Make sure not to write to a page your MCU doesn't have, or that includes your
 //! program's memory.
 
