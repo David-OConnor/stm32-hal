@@ -4,7 +4,7 @@ use core;
 
 use cfg_if::cfg_if;
 
-use super::{Flash, page_to_address};
+use super::{Flash, FlashError, page_to_address};
 use crate::pac::FLASH;
 
 const FLASH_KEY1: u32 = 0x4567_0123;
@@ -30,21 +30,6 @@ pub enum DualBank {
 pub enum Bank {
     B1 = 0,
     B2 = 1,
-}
-
-#[derive(Copy, Clone, Debug, defmt::Format)]
-/// Possible error states for flash operations.
-pub enum Error {
-    /// Flash controller is not done yet
-    Busy,
-    /// Error detected (by command execution, or because no command could be executed)
-    Illegal,
-    /// Set during read if ECC decoding logic detects correctable or uncorrectable error
-    EccError,
-    /// Page number is out of range
-    PageOutOfRange,
-    /// (Legal) command failed
-    Failure,
 }
 
 /// Check and clear all non-secure error programming flags due to a previous
@@ -141,11 +126,17 @@ impl Flash {
     pub fn lock(&mut self, security: Security) {
         match security {
             Security::NonSecure => {
-                while self.regs.nssr.read().nsbsy().bit_is_set() {}
+                bounded_loop!(
+                    self.regs.nssr.read().nsbsy().bit_is_set(),
+                    FlashError::RegisterUnbounded
+                );
                 self.regs.nscr.modify(|_, w| w.nslock().set_bit());
             }
             Security::Secure => {
-                while self.regs.secsr.read().secbsy().bit_is_set() {}
+                bounded_loop!(
+                    self.regs.secsr.read().secbsy().bit_is_set(),
+                    FlashError::RegisterUnbounded
+                );
                 self.regs.seccr.modify(|_, w| w.seclock().set_bit());
             }
         };
@@ -195,7 +186,10 @@ impl Flash {
                 self.regs.nscr.modify(|_, w| w.nsstrt().set_bit());
 
                 // 5. Wait for the NSBSY bit to be cleared in the FLASH_SR register.
-                while self.regs.nssr.read().nsbsy().bit_is_set() {}
+                bounded_loop!(
+                    self.regs.nssr.read().nsbsy().bit_is_set(),
+                    FlashError::RegisterUnbounded
+                );
                 self.regs.nscr.modify(|_, w| w.nsper().clear_bit());
             }
             Security::Secure => {
@@ -222,7 +216,10 @@ impl Flash {
 
                 self.regs.seccr.modify(|_, w| w.secstrt().set_bit());
 
-                while self.regs.secsr.read().secbsy().bit_is_set() {}
+                bounded_loop!(
+                    self.regs.secsr.read().secbsy().bit_is_set(),
+                    FlashError::RegisterUnbounded
+                );
                 self.regs.nscr.modify(|_, w| w.nsper().clear_bit());
             }
         }
@@ -264,7 +261,10 @@ impl Flash {
                 self.regs.nscr.modify(|_, w| w.nsstrt().set_bit());
 
                 // 5. Wait for the NSBSY bit to be cleared in the FLASH_NSSR register.
-                while self.regs.nssr.read().nsbsy().bit_is_set() {}
+                bounded_loop!(
+                    self.regs.nssr.read().nsbsy().bit_is_set(),
+                    FlashError::RegisterUnbounded
+                );
 
                 // 6. The NSMER1 or NSMER2 bits can be cleared if no more non-secure bank erase is
                 // requested.
@@ -289,7 +289,10 @@ impl Flash {
 
                 self.regs.seccr.modify(|_, w| w.secstrt().set_bit());
 
-                while self.regs.secsr.read().secbsy().bit_is_set() {}
+                bounded_loop!(
+                    self.regs.secsr.read().secbsy().bit_is_set(),
+                    FlashError::RegisterUnbounded
+                );
 
                 match bank {
                     Bank::B1 => self.regs.seccr.modify(|_, w| w.secmer1().clear_bit()),
@@ -361,7 +364,10 @@ impl Flash {
                     };
 
                     // 5. Wait until the BSY bit is cleared in the FLASH_NSSR register.
-                    while self.regs.nssr.read().nsbsy().bit_is_set() {}
+                    bounded_loop!(
+                        self.regs.nssr.read().nsbsy().bit_is_set(),
+                        FlashError::RegisterUnbounded
+                    );
 
                     // 6. Check that NSEOP flag is set in the FLASH_NSSR register (meaning that the programming
                     // operation has succeed), and clear it by software.
@@ -418,7 +424,10 @@ impl Flash {
                         address = address.add(1);
                     }
 
-                    while self.regs.secsr.read().secbsy().bit_is_set() {}
+                    bounded_loop!(
+                        self.regs.secsr.read().secbsy().bit_is_set(),
+                        FlashError::RegisterUnbounded
+                    );
 
                     if self.regs.secsr.read().seceop().bit_is_set() {
                         self.regs.secsr.modify(|_, w| w.seceop().set_bit()); // clear

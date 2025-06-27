@@ -167,20 +167,25 @@ where
     /// paragraph. It is important to do this before the system enters a low-power mode when the
     /// peripheral clock is stopped. Ongoing transactions can be corrupted in this case. In some
     /// modes the disable procedure is the only way to stop continuous communication running.
-    pub fn disable(&mut self) {
+    pub fn disable(&mut self) -> Result<(), SpiError> {
         // The correct disable procedure is (except when receive only mode is used):
         // 1. Wait until TXC=1 and/or EOT=1 (no more data to transmit and last data frame sent).
         // When CRC is used, it is sent automatically after the last data in the block is processed.
         // TXC/EOT is set when CRC frame is completed in this case. When a transmission is
         // suspended the software has to wait till CSTART bit is cleared.
-        while self.regs.sr.read().txc().bit_is_clear() {}
-        while self.regs.sr.read().eot().bit_is_clear() {}
+        bounded_loop!(
+            self.regs.sr.read().txc().bit_is_clear() && self.regs.sr.read().eot().bit_is_clear(),
+            SpiError::RegisterUnchanged
+        );
         // 2. Read all RxFIFO data (until RXWNE=0 and RXPLVL=00)
+        // todo: bound this loop
         while self.regs.sr.read().rxwne().bit_is_set() || self.regs.sr.read().rxplvl().bits() != 0 {
             unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) };
         }
         // 3. Disable the SPI (SPE=0).
         self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+
+        Ok(())
     }
 
     // todo: Temp C+P from h7xx hal while troubleshooting.
@@ -192,13 +197,10 @@ where
         let status = self.regs.sr.read();
         check_errors!(status);
 
-        let mut i = 0;
-        while !self.regs.sr.read().dxp().is_available() {
-            i += 1;
-            if i >= MAX_ITERS {
-                return Err(SpiError::Hardware);
-            }
-        }
+        bounded_loop!(
+            !self.regs.sr.read().dxp().is_available(),
+            SpiError::RegisterUnchanged
+        );
 
         // NOTE(write_volatile/read_volatile) write/read only 1 word
         unsafe {
@@ -214,13 +216,10 @@ where
     pub fn read(&mut self) -> Result<u8, SpiError> {
         check_errors!(self.regs.sr.read());
 
-        let mut i = 0;
-        while !self.regs.sr.read().rxp().is_not_empty() {
-            i += 1;
-            if i >= MAX_ITERS {
-                return Err(SpiError::Hardware);
-            }
-        }
+        bounded_loop!(
+            !self.regs.sr.read().rxp().is_not_empty(),
+            SpiError::RegisterUnchanged
+        );
 
         // NOTE(read_volatile) read only 1 word
         return Ok(unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) });

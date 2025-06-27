@@ -61,7 +61,7 @@ pub enum SpiError {
     ModeFault,
     /// CRC error
     Crc,
-    Hardware,
+    RegisterUnchanged,
     DuplexFailed, // todo temp?
 }
 

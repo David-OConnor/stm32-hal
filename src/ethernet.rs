@@ -18,6 +18,11 @@ use crate::{
     util::RccPeriph,
 };
 
+#[derive(Debuf, defmt::Format)]
+pub enum EthError {
+    RegisterUnchanged,
+}
+
 /// Configuration data for Ethernet
 pub struct EthConfig {}
 
@@ -59,7 +64,7 @@ where
     }
 
     /// H743 RM, section 58.9.1: DMA initialization
-    pub fn init_dma(&mut self) {
+    pub fn init_dma(&mut self) -> Result<(), EthError> {
         // Complete the following steps to initialize the DMA:
 
         // 1. Provide a software reset to reset all MAC internal registers and logic (bit 0 of DMA
@@ -68,7 +73,11 @@ where
 
         // 2. Wait for the completion of the reset process (poll bit 0 of the DMA mode register
         // (ETH_DMAMR), which is cleared when the reset operation is completed).
-        while self.regs_dma.dmamr.read().swr().bit_is_set() {}
+        // todo: Use DmaError instead?
+        bounded_loop!(
+            self.regs_dma.dmamr.read().swr().bit_is_set(),
+            EthError::RegisterUnchanged
+        );
 
         // 3. Program the following fields to initialize the System bus mode register
         // (ETH_DMASBMR):

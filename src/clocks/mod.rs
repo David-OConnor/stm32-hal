@@ -39,7 +39,7 @@ cfg_if::cfg_if! {
 #[derive(Clone, Copy, Debug, defmt::Format)]
 pub enum RccError {
     Speed,
-    Hardware,
+    RegisterUnchanged,
 }
 
 // #[derive(Clone, Copy)]

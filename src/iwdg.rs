@@ -7,9 +7,14 @@ use crate::pac::IWDG1 as IWDG;
 
 const IWDG_CLOCK: f32 = 32_000.;
 
+#[derive(Debug, defmt::Format)]
+enum IwdgError {
+    RegisterUnchanged,
+}
+
 /// Set up (enable), without window option. `timeout` is in seconds.
 /// G4 RM, section 42.3.2
-pub fn setup(timeout: f32) {
+pub fn setup(timeout: f32) -> Result<(), IwdgError> {
     unsafe {
         let regs = &(*IWDG::ptr());
         // When the window option it is not used, the IWDG can be configured as follows:
@@ -34,10 +39,12 @@ pub fn setup(timeout: f32) {
         regs.rlr.write(|w| w.bits(reload_val));
 
         // 5. Wait for the registers to be updated (IWDG_SR = 0x0000 0000).
-        while regs.sr.read().bits() != 0 {}
+        bounded_loop!(regs.sr.read().bits() != 0, IwdgError::RegisterUnchanged);
 
         // 6. Refresh the counter value with IWDG_RLR (IWDG_KR = 0x0000 AAAA).
-        pet()
+        pet();
+
+        Ok(())
     }
 }
 

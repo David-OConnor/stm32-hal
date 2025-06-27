@@ -30,17 +30,17 @@ macro_rules! busy_wait {
 
             i += 1;
             if i >= MAX_ITERS {
-                return Err(Error::Hardware);
+                return Err(I2cError::Hardware);
             }
 
             if isr.$flag().bit_is_set() {
                 break;
             } else if isr.berr().bit_is_set() {
                 $regs.icr.write(|w| w.berrcf().set_bit());
-                return Err(Error::Bus);
+                return Err(I2cError::Bus);
             } else if isr.arlo().bit_is_set() {
                 $regs.icr.write(|w| w.arlocf().set_bit());
-                return Err(Error::Arbitration);
+                return Err(I2cError::Arbitration);
             } else if isr.nackf().bit_is_set() {
                 $regs.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
 
@@ -54,7 +54,7 @@ macro_rules! busy_wait {
                     $regs.isr.write(|w| w.txe().set_bit());
                 }
 
-                return Err(Error::Nack);
+                return Err(I2Error::Nack);
             } else {
             }
         }
@@ -64,7 +64,7 @@ macro_rules! busy_wait {
 /// I2C error
 #[non_exhaustive]
 #[derive(Debug)]
-pub enum Error {
+pub enum I2cError {
     /// Bus error
     Bus,
     /// Arbitration loss
@@ -75,7 +75,7 @@ pub enum Error {
     // Pec, // SMBUS mode only
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
-    Hardware,
+    RegisterUnchanged,
 }
 
 #[derive(Clone, Copy)]
@@ -360,7 +360,7 @@ where
     }
 
     /// Enable SMBus support. See L44 RM, section 37.4.11: SMBus initialization
-    pub fn enable_smbus(&mut self) -> Result<(), Error> {
+    pub fn enable_smbus(&mut self) -> Result<(), I2cError> {
         // todo: Roll this into an init setting or I2cConfig struct etc.
         // PEC calculation is enabled by setting the PECEN bit in the I2C_CR1 register. Then the PEC
         // transfer is managed with the help of a hardware byte counter: NBYTES[7:0] in the I2C_CR2
@@ -377,12 +377,10 @@ where
             self.regs.cr1.modify(|_, w| w.pe().clear_bit());
 
             let mut i = 0;
-            while self.regs.cr1.read().pe().bit_is_set() {
-                i += 1;
-                if i >= MAX_ITERS {
-                    return Err(Error::Hardware);
-                }
-            }
+            bounded_loop!(
+                self.regs.cr1.read().pe().bit_is_set(),
+                I2cError::RegisterUnchanged
+            );
         }
 
         self.regs.cr1.modify(|_, w| w.pecen().set_bit());
@@ -400,18 +398,15 @@ where
     }
 
     /// Read multiple words to a buffer. Can return an error due to Bus, Arbitration, or NACK.
-    pub fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
+    pub fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), I2cError> {
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
 
-        let mut i = 0;
-        while self.regs.cr2.read().start().bit_is_set() {
-            i += 1;
-            if i >= MAX_ITERS {
-                return Err(Error::Hardware);
-            }
-        }
+        bounded_loop!(
+            self.regs.cr2.read().start().bit_is_set(),
+            I2cError::RegisterUnchanged
+        );
 
         // Set START and prepare to receive bytes into
         // `buffer`. The START bit can be set even if the bus
@@ -420,7 +415,7 @@ where
 
         for byte in bytes {
             // Wait until we have received something
-            busy_wait!(self.regs, rxne);
+            busy_wait!(self.regs, rxne)?;
 
             *byte = self.regs.rxdr.read().rxdata().bits();
         }
@@ -429,17 +424,15 @@ where
     }
 
     /// Write an array of words. Can return an error due to Bus, Arbitration, or NACK.
-    pub fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+    pub fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), I2cError> {
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
         let mut i = 0;
-        while self.regs.cr2.read().start().bit_is_set() {
-            i += 1;
-            if i >= MAX_ITERS {
-                return Err(Error::Hardware);
-            }
-        }
+        bounded_loop!(
+            self.regs.cr2.read().start().bit_is_set(),
+            I2cError::RegisterUnchanged
+        );
 
         self.set_cr2_write(addr, bytes.len() as u8, true);
 
@@ -457,17 +450,19 @@ where
     }
 
     /// Write and read an array of words. Can return an error due to Bus, Arbitration, or NACK.
-    pub fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
+    pub fn write_read(
+        &mut self,
+        addr: u8,
+        bytes: &[u8],
+        buffer: &mut [u8],
+    ) -> Result<(), I2cError> {
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
-        let mut i = 0;
-        while self.regs.cr2.read().start().bit_is_set() {
-            i += 1;
-            if i >= MAX_ITERS {
-                return Err(Error::Hardware);
-            }
-        }
+        bounded_loop!(
+            self.regs.cr2.read().start().bit_is_set(),
+            I2cError::RegisterUnchanged
+        );
 
         self.set_cr2_write(addr, bytes.len() as u8, false);
 
@@ -573,7 +568,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<(), I2cError> {
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
@@ -588,7 +583,11 @@ where
         // peripheral (see Section 11: Direct memory access controller (DMA) on page 295) to the
         // I2C_TXDR register whenever the TXIS bit is set.
         self.regs.cr1.modify(|_, w| w.txdmaen().set_bit());
-        while self.regs.cr1.read().txdmaen().bit_is_clear() {}
+
+        bounded_loop!(
+            self.regs.cr1.read().txdmaen().bit_is_clear(),
+            I2cError::RegisterUnchaged
+        );
 
         // Only the data are transferred with DMA.
         // • In master mode: the initialization, the slave address, direction, number of bytes and
@@ -647,6 +646,8 @@ where
                 );
             }
         }
+
+        Ok(())
     }
 
     /// Read data, using DMA. See L44 RM, 37.4.16: "Reception using DMA"
@@ -676,7 +677,10 @@ where
         // (DMA) on page 295) whenever the RXNE bit is set. Only the data (including PEC) are
         // transferred with DMA.
         self.regs.cr1.modify(|_, w| w.rxdmaen().set_bit());
-        while self.regs.cr1.read().rxdmaen().bit_is_clear() {}
+        bounded_loop!(
+            self.regs.cr1.read().rxdmaen().bit_is_clear(),
+            I2cError::RegisterUnchaged
+        );
 
         // • In master mode, the initialization, the slave address, direction, number of bytes and
         // START bit are programmed by software. When all data are transferred using DMA, the

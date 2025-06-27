@@ -455,23 +455,35 @@ impl Clocks {
             InputSrc::Hse(_) => {
                 rcc.cr.modify(|_, w| w.hseon().bit(true));
                 // Wait for the HSE to be ready.
-                while rcc.cr.read().hserdy().is_not_ready() {}
+                bounded_loop!(
+                    rcc.cr.read().hserdy().is_not_ready(),
+                    RccError::RegisterUnchanged
+                );
             }
             InputSrc::Hsi => {
                 rcc.cr.modify(|_, w| w.hsion().bit(true));
-                while rcc.cr.read().hsirdy().is_not_ready() {}
+                bounded_loop!(
+                    rcc.cr.read().hsirdy().is_not_ready(),
+                    RccError::RegisterUnchanged
+                );
             }
             InputSrc::Pll(pll_src) => {
                 match pll_src {
                     PllSrc::Hse(_) => {
                         // DRY
                         rcc.cr.modify(|_, w| w.hseon().bit(true));
-                        while rcc.cr.read().hserdy().is_not_ready() {}
+                        bounded_loop!(
+                            rcc.cr.read().hserdy().is_not_ready(),
+                            RccError::RegisterUnchanged
+                        );
                     }
                     _ => {
                         // Hsi or HsiDiv2: In both cases, set up the HSI.
                         rcc.cr.modify(|_, w| w.hsion().bit(true));
-                        while rcc.cr.read().hsirdy().is_not_ready() {}
+                        bounded_loop!(
+                            rcc.cr.read().hsirdy().is_not_ready(),
+                            RccError::RegisterUnchanged
+                        );
                     }
                 }
             }
@@ -485,8 +497,10 @@ impl Clocks {
             // Turn off the PLL: Required for modifying some of the settings below.
             rcc.cr.modify(|_, w| w.pllon().off());
             // Wait for the PLL to no longer be ready before executing certain writes.
-            while rcc.cr.read().pllrdy().is_ready() {}
-
+            bounded_loop!(
+                rcc.cr.read().pllrdy().is_ready(),
+                RccError::RegisterUnchanged
+            );
             cfg_if! {
                 if #[cfg(feature = "f3")] {
                    rcc.cfgr.modify(|_, w| {
@@ -518,7 +532,10 @@ impl Clocks {
             // Now turn PLL back on, once we're configured things that can only be set with it off.
             rcc.cr.modify(|_, w| w.pllon().on());
 
-            while rcc.cr.read().pllrdy().is_not_ready() {}
+            bounded_loop!(
+                rcc.cr.read().pllrdy().is_not_ready(),
+                RccError::RegisterUnchanged
+            );
         }
 
         rcc.cfgr.modify(|_, w| unsafe {
@@ -559,7 +576,7 @@ impl Clocks {
 
     /// Re-select innput source; used on Stop and Standby modes, where the system reverts
     /// to HSI after wake.
-    pub fn reselect_input(&self) {
+    pub fn reselect_input(&self) -> Result<(), RccError> {
         let rcc = unsafe { &(*RCC::ptr()) };
         // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
 
@@ -568,7 +585,10 @@ impl Clocks {
         match self.input_src {
             InputSrc::Hse(_) => {
                 rcc.cr.modify(|_, w| w.hseon().set_bit());
-                while rcc.cr.read().hserdy().is_not_ready() {}
+                bounded_loop!(
+                    rcc.cr.read().hserdy().is_not_ready(),
+                    RccError::RegisterUnchanged
+                );
 
                 rcc.cfgr
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
@@ -576,19 +596,30 @@ impl Clocks {
             InputSrc::Pll(_) => {
                 // todo: DRY with above.
                 rcc.cr.modify(|_, w| w.hseon().set_bit());
-                while rcc.cr.read().hserdy().is_not_ready() {}
+                bounded_loop!(
+                    rcc.cr.read().hserdy().is_not_ready(),
+                    RccError::RegisterUnchanged
+                );
 
                 rcc.cr.modify(|_, w| w.pllon().off());
-                while rcc.cr.read().pllrdy().is_ready() {}
+                bounded_loop!(
+                    rcc.cr.read().pllrdy().is_not_ready(),
+                    RccError::RegisterUnchanged
+                );
 
                 rcc.cfgr
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
 
                 rcc.cr.modify(|_, w| w.pllon().on());
-                while rcc.cr.read().pllrdy().is_not_ready() {}
+                bounded_loop!(
+                    rcc.cr.read().pllrdy().is_not_ready(),
+                    RccError::RegisterUnchanged
+                );
             }
             InputSrc::Hsi => (), // Already reset to this.
         }
+
+        Ok(())
     }
 
     #[cfg(feature = "f3")]

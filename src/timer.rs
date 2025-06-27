@@ -54,8 +54,11 @@ pub static TICK_OVERFLOW_COUNT: AtomicU32 = AtomicU32::new(0);
 // todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
 
 #[derive(Clone, Copy, Debug, defmt::Format)]
-/// Used for when attempting to set a timer period that is out of range.
-pub struct ValueError {}
+pub enum TimerError {
+    RegisterUnchanged,
+    /// Used for when attempting to set a timer period that is out of range.
+    ValueError,
+}
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
@@ -536,7 +539,7 @@ macro_rules! make_timer {
 
             /// Set the timer frequency, in Hz. Overrides the period or frequency set
             /// in the constructor.
-            pub fn set_freq(&mut self, mut freq: f32) -> Result<(), ValueError> {
+            pub fn set_freq(&mut self, mut freq: f32) -> Result<(), TimerError> {
                 assert!(freq > 0.);
                 // todo: Take into account the `timxsw` bit in RCC CFGR3, which may also
                 // todo require an adjustment to freq.
@@ -564,7 +567,7 @@ macro_rules! make_timer {
 
             /// Set the timer period, in seconds. Overrides the period or frequency set
             /// in the constructor.
-            pub fn set_period(&mut self, period: f32) -> Result<(), ValueError> {
+            pub fn set_period(&mut self, period: f32) -> Result<(), TimerError> {
                 assert!(period > 0.);
                 self.set_freq(1. / period)
             }
@@ -1871,7 +1874,7 @@ macro_rules! cc_1_channel {
 /// Calculate values required to set the timer frequency: `PSC` and `ARR`. This can be
 /// used for initial timer setup, or changing the value later. If used in performance-sensitive
 /// code or frequently, set ARR and PSC directly instead of using this.
-fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16), ValueError> {
+fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16), TimerError> {
     // `period` and `clock_speed` are both in Hz.
 
     // PSC and ARR range: 0 to 65535
@@ -1898,7 +1901,7 @@ fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16), ValueError>
     let arr = rhs / (psc + 1.) - 1.;
 
     if arr > max_val || psc > max_val {
-        return Err(ValueError {});
+        return Err(TimerError::ValueError {});
     }
 
     Ok((psc as u16, arr as u16))
@@ -1964,7 +1967,7 @@ cfg_if! {
             /// Set the timer period, in seconds. Overrides the period or frequency set
             /// in the constructor.  If changing pe riod frequently, don't use this method, as
             /// it has computational overhead: use `set_auto_reload` and `set_prescaler` methods instead.
-            pub fn set_period(&mut self, time: f32) -> Result<(), ValueError> {
+            pub fn set_period(&mut self, time: f32) -> Result<(), TimerError> {
                 assert!(time > 0.);
                 self.set_freq(1. / time)
             }
@@ -1972,7 +1975,7 @@ cfg_if! {
             /// Set the timer frequency, in Hz. Overrides the period or frequency set
             /// in the constructor. If changing frequency frequently, don't use this method, as
             /// it has computational overhead: use `set_auto_reload` and `set_prescaler` methods instead.
-            pub fn set_freq(&mut self, freq: f32) -> Result<(), ValueError> {
+            pub fn set_freq(&mut self, freq: f32) -> Result<(), TimerError> {
                 assert!(freq > 0.);
 
                 let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;

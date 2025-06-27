@@ -11,6 +11,11 @@ use crate::pac;
 #[cfg(not(feature = "h7"))]
 use crate::pac::PWR;
 
+#[derive(Debug, defmt::Format)]
+pub enum LpError {
+    RegisterUnchanged,
+}
+
 // See L4 Reference Manual section 5.3.6. The values correspond to the PWR_CR1 LPMS bits.
 // todo PWR_CR1, LPMS field.
 #[derive(Clone, Copy)]
@@ -44,16 +49,20 @@ pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) {
 /// Return to normal run mode from low-power run. Requires you to increase the clock speed
 /// manually after running this.
 #[cfg(any(feature = "l4", feature = "l5"))]
-pub fn return_from_low_power_run() {
+pub fn return_from_low_power_run() -> Result<(), LpError> {
     let pwr = unsafe { &(*PWR::ptr()) };
 
     // LPR = 0
     pwr.cr1.modify(|_, w| w.lpr().clear_bit());
 
     // Wait until REGLPF = 0
-    while pwr.sr2.read().reglpf().bit_is_set() {}
+    bounded_loop!(
+        pwr.sr2.read().reglpf().bit_is_set(),
+        LpError::RegisterUnchanged
+    );
 
     // Increase the system clock frequency
+    Ok(())
 }
 
 /// Place the system in sleep now mode. To enter `low-power sleep now`, enter low power mode

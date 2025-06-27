@@ -40,6 +40,11 @@ cfg_if! {
 
 const MAX_ADVREGEN_STARTUP_US: u32 = 10;
 
+#[derive(Debug, defmt::Format)]
+pub enum AdcError {
+    RegisterUnchanged,
+}
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum AdcDevice {
     One,
@@ -486,22 +491,24 @@ macro_rules! hal {
             /// Enable the ADC.
             /// ADEN=1 enables the ADC. The flag ADRDY will be set once the ADC is ready for
             /// operation.
-            pub fn enable(&mut self) {
+            pub fn enable(&mut self) -> Result<(), AdcError> {
                 // 1. Clear the ADRDY bit in the ADC_ISR register by writing ‘1’.
                 self.regs.isr.modify(|_, w| w.adrdy().set_bit());
                 // 2. Set ADEN=1.
                 self.regs.cr.modify(|_, w| w.aden().set_bit());  // Enable
                 // 3. Wait until ADRDY=1 (ADRDY is set after the ADC startup time). This can be done
                 // using the associated interrupt (setting ADRDYIE=1).
-                while self.regs.isr.read().adrdy().bit_is_clear() {}  // Wait until ready
+                // Wait until ready
+                bounded_loop!(self.regs.isr.read().adrdy().bit_is_clear(), AdcError::RegisterUnchanged);
                 // 4. Clear the ADRDY bit in the ADC_ISR register by writing ‘1’ (optional).
                 self.regs.isr.modify(|_, w| w.adrdy().set_bit());
+                Ok(())
             }
 
             /// Disable the ADC.
             /// ADDIS=1 disables the ADC. ADEN and ADDIS are then automatically cleared by
             /// hardware as soon as the analog ADC is effectively disabled
-            pub fn disable(&mut self) {
+            pub fn disable(&mut self) -> Result<(), AdcError> {
                 // 1. Check that both ADSTART=0 and JADSTART=0 to ensure that no conversion is
                 // ongoing. If required, stop any regular and injected conversion ongoing by setting
                 // ADSTP=1 and JADSTP=1 and then wait until ADSTP=0 and JADSTP=0.
@@ -512,7 +519,9 @@ macro_rules! hal {
 
                 // 3. If required by the application, wait until ADEN=0, until the analog
                 // ADC is effectively disabled (ADDIS will automatically be reset once ADEN=0)
-                while self.regs.cr.read().aden().bit_is_set() {}
+                bounded_loop!(self.regs.cr.read().aden().bit_is_set(), AdcError::RegisterUnchanged);
+
+                Ok(())
             }
 
             /// If any conversions are in progress, stop them. This is a step listed in the RMs
@@ -535,7 +544,7 @@ macro_rules! hal {
                         w.jadstp().set_bit()
                     });
 
-                    while self.regs.cr.read().adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set() {}
+                    bounded_loop!(self.regs.cr.read().adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set(), AdcError::RegisterUnchanged);
                 }
             }
 
@@ -655,7 +664,7 @@ macro_rules! hal {
                 // the bits CALFACT_S\[6:0\] or CALFACT_D\[6:0\] of ADC_CALFACT register (depending on
                 // single-ended or differential input calibration)
                 // 5. Wait until ADCAL=0.
-                while self.regs.cr.read().adcal().bit_is_set() {}
+                bounded_loop!(self.regs.cr.read().adcal().bit_is_set(), AdcError::RegisterUnchanged);
 
                 // 6. The calibration factor can be read from ADC_CALFACT register.
                 match input_type {
@@ -944,7 +953,7 @@ macro_rules! hal {
             /// Start a conversion: Either a single measurement, or continuous conversions.
             /// Blocks until the conversion is complete.
             /// See L4 RM 16.4.15 for details.
-            pub fn start_conversion(&mut self, sequence: &[u8]) {
+            pub fn start_conversion(&mut self, sequence: &[u8]) -> Result<(), AdcError> {
                 // todo: You should call this elsewhere, once, to prevent unneded reg writes.
                 for (i, channel) in sequence.iter().enumerate() {
                     self.set_sequence(*channel, i as u8 + 1); // + 1, since sequences start at 1.
@@ -961,7 +970,10 @@ macro_rules! hal {
                 // After the regular sequence is complete, after each conversion is complete,
                 // the EOC (end of regular conversion) flag is set.
                 // After the regular sequence is complete: The EOS (end of regular sequence) flag is set.
-                while self.regs.isr.read().eos().bit_is_clear() {}  // wait until complete.
+                // wait until complete.
+                bounded_loop!(self.regs.isr.read().eos().bit_is_clear(), AdcError::RegisterUnchanged);
+
+                Ok(())
             }
 
             /// Read data from a conversion. In OneShot mode, this will generally be run right

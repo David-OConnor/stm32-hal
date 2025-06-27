@@ -93,6 +93,7 @@ pub enum SamplingEdge {
 pub enum QspiError {
     Busy,
     Underflow,
+    RegisterUnchanged,
 }
 
 // todo: Use bank on suitable MCUs? Which? F7 / H7?
@@ -154,7 +155,7 @@ pub struct Qspi {
 
 // todo: Use the deref pattern for OCTOSPI2 support.
 impl Qspi {
-    pub fn new(regs: QUADSPI, cfg: QspiConfig, clocks: &Clocks) -> Self {
+    pub fn new(regs: QUADSPI, cfg: QspiConfig, clocks: &Clocks) -> Result<Self, QspiError> {
         assert!(
             cfg.dummy_cycles < 32,
             "Dumy cycles must be between 0 and 31."
@@ -200,7 +201,10 @@ impl Qspi {
         regs.cr.write(|w| w.en().clear_bit());
 
         // Many fields, including all CCR fields, can only be set when `BUSY` is clear.
-        while regs.sr.read().busy().bit_is_set() {}
+        bounded_loop!(
+            regs.sr.read().busy().bit_is_set(),
+            QspiError::RegisterUnchanged
+        );
 
         regs.ccr.modify(|_, w| unsafe {
             w.abmode().bits(cfg.protocol_mode as u8);
@@ -256,7 +260,7 @@ impl Qspi {
         // Enable ther peripheral
         regs.cr.modify(|_, w| w.en().set_bit());
 
-        Self { regs, cfg }
+        Ok(Self { regs, cfg })
     }
 
     /// Check if the QSPI peripheral is currently busy with a transaction
@@ -287,9 +291,9 @@ impl Qspi {
     }
 
     /// Perform a memory write in indirect mode.
-    pub fn write_indirect(&mut self, addr: u32, data: &[u8]) {
+    pub fn write_indirect(&mut self, addr: u32, data: &[u8]) -> Result<(), QspiError> {
         // FMODE, and perhaps othe rfields can only be set when BUSY = 0.
-        while self.is_busy() {}
+        bounded_loop!(self.is_busy(), QspiError::RegisterUnchanged);
 
         // todo: Fix this
         assert!(
@@ -362,15 +366,19 @@ impl Qspi {
         }
 
         // Wait for the transaction to complete
-        while self.regs.sr.read().tcf().bit_is_clear() {}
-
+        bounded_loop!(
+            self.regs.sr.read().tcf().bit_is_clear(),
+            QspiError::RegisterUnchanged
+        );
         // Wait for the peripheral to indicate it is no longer busy.
-        while self.is_busy() {}
+        bounded_loop!(self.is_busy(), QspiError::RegisterUnchanged);
+
+        Ok(())
     }
 
     /// Perform a memory read in indirect mode.
     pub fn read_indirect(&mut self, addr: u32, buf: &mut [u8]) -> Result<(), QspiError> {
-        while self.is_busy() {}
+        bounded_loop!(self.is_busy(), QspiError::RegisterUnchanged);
 
         // todo: Fix this
         assert!(
@@ -403,7 +411,7 @@ impl Qspi {
         }
 
         // Wait for the peripheral to indicate it is no longer busy.
-        while self.is_busy() {}
+        bounded_loop!(self.is_busy(), QspiError::RegisterUnchanged);
 
         Ok(())
     }
@@ -411,9 +419,9 @@ impl Qspi {
     // todo: write_indirect_dma fn.
 
     /// Read one word from memory in memory-mapped mode
-    pub fn read_1_mem_mapped(&mut self, offset: isize) -> u32 {
+    pub fn read_1_mem_mapped(&mut self, offset: isize) -> Result<(), QspiError> {
         // todo: unsafe fn? word size?
-        while self.is_busy() {}
+        bounded_loop!(self.is_busy(), QspiError::RegisterUnchanged);
 
         #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
         // todo: Equiv for octo?
@@ -424,6 +432,8 @@ impl Qspi {
         }
 
         let addr = MEM_MAPPED_BASE_ADDR as *const u32; // as const what?
-        unsafe { core::ptr::read(addr.offset(offset)) }
+        unsafe { core::ptr::read(addr.offset(offset)) };
+
+        Ok(())
     }
 }

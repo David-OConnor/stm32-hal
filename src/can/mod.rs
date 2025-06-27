@@ -28,7 +28,12 @@ cfg_if! {
     if #[cfg(feature = "g4")] {
         pub mod g4;
         pub use g4::*;
-    }else{
+    } else {
+        #[derive(Debug, defmt::Format)]
+        pub enum CanError {
+            RegisterUnchanged,
+        }
+
         /// Interface to the CAN peripheral.
         pub struct Can {
             pub regs: CAN,
@@ -73,7 +78,7 @@ cfg_if! {
             }
         }
 
-#[cfg(feature = "h7")]
+        #[cfg(feature = "h7")]
         // todo: Troubleshooting. COpied from H7xx-hal
         /// Set the message RAM layout. This is flexible on H7. This function hard-sets it to the setting
         /// that is hard-set by hardware on G4.
@@ -91,9 +96,9 @@ cfg_if! {
             // is set. CCE bit in FDCAN_CCCR register is automatically cleared when INIT bit in
             // FDCAN_CCCR is cleared."
             regs.cccr.modify(|_, w| w.init().set_bit());
-            while regs.cccr.read().init().bit_is_clear() {}
+            bounded_loop!(regs.cccr.read().init().bit_is_clear(), CanError::RegisterUnchanged);
             regs.cccr.modify(|_, w| w.cce().set_bit());
-            while regs.cccr.read().cce().bit_is_clear() {}
+            bounded_loop!(regs.cccr.read().cce().bit_is_clear(), CanError::RegisterUnchanged);
 
             let mut word_addr = 0x000; // todo: 0x400 for FDCAN2?
 

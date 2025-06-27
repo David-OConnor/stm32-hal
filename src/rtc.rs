@@ -25,11 +25,13 @@ pub enum RtcClockSource {
     Hse = 0b11,
 }
 
-/// RTC error type
+/// RTC error type.
 #[derive(Debug, defmt::Format)]
-pub enum Error {
-    /// Invalid input error
+pub enum RtcError {
+    /// Invalid input error.
     InvalidInputData,
+    /// Value written to register did not change before exceeding [MAX_ITER] iterations.
+    RegisterUnchanged,
 }
 
 /// See ref man, section 27.6.3, or AN4769, section 2.4.2.
@@ -114,8 +116,8 @@ impl Default for RtcConfig {
 
 impl Rtc {
     /// Initialize the RTC, including configuration register writes.
-    pub fn new(regs: RTC, config: RtcConfig) -> Self {
-        let mut result = Self { regs, config };
+    pub fn new(regs: RTC, config: RtcConfig) -> Result<Self, RtcError> {
+        let mut rtc = Self { regs, config };
 
         // Enable the peripheral clock for communication
         // You must enable the `pwren()` bit before making RTC register writes, or they won't stay
@@ -133,7 +135,7 @@ impl Rtc {
                 rcc.apb1enr.modify(|_, w| w.pwren().set_bit());
                 pwr.cr.read(); // read to allow the pwr clock to enable
                 pwr.cr.modify(|_, w| w.dbp().set_bit());
-                while pwr.cr.read().dbp().bit_is_clear() {}
+                bounded_loop!(pwr.cr.read().dbp().bit_is_clear(), RtcError::RegisterUnchanged);
             } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "l412", feature = "wb", feature = "wl"))] {
                 // 1. Enable the power interface clock by setting the PWREN bits in the Section 6.4.18:
                 // APB1 peripheral clock enable register 1 (RCC_APB1ENR1)
@@ -150,7 +152,7 @@ impl Rtc {
                 // 2. Set the DBP bit in the Power control register 1 (PWR_CR1) to enable access to the
                 // backup domain
                 pwr.cr1.modify( | _, w| w.dbp().set_bit()); // Unlock the backup domain
-                while pwr.cr1.read().dbp().bit_is_clear() {}
+                bounded_loop!(pwr.cr1.read().dbp().bit_is_clear(), RtcError::RegisterUnchanged);
             } else if #[cfg(any(feature = "g0"))] {
                 rcc.apbenr1.modify(|_, w| {
                     w.pwren().set_bit();
@@ -159,19 +161,19 @@ impl Rtc {
                 rcc.apbsmenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
                 pwr.cr1.read();
                 pwr.cr1.modify( | _, w| w.dbp().set_bit());
-                while pwr.cr1.read().dbp().bit_is_clear() {}
+                bounded_loop!(pwr.cr1.read().dbp().bit_is_clear(), RtcError::RegisterUnchanged);
             } else if #[cfg(feature = "h5")] {
                 rcc.apb3enr.modify(|_, w| w.rtcapben().set_bit());
                 rcc.apb3lpenr.modify(|_, w| w.rtcapblpen().set_bit());  // In sleep and stop modes.
                 pwr.dbpcr.read(); // read to allow the pwr clock to enable // todo??
                 pwr.dbpcr.modify( | _, w| w.dbp().set_bit());
-                while pwr.dbpcr.read().dbp().bit_is_clear() {}
+                bounded_loop!(pwr.dbpcr.read().dbp().bit_is_clear(), RtcError::RegisterUnchanged);
             } else { // eg h7
                 rcc.apb4enr.modify(|_, w| w.rtcapben().set_bit());
                 rcc.apb4lpenr.modify(|_, w| w.rtcapblpen().set_bit());  // In sleep and stop modes.
                 pwr.cr1.read(); // read to allow the pwr clock to enable
                 pwr.cr1.modify( | _, w| w.dbp().set_bit());
-                while pwr.cr1.read().dbp().bit_is_clear() {}
+                bounded_loop!(pwr.cr1.read().dbp().bit_is_clear(), RtcError::RegisterUnchanged);
             }
         }
 
@@ -182,13 +184,13 @@ impl Rtc {
                     if #[cfg(feature = "wb")] {
                     // todo: LSI2?
                         rcc.csr.modify(|_, w| w.lsi1on().set_bit());
-                        while rcc.csr.read().lsi1rdy().bit_is_clear() {}
+                        bounded_loop!(rcc.csr.read().lsi1rdy().bit_is_clear(), RtcError::RegisterUnchanged);
                     } else if #[cfg(feature = "h5")] {
                         rcc.bdcr.modify(|_, w| w.lsion().set_bit());
-                        while rcc.bdcr.read().lsirdy().bit_is_clear() {}
+                        bounded_loop!(rcc.bdcr.read().lsirdy().bit_is_clear(), RtcError::RegisterUnchanged);
                     } else {
                         rcc.csr.modify(|_, w| w.lsion().set_bit());
-                        while rcc.csr.read().lsirdy().bit_is_clear() {}
+                        bounded_loop!(rcc.csr.read().lsirdy().bit_is_clear(), RtcError::RegisterUnchanged);
                     }
                 }
             }
@@ -197,20 +199,23 @@ impl Rtc {
                 rcc.bdcr
                     .modify(|_, w| w.lsebyp().bit(config.bypass_lse_output));
                 rcc.bdcr.modify(|_, w| w.lseon().set_bit());
-                while rcc.bdcr.read().lserdy().bit_is_clear() {}
+                bounded_loop!(
+                    rcc.bdcr.read().lserdy().bit_is_clear(),
+                    RtcError::RegisterUnchanged
+                );
             }
             _ => (),
         }
 
         rcc.bdcr.modify(|_, w| {
             // 3. Select the RTC clock source in the Backup domain control register (RCC_BDCR).
-            unsafe { w.rtcsel().bits(result.config.clock_source as u8) };
+            unsafe { w.rtcsel().bits(rtc.config.clock_source as u8) };
             // 4. Enable the RTC clock by setting the RTCEN [15] bit in the Backup domain control
             // register (RCC_BDCR)
             w.rtcen().set_bit()
         });
 
-        result.edit_regs(false, |regs| {
+        rtc.edit_regs(false, |regs| {
             regs.cr.modify(
                 |_, w| {
                     unsafe {
@@ -234,19 +239,19 @@ impl Rtc {
                 w.prediv_s().bits(config.sync_prescaler);
                 w.prediv_a().bits(config.async_prescaler)
             });
-        });
+        })?;
 
-        result
+        Ok(rtc)
     }
 
     /// Sets calendar clock to 24 hr format
-    pub fn set_24h_fmt(&mut self) {
-        self.edit_regs(true, |regs| regs.cr.modify(|_, w| w.fmt().clear_bit()));
+    pub fn set_24h_fmt(&mut self) -> Result<(), RtcError> {
+        self.edit_regs(true, |regs| regs.cr.modify(|_, w| w.fmt().clear_bit()))
     }
 
     /// Sets calendar clock to 12 hr format
-    pub fn set_12h_fmt(&mut self) {
-        self.edit_regs(true, |regs| regs.cr.modify(|_, w| w.fmt().set_bit()));
+    pub fn set_12h_fmt(&mut self) -> Result<(), RtcError> {
+        self.edit_regs(true, |regs| regs.cr.modify(|_, w| w.fmt().set_bit()))
     }
 
     /// Reads current hour format selection
@@ -382,7 +387,7 @@ impl Rtc {
     /// adding the line `make_rtc_interrupt_handler!(RTC_WKUP);` somewhere in the body
     /// of your program.
     /// `sleep_time` is in ms.
-    pub fn set_wakeup(&mut self, sleep_time: f32) {
+    pub fn set_wakeup(&mut self, sleep_time: f32) -> Result<(), RtcError> {
         // Configure and enable the EXTI line corresponding to the Wakeup timer even in
         // interrupt mode and select the rising edge sensitivity.
         // Sleep time is in seconds.  See L4 RM, Table 47 to see that exti line 20 is the RTC wakeup
@@ -435,9 +440,9 @@ impl Rtc {
         // Poll WUTWF until it is set in RTC_ISR (RTC2)/RTC_ICSR (RTC3) (May not be avail on F3)
         cfg_if! {
             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
-                while self.regs.icsr.read().wutwf().bit_is_clear() {}
+                bounded_loop!(self.regs.icsr.read().wutwf().bit_is_clear(), RtcError::RegisterUnchanged);
             } else {
-                while self.regs.isr.read().wutwf().bit_is_clear() {}
+                bounded_loop!(self.regs.isr.read().wutwf().bit_is_clear(), RtcError::RegisterUnchanged);
             }
         }
 
@@ -458,6 +463,8 @@ impl Rtc {
         }
 
         self.regs.wpr.write(|w| unsafe { w.bits(0xFF) });
+
+        Ok(())
     }
 
     /// Enable the wakeup timer.
@@ -482,7 +489,7 @@ impl Rtc {
 
     /// Change the sleep time for the auto wakeup, after it's been set up.
     /// Sleep time is in MS. Major DRY from `set_wakeup`.
-    pub fn set_wakeup_interval(&mut self, sleep_time: f32) {
+    pub fn set_wakeup_interval(&mut self, sleep_time: f32) -> Result<(), RtcError> {
         // `sleep_time` is in seconds.
         // See comments in `set_auto_wakeup` for what these writes do.
 
@@ -498,9 +505,9 @@ impl Rtc {
 
         cfg_if! {
             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
-                while self.regs.icsr.read().wutwf().bit_is_clear() {}
+                bounded_loop!(self.regs.icsr.read().wutwf().bit_is_clear(), RtcError::RegisterUnchanged);
             } else {
-                while self.regs.isr.read().wutwf().bit_is_clear() {}
+                bounded_loop!(self.regs.isr.read().wutwf().bit_is_clear(), RtcError::RegisterUnchanged);
             }
         }
 
@@ -511,11 +518,13 @@ impl Rtc {
         }
 
         self.regs.wpr.write(|w| unsafe { w.bits(0xFF) });
+
+        Ok(())
     }
 
     /// Clears the wakeup flag. Must be cleared manually after every RTC wakeup.
     /// Alternatively, you could call this in the RTC wakeup interrupt handler.
-    pub fn clear_wakeup_flag(&mut self) {
+    pub fn clear_wakeup_flag(&mut self) -> Result<(), RtcError> {
         self.edit_regs(false, |regs| {
             regs.cr.modify(|_, w| w.wute().clear_bit());
 
@@ -531,13 +540,13 @@ impl Rtc {
             }
 
             regs.cr.modify(|_, w| w.wute().set_bit());
-        });
+        })
     }
 
     /// this function is used to disable write protection when modifying an RTC register.
     /// It also optionally handles the additional step required to set a clock or calendar
     /// value.
-    fn edit_regs<F>(&mut self, init_mode: bool, mut closure: F)
+    fn edit_regs<F>(&mut self, init_mode: bool, mut closure: F) -> Result<(), RtcError>
     where
         F: FnMut(&mut RTC),
     {
@@ -549,22 +558,22 @@ impl Rtc {
         // todo: L4 has ICSR and ISR regs. Maybe both for backwards compat?
 
         cfg_if! {
-             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
-                 // Enter init mode if required. This is generally used to edit the clock or calendar,
-                 // but not for initial enabling steps.
-                 if init_mode && self.regs.icsr.read().initf().bit_is_clear() {
-                     // are we already in init mode?
-                     self.regs.icsr.modify(|_, w| w.init().set_bit());
-                     while self.regs.icsr.read().initf().bit_is_clear() {} // wait to return to init state
-                 }
+            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
+                // Enter init mode if required. This is generally used to edit the clock or calendar,
+                // but not for initial enabling steps.
+                if init_mode && self.regs.icsr.read().initf().bit_is_clear() {
+                    // are we already in init mode?
+                    self.regs.icsr.modify(|_, w| w.init().set_bit());
+                    bounded_loop!(self.regs.icsr.read().initf().bit_is_clear(), RtcError::RegisterUnchanged);
+                }
 
-                 // Edit the regs specified in the closure, now that they're writable.
-                 closure(&mut self.regs);
+                // Edit the regs specified in the closure, now that they're writable.
+                closure(&mut self.regs);
 
-                 if init_mode {
-                     self.regs.icsr.modify(|_, w| w.init().clear_bit()); // Exits init mode
-                     while self.regs.icsr.read().initf().bit_is_set() {}
-                 }
+                if init_mode {
+                    self.regs.icsr.modify(|_, w| w.init().clear_bit()); // Exits init mode
+                    bounded_loop!(self.regs.icsr.read().initf().bit_is_set(), RtcError::RegisterUnchanged);
+                }
             // } else if #[cfg(feature = "wl")] {
             //     if init_mode && self.regs.isr.read().initf().bit_is_clear() {
             //         self.regs.icsr.modify(|_, w| w.init().set_bit());
@@ -578,29 +587,31 @@ impl Rtc {
             //         while self.regs.sr.read().initf().bit_is_set() {}
             //     }
             } else {
-                 if init_mode && self.regs.isr.read().initf().bit_is_clear() {
-                     self.regs.isr.modify(|_, w| w.init().set_bit());
-                     while self.regs.isr.read().initf().bit_is_clear() {} // wait to return to init state
-                 }
+                if init_mode && self.regs.isr.read().initf().bit_is_clear() {
+                    self.regs.isr.modify(|_, w| w.init().set_bit());
+                    bounded_loop!(self.regs.isr.read().initf().bit_is_clear(), RtcError::RegisterUnchanged);
+                }
 
-                 closure(&mut self.regs);
+                closure(&mut self.regs);
 
-                 if init_mode {
-                     self.regs.isr.modify(|_, w| w.init().clear_bit()); // Exits init mode
-                     while self.regs.isr.read().initf().bit_is_set() {}
-                 }
-             }
+                if init_mode {
+                    self.regs.isr.modify(|_, w| w.init().clear_bit()); // Exits init mode
+                    bounded_loop!(self.regs.isr.read().initf().bit_is_set(), RtcError::RegisterUnchanged);
+                }
+            }
         }
 
         // Re-enable write protection.
         // This is safe, as the field accepts the full range of 8-bit values.
         self.regs.wpr.write(|w| unsafe { w.bits(0xFF) });
+
+        Ok(())
     }
 
     /// set time using NaiveTime (ISO 8601 time without timezone)
     /// Hour format is 24h
-    pub fn set_time(&mut self, time: &NaiveTime) -> Result<(), Error> {
-        self.set_24h_fmt();
+    pub fn set_time(&mut self, time: &NaiveTime) -> Result<(), RtcError> {
+        self.set_24h_fmt()?;
         let (ht, hu) = bcd2_encode(time.hour())?;
         let (mnt, mnu) = bcd2_encode(time.minute())?;
         let (st, su) = bcd2_encode(time.second())?;
@@ -615,113 +626,97 @@ impl Rtc {
                 w.su().bits(su);
                 w.pm().clear_bit()
             })
-        });
-
-        Ok(())
+        })
     }
 
     /// Set the seconds component of the RTC's current time.
-    pub fn set_seconds(&mut self, seconds: u8) -> Result<(), Error> {
+    pub fn set_seconds(&mut self, seconds: u8) -> Result<(), RtcError> {
         if seconds > 59 {
-            return Err(Error::InvalidInputData);
+            return Err(RtcError::InvalidInputData);
         }
         let (st, su) = bcd2_encode(seconds as u32)?;
         self.edit_regs(true, |regs| {
             regs.tr
                 .modify(|_, w| unsafe { w.st().bits(st).su().bits(su) })
-        });
-
-        Ok(())
+        })
     }
 
     /// Set the minutes component of the RTC's current time.
-    pub fn set_minutes(&mut self, minutes: u8) -> Result<(), Error> {
+    pub fn set_minutes(&mut self, minutes: u8) -> Result<(), RtcError> {
         if minutes > 59 {
-            return Err(Error::InvalidInputData);
+            return Err(RtcError::InvalidInputData);
         }
         let (mnt, mnu) = bcd2_encode(minutes as u32)?;
         self.edit_regs(true, |regs| {
             regs.tr
                 .modify(|_, w| unsafe { w.mnt().bits(mnt).mnu().bits(mnu) })
-        });
-
-        Ok(())
+        })
     }
 
     /// Set the hours component of the RTC's current time.
-    pub fn set_hours(&mut self, hours: u8) -> Result<(), Error> {
+    pub fn set_hours(&mut self, hours: u8) -> Result<(), RtcError> {
         let (ht, hu) = bcd2_encode(hours as u32)?;
 
         self.edit_regs(true, |regs| {
             regs.tr
                 .modify(|_, w| unsafe { w.ht().bits(ht).hu().bits(hu) })
-        });
-
-        Ok(())
+        })
     }
 
     /// Set the weekday component of the RTC's current date.
-    pub fn set_weekday(&mut self, weekday: u8) -> Result<(), Error> {
+    pub fn set_weekday(&mut self, weekday: u8) -> Result<(), RtcError> {
         if !(1..=7).contains(&weekday) {
-            return Err(Error::InvalidInputData);
+            return Err(RtcError::InvalidInputData);
         }
         self.edit_regs(true, |regs| {
             regs.dr.modify(|_, w| unsafe { w.wdu().bits(weekday) })
-        });
-
-        Ok(())
+        })
     }
 
     /// Set the day component of the RTC's current date.
-    pub fn set_day(&mut self, day: u8) -> Result<(), Error> {
+    pub fn set_day(&mut self, day: u8) -> Result<(), RtcError> {
         if !(1..=31).contains(&day) {
-            return Err(Error::InvalidInputData);
+            return Err(RtcError::InvalidInputData);
         }
         let (dt, du) = bcd2_encode(day as u32)?;
         self.edit_regs(true, |regs| {
             regs.dr
                 .modify(unsafe { |_, w| w.dt().bits(dt).du().bits(du) })
-        });
-
-        Ok(())
+        })
     }
 
     /// Set the month component of the RTC's current date.
-    pub fn set_month(&mut self, month: u8) -> Result<(), Error> {
+    pub fn set_month(&mut self, month: u8) -> Result<(), RtcError> {
         if !(1..=12).contains(&month) {
-            return Err(Error::InvalidInputData);
+            return Err(RtcError::InvalidInputData);
         }
         let (mt, mu) = bcd2_encode(month as u32)?;
         self.edit_regs(true, |regs| {
             regs.dr
                 .modify(|_, w| unsafe { w.mt().bit(mt > 0).mu().bits(mu) })
-        });
-
-        Ok(())
+        })
     }
 
     /// Set the year component of the RTC's current date.
-    pub fn set_year(&mut self, year: u16) -> Result<(), Error> {
+    pub fn set_year(&mut self, year: u16) -> Result<(), RtcError> {
         if !(1970..=2038).contains(&year) {
             // todo: Is this right?
-            return Err(Error::InvalidInputData);
+            return Err(RtcError::InvalidInputData);
         }
         let (yt, yu) = bcd2_encode(year as u32 - 2_000)?;
         // todo RTC is 2000 based ? Not sure best way to handle this.
         self.edit_regs(true, |regs| {
             regs.dr
                 .modify(|_, w| unsafe { w.yt().bits(yt).yu().bits(yu) })
-        });
-
-        Ok(())
+        })
     }
 
     /// Set the date using NaiveDate (ISO 8601 calendar date without timezone).
     /// WeekDay is set using the `set_weekday` method
-    pub fn set_date(&mut self, date: &NaiveDate) -> Result<(), Error> {
+    pub fn set_date(&mut self, date: &NaiveDate) -> Result<(), RtcError> {
         if date.year() < 1970 {
             // todo: Is this right?
-            return Err(Error::InvalidInputData);
+            return Err(RtcError::InvalidInputData);
         }
 
         let (yt, yu) = bcd2_encode((date.year() - 2_000) as u32)?;
@@ -737,19 +732,17 @@ impl Rtc {
                 w.yt().bits(yt);
                 w.yu().bits(yu)
             })
-        });
-
-        Ok(())
+        })
     }
 
     /// Set the current datetime.
-    pub fn set_datetime(&mut self, date: &NaiveDateTime) -> Result<(), Error> {
+    pub fn set_datetime(&mut self, date: &NaiveDateTime) -> Result<(), RtcError> {
         if date.year() < 1970 {
             // todo is this right?
-            return Err(Error::InvalidInputData);
+            return Err(RtcError::InvalidInputData);
         }
 
-        self.set_24h_fmt();
+        self.set_24h_fmt()?;
         let (yt, yu) = bcd2_encode((date.year() - 2_000) as u32)?;
         let (mt, mu) = bcd2_encode(date.month())?;
         let (dt, du) = bcd2_encode(date.day())?;
@@ -767,7 +760,7 @@ impl Rtc {
                 w.yt().bits(yt);
                 w.yu().bits(yu)
             })
-        });
+        })?;
 
         self.edit_regs(true, |regs| {
             regs.tr.write(|w| unsafe {
@@ -779,7 +772,7 @@ impl Rtc {
                 w.su().bits(su);
                 w.pm().clear_bit()
             })
-        });
+        })?;
 
         Ok(())
     }
@@ -870,17 +863,17 @@ impl Rtc {
 //
 // The following helper functions encode into BCD format from integer and
 // decode to an integer from a BCD value respectively.
-fn bcd2_encode(word: u32) -> Result<(u8, u8), Error> {
+fn bcd2_encode(word: u32) -> Result<(u8, u8), RtcError> {
     let l = match (word / 10).try_into() {
         Ok(v) => v,
         Err(_) => {
-            return Err(Error::InvalidInputData);
+            return Err(RtcError::InvalidInputData);
         }
     };
     let r = match (word % 10).try_into() {
         Ok(v) => v,
         Err(_) => {
-            return Err(Error::InvalidInputData);
+            return Err(RtcError::InvalidInputData);
         }
     };
 

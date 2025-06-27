@@ -5,7 +5,7 @@ use core;
 
 use cfg_if::cfg_if;
 
-use super::{Flash, page_to_address};
+use super::{Flash, FlashError, page_to_address};
 use crate::pac::FLASH;
 #[cfg(feature = "h7")]
 use crate::pac::flash::BANK;
@@ -30,21 +30,6 @@ pub enum Bank {
     // todo: PAC bank 2 error
     #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
     B2 = 1,
-}
-
-#[derive(Copy, Clone, Debug, defmt::Format)]
-/// Possible error states for flash operations.
-pub enum Error {
-    /// Flash controller is not done yet
-    Busy,
-    /// Error detected (by command execution, or because no command could be executed)
-    Illegal,
-    /// Set during read if ECC decoding logic detects correctable or uncorrectable error
-    EccError,
-    /// Page number is out of range
-    PageOutOfRange,
-    /// (Legal) command failed
-    Failure,
 }
 
 // todo: Bank 2 support on H7 and others.
@@ -165,7 +150,7 @@ impl Flash {
     /// "After reset, write is not allowed in the Flash control register (FLASH_CR) to protect the
     /// Flash memory against possible unwanted operations due, for example, to electric
     /// disturbances."
-    pub fn unlock(&mut self) -> Result<(), Error> {
+    pub fn unlock(&mut self) -> Result<(), FlashError> {
         #[cfg(not(feature = "h7"))]
         let regs = &self.regs;
         #[cfg(feature = "h7")]
@@ -184,7 +169,7 @@ impl Flash {
         if regs.cr.read().lock().bit_is_clear() {
             Ok(())
         } else {
-            Err(Error::Failure)
+            Err(FlashError::Failure)
         }
     }
 
@@ -209,7 +194,7 @@ impl Flash {
     //     }
     // }
 
-    pub fn lock(&mut self) {
+    pub fn lock(&mut self) -> Result<(), FlashError> {
         // The FLASH_CR register cannot be written when the BSY bit in the Flash status register
         // (FLASH_SR) is set. Any attempt to write to it with the BSY bit set causes the AHB bus to
         // stall until the BSY bit is cleared.
@@ -220,8 +205,12 @@ impl Flash {
         #[cfg(feature = "h7")]
         let regs = &self.regs.bank1();
 
-        while regs.sr.read().bsy().bit_is_set() {}
+        bounded_loop!(
+            regs.sr.read().bsy().bit_is_set(),
+            FlashError::RegisterUnchanged
+        );
         regs.cr.modify(|_, w| w.lock().set_bit());
+        Ok(())
     }
 
     #[cfg(not(feature = "h7"))]
@@ -231,15 +220,15 @@ impl Flash {
     /// "Programming in a previously programmed address is not allowed except if the data to write
     /// is full zero, and any attempt will set PROGERR flag in the Flash status register
     /// (FLASH_SR)."
-    pub fn erase_page(&mut self, bank: Bank, page: usize) -> Result<(), Error> {
+    pub fn erase_page(&mut self, bank: Bank, page: usize) -> Result<(), FlashError> {
         self.unlock()?;
         let regs = &self.regs;
 
         // 1. Check that no Flash memory operation is ongoing by checking the BSY bit in the Flash
         // status register (FLASH_SR).
         if regs.sr.read().bsy().bit_is_set() {
-            self.lock();
-            return Err(Error::Busy);
+            self.lock()?;
+            return Err(FlashError::Busy);
         }
 
         // 2. Check and clear all error programming flags due to a previous programming. If not,
@@ -302,13 +291,19 @@ impl Flash {
         }
 
         // 5. Wait for the BSY bit to be cleared in the FLASH_SR register.
-        while regs.sr.read().bsy().bit_is_set() {}
+        bounded_loop!(
+            regs.sr.read().bsy().bit_is_set(),
+            FlashError::RegisterUnchanged
+        );
 
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "f4"))] {
                 // Check the EOP flag in the FLASH_SR register (it is set when the erase operation has
                 // succeeded), and then clear it by software.
-                while regs.sr.read().eop().bit_is_clear() {}
+                bounded_loop!(
+                    regs.sr.read().eop().bit_is_clear(),
+                    FlashError::RegisterUnchanged
+                );
                 regs.sr.modify(|_, w| w.eop().set_bit());
             }
         }
@@ -317,7 +312,7 @@ impl Flash {
         #[cfg(feature = "f4")]
         regs.cr.modify(|_, w| w.ser().clear_bit());
 
-        self.lock();
+        self.lock()?;
 
         Ok(())
     }
@@ -327,7 +322,7 @@ impl Flash {
     /// Flash sector erase sequence. Note that this is similar to the procedure for other
     /// families, but has a different name "sector" vice "page", and the RM instructions
     /// are phrased differently.
-    pub fn erase_page(&mut self, bank: Bank, sector: usize) -> Result<(), Error> {
+    pub fn erase_page(&mut self, bank: Bank, sector: usize) -> Result<(), FlashError> {
         self.unlock()?;
 
         let regs = &match bank {
@@ -358,7 +353,10 @@ impl Flash {
         regs.cr.modify(|_, w| w.start().set_bit());
 
         // 5. Wait for the QW1/2 bit to be cleared in the corresponding FLASH_SR1/2 register.
-        while regs.sr.read().qw().bit_is_set() {}
+        bounded_loop!(
+            regs.sr.read().qw().bit_is_set(),
+            FlashError::RegisterUnchanged
+        );
 
         self.lock();
 
@@ -366,7 +364,7 @@ impl Flash {
     }
 
     /// Erase one or both banks. Called "Mass erase" on single-bank variants like G4.
-    pub fn erase_bank(&mut self, bank: Bank) -> Result<(), Error> {
+    pub fn erase_bank(&mut self, bank: Bank) -> Result<(), FlashError> {
         // todo: DRY
         // (H7): 2. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration
         // protection (only if register is not already unlocked).
@@ -391,8 +389,8 @@ impl Flash {
         // operation. Refer to Section 4.7: FLASH error management for details.
         let sr = regs.sr.read();
         if sr.bsy().bit_is_set() {
-            self.lock();
-            return Err(Error::Busy);
+            self.lock()?;
+            return Err(FlashError::Busy);
         }
 
         // 2. Check and clear all error programming flags due to a previous programming. If not,
@@ -427,7 +425,10 @@ impl Flash {
                 // 4. Set the START bit in the FLASH_CR1/2 register to start the bank erase operation. Then
                 // wait until the QW1/2 bit is cleared in the corresponding FLASH_SR1/2 register.
                 regs.cr.modify(|_, w| w.start().set_bit());
-                while regs.sr.read().qw().bit_is_set() {}
+                bounded_loop!(
+                    regs.sr.read().qw().bit_is_clear(),
+                    FlashError::RegisterUnchanged
+                );
             } else if #[cfg(feature = "l4")] {
                 regs.cr.modify( | _, w | w.start().set_bit());
             } else {
@@ -436,7 +437,10 @@ impl Flash {
         }
 
         // 5. Wait for the BSY bit to be cleared in the FLASH_SR register.
-        while regs.sr.read().bsy().bit_is_set() {}
+        bounded_loop!(
+            regs.sr.read().bsy().bit_is_set(),
+            FlashError::RegisterUnchanged
+        );
 
         // (Some RMs describe this procedure, to clear mer, with ambiguity of if it's required)
         cfg_if! {
@@ -449,7 +453,7 @@ impl Flash {
             }
         }
 
-        self.lock();
+        self.lock()?;
 
         Ok(())
     }
@@ -459,7 +463,7 @@ impl Flash {
     /// Make sure the page is one your MCU has, and isn't being used for the program itself.
     #[cfg(not(feature = "h7"))]
     #[allow(unused_variables)] // bank arg on single-bank MCUs.
-    pub fn write_page(&mut self, bank: Bank, page: usize, data: &[u8]) -> Result<(), Error> {
+    pub fn write_page(&mut self, bank: Bank, page: usize, data: &[u8]) -> Result<(), FlashError> {
         // todo: Consider a u8-based approach.
         // todo: DRY from `erase_page`.
 
@@ -472,8 +476,8 @@ impl Flash {
         // Flash status register (FLASH_SR).
         let sr = regs.sr.read();
         if sr.bsy().bit_is_set() {
-            self.lock();
-            return Err(Error::Busy);
+            self.lock()?;
+            return Err(FlashError::Busy);
         }
 
         // 2. Check and clear all error programming flags due to a previous programming. If not,
@@ -531,7 +535,10 @@ impl Flash {
                 address = address.add(1);
             }
             // 5. Wait until the BSY bit is cleared in the FLASH_SR register.
-            while regs.sr.read().bsy().bit_is_set() {}
+            bounded_loop!(
+                regs.sr.read().bsy().bit_is_set(),
+                FlashError::RegisterUnchanged
+            );
 
             // 6. Check that EOP flag is set in the FLASH_SR register (meaning that the programming
             // operation has succeed), and clear it by software.
@@ -544,7 +551,7 @@ impl Flash {
         // anymore.
         regs.cr.modify(|_, w| w.pg().clear_bit());
 
-        self.lock();
+        self.lock()?;
 
         Ok(())
     }
@@ -553,7 +560,7 @@ impl Flash {
     /// Make sure the sector is one your MCU has, and isn't being used for the program itself. Writes
     /// a byte array, 256 bits at a time.
     #[cfg(feature = "h7")]
-    pub fn write_page(&mut self, bank: Bank, sector: usize, data: &[u8]) -> Result<(), Error> {
+    pub fn write_page(&mut self, bank: Bank, sector: usize, data: &[u8]) -> Result<(), FlashError> {
         // 1. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1: FLASH configuration
         // protection (only if register is not already unlocked).
         self.unlock()?;
@@ -588,16 +595,24 @@ impl Flash {
             }
 
             // 5. Check that QW has been raised and wait until it is reset to 0.
-            while regs.sr.read().qw().bit_is_set() {}
+            bounded_loop!(
+                regs.sr.read().qw().bit_is_set(),
+                FlashError::RegisterUnchanged
+            );
         }
 
-        self.lock();
+        self.lock()?;
 
         Ok(())
     }
 
     /// Erase a page, then write to it.
-    pub fn erase_write_page(&mut self, bank: Bank, page: usize, data: &[u8]) -> Result<(), Error> {
+    pub fn erase_write_page(
+        &mut self,
+        bank: Bank,
+        page: usize,
+        data: &[u8],
+    ) -> Result<(), FlashError> {
         self.erase_page(bank, page)?;
         self.write_page(bank, page, data)?;
 

@@ -479,17 +479,6 @@ impl Clocks {
             rcc.apb4rstr.modify(|_, w| w.syscfgrst().clear_bit());
         }
 
-        let mut i = 0;
-
-        macro_rules! wait_hang {
-            ($i:expr) => {
-                i += 1;
-                if i >= MAX_ITERS {
-                    return Err(RccError::Hardware);
-                }
-            };
-        }
-
         // H743 RM, sefction 6.8.6, and section 6.6.2: Voltage Scaling
         //  Voltage scaling selection according to performance
         // These bits control the VCORE voltage level and allow to obtains the best trade-off between
@@ -516,14 +505,18 @@ impl Clocks {
                         pwr.d3cr
                             .modify(|_, w| unsafe { w.vos().bits(VosRange::VOS1 as u8) });
 
-                        i = 0;
-                        while pwr.d3cr.read().vosrdy().bit_is_clear() {wait_hang!(i);}
+                        bounded_loop!(
+                            pwr.d3cr.read().vosrdy().bit_is_clear(),
+                            RccError::RegisterUnchanged
+                        );
                     } else {
                         pwr.voscr
                             .modify(|_, w| unsafe { w.vos().bits(VosRange::VOS1 as u8) });
 
-                        i = 0;
-                        while pwr.vossr.read().vosrdy().bit_is_clear() {wait_hang!(i);}
+                        bounded_loop!(
+                            pwr.vossr.read().vosrdy().bit_is_clear(),
+                            RccError::RegisterUnchanged
+                        );
                     }
                 }
 
@@ -535,15 +528,16 @@ impl Clocks {
                 syscfg.pwrcr.modify(|_, w| w.oden().set_bit());
 
                 // 4. Wait for VOSRDY to be set.
-                i = 0;
                 #[cfg(feature = "h7")]
-                while pwr.d3cr.read().vosrdy().bit_is_clear() {
-                    wait_hang!(i);
-                }
+                bounded_loop!(
+                    pwr.d3cr.read().vosrdy().bit_is_clear(),
+                    RccError::RegisterUnchanged
+                );
                 #[cfg(feature = "h5")]
-                while pwr.vossr.read().vosrdy().bit_is_clear() {
-                    wait_hang!(i);
-                }
+                bounded_loop!(
+                    pwr.vossr.read().vosrdy().bit_is_clear(),
+                    RccError::RegisterUnchanged
+                );
 
                 // Once the VCORE supply has reached the required level, the system frequency can be
                 // increased. Figure 31 shows the recommended sequence for switching VCORE from VOS1 to
@@ -578,55 +572,55 @@ impl Clocks {
         match self.input_src {
             InputSrc::Csi => {
                 rcc.cr.modify(|_, w| w.csion().bit(true));
-                i = 0;
-                while rcc.cr.read().csirdy().bit_is_clear() {
-                    wait_hang!(i);
-                }
+                bounded_loop!(
+                    rcc.cr.read().csirdy().bit_is_clear(),
+                    RccError::RegisterUnchanged
+                );
             }
             InputSrc::Hse(_) => {
                 rcc.cr.modify(|_, w| w.hseon().bit(true));
                 // Wait for the HSE to be ready.
-                i = 0;
-                while rcc.cr.read().hserdy().bit_is_clear() {
-                    wait_hang!(i);
-                }
+                bounded_loop!(
+                    rcc.cr.read().hserdy().bit_is_clear(),
+                    RccError::RegisterUnchanged
+                );
             }
             InputSrc::Hsi(div) => {
                 rcc.cr.modify(|_, w| unsafe {
                     w.hsidiv().bits(div as u8);
                     w.hsion().bit(true)
                 });
-                i = 0;
-                while rcc.cr.read().hsirdy().bit_is_clear() {
-                    wait_hang!(i);
-                }
+                bounded_loop!(
+                    rcc.cr.read().hsirdy().bit_is_clear(),
+                    RccError::RegisterUnchanged
+                );
             }
             InputSrc::Pll1 => {
                 // todo: PLL setup here is DRY with the HSE, HSI, and Csi setup above.
                 match self.pll_src {
                     PllSrc::Csi => {
                         rcc.cr.modify(|_, w| w.csion().bit(true));
-                        i = 0;
-                        while rcc.cr.read().csirdy().bit_is_clear() {
-                            wait_hang!(i);
-                        }
+                        bounded_loop!(
+                            rcc.cr.read().csirdy().bit_is_clear(),
+                            RccError::RegisterUnchanged
+                        );
                     }
                     PllSrc::Hse(_) => {
                         rcc.cr.modify(|_, w| w.hseon().bit(true));
-                        i = 0;
-                        while rcc.cr.read().hserdy().bit_is_clear() {
-                            wait_hang!(i);
-                        }
+                        bounded_loop!(
+                            rcc.cr.read().hserdy().bit_is_clear(),
+                            RccError::RegisterUnchanged
+                        );
                     }
                     PllSrc::Hsi(div) => {
                         rcc.cr.modify(|_, w| unsafe {
                             w.hsidiv().bits(div as u8);
                             w.hsion().bit(true)
                         });
-                        i = 0;
-                        while rcc.cr.read().hsirdy().bit_is_clear() {
-                            wait_hang!(i);
-                        }
+                        bounded_loop!(
+                            rcc.cr.read().hsirdy().bit_is_clear(),
+                            RccError::RegisterUnchanged
+                        );
                     }
                     PllSrc::None => {}
                 }
@@ -737,7 +731,10 @@ impl Clocks {
             // Turn off the PLL: Required for modifying some of the settings below.
             rcc.cr.modify(|_, w| w.pll1on().clear_bit());
             // Wait for the PLL to no longer be ready before executing certain writes.
-            while rcc.cr.read().pll1rdy().bit_is_set() {}
+            bounded_loop!(
+                rcc.cr.read().pll1rdy().bit_is_set(),
+                RccError::RegisterUnchanged
+            );
 
             // Set and reset by software to select the proper reference frequency range used for PLL1.
             // This bit must be written before enabling the PLL1.
@@ -819,19 +816,19 @@ impl Clocks {
 
             // Now turn PLL back on, once we're configured things that can only be set with it off.
             rcc.cr.modify(|_, w| w.pll1on().set_bit());
-            i = 0;
-            while rcc.cr.read().pll1rdy().bit_is_clear() {
-                wait_hang!(i);
-            }
+            bounded_loop!(
+                rcc.cr.read().pll1rdy().bit_is_set(),
+                RccError::RegisterUnchanged
+            );
         }
 
         // todo DRY
         if self.pll2.enabled {
             rcc.cr.modify(|_, w| w.pll2on().clear_bit());
-            i = 0;
-            while rcc.cr.read().pll2rdy().bit_is_set() {
-                wait_hang!(i);
-            }
+            bounded_loop!(
+                rcc.cr.read().pll2rdy().bit_is_set(),
+                RccError::RegisterUnchanged
+            );
 
             let pll2_rng_val = match self.pll_input_speed(self.pll_src, 2) {
                 1_000_000..=2_000_000 => 0b00,
@@ -885,18 +882,18 @@ impl Clocks {
             });
 
             rcc.cr.modify(|_, w| w.pll2on().set_bit());
-            i = 0;
-            while rcc.cr.read().pll2rdy().bit_is_clear() {
-                wait_hang!(i);
-            }
+            bounded_loop!(
+                rcc.cr.read().pll2rdy().bit_is_clear(),
+                RccError::RegisterUnchanged
+            );
         }
 
         if self.pll3.enabled {
             rcc.cr.modify(|_, w| w.pll3on().clear_bit());
-            i = 0;
-            while rcc.cr.read().pll3rdy().bit_is_set() {
-                wait_hang!(i);
-            }
+            bounded_loop!(
+                rcc.cr.read().pll3rdy().bit_is_set(),
+                RccError::RegisterUnchanged
+            );
 
             let pll3_rng_val = match self.pll_input_speed(self.pll_src, 3) {
                 1_000_000..=2_000_000 => 0b00,
@@ -950,18 +947,18 @@ impl Clocks {
             });
 
             rcc.cr.modify(|_, w| w.pll3on().set_bit());
-            i = 0;
-            while rcc.cr.read().pll3rdy().bit_is_clear() {
-                wait_hang!(i);
-            }
+            bounded_loop!(
+                rcc.cr.read().pll3rdy().bit_is_clear(),
+                RccError::RegisterUnchanged
+            );
         }
 
         if self.hsi48_on {
             rcc.cr.modify(|_, w| w.hsi48on().set_bit());
-            i = 0;
-            while rcc.cr.read().hsi48rdy().bit_is_clear() {
-                wait_hang!(i);
-            }
+            bounded_loop!(
+                rcc.cr.read().hsi48rdy().bit_is_clear(),
+                RccError::RegisterUnchanged
+            );
         }
 
         Ok(())
@@ -974,25 +971,15 @@ impl Clocks {
 
         let rcc = unsafe { &(*RCC::ptr()) };
 
-        let mut i = 0;
-        macro_rules! wait_hang {
-            ($i:expr) => {
-                i += 1;
-                if i >= MAX_ITERS {
-                    return Err(RccError::Hardware);
-                }
-            };
-        }
-
         // Note: It would save code repetition to pass the `Clocks` struct in and re-run setup
         // todo: But this saves a few reg writes.
         match self.input_src {
             InputSrc::Hse(_) => {
                 rcc.cr.modify(|_, w| w.hseon().set_bit());
-                i = 0;
-                while rcc.cr.read().hserdy().bit_is_clear() {
-                    wait_hang!(i);
-                }
+                bounded_loop!(
+                    rcc.cr.read().hserdy().bit_is_clear(),
+                    RccError::RegisterUnchanged
+                );
 
                 rcc.cfgr
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
@@ -1002,10 +989,10 @@ impl Clocks {
                 match self.pll_src {
                     PllSrc::Hse(_) => {
                         rcc.cr.modify(|_, w| w.hseon().set_bit());
-                        i = 0;
-                        while rcc.cr.read().hserdy().bit_is_clear() {
-                            wait_hang!(i);
-                        }
+                        bounded_loop!(
+                            rcc.cr.read().hserdy().bit_is_clear(),
+                            RccError::RegisterUnchanged
+                        );
                     }
                     PllSrc::Hsi(div) => {
                         // Generally reverts to Csi (see note below)
@@ -1013,10 +1000,10 @@ impl Clocks {
                             w.hsidiv().bits(div as u8); // todo: Do we need to reset the HSI div after low power?
                             w.hsion().bit(true)
                         });
-                        i = 0;
-                        while rcc.cr.read().hsirdy().bit_is_clear() {
-                            wait_hang!(i);
-                        }
+                        bounded_loop!(
+                            rcc.cr.read().hsirdy().bit_is_clear(),
+                            RccError::RegisterUnchanged
+                        );
                     }
                     PllSrc::Csi => (), // todo
                     PllSrc::None => (),
@@ -1024,19 +1011,19 @@ impl Clocks {
 
                 // todo: PLL 2 and 3?
                 rcc.cr.modify(|_, w| w.pll1on().clear_bit());
-                i = 0;
-                while rcc.cr.read().pll1rdy().bit_is_set() {
-                    wait_hang!(i);
-                }
+                bounded_loop!(
+                    rcc.cr.read().pll1rdy().bit_is_set(),
+                    RccError::RegisterUnchanged
+                );
 
                 rcc.cfgr
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
 
                 rcc.cr.modify(|_, w| w.pll1on().set_bit());
-                i = 0;
-                while rcc.cr.read().pll1rdy().bit_is_clear() {
-                    wait_hang!(i);
-                }
+                bounded_loop!(
+                    rcc.cr.read().pll1rdy().bit_is_clear(),
+                    RccError::RegisterUnchanged
+                );
             }
             InputSrc::Hsi(div) => {
                 {
@@ -1050,9 +1037,10 @@ impl Clocks {
                         w.hsion().bit(true)
                     });
                     i = 0;
-                    while rcc.cr.read().hsirdy().bit_is_clear() {
-                        wait_hang!(i);
-                    }
+                    bounded_loop!(
+                        rcc.cr.read().hsirdy().bit_is_clear(),
+                        RccError::RegisterUnchanged
+                    );
                 }
             }
             InputSrc::Csi => (), // ?

@@ -26,27 +26,28 @@ pub enum I2cDevice {
 }
 
 #[derive(Debug, defmt::Format)]
-pub enum Error {
-    OVERRUN,
-    NACK,
-    TIMEOUT,
-    // Note: The BUS error type is not currently returned, but is maintained for backwards
+pub enum I2cError {
+    Overrun,
+    Nack,
+    Timeout,
+    // Note: The  error type is not currently returned, but is maintained for backwards
     // compatibility.
-    BUS,
-    CRC,
-    ARBITRATION,
+    Bus,
+    Crc,
+    Arbitration,
+    RegisterUnchanged,
 }
 
 #[cfg(feature = "embedded_hal")]
 #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
-impl embedded_hal::i2c::Error for Error {
+impl embedded_hal::i2c::Error for I2cError {
     fn kind(&self) -> ErrorKind {
         match self {
-            Error::OVERRUN => ErrorKind::Overrun,
-            Error::NACK => ErrorKind::NoAcknowledge(NoAcknowledgeSource::Unknown),
-            Error::TIMEOUT | Error::CRC => ErrorKind::Other,
-            Error::BUS => ErrorKind::Bus,
-            Error::ARBITRATION => ErrorKind::ArbitrationLoss,
+            I2cError::Overrun => ErrorKind::Overrun,
+            I2cError::Nack => ErrorKind::NoAcknowledge(NoAcknowledgeSource::Unknown),
+            I2cError::Timeout | I2cError::Crc => ErrorKind::Other,
+            I2cError::Bus => ErrorKind::Bus,
+            I2cError::Arbitration => ErrorKind::ArbitrationLoss,
         }
     }
 }
@@ -145,34 +146,34 @@ where
         self.regs.cr1.modify(|_, w| w.pe().set_bit());
     }
 
-    pub fn check_and_clear_error_flags(&self) -> Result<i2c1::sr1::R, Error> {
+    pub fn check_and_clear_error_flags(&self) -> Result<i2c1::sr1::R, I2cError> {
         // Note that flags should only be cleared once they have been registered. If flags are
         // cleared otherwise, there may be an inherent race condition and flags may be missed.
         let sr1 = self.regs.sr1.read();
 
         if sr1.timeout().bit_is_set() {
             self.regs.sr1.modify(|_, w| w.timeout().clear_bit());
-            return Err(Error::TIMEOUT);
+            return Err(I2cError::Timeout);
         }
 
         if sr1.pecerr().bit_is_set() {
             self.regs.sr1.modify(|_, w| w.pecerr().clear_bit());
-            return Err(Error::CRC);
+            return Err(I2cError::Crc);
         }
 
         if sr1.ovr().bit_is_set() {
             self.regs.sr1.modify(|_, w| w.ovr().clear_bit());
-            return Err(Error::OVERRUN);
+            return Err(I2cError::Overrun);
         }
 
         if sr1.af().bit_is_set() {
             self.regs.sr1.modify(|_, w| w.af().clear_bit());
-            return Err(Error::NACK);
+            return Err(I2cError::Nack);
         }
 
         if sr1.arlo().bit_is_set() {
             self.regs.sr1.modify(|_, w| w.arlo().clear_bit());
-            return Err(Error::ARBITRATION);
+            return Err(I2cError::Arbitration);
         }
 
         // The errata indicates that BERR may be incorrectly detected. It recommends ignoring and
@@ -184,34 +185,32 @@ where
         Ok(sr1)
     }
 
-    pub fn write_bytes(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+    pub fn write_bytes(&mut self, addr: u8, bytes: &[u8]) -> Result<(), I2cError> {
         // Send a START condition
         self.regs.cr1.modify(|_, w| w.start().set_bit());
 
         // Wait until START condition was generated
-        while self.check_and_clear_error_flags()?.sb().bit_is_clear() {}
+        let sr1 = self.check_and_clear_error_flags()?;
+        bounded_loop!(sr1.sb().bit_is_clear(), I2cError::RegisterUnchanged);
 
         // Also wait until signalled we're master and everything is waiting for us
-        while {
-            self.check_and_clear_error_flags()?;
-
-            let sr2 = self.regs.sr2.read();
-            sr2.msl().bit_is_clear() && sr2.busy().bit_is_clear()
-        } {}
+        let sr2 = self.regs.sr2.read();
+        bounded_loop!(
+            sr2.msl().bit_is_clear() && sr2.busy().bit_is_clear(),
+            I2cError::RegisterUnchanged
+        );
 
         // Set up current address, we're trying to talk to
         self.regs
             .dr
             .write(|w| unsafe { w.bits(u32::from(addr) << 1) });
 
+        let sr1 = self.check_and_clear_error_flags()?;
         // Wait until address was sent
-        while {
-            // Check for any I2C errors. If a NACK occurs, the ADDR bit will never be set.
-            let sr1 = self.check_and_clear_error_flags()?;
-
-            // Wait for the address to be acknowledged
-            sr1.addr().bit_is_clear()
-        } {}
+        //
+        // Check for any I2C errors. If a Nack occurs, the ADDR bit will never be set.
+        // Wait for the address to be acknowledged
+        bounded_loop!(sr1.addr().bit_is_clear(), I2cError::RegisterUnchanged);
 
         // Clear condition by reading SR2
         self.regs.sr2.read();
@@ -225,32 +224,28 @@ where
         Ok(())
     }
 
-    pub fn send_byte(&self, byte: u8) -> Result<(), Error> {
+    pub fn send_byte(&self, byte: u8) -> Result<(), I2cError> {
         // Wait until we're ready for sending
-        while {
-            // Check for any I2C errors. If a NACK occurs, the ADDR bit will never be set.
-            self.check_and_clear_error_flags()?.tx_e().bit_is_clear()
-        } {}
+        // Check for any I2C errors. If a Nack occurs, the ADDR bit will never be set.
+        let sr1 = self.check_and_clear_error_flags()?;
+        bounded_loop!(sr1.tx_e().bit_is_clear(), I2cError::RegisterUnchanged);
 
         // Push out a byte of data
         self.regs.dr.write(|w| unsafe { w.bits(u32::from(byte)) });
 
+        // Check for any potential error conditions.
+        let sr1 = self.check_and_clear_error_flags()?;
+
         // Wait until byte is transferred
-        while {
-            // Check for any potential error conditions.
-            self.check_and_clear_error_flags()?.btf().bit_is_clear()
-        } {}
+        bounded_loop!(sr1.btf().bit_is_clear(), I2cError::RegisterUnchanged);
 
         Ok(())
     }
 
-    pub fn recv_byte(&self) -> Result<u8, Error> {
-        while {
-            // Check for any potential error conditions.
-            self.check_and_clear_error_flags()?;
-
-            self.regs.sr1.read().rx_ne().bit_is_clear()
-        } {}
+    pub fn recv_byte(&self) -> Result<u8, I2cError> {
+        let sr1 = self.check_and_clear_error_flags()?;
+        // Check for any potential error conditions.
+        bounded_loop!(sr1.rx_ne().bit_is_clear(), I2cError::RegisterUnchanged);
 
         let value = self.regs.dr.read().bits() as u8;
         Ok(value)
@@ -263,7 +258,7 @@ impl<R> embedded_hal::i2c::ErrorType for I2c<R>
 where
     R: Deref<Target = i2c1::RegisterBlock>,
 {
-    type Error = Error;
+    type Error = I2cError;
 }
 
 #[cfg(feature = "embedded_hal")]
@@ -276,7 +271,7 @@ where
         &mut self,
         address: SevenBitAddress,
         operations: &mut [Operation<'_>],
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), Self::I2cError> {
         /*
 
         embedded_hal Operation Contract:
@@ -303,7 +298,10 @@ where
                     self.regs.cr1.modify(|_, w| w.stop().set_bit());
 
                     // Wait for STOP condition to transmit.
-                    while self.regs.cr1.read().stop().bit_is_set() {}
+                    bounded_loop!(
+                        self.regs.cr1.read().stop().bit_is_set(),
+                        I2cError::RegisterUnchanged
+                    );
                 }
 
                 Operation::Read(buffer) => {
@@ -314,24 +312,29 @@ where
                             .modify(|_, w| w.start().set_bit().ack().set_bit());
 
                         // Wait until START condition was generated
-                        while self.regs.sr1.read().sb().bit_is_clear() {}
+                        bounded_loop!(
+                            self.regs.sr1.read().sb().bit_is_clear(),
+                            I2cError::RegisterUnchanged
+                        );
 
                         // Also wait until signalled we're master and everything is waiting for us
-                        while {
-                            let sr2 = self.regs.sr2.read();
-                            sr2.msl().bit_is_clear() && sr2.busy().bit_is_clear()
-                        } {}
+                        let sr2 = self.regs.sr2.read();
+                        bounded_loop!(
+                            sr2.msl().bit_is_clear() && sr2.busy().bit_is_clear(),
+                            I2cError::RegisterUnchanged
+                        );
 
                         // Set up current address, we're trying to talk to
                         self.regs
                             .dr
                             .write(|w| unsafe { w.bits((u32::from(address) << 1) + 1) });
 
+                        let sr1 = self.check_and_clear_error_flags()?;
                         // Wait until address was sent
-                        while {
-                            self.check_and_clear_error_flags()?;
-                            self.regs.sr1.read().addr().bit_is_clear()
-                        } {}
+                        bounded_loop!(
+                            sr1.read().addr().bit_is_clear(),
+                            I2cError::RegisterUnchanged
+                        );
 
                         // Clear condition by reading SR2
                         self.regs.sr2.read();
@@ -341,7 +344,7 @@ where
                             *c = self.recv_byte()?;
                         }
 
-                        // Prepare to send NACK then STOP after next byte
+                        // Prepare to send Nack then STOP after next byte
                         self.regs
                             .cr1
                             .modify(|_, w| w.ack().clear_bit().stop().set_bit());
@@ -350,9 +353,12 @@ where
                         *last = self.recv_byte()?;
 
                         // Wait for the STOP to be sent.
-                        while self.regs.cr1.read().stop().bit_is_set() {}
+                        bounded_loop!(
+                            self.regs.cr1.read().stop().bit_is_set(),
+                            I2cError::RegisterUnchanged
+                        );
                     } else {
-                        return Err(Error::OVERRUN);
+                        return Err(I2cError::Overrun);
                     }
                 }
             }

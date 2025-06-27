@@ -146,6 +146,20 @@
 // Used for while loops, to allow returning an error instead of hanging.
 pub(crate) const MAX_ITERS: u32 = 300_000; // todo: What should this be?
 
+/// DRY: Instead of infinitely busy-looping on some condition, we bound the number of iterations
+/// and return a given error upon exceeding that bound.
+macro_rules! bounded_loop {
+    ($cond:expr, $err:expr) => {
+        let mut iterations = 0;
+        while $cond {
+            iterations += 1;
+            if iterations >= crate::MAX_ITERS {
+                return Err($err);
+            }
+        }
+    };
+}
+
 #[cfg(not(any(
     feature = "f301",
     feature = "f302",

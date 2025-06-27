@@ -8,6 +8,11 @@ use crate::pac::{self, IPCC, RCC};
 // todo: Consolidate match arms to reduce DRY match statements for the diff steps
 // todo excecuted in a given fn.
 
+#[derive(Debug, defmt::Format)]
+pub enum IpccError {
+    RegisterUnchanged,
+}
+
 #[derive(Clone, Copy)]
 /// Represents one of six channels. We use this enum for both Core1 and Core2 channels.
 pub enum IpccChannel {
@@ -148,7 +153,11 @@ impl Ipcc {
         // * The sending processor waits for its response pending software variable to get 0.
         // – Once the response pending software variable is 0 the communication data is
         // posted.
-        while !self.channel_is_free(core, channel) {} // todo is this right?
+        // todo: is this right?
+        bounded_loop!(
+            self.channel_is_free(core, channel),
+            IpccError::RegisterUnchanged
+        );
 
         //  Once the complete communication data has been posted, the channel status flag
         // CHnF is set to occupied with CHnS and the response pending software variable is set
@@ -196,11 +205,19 @@ impl Ipcc {
     }
 
     /// Send a half-duplex response.
-    pub fn send_response_half_duplex(&mut self, core: Core, channel: IpccChannel, data: &[u8]) {
+    pub fn send_response_half_duplex(
+        &mut self,
+        core: Core,
+        channel: IpccChannel,
+        data: &[u8],
+    ) -> Result<(), IpccError> {
         // To send a response:
         // * The receiving processor waits for its response pending software variable to get 1.
         // – Once the response pending software variable is 1 the response is posted.
-        while self.channel_is_free(core, channel) {}
+        bounded_loop!(
+            self.channel_is_free(core, channel),
+            IpccError::RegisterUnchanged
+        );
 
         // todo: Write response here?
 
