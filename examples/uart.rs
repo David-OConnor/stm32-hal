@@ -54,7 +54,7 @@ fn main() -> ! {
     let mut uart = Usart::new(
         dp.USART1,
         UsartDevice::One,
-        9_600,
+        115_200,
         UsartConfig::default(),
         &clock_cfg,
     );

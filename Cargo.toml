@@ -28,7 +28,6 @@ stm32l5 = { version = "0.15.1", optional = true }
 stm32g0 = { version = "0.15.1", optional = true }
 stm32g4 = { version = "0.15.1", optional = true }
 #stm32h5 = { version = "0.15.1", optional = true }
-#stm32h5 = { path = "../../Desktop/h5_pac/stm32-rs/stm32h5", optional = true }
 stm32h7 = { version = "0.15.1", optional = true }
 stm32wb = { version = "0.15.1", optional = true }
 stm32wl = { version = "0.15.1", optional = true }
@@ -164,7 +163,7 @@ h7b3 = ["stm32h7/stm32h7b3", "h7"]
 # [WB](https://docs.rs/crate/stm32wb/latest/source/Cargo.toml)
 wb55 = ["stm32wb/stm32wb55", "wb"]
 
-# [WB](https://docs.rs/crate/stm32wl/latest/source/Cargo.toml)
+# [WL](https://docs.rs/crate/stm32wl/latest/source/Cargo.toml)
 wle5 = ["stm32wl/stm32wle5", "wl"]
 
 usb = ["dep:stm32-usbd"]
@@ -174,7 +173,6 @@ can_bx = ["dep:bxcan"]
 can_fd_g = ["fdcan/fdcan_g0_g4_l5"]
 can_fd_h = ["fdcan/fdcan_h7"]
 net = ["dep:smoltcp"]
-#embedded_hal = ["dep:embedded-hal", "dep:nb", "dep:void", "dep:embedded-time"]
 embedded_hal = ["dep:embedded-hal", "dep:embedded-io"]
 monotonic = ["dep:rtic-monotonic"]
 
@@ -190,12 +188,5 @@ g0 = []
 g4 = []
 h5 = []
 h7 = []
-#wb = ["bit_field", "stm32-device-signature", "heapless", "byteorder", "bbqueue"]
 wb = []
 wl = []
-
-
-#[package.metadata.docs.rs]
-#features = ["h7rt", "h743v", "can_fd_h", "usbotg_hs"]
-
-# todo: w feature to combine wb and wl since they often have feature parity?
