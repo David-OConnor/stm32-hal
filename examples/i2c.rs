@@ -11,12 +11,14 @@ use core::cell::{Cell, RefCell};
 use cortex_m::peripheral::NVIC;
 use cortex_m_rt::entry;
 use critical_section::{Mutex, with};
+use defmt::println;
 use hal::{
     clocks::Clocks,
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaPeriph, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
     i2c::{I2c, I2cConfig, I2cSpeed, NoiseFilter},
-    low_power, pac,
+    low_power, pac::{self, I2C1},
+    setup_nvic, init_globals,
 };
 
 static WRITE_BUF: [u8; 2] = [0, 0];
@@ -24,6 +26,15 @@ static WRITE_BUF: [u8; 2] = [0, 0];
 static mut READ_BUF: [u8; 8] = [0; 8];
 
 const ADDR: u8 = 0x48;
+
+const DMA_PERIPH: DmaPeriph = DmaPeriph::Dma1;
+const TX_CH: DmaChannel = DmaChannel::C6;
+const RX_CH: DmaChannel = DmaChannel::C7;
+
+make_globals!(
+    (I2C, I2c<I2C1>),
+);
+
 
 #[entry]
 fn main() -> ! {
@@ -72,23 +83,25 @@ fn main() -> ! {
     // Associate DMA channels with I2C1: One for transmit; one for receive.
     // Note that mux is not used on F3, F4, and most L4s: DMA channels are hard-coded
     // to peripherals on those platforms.
-    dma::mux(DmaPeriph::Dma1, DmaChannel::C6, DmaInput::I2c1Tx);
-    dma::mux(DmaPeriph::Dma1, DmaChannel::C7, DmaInput::I2c1Rx);
+    dma::mux(DMA_PERIPH, TX_CH, DmaInput::I2c1Tx);
+    dma::mux(DMA_PERIPH, RX_CH, DmaInput::I2c1Rx);
 
-    // Write to DMA, requesting readings
+    // Write to DMA, requesting readings,
+    // todo: put this in a loop, timer interrupt etc to request readings when required.
     unsafe {
         i2c.write_dma(
             ADDR,
             &WRITE_BUF,
             false,
-            DmaChannel::C6,
+            TX_CH,
             Default::default(),
-            DmaPeriph::Dma1,
+            DMA_PERIPH,
         );
     }
 
-    // Alternatively, use the blocking, non-DMA I2C API` (Also supports `embedded-hal` traits):
+    // Alternatively, use the blocking, non-DMA I2C API`; see the interrupt handlers below.
     let mut read_buf = [0, 0];
+
     // Write the config register address, then the 2 bytes of the value we're writing.
     i2c.write(ADDR, &[cfg_reg, cfg[0], cfg[1]]).ok();
     // Now request a reading by passing the conversion reg, and a buffer to write
@@ -96,11 +109,18 @@ fn main() -> ! {
     i2c.write_read(ADDR, &[conversion_reg], &mut read_buf).ok();
     let reading = i16::from_be_bytes([read_buf[0], read_buf[1]]);
 
-    // Unmask the interrupt line. See the `DMA_CH6` and `DMA_CH78` interrupt handlers below.
-    unsafe {
-        NVIC::unmask(DmaPeriph::Dma1, pac::Interrupt::DMA1_CH6);
-        NVIC::unmask(DmaPeriph::Dma1, pac::Interrupt::DMA1_CH7);
-    }
+    init_globals!(
+        (I2C, i2c),
+    );
+
+    // Unmask the interrupt lines. See the `DMA_CH6` and `DMA_CH7` interrupt handlers below.
+    setup_nvic!(
+        [
+            (DMA1_CH6, 3),
+            (DMA2_CH7, 3),
+        ],
+        cp
+    );
 
     loop {
         low_power::sleep_now();
@@ -108,38 +128,48 @@ fn main() -> ! {
 }
 
 #[interrupt]
-/// This interrupt fires when a DMA transmission is complete
+/// This interrupt fires when a DMA transmission is complete. Read the results.
 fn DMA1_CH6() {
     dma::clear_interrupt(
-        DmaPeriph::Dma1,
-        DmaChannel::C6,
+        DMA_PERIPH,
+        TX_CH,
         DmaInterrupt::TransferComplete,
     );
 
-    // todo: Do something here as appropriate.
+    dma::stop(DMA_PERIPH, TX_CH);
+
+    with(|cs| {
+        access_global!(I2C, i2c, cs);
+        unsafe {
+            i2c.read_dma(
+                ADDR,
+                &mut READ_BUF,
+                RX_CH,
+                Default::default(),
+                DMA_PERIPH,
+            );
+        }
+    });
+
+    println!("I2C write complete; reading.");
 }
 
 #[interrupt]
-/// This interrupt fires when a DMA read is complete
+/// This interrupt fires when a DMA read is complete. Handle readings.
 fn DMA1_CH7() {
     dma::clear_interrupt(
-        DmaPeriph::Dma1,
-        DmaChannel::C7,
+        DMA_PERIPH,
+        RX_CH,
         DmaInterrupt::TransferComplete,
     );
 
-    // Once the write is complete, command a transfer to receive the readings.
-    // todo: Need a way to access the `I2c` struct from this ISR context.
-    // See other examples for info on how to do this.
-    unsafe {
-        i2c.read_dma(
-            ADDR,
-            &mut READ_BUF,
-            DmaChannel::C7,
-            Default::default(),
-            DmaPeriph::Dma1,
-        );
-    }
+    dma::stop(DMA_PERIPH, RX_CH);
+
+    let buf = unsafe { &READ_BUF };
+
+    println!("I2C data is available: {:?}", buf);
+
+    // The readings (etc) are ready; parse `buf` as required.
 }
 
 // same panicking *behavior* as `panic-probe` but doesn't print a panic message
