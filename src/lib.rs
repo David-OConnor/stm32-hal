@@ -149,16 +149,28 @@ pub(crate) const MAX_ITERS: u32 = 300_000; // todo: What should this be?
 /// DRY: Instead of infinitely busy-looping on some condition, we bound the number of iterations
 /// and return a given error upon exceeding that bound.
 macro_rules! bounded_loop {
-    ($cond:expr, $err:expr) => {
+    ($cond:expr, $err:expr, $iters:expr, $($content:tt)?) => {
         let mut iterations = 0;
         while $cond {
             iterations += 1;
-            if iterations >= crate::MAX_ITERS {
+            if iterations >= $iters {
                 return Err($err);
             }
+            $($content)?
         }
     };
+    ($cond:expr, $err:expr, $content:tt) => {
+        bounded_loop!($cond, $err, crate::MAX_ITERS, ($content));
+    };
+    ($cond:expr, $err:expr, $iters:literal) => {
+        bounded_loop!($cond, $err, $iters, ())
+    };
+    ($cond:expr, $err:expr) => {
+        bounded_loop!($cond, $err, crate::MAX_ITERS, ())
+    };
 }
+
+// TODO: Unify the different error types into a more sensible structure.
 
 #[cfg(not(any(
     feature = "f301",
@@ -411,7 +423,7 @@ pub mod dac;
 )))]
 pub mod dfsdm;
 
-#[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
+#[cfg(not(any(feature = "l552", feature = "h5")))]
 pub mod dma;
 
 #[cfg(all(feature = "h7", feature = "net"))]

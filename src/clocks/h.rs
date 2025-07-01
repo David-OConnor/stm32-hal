@@ -9,7 +9,6 @@ use cfg_if::cfg_if;
 #[cfg(not(any(feature = "h5", feature = "h7b3", feature = "h735")))]
 use crate::pac::SYSCFG;
 use crate::{
-    MAX_ITERS,
     clocks::RccError,
     pac::{CRS, FLASH, PWR, RCC},
 };
@@ -1036,7 +1035,6 @@ impl Clocks {
                         w.hsidiv().bits(div as u8); // todo: Do we need to reset the HSI div after low power?
                         w.hsion().bit(true)
                     });
-                    i = 0;
                     bounded_loop!(
                         rcc.cr.read().hsirdy().bit_is_clear(),
                         RccError::RegisterUnchanged

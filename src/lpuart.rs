@@ -13,57 +13,18 @@ use core::ops::Deref;
 
 use cfg_if::cfg_if;
 
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::dma::DmaInput;
-#[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
-use crate::dma::{self, ChannelCfg, DmaChannel};
+#[cfg(not(any(feature = "l552", feature = "h5")))]
+use crate::dma::{self, ChannelCfg, DmaChannel, DmaError};
 #[cfg(feature = "g0")]
 use crate::pac::DMA as DMA1;
 #[cfg(not(any(feature = "g0", feature = "h5")))]
 use crate::pac::DMA1;
 use crate::{
-    MAX_ITERS,
     clocks::Clocks,
     pac::{self, RCC},
-    usart::{OverSampling, Parity, StopBits, UartError, UsartConfig, UsartInterrupt},
-    util::{BaudPeriph, RccPeriph},
+    usart::{OverSampling, Parity, StopBits, UsartConfig, UsartError, UsartInterrupt},
+    util::{BaudPeriph, RccPeriph, cr1, isr},
 };
-
-#[cfg(feature = "h5")]
-macro_rules! cr1 {
-    ($regs:expr) => {
-        $regs.cr1_enabled()
-    };
-}
-
-#[cfg(not(feature = "h5"))]
-macro_rules! cr1 {
-    ($regs:expr) => {
-        $regs.cr1
-    };
-}
-
-// Some variants like H5 and certain G0 variants use separate registers for FIFO
-#[cfg(feature = "h5")]
-macro_rules! isr {
-    ($regs:expr) => {
-        $regs.isr_enabled()
-    };
-}
-
-#[cfg(not(feature = "h5"))]
-macro_rules! isr {
-    ($regs:expr) => {
-        $regs.isr
-    };
-}
-
-#[cfg(feature = "f4")]
-macro_rules! isr {
-    ($regs:expr) => {
-        $regs.sr
-    };
-}
 
 /// Represents the USART peripheral, for serial communications.
 pub struct LpUart<R> {
@@ -83,7 +44,7 @@ where
         baud: u32,
         config: UsartConfig,
         clock_cfg: &Clocks,
-    ) -> Result<Self, UartError> {
+    ) -> Result<Self, UsartError> {
         let rcc = unsafe { &(*RCC::ptr()) };
         R::en_reset(rcc);
 
@@ -92,7 +53,7 @@ where
         // This should already be disabled on power up, but disable here just in case;
         // some bits can't be set with USART enabled.
 
-        lpuart.disable();
+        lpuart.disable()?;
 
         // Set up transmission. See L44 RM, section 38.5.2: "Character Transmission Procedures".
         // 1. Program the M bits in USART_CR1 to define the word length.
@@ -113,9 +74,9 @@ where
 
         // todo: Workaround due to a PAC bug, where M0 is missing.
         #[cfg(any(feature = "f"))]
-        result.regs.cr1.write(|w| unsafe {
+        lpuart.regs.cr1.write(|w| unsafe {
             w.bits(
-                result.regs.cr1.read().bits()
+                lpuart.regs.cr1.read().bits()
                     | ((word_len_bits.0 as u32) << 28)
                     | ((word_len_bits.1 as u32) << 12),
             )
@@ -129,10 +90,10 @@ where
 
         // Must be done before enabling.
         #[cfg(any(feature = "g4", feature = "h7"))]
-        result
+        lpuart
             .regs
             .cr1
-            .modify(|_, w| w.fifoen().bit(result.config.fifo_enabled));
+            .modify(|_, w| w.fifoen().bit(lpuart.config.fifo_enabled));
 
         // 2. Select the desired baud rate using the USART_BRR register.
         lpuart.set_baud(baud, clock_cfg).ok();
@@ -142,7 +103,7 @@ where
             .cr2
             .modify(|_, w| unsafe { w.stop().bits(lpuart.config.stop_bits as u8) });
         // 4. Enable the USART by writing the UE bit in USART_CR1 register to 1.
-        lpuart.enable();
+        lpuart.enable()?;
 
         // 5. Select DMA enable (DMAT[R]] in USART_CR3 if multibuffer communication is to take
         // place. Configure the DMA register as explained in multibuffer communication.
@@ -166,14 +127,14 @@ where
 {
     /// Set the BAUD rate. Called during init, and can be called later to change BAUD
     /// during program execution.
-    pub fn set_baud(&mut self, baud: u32, clock_cfg: &Clocks) -> Result<(), UartError> {
+    pub fn set_baud(&mut self, baud: u32, clock_cfg: &Clocks) -> Result<(), UsartError> {
         let originally_enabled = cr1!(self.regs).read().ue().bit_is_set();
 
         if originally_enabled {
             cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
             bounded_loop!(
                 cr1!(self.regs).read().ue().bit_is_set(),
-                UartError::RegisterUnchanged
+                UsartError::RegisterUnchanged
             );
         }
 
@@ -212,27 +173,27 @@ where
     R: Deref<Target = pac::lpuart1::RegisterBlock> + RccPeriph,
 {
     /// Enable this U[s]ART peripheral.
-    pub fn enable(&mut self) -> Result<(), UartError> {
+    pub fn enable(&mut self) -> Result<(), UsartError> {
         cr1!(self.regs).modify(|_, w| w.ue().set_bit());
         bounded_loop!(
             cr1!(self.regs).read().ue().bit_is_clear(),
-            LpUartError::RegisterUnchanged
+            UsartError::RegisterUnchanged
         );
         Ok(())
     }
 
     /// Disable this U[s]ART peripheral.
-    pub fn disable(&mut self) -> Result<(), UartError> {
+    pub fn disable(&mut self) -> Result<(), UsartError> {
         cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
         bounded_loop!(
             cr1!(self.regs).read().ue().bit_is_set(),
-            LpUartError::RegisterUnchanged
+            UsartError::RegisterUnchanged
         );
         Ok(())
     }
 
     /// Transmit data, as a sequence of u8. See L44 RM, section 38.5.2: "Character transmission procedure"
-    pub fn write(&mut self, data: &[u8]) -> Result<(), UartError> {
+    pub fn write(&mut self, data: &[u8]) -> Result<(), UsartError> {
         // todo: how does this work with a 9 bit words? Presumably you'd need to make `data`
         // todo take `&u16`.
 
@@ -243,7 +204,7 @@ where
             #[cfg(feature = "h5")]
             bounded_loop!(
                 isr!(self.regs).read().txfe().bit_is_clear(),
-                UartError::RegisterUnchanged
+                UsartError::RegisterUnchanged
             );
 
             #[cfg(not(feature = "h5"))]
@@ -251,7 +212,7 @@ where
             // checking txfnf if the fifo is enabled.
             bounded_loop!(
                 isr!(self.regs).read().txe().bit_is_clear(),
-                UartError::RegisterUnchanged
+                UsartError::RegisterUnchanged
             );
 
             #[cfg(not(feature = "f4"))]
@@ -271,7 +232,7 @@ where
         // transmission
         bounded_loop!(
             isr!(self.regs).read().tc().bit_is_clear(),
-            UartError::RegisterUnchanged
+            UsartError::RegisterUnchanged
         );
 
         Ok(())
@@ -296,25 +257,29 @@ where
     }
 
     /// Receive data into a u8 buffer. See L44 RM, section 38.5.3: "Character reception procedure"
-    pub fn read(&mut self, buf: &mut [u8]) -> Result<(), UartError> {
+    pub fn read(&mut self, buf: &mut [u8]) -> Result<(), UsartError> {
         for i in 0..buf.len() {
             // Wait for the next bit
             #[cfg(feature = "h5")]
             bounded_loop!(
                 isr!(self.regs).read().rxfne().bit_is_clear(),
-                UartError::RegisterUnchanged
+                UsartError::RegisterUnchanged
             );
 
             #[cfg(not(feature = "h5"))]
             bounded_loop!(
                 isr!(self.regs).read().rxne().bit_is_clear(),
-                UartError::RegisterUnchanged
+                UsartError::RegisterUnchanged
             );
 
             #[cfg(not(feature = "f4"))]
-            buf[i] = self.regs.rdr.read().rdr().bits() as u8;
+            {
+                buf[i] = self.regs.rdr.read().rdr().bits() as u8;
+            }
             #[cfg(feature = "f4")]
-            buf[i] = self.regs.dr.read().dr().bits() as u8;
+            {
+                buf[i] = self.regs.dr.read().dr().bits() as u8;
+            }
         }
 
         // When a character is received:
@@ -356,7 +321,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<(), DmaError> {
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
         // To map a DMA channel for USART transmission, use
@@ -406,7 +371,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
             #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
             dma::DmaPeriph::Dma2 => {
@@ -421,7 +386,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
         }
 
@@ -440,6 +405,7 @@ where
         // disabling the USART or entering Stop mode. Software must wait until TC=1. The TC flag
         // remains cleared during all data transfers and it is set by hardware at the end of transmission
         // of the last frame.
+        Ok(())
     }
 
     #[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
@@ -452,7 +418,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<(), DmaError> {
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
@@ -490,7 +456,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
             #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
             dma::DmaPeriph::Dma2 => {
@@ -505,7 +471,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
         }
 
@@ -522,6 +488,7 @@ where
 
         // When the number of data transfers programmed in the DMA Controller is reached, the DMA
         // controller generates an interrupt on the DMA channel interrupt vector.
+        Ok(())
     }
     //
     // /// Flush the transmit buffer.
@@ -536,7 +503,7 @@ where
     /// Enable a specific type of interrupt. See G4 RM, Table 349: USART interrupt requests.
     /// If `Some`, the inner value of `CharDetect` sets the address of the char to match.
     /// If `None`, the interrupt is enabled without changing the char to match.
-    pub fn enable_interrupt(&mut self, interrupt: UsartInterrupt) -> Result<(), UartError> {
+    pub fn enable_interrupt(&mut self, interrupt: UsartInterrupt) -> Result<(), UsartError> {
         match interrupt {
             UsartInterrupt::CharDetect(char_wrapper) => {
                 if let Some(char) = char_wrapper {
@@ -544,7 +511,7 @@ where
                     cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
                     bounded_loop!(
                         cr1!(self.regs).read().ue().bit_is_set(),
-                        UartError::RegisterUnchanged
+                        UsartError::RegisterUnchanged
                     );
 
                     // Enable character-detecting UART interrupt
@@ -570,7 +537,7 @@ where
                     cr1!(self.regs).modify(|_, w| w.ue().set_bit());
                     bounded_loop!(
                         cr1!(self.regs).read().ue().bit_is_clear(),
-                        UartError::RegisterUnchanged
+                        UsartError::RegisterUnchanged
                     );
                 }
 
@@ -608,6 +575,7 @@ where
             }
             _ => panic!(), // UART interrupts not avail on LPUART
         }
+        Ok(())
     }
 
     #[cfg(not(feature = "f4"))]
@@ -705,26 +673,26 @@ where
         }
     }
 
-    fn check_status(&mut self) -> Result<(), UartError> {
+    fn check_status(&mut self) -> Result<(), UsartError> {
         let status = isr!(self.regs).read();
         let mut result = if status.pe().bit_is_set() {
-            Err(UartError::Parity)
+            Err(UsartError::Parity)
         } else if status.fe().bit_is_set() {
-            Err(UartError::Framing)
+            Err(UsartError::Framing)
         } else if status.ore().bit_is_set() {
-            Err(UartError::Overrun)
+            Err(UsartError::Overrun)
         } else {
             Ok(())
         };
 
         #[cfg(not(any(feature = "wl", feature = "h7")))]
         if status.nf().bit_is_set() {
-            result = Err(UartError::Noise);
+            result = Err(UsartError::Noise);
         }
         #[cfg(feature = "h7")]
         if status.ne().bit_is_set() {
             // todo: QC
-            result = Err(UartError::Noise);
+            result = Err(UsartError::Noise);
         }
 
         if result.is_err() {
@@ -752,12 +720,14 @@ where
 mod embedded_io_impl {
     use embedded_io::*;
 
+    use crate::usart::UsartError;
+
     use super::*;
 
     // (Error for Uart implemented in the usart module)
 
     impl<R> ErrorType for LpUart<R> {
-        type Error = UartError;
+        type Error = UsartError;
     }
 
     impl<R> Read for LpUart<R>
@@ -767,16 +737,21 @@ mod embedded_io_impl {
     {
         fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Self::Error> {
             // Block until at least one byte can be read:
-            while !self.read_ready()? {
-                cortex_m::asm::nop();
-            }
+            bounded_loop!(!self.ready(), UsartError::RegisterUnchanged);
+            // while !self.read_ready()? {
+            //     cortex_m::asm::nop();
+            // }
 
             let buf_len = buf.len();
-            while !buf.is_empty() && self.read_ready()? {
-                let (first, remaining) = buf.split_first_mut().unwrap();
-                *first = self.read_one();
-                buf = remaining;
-            }
+            bounded_loop!(
+                !buf.is_empty() && self.ready(),
+                UsartError::RegisterUnchanged,
+                {
+                    let (first, remaining) = buf.split_first_mut().unwrap();
+                    *first = self.read_one();
+                    buf = remaining;
+                }
+            );
             Ok(buf_len - buf.len())
         }
     }
@@ -804,23 +779,26 @@ mod embedded_io_impl {
     {
         fn write(&mut self, mut buf: &[u8]) -> Result<usize, Self::Error> {
             // Block until at least one byte can be written:
-            while !self.write_ready()? {
-                cortex_m::asm::nop();
-            }
+            bounded_loop!(!self.write_ready()?, UsartError::RegisterUnchanged);
 
             let buf_len = buf.len();
-            while !buf.is_empty() && self.write_ready()? {
-                let (byte, remaining) = buf.split_first().unwrap();
-                self.write_one(*byte);
-                buf = remaining;
-            }
+
+            bounded_loop!(
+                !buf.is_empty() && self.write_ready(),
+                UsartError::RegisterUnchanged,
+                {
+                    let (byte, remaining) = buf.split_first().unwrap();
+                    self.write_one(*byte);
+                    buf = remaining;
+                }
+            );
             Ok(buf_len - buf.len())
         }
 
         fn flush(&mut self) -> Result<(), Self::Error> {
             bounded_loop!(
                 isr!(self.regs).read().tc().bit_is_clear(),
-                UartError::RegisterUnchanged
+                UsartError::RegisterUnchanged
             );
             Ok(())
         }

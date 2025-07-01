@@ -1276,7 +1276,6 @@ impl Clocks {
 
                 if let StopWuck::Hsi = self.stop_wuck {
                     rcc.cr.modify(|_, w| w.msion().set_bit());
-                    let mut i = 0;
                     bounded_loop!(
                         rcc.cr.read().msirdy().bit_is_clear(),
                         RccError::RegisterUnchanged
@@ -1290,7 +1289,7 @@ impl Clocks {
             InputSrc::Lsi => {
                 rcc.csr.modify(|_, w| w.lsion().set_bit());
                 bounded_loop!(
-                    rcc.cr.read().lsirdy().bit_is_clear(),
+                    rcc.csr.read().lsirdy().bit_is_clear(),
                     RccError::RegisterUnchanged
                 );
                 rcc.cfgr
@@ -1300,7 +1299,7 @@ impl Clocks {
             InputSrc::Lse => {
                 rcc.bdcr.modify(|_, w| w.lseon().set_bit());
                 bounded_loop!(
-                    rcc.cr.read().lserdy().bit_is_clear(),
+                    rcc.bdcr.read().lserdy().bit_is_clear(),
                     RccError::RegisterUnchanged
                 );
                 rcc.cfgr
@@ -1314,7 +1313,7 @@ impl Clocks {
     #[cfg(any(feature = "l4", feature = "l5"))]
     /// Use this to change the MSI speed. Run this only if your clock source is MSI.
     /// Ends in a state with MSI on at the new speed, and HSI off.
-    pub fn change_msi_speed(&mut self, range: MsiRange) {
+    pub fn change_msi_speed(&mut self, range: MsiRange) -> Result<(), RccError> {
         // todo: Calibrate MSI with LSE / HSE(?) if avail?
 
         let rcc = unsafe { &(*RCC::ptr()) };
@@ -1337,6 +1336,8 @@ impl Clocks {
 
         // Update our config to reflect the new speed.
         self.input_src = InputSrc::Msi(range);
+
+        Ok(())
     }
 
     #[cfg(any(feature = "l4", feature = "l5"))]
@@ -1345,7 +1346,7 @@ impl Clocks {
     /// source or PLL source. You may need to re-run this after exiting `stop` mode. Only works for USB
     /// if you have an LSE connected.
     /// Note: MSIPLLEN must be enabled after LSE is enabled. So, run this function after RCC clock setup.
-    pub fn enable_msi_48(&self) {
+    pub fn enable_msi_48(&self) -> Result<(), RccError> {
         let rcc = unsafe { &(*RCC::ptr()) };
 
         if let InputSrc::Msi(_) = self.input_src {
@@ -1390,6 +1391,8 @@ impl Clocks {
             rcc.cr.read().msirdy().bit_is_clear(),
             RccError::RegisterUnchanged
         );
+
+        Ok(())
     }
 
     /// Get the sysclock frequency, in hz.

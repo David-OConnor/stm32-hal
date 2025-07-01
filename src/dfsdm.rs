@@ -25,7 +25,7 @@ cfg_if! {
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552")))]
-use crate::dma::{self, ChannelCfg, DmaChannel};
+use crate::dma::{self, ChannelCfg, DmaChannel, DmaError};
 use crate::pac::DMA1;
 
 #[derive(Clone, Copy)]
@@ -1169,7 +1169,7 @@ where
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
         // dma: &mut Dma<D>,
-    ) {
+    ) -> Result<(), DmaError> {
         // where
         //     D: Deref<Target = dma_p::RegisterBlock>,
         // {
@@ -1338,7 +1338,7 @@ where
                     dma::DataSize::S32, // For 24 bits
                     dma::DataSize::S32,
                     channel_cfg,
-                );
+                )?;
             }
             dma::DmaPeriph::Dma2 => {
                 let mut regs = unsafe { &(*pac::DMA2::ptr()) };
@@ -1352,9 +1352,11 @@ where
                     dma::DataSize::S32, // For 24 bits
                     dma::DataSize::S32,
                     channel_cfg,
-                );
+                )?;
             }
         }
+
+        Ok(())
     }
 
     /// Enable a specific type of interrupt. See H743 RM, section 30.5: DFSDM interrupts

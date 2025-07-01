@@ -358,9 +358,7 @@ impl Flash {
             FlashError::RegisterUnchanged
         );
 
-        self.lock();
-
-        Ok(())
+        self.lock()
     }
 
     /// Erase one or both banks. Called "Mass erase" on single-bank variants like G4.

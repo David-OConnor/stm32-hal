@@ -16,7 +16,7 @@ cfg_if::cfg_if! {
 
 use cfg_if::cfg_if;
 
-use crate::{pac, util::RccPeriph};
+use crate::{dma::DmaError, pac, util::RccPeriph};
 
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
@@ -258,13 +258,13 @@ where
         channel: DmaChannel,
         channel2: Option<DmaChannel>,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<(), DmaError> {
         // (RM:) To close communication it is mandatory to follow these steps in order:
         // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
 
-        dma::stop(dma_periph, channel);
+        dma::stop(dma_periph, channel)?;
         if let Some(ch2) = channel2 {
-            dma::stop(dma_periph, ch2);
+            dma::stop(dma_periph, ch2)?;
         };
 
         // 2. Disable the SPI by following the SPI disable procedure:
@@ -284,6 +284,8 @@ where
             w.txdmaen().clear_bit();
             w.rxdmaen().clear_bit()
         });
+
+        Ok(())
     }
 
     /// Convenience function that clears the interrupt, and stops the transfer. For use with the TC
@@ -294,15 +296,15 @@ where
         dma_periph: dma::DmaPeriph,
         channel_tx: DmaChannel,
         channel_rx: Option<DmaChannel>,
-    ) {
+    ) -> Result<(), DmaError> {
         // The hardware seems to automatically enable Tx too; and we use it when transmitting.
-        dma::clear_interrupt(dma_periph, channel_tx, dma::DmaInterrupt::TransferComplete);
+        dma::clear_interrupt(dma_periph, channel_tx, dma::DmaInterrupt::TransferComplete)?;
 
         if let Some(ch_rx) = channel_rx {
-            dma::clear_interrupt(dma_periph, ch_rx, dma::DmaInterrupt::TransferComplete);
+            dma::clear_interrupt(dma_periph, ch_rx, dma::DmaInterrupt::TransferComplete)?;
         }
 
-        self.stop_dma(channel_tx, channel_rx, dma_periph);
+        self.stop_dma(channel_tx, channel_rx, dma_periph)
     }
 
     /// Print the (raw) contents of the status register.

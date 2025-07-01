@@ -1,17 +1,5 @@
 //! Support for the Direct Memory Access (DMA) peripheral. This module handles initialization, and transfer
-//! configuration for DMA. The `Dma::cfg_channel` method is called by modules that use DMA.
-
-// todo: This module could be greatly simplified if [this issue](https://github.com/stm32-rs/stm32-rs/issues/610)
-// todo is addressed: Ie H7 PAC approach adopted by other modules.
-
-// todo: Use this clip or something similar to end terminate while loops, as in other modules.
-// let mut i = 0;
-// while asdf {
-//     i += 1;
-//     if i >= MAX_ITERS {
-//         return Err(Error::Hardware);
-//     }
-// }
+//! configuration for DMA. The `dma::cfg_channel` method is called by modules that use DMA.
 
 use core::{
     ops::Deref,
@@ -19,7 +7,6 @@ use core::{
 };
 
 use crate::{
-    MAX_ITERS,
     pac::{self, RCC},
     util::rcc_en_reset,
 };
@@ -53,7 +40,7 @@ use paste::paste;
 #[derive(Debug, defmt::Format)]
 pub enum DmaError {
     /// Raised when MAX_ITERS is exceeded.
-    Hardware,
+    RegisterUnchanged,
     TransferError,
     #[cfg(any(feature = "h7", feature = "f4"))]
     FifoError,
@@ -651,11 +638,12 @@ macro_rules! set_ccr {
         // "The register fields/bits MEM2MEM, PL[1:0], MSIZE[1:0], PSIZE[1:0], MINC, PINC, and DIR
         // are read-only when EN = 1"
         let originally_enabled = $ccr.read().en().bit_is_set();
+
         if originally_enabled {
             $ccr.modify(|_, w| w.en().clear_bit());
             bounded_loop!(
                 $ccr.read().en().bit_is_set(),
-                DmaError::Hardware,
+                DmaError::RegisterUnchanged
             );
         }
 
@@ -686,11 +674,9 @@ macro_rules! set_ccr {
 
         if originally_enabled {
             $ccr.modify(|_, w| w.en().set_bit());
-            bounded_loop!($ccr.read().en().bit_is_clear(), DmaError::Hardware);
+            bounded_loop!($ccr.read().en().bit_is_clear(), DmaError::RegisterUnchanged);
         }
-
-        Ok(())
-    }
+    };
 }
 
 /// Reduce DRY over channels when configuring a channel's interrupts.
@@ -701,7 +687,7 @@ macro_rules! enable_interrupt {
         let originally_enabled = $ccr.read().en().bit_is_set();
         if originally_enabled {
             $ccr.modify(|_, w| w.en().clear_bit());
-            bounded_loop!($ccr.read().en().bit_is_set(), DmaError::Hardware);
+            bounded_loop!($ccr.read().en().bit_is_set(), DmaError::RegisterUnchanged);
         }
 
         $ccr.modify(|_, w| match $interrupt_type {
@@ -712,7 +698,7 @@ macro_rules! enable_interrupt {
 
         if originally_enabled {
             $ccr.modify(|_, w| w.en().set_bit());
-            bounded_loop!($ccr.read().en().bit_is_clear(), DmaError::Hardware);
+            bounded_loop!($ccr.read().en().bit_is_clear(), DmaError::RegisterUnchanged);
         }
     };
 }
@@ -725,7 +711,7 @@ macro_rules! disable_interrupt {
         let originally_disabled = $ccr.read().en().bit_is_set();
         if originally_disabled {
             $ccr.modify(|_, w| w.en().clear_bit());
-            bounded_loop!($ccr.read().en().bit_is_set(), DmaError::Hardware);
+            bounded_loop!($ccr.read().en().bit_is_set(), DmaError::RegisterUnchanged);
         }
 
         $ccr.modify(|_, w| match $interrupt_type {
@@ -736,7 +722,7 @@ macro_rules! disable_interrupt {
 
         if originally_disabled {
             $ccr.modify(|_, w| w.en().set_bit());
-            bounded_loop!($ccr.read().en().bit_is_clear(), DmaError::Hardware);
+            bounded_loop!($ccr.read().en().bit_is_clear(), DmaError::RegisterUnchanged);
         }
     };
 }
@@ -775,6 +761,16 @@ impl Default for ChannelCfg {
 /// Represents a Direct Memory Access (DMA) peripheral.
 pub struct Dma<D> {
     pub regs: D,
+}
+
+impl<D> Deref for Dma<D>
+where
+    D: Deref<Target = dma1::RegisterBlock>,
+{
+    type Target = dma1::RegisterBlock;
+    fn deref(&self) -> &Self::Target {
+        &self.regs
+    }
 }
 
 impl<D> Dma<D>
@@ -864,8 +860,12 @@ where
     }
 
     /// Clear an interrupt flag.
-    pub fn clear_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
-        clear_interrupt_internal(&mut self.regs, channel, interrupt);
+    pub fn clear_interrupt(
+        &mut self,
+        channel: DmaChannel,
+        interrupt: DmaInterrupt,
+    ) -> Result<(), DmaError> {
+        clear_interrupt_internal(&mut self.regs, channel, interrupt)
     }
 
     // todo: G0 removed from this fn due to a bug introduced in PAC 0.13
@@ -926,7 +926,7 @@ where
 
         if originally_enabled {
             cr.modify(|_, w| w.en().clear_bit());
-            bounded_loop!(cr.read().en().bit_is_set(), DmaError::Hardware);
+            bounded_loop!(cr.read().en().bit_is_set(), DmaError::RegisterUnchanged);
         }
 
         match interrupt {
@@ -941,7 +941,7 @@ where
 
         if originally_enabled {
             cr.modify(|_, w| w.en().set_bit());
-            bounded_loop!(cr.read().en().bit_is_clear(), DmaError::Hardware);
+            bounded_loop!(cr.read().en().bit_is_clear(), DmaError::RegisterUnchanged);
         }
         Ok(())
     }
@@ -967,49 +967,49 @@ where
     // See the comments in the H7 variant for a description of what's going on.
 
     unsafe {
-        let cpar = match channel {
+        match channel {
             DmaChannel::C1 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch1.par
+                        regs.ch1.par.write(|w| w.bits(periph_addr))
                     } else {
-                        &regs.cpar1
+                        regs.cpar1.write(|w| w.bits(periph_addr))
                     }
                 }
             }
             DmaChannel::C2 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch2.par
+                        regs.ch2.par.write(|w| w.bits(periph_addr))
                     } else {
-                        &regs.cpar2
+                        regs.cpar2.write(|w| w.bits(periph_addr))
                     }
                 }
             }
             DmaChannel::C3 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch3.par
+                        regs.ch3.par.write(|w| w.bits(periph_addr))
                     } else {
-                        &regs.cpar3
+                        regs.cpar3.write(|w| w.bits(periph_addr))
                     }
                 }
             }
             DmaChannel::C4 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch4.par
+                        regs.ch4.par.write(|w| w.bits(periph_addr))
                     } else {
-                        &regs.cpar4
+                        regs.cpar4.write(|w| w.bits(periph_addr))
                     }
                 }
             }
             DmaChannel::C5 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch5.par
+                        regs.ch5.par.write(|w| w.bits(periph_addr))
                     } else {
-                        &regs.cpar5
+                        regs.cpar5.write(|w| w.bits(periph_addr))
                     }
                 }
             }
@@ -1017,9 +1017,9 @@ where
             DmaChannel::C6 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch6.par
+                        regs.ch6.par.write(|w| w.bits(periph_addr))
                     } else {
-                        &regs.cpar6
+                        regs.cpar6.write(|w| w.bits(periph_addr))
                     }
                 }
             }
@@ -1027,73 +1027,73 @@ where
             DmaChannel::C7 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch7.par
+                        regs.ch7.par.write(|w| w.bits(periph_addr))
                     } else {
-                        &regs.cpar7
+                        regs.cpar7.write(|w| w.bits(periph_addr))
                     }
                 }
             }
             #[cfg(any(feature = "l5", feature = "g4"))]
-            DmaChannel::C8 => &regs.cpar8,
+            DmaChannel::C8 => regs.cpar8.write(|w| w.bits(periph_addr)),
         };
-        cpar.write(|w| w.bits(periph_addr));
     }
 
     atomic::compiler_fence(Ordering::SeqCst);
+
     unsafe {
-        let cmar = match channel {
+        match channel {
             DmaChannel::C1 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch1.mar
+                        regs.ch1.mar.write(|w| w.bits(mem_addr))
                     } else if #[cfg(feature = "l5")] {
-                        &regs.cm0ar1
+                        regs.cm0ar1.write(|w| w.bits(mem_addr))
                     } else {
-                        &regs.cmar1
+                        regs.cmar1.write(|w| w.bits(mem_addr))
                     }
                 }
             }
             DmaChannel::C2 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch2.mar
+                        regs.ch2.mar.write(|w| w.bits(mem_addr))
                     } else if #[cfg(feature = "l5")] {
-                        &regs.cm0ar2
+                        regs.cm0ar2.write(|w| w.bits(mem_addr))
                     } else {
-                        &regs.cmar2
+                        regs.cmar2.write(|w| w.bits(mem_addr))
                     }
                 }
             }
             DmaChannel::C3 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch3.mar
+                        regs.ch3.mar.write(|w| w.bits(mem_addr))
                     } else if #[cfg(feature = "l5")] {
-                        &regs.cm0ar3
+                        regs.cm0ar3.write(|w| w.bits(mem_addr))
                     } else {
-                        &regs.cmar3
+                        regs.cmar3.write(|w| w.bits(mem_addr))
                     }
                 }
             }
             DmaChannel::C4 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch4.mar
+                        regs.ch4.mar.write(|w| w.bits(mem_addr))
                     } else if #[cfg(feature = "l5")] {
-                        &regs.cm0ar4
+                        regs.cm0ar4.write(|w| w.bits(mem_addr))
                     } else {
-                        &regs.cmar4
+                        regs.cmar4.write(|w| w.bits(mem_addr))
                     }
                 }
             }
             DmaChannel::C5 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch5.mar
+                        regs.ch5.mar.write(|w| w.bits(mem_addr))
                     } else if #[cfg(feature = "l5")] {
-                        &regs.cm0ar5
+                        regs.cm0ar5.write(|w| w.bits(mem_addr))
                     } else {
-                        &regs.cmar5
+                        regs.cmar5.write(|w| w.bits(mem_addr))
                     }
                 }
             }
@@ -1101,11 +1101,11 @@ where
             DmaChannel::C6 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch6.mar
+                        regs.ch6.mar.write(|w| w.bits(mem_addr))
                     } else if #[cfg(feature = "l5")] {
-                        &regs.cm0ar6
+                        regs.cm0ar6.write(|w| w.bits(mem_addr))
                     } else {
-                        &regs.cmar6
+                        regs.cmar6.write(|w| w.bits(mem_addr))
                     }
                 }
             }
@@ -1113,11 +1113,11 @@ where
             DmaChannel::C7 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch7.mar
+                        regs.ch7.mar.write(|w| w.bits(mem_addr))
                     } else if #[cfg(feature = "l5")] {
-                        &regs.cm0ar7
+                        regs.cm0ar7.write(|w| w.bits(mem_addr))
                     } else {
-                        &regs.cmar7
+                        regs.cmar7.write(|w| w.bits(mem_addr))
                     }
                 }
             }
@@ -1125,14 +1125,13 @@ where
             DmaChannel::C8 => {
                 cfg_if! {
                     if #[cfg(feature = "l5")] {
-                        &regs.cm0ar8
+                        regs.cm0ar8.write(|w| w.bits(mem_addr))
                     } else { // g4
-                        &regs.cmar8
+                        regs.cmar8.write(|w| w.bits(mem_addr))
                     }
                 }
             }
         };
-        cmar.write(|w| w.bits(mem_addr));
     }
 
     #[cfg(any(feature = "l5", feature = "wl"))]
@@ -1140,49 +1139,49 @@ where
 
     #[cfg(not(feature = "l5"))] // todo: PAC ommission? ndt fields missing for diff ndt regs.
     unsafe {
-        let cndtr = match channel {
+        match channel {
             DmaChannel::C1 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch1.ndtr
+                        regs.ch1.ndtr.write(|w| w.ndt().bits(num_data))
                     } else {
-                        &regs.cndtr1
+                        regs.cndtr1.write(|w| w.ndt().bits(num_data))
                     }
                 }
             }
             DmaChannel::C2 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch2.ndtr
+                        regs.ch2.ndtr.write(|w| w.ndt().bits(num_data))
                     } else {
-                        &regs.cndtr2
+                        regs.cndtr2.write(|w| w.ndt().bits(num_data))
                     }
                 }
             }
             DmaChannel::C3 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch3.ndtr
+                        regs.ch3.ndtr.write(|w| w.ndt().bits(num_data))
                     } else {
-                        &regs.cndtr3
+                        regs.cndtr3.write(|w| w.ndt().bits(num_data))
                     }
                 }
             }
             DmaChannel::C4 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch4.ndtr
+                        regs.ch4.ndtr.write(|w| w.ndt().bits(num_data))
                     } else {
-                        &regs.cndtr4
+                        regs.cndtr4.write(|w| w.ndt().bits(num_data))
                     }
                 }
             }
             DmaChannel::C5 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch5.ndtr
+                        regs.ch5.ndtr.write(|w| w.ndt().bits(num_data))
                     } else {
-                        &regs.cndtr5
+                        regs.cndtr5.write(|w| w.ndt().bits(num_data))
                     }
                 }
             }
@@ -1190,9 +1189,9 @@ where
             DmaChannel::C6 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch6.ndtr
+                        regs.ch6.ndtr.write(|w| w.ndt().bits(num_data))
                     } else {
-                        &regs.cndtr6
+                        regs.cndtr6.write(|w| w.ndt().bits(num_data))
                     }
                 }
             }
@@ -1200,61 +1199,150 @@ where
             DmaChannel::C7 => {
                 cfg_if! {
                     if #[cfg(any(feature = "f3", feature = "g0"))] {
-                        &regs.ch7.ndtr
+                        regs.ch7.ndtr.write(|w| w.ndt().bits(num_data))
                     } else {
-                        &regs.cndtr7
+                        regs.cndtr7.write(|w| w.ndt().bits(num_data))
                     }
                 }
             }
             #[cfg(any(feature = "l5", feature = "g4"))]
-            DmaChannel::C8 => &regs.cndtr8,
+            DmaChannel::C8 => regs.cndtr8.write(|w| w.ndt().bits(num_data)),
         };
-        cndtr.write(|w| w.ndt().bits(num_data));
     }
 
-    let ccr = match channel {
+    match channel {
         DmaChannel::C1 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch1.cr
+                    set_ccr!(
+                        regs.ch1.cr,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 } else {
-                    &regs.ccr1
+                    set_ccr!(
+                        regs.ccr1,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 }
-            }
+            };
         }
         DmaChannel::C2 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch2.cr
+                    set_ccr!(
+                        regs.ch2.cr,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 } else {
-                    &regs.ccr2
+                    set_ccr!(
+                        regs.ccr2,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 }
             }
         }
         DmaChannel::C3 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch3.cr
+                    set_ccr!(
+                        regs.ch3.cr,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 } else {
-                    &regs.ccr3
+                    set_ccr!(
+                        regs.ccr3,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 }
             }
         }
         DmaChannel::C4 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch4.cr
+                    set_ccr!(
+                        regs.ch4.cr,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 } else {
-                    &regs.ccr4
+                    set_ccr!(
+                        regs.ccr4,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 }
             }
         }
         DmaChannel::C5 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch5.cr
+                    set_ccr!(
+                        regs.ch5.cr,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 } else {
-                    &regs.ccr5
+                    set_ccr!(
+                        regs.ccr5,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 }
             }
         }
@@ -1262,9 +1350,27 @@ where
         DmaChannel::C6 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch6.cr
+                    set_ccr!(
+                        regs.ch6.cr,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 } else {
-                    &regs.ccr6
+                    set_ccr!(
+                        regs.ccr6,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 }
             }
         }
@@ -1272,25 +1378,45 @@ where
         DmaChannel::C7 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch7.cr
+                    set_ccr!(
+                        regs.ch7.cr,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 } else {
-                    &regs.ccr7
+                    set_ccr!(
+                        regs.ccr7,
+                        cfg.priority,
+                        direction,
+                        cfg.circular,
+                        cfg.periph_incr,
+                        cfg.mem_incr,
+                        periph_size,
+                        mem_size
+                    );
                 }
             }
         }
         #[cfg(any(feature = "l5", feature = "g4"))]
-        DmaChannel::C8 => &regs.ccr8,
+        DmaChannel::C8 => {
+            set_ccr!(
+                regs.ccr8,
+                cfg.priority,
+                direction,
+                cfg.circular,
+                cfg.periph_incr,
+                cfg.mem_incr,
+                periph_size,
+                mem_size
+            );
+        }
     };
-    set_ccr!(
-        ccr,
-        cfg.priority,
-        direction,
-        cfg.circular,
-        cfg.periph_incr,
-        cfg.mem_incr,
-        periph_size,
-        mem_size
-    )
+    Ok(())
 }
 
 /// Configure a DMA channel. See L4 RM 0394, section 11.4.4. Sets the Transfer Complete
@@ -1318,7 +1444,10 @@ where
     let originally_enabled = channel.cr.read().en().bit_is_set();
 
     channel.cr.modify(|_, w| w.en().clear_bit());
-    bounded_loop!(channel.cr.read().en().bit_is_set(), DmaError::Hardware);
+    bounded_loop!(
+        channel.cr.read().en().bit_is_set(),
+        DmaError::RegisterUnchanged
+    );
 
     // H743 RM Section 15.3.19 The following sequence is needed to configure a DMA stream x:
     // 1. Set the peripheral register address in the DMA_CPARx register.
@@ -1356,7 +1485,10 @@ where
 
     if originally_enabled {
         channel.cr.modify(|_, w| w.en().clear_bit());
-        bounded_loop!(channel.cr.read().en().bit_is_set(), DmaError::Hardware);
+        bounded_loop!(
+            channel.cr.read().en().bit_is_set(),
+            DmaError::RegisterUnchanged
+        );
     }
 
     // 4. Configure the parameters listed below in the DMA_CCRx register:
@@ -1397,7 +1529,10 @@ where
 
     if originally_enabled {
         channel.cr.modify(|_, w| w.en().set_bit());
-        bounded_loop!(channel.cr.read().en().bit_is_clear(), DmaError::Hardware);
+        bounded_loop!(
+            channel.cr.read().en().bit_is_clear(),
+            DmaError::RegisterUnchanged
+        );
     }
 
     Ok(())
@@ -1419,45 +1554,55 @@ where
         DmaChannel::C1 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch1.cr
+                    regs.ch1.cr.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ch1.cr.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 } else {
-                    &regs.ccr1
+                    regs.ccr1.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ccr1.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 }
             }
         }
         DmaChannel::C2 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch2.cr
+                    regs.ch2.cr.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ch2.cr.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 } else {
-                    &regs.ccr2
+                    regs.ccr2.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ccr2.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 }
             }
         }
         DmaChannel::C3 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch3.cr
+                    regs.ch3.cr.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ch3.cr.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 } else {
-                    &regs.ccr3
+                    regs.ccr3.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ccr3.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 }
             }
         }
         DmaChannel::C4 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch4.cr
+                    regs.ch4.cr.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ch4.cr.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 } else {
-                    &regs.ccr4
+                    regs.ccr4.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ccr4.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 }
             }
         }
         DmaChannel::C5 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch5.cr
+                    regs.ch5.cr.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ch5.cr.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 } else {
-                    &regs.ccr5
+                    regs.ccr5.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ccr5.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 }
             }
         }
@@ -1465,9 +1610,11 @@ where
         DmaChannel::C6 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch6.cr
+                    regs.ch6.cr.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ch6.cr.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 } else {
-                    &regs.ccr6
+                    regs.ccr6.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ccr6.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 }
             }
         }
@@ -1475,18 +1622,23 @@ where
         DmaChannel::C7 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch7.cr
+                    regs.ch7.cr.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ch7.cr.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 } else {
-                    &regs.ccr7
+                    regs.ccr7.modify(|_, w| w.en().clear_bit());
+                    bounded_loop!(regs.ccr7.read().en().bit_is_set(), DmaError::RegisterUnchanged);
                 }
             }
         }
         #[cfg(any(feature = "l5", feature = "g4"))]
-        DmaChannel::C8 => &regs.ccr8,
+        DmaChannel::C8 => {
+            regs.ccr8.modify(|_, w| w.en().clear_bit());
+            bounded_loop!(
+                regs.ccr8.read().en().bit_is_set(),
+                DmaError::RegisterUnchanged
+            );
+        }
     };
-
-    ccr.modify(|_, w| w.en().clear_bit());
-    bounded_loop!(ccr.read().en().bit_is_set(), DmaError::Hardware);
 
     Ok(())
 
@@ -1523,7 +1675,7 @@ where
 
     let cr = &regs.st[channel as usize].cr;
     cr.modify(|_, w| w.en().clear_bit());
-    bounded_loop!(cr.read().en().bit_is_set(), DmaError::Hardware);
+    bounded_loop!(cr.read().en().bit_is_set(), DmaError::RegisterUnchanged);
 
     Ok(())
 
@@ -1544,7 +1696,11 @@ pub fn stop(periph: DmaPeriph, channel: DmaChannel) -> Result<(), DmaError> {
             let mut regs = unsafe { &(*DMA1::ptr()) };
             stop_internal(&mut regs, channel)
         }
-        #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
+        #[cfg(not(any(
+            feature = "f3x4",
+            all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))),
+            feature = "wb",
+        )))]
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             stop_internal(&mut regs, channel)
@@ -1728,49 +1884,49 @@ where
     D: Deref<Target = dma1::RegisterBlock>,
 {
     // Can only be set when the channel is disabled.
-    let ccr = match channel {
+    match channel {
         DmaChannel::C1 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch1.cr
+                    enable_interrupt!(regs.ch1.cr, interrupt);
                 } else {
-                    &regs.ccr1
+                    enable_interrupt!(regs.ccr1, interrupt);
                 }
             }
         }
         DmaChannel::C2 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch2.cr
+                    enable_interrupt!(regs.ch2.cr, interrupt);
                 } else {
-                    &regs.ccr2
+                    enable_interrupt!(regs.ccr2, interrupt);
                 }
             }
         }
         DmaChannel::C3 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch3.cr
+                    enable_interrupt!(regs.ch3.cr, interrupt);
                 } else {
-                    &regs.ccr3
+                    enable_interrupt!(regs.ccr3, interrupt);
                 }
             }
         }
         DmaChannel::C4 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch4.cr;
+                    enable_interrupt!(regs.ch4.cr, interrupt);
                 } else {
-                    &regs.ccr4
+                    enable_interrupt!(regs.ccr4, interrupt);
                 }
             }
         }
         DmaChannel::C5 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch5.cr
+                    enable_interrupt!(regs.ch5.cr, interrupt);
                 } else {
-                    &regs.ccr5
+                    enable_interrupt!(regs.ccr5, interrupt);
                 }
             }
         }
@@ -1778,9 +1934,9 @@ where
         DmaChannel::C6 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch6.cr
+                    enable_interrupt!(regs.ch6.cr, interrupt);
                 } else {
-                    &regs.ccr6
+                    enable_interrupt!(regs.ccr6, interrupt);
                 }
             }
         }
@@ -1813,49 +1969,49 @@ where
     D: Deref<Target = dma1::RegisterBlock>,
 {
     // Can only be set when the channel is disabled.
-    let ccr = match channel {
+    match channel {
         DmaChannel::C1 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch1.cr
+                    disable_interrupt!(regs.ch1.cr, interrupt)
                 } else {
-                    &regs.ccr1
+                    disable_interrupt!(regs.ccr1, interrupt)
                 }
             }
         }
         DmaChannel::C2 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch2.cr
+                    disable_interrupt!(regs.ch2.cr, interrupt)
                 } else {
-                    &regs.ccr2
+                    disable_interrupt!(regs.ccr2, interrupt)
                 }
             }
         }
         DmaChannel::C3 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch3.cr
+                    disable_interrupt!(regs.ch3.cr, interrupt)
                 } else {
-                    &regs.ccr3
+                    disable_interrupt!(regs.ccr3, interrupt)
                 }
             }
         }
         DmaChannel::C4 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch4.cr
+                    disable_interrupt!(regs.ch4.cr, interrupt)
                 } else {
-                    &regs.ccr4
+                    disable_interrupt!(regs.ccr4, interrupt)
                 }
             }
         }
         DmaChannel::C5 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch5.cr
+                    disable_interrupt!(regs.ch5.cr, interrupt)
                 } else {
-                    &regs.ccr5
+                    disable_interrupt!(regs.ccr5, interrupt)
                 }
             }
         }
@@ -1863,9 +2019,9 @@ where
         DmaChannel::C6 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch6.cr
+                    disable_interrupt!(regs.ch6.cr, interrupt)
                 } else {
-                    &regs.ccr6
+                    disable_interrupt!(regs.ccr6, interrupt)
                 }
             }
         }
@@ -1873,16 +2029,17 @@ where
         DmaChannel::C7 => {
             cfg_if! {
                 if #[cfg(any(feature = "f3", feature = "g0"))] {
-                    &regs.ch7.cr
+                    disable_interrupt!(regs.ch7.cr, interrupt)
                 } else {
-                    &regs.ccr7
+                    disable_interrupt!(regs.ccr7, interrupt)
                 }
             }
         }
         #[cfg(any(feature = "l5", feature = "g4"))]
-        DmaChannel::C8 => &regs.ccr8,
+        DmaChannel::C8 => disable_interrupt!(regs.ccr8, interrupt),
     };
-    disable_interrupt!(ccr, interrupt)
+
+    Ok(())
 }
 
 #[cfg(feature = "h7")]
@@ -1946,7 +2103,11 @@ pub fn enable_interrupt(
             let mut regs = unsafe { &(*DMA1::ptr()) };
             enable_interrupt_internal(&mut regs, channel, interrupt)
         }
-        #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
+        #[cfg(not(any(
+            feature = "f3x4",
+            all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))),
+            feature = "wb",
+        )))]
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             enable_interrupt_internal(&mut regs, channel, interrupt)
@@ -1965,7 +2126,11 @@ pub fn disable_interrupt(
             let mut regs = unsafe { &(*DMA1::ptr()) };
             disable_interrupt_internal(&mut regs, channel, interrupt)
         }
-        #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
+        #[cfg(not(any(
+            feature = "f3x4",
+            all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))),
+            feature = "wb",
+        )))]
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             disable_interrupt_internal(&mut regs, channel, interrupt)
@@ -1984,7 +2149,11 @@ pub fn clear_interrupt(
             let mut regs = unsafe { &(*DMA1::ptr()) };
             clear_interrupt_internal(&mut regs, channel, interrupt)
         }
-        #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
+        #[cfg(not(any(
+            feature = "f3x4",
+            all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))),
+            feature = "wb",
+        )))]
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             clear_interrupt_internal(&mut regs, channel, interrupt)
@@ -2238,7 +2407,7 @@ macro_rules! make_chan_struct {
                 /// Stop a DMA transfer, if in progress.
                 pub fn stop(&mut self) -> Result<(), DmaError> {
                     self.ccr().modify(|_, w| w.en().clear_bit());
-                    bounded_loop!(self.ccr().read().en().bit_is_set(), DmaError::Hardware);
+                    bounded_loop!(self.ccr().read().en().bit_is_set(), DmaError::RegisterUnchanged);
 
                     Ok(())
                 }

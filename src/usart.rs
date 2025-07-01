@@ -11,19 +11,18 @@ use core::ops::Deref;
 
 use cfg_if::cfg_if;
 
-#[cfg(any(feature = "f3", feature = "l4"))]
-use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
 #[cfg(feature = "g0")]
 use crate::pac::DMA as DMA1;
 #[cfg(not(any(feature = "g0", feature = "h5")))]
 use crate::pac::DMA1;
+// use crate::util::{cr1, isr};
 use crate::{
-    MAX_ITERS,
     clocks::Clocks,
+    dma::DmaError,
     pac::{self, RCC},
-    util::{BaudPeriph, RccPeriph},
+    util::{BaudPeriph, RccPeriph, cr1, isr},
 };
 
 // todo: Prescaler (USART_PRESC) register on v3 (L5, G, H etc)
@@ -87,7 +86,7 @@ pub enum IrdaMode {
 /// Serial error
 #[non_exhaustive]
 #[derive(Debug, defmt::Format)]
-pub enum UartError {
+pub enum UsartError {
     /// Framing error
     Framing,
     /// Noise error
@@ -96,7 +95,7 @@ pub enum UartError {
     Overrun,
     /// Parity check error
     Parity,
-    Hardware,
+    RegisterUnchanged,
 }
 
 #[cfg(not(feature = "f4"))]
@@ -164,35 +163,6 @@ impl Default for UsartConfig {
 
 // todo: Support fifo_disabled regs.
 
-#[cfg(feature = "h5")]
-macro_rules! cr1 {
-    ($regs:expr) => {
-        $regs.cr1_enabled()
-    };
-}
-
-#[cfg(not(feature = "h5"))]
-macro_rules! cr1 {
-    ($regs:expr) => {
-        $regs.cr1
-    };
-}
-
-// Some variants like H5 and certain G0 variants use separate registers for FIFO
-#[cfg(feature = "h5")]
-macro_rules! isr {
-    ($regs:expr) => {
-        $regs.isr_enabled()
-    };
-}
-
-#[cfg(not(feature = "h5"))]
-macro_rules! isr {
-    ($regs:expr) => {
-        $regs.isr
-    };
-}
-
 /// Represents the USART peripheral, for serial communications.
 pub struct Usart<R> {
     pub regs: R,
@@ -206,67 +176,72 @@ where
 {
     /// Initialize a U(S)ART peripheral, including configuration register writes, and enabling and
     /// resetting its RCC peripheral clock. `baud` is the baud rate, in bytes-per-second.
-    pub fn new(regs: R, baud: u32, config: UsartConfig, clock_cfg: &Clocks) -> Self {
+    pub fn new(
+        regs: R,
+        baud: u32,
+        config: UsartConfig,
+        clock_cfg: &Clocks,
+    ) -> Result<Self, UsartError> {
         let rcc = unsafe { &(*RCC::ptr()) };
         R::en_reset(rcc);
 
-        let mut result = Self { regs, baud, config };
+        let mut usart = Self { regs, baud, config };
 
         // This should already be disabled on power up, but disable here just in case;
         // some bits can't be set with USART enabled.
 
-        result.disable();
+        usart.disable()?;
 
         // Set up transmission. See L44 RM, section 38.5.2: "Character Transmission Procedures".
         // 1. Program the M bits in USART_CR1 to define the word length.
 
-        let word_len_bits = result.config.word_len.bits();
-        cr1!(result.regs).modify(|_, w| {
-            w.over8().bit(result.config.oversampling as u8 != 0);
-            w.pce().bit(result.config.parity != Parity::Disabled);
+        let word_len_bits = usart.config.word_len.bits();
+        cr1!(usart.regs).modify(|_, w| {
+            w.over8().bit(usart.config.oversampling as u8 != 0);
+            w.pce().bit(usart.config.parity != Parity::Disabled);
             cfg_if! {
                 if #[cfg(not(any(feature = "f", feature = "wl")))] {
                     w.m1().bit(word_len_bits.0 != 0);
                     w.m0().bit(word_len_bits.1 != 0);
-                    return w.ps().bit(result.config.parity == Parity::EnabledOdd);
+                    return w.ps().bit(usart.config.parity == Parity::EnabledOdd);
                 } else {
-                    return w.ps().bit(result.config.parity == Parity::EnabledOdd);
+                    return w.ps().bit(usart.config.parity == Parity::EnabledOdd);
                 }
             }
         });
 
         // todo: Workaround due to a PAC bug, where M0 is missing.
         #[cfg(feature = "f")]
-        result.regs.cr1.write(|w| unsafe {
+        usart.regs.cr1.write(|w| unsafe {
             w.bits(
-                result.regs.cr1.read().bits()
+                usart.regs.cr1.read().bits()
                     | ((word_len_bits.0 as u32) << 28)
                     | ((word_len_bits.1 as u32) << 12),
             )
         });
 
         #[cfg(not(feature = "f4"))]
-        result
+        usart
             .regs
             .cr3
-            .modify(|_, w| w.ovrdis().bit(result.config.overrun_disabled));
+            .modify(|_, w| w.ovrdis().bit(usart.config.overrun_disabled));
 
         // Must be done before enabling.
         #[cfg(any(feature = "g4", feature = "h7"))]
-        result
+        usart
             .regs
             .cr1
-            .modify(|_, w| w.fifoen().bit(result.config.fifo_enabled));
+            .modify(|_, w| w.fifoen().bit(usart.config.fifo_enabled));
 
         // 2. Select the desired baud rate using the USART_BRR register.
-        result.set_baud(baud, clock_cfg).ok();
+        usart.set_baud(baud, clock_cfg).ok();
         // 3. Program the number of stop bits in USART_CR2.
-        result
+        usart
             .regs
             .cr2
-            .modify(|_, w| unsafe { w.stop().bits(result.config.stop_bits as u8) });
+            .modify(|_, w| unsafe { w.stop().bits(usart.config.stop_bits as u8) });
         // 4. Enable the USART by writing the UE bit in USART_CR1 register to 1.
-        result.enable();
+        usart.enable()?;
 
         // 5. Select DMA enable (DMAT[R]] in USART_CR3 if multibuffer communication is to take
         // place. Configure the DMA register as explained in multibuffer communication.
@@ -275,35 +250,35 @@ where
         // 6. Set the RE bit USART_CR1. This enables the receiver which begins searching for a
         // start bit.
 
-        cr1!(result.regs).modify(|_, w| {
+        cr1!(usart.regs).modify(|_, w| {
             w.te().set_bit();
             w.re().set_bit()
         });
 
-        match result.config.irda_mode {
+        match usart.config.irda_mode {
             // See G4 RM, section 37.5.18: USART IrDA SIR ENDEC block
             // " IrDA mode is selected by setting the IREN bit in the USART_CR3 register. In IrDA mode,
             // the following bits must be kept cleared:
             // • LINEN, STOP and CLKEN bits in the USART_CR2 register,
             IrdaMode::None => (),
             _ => {
-                result.regs.cr2.modify(|_, w| unsafe {
+                usart.regs.cr2.modify(|_, w| unsafe {
                     w.linen().clear_bit();
                     w.stop().bits(0);
                     w.clken().clear_bit()
                 });
 
                 // • SCEN and HDSEL bits in the USART_CR3 register."
-                result.regs.cr3.modify(|_, w| {
+                usart.regs.cr3.modify(|_, w| {
                     w.scen().clear_bit();
                     w.hdsel().clear_bit();
-                    w.irlp().bit(result.config.irda_mode == IrdaMode::LowPower);
+                    w.irlp().bit(usart.config.irda_mode == IrdaMode::LowPower);
                     w.iren().set_bit()
                 });
             }
         }
 
-        result
+        Ok(usart)
     }
 }
 
@@ -313,18 +288,15 @@ where
 {
     /// Set the BAUD rate. Called during init, and can be called later to change BAUD
     /// during program execution.
-    pub fn set_baud(&mut self, baud: u32, clock_cfg: &Clocks) -> Result<(), UartError> {
+    pub fn set_baud(&mut self, baud: u32, clock_cfg: &Clocks) -> Result<(), UsartError> {
         let originally_enabled = cr1!(self.regs).read().ue().bit_is_set();
 
         if originally_enabled {
             cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
-            let mut i = 0;
-            while cr1!(self.regs).read().ue().bit_is_set() {
-                i += 1;
-                if i >= MAX_ITERS {
-                    return Err(UartError::Hardware);
-                }
-            }
+            bounded_loop!(
+                cr1!(self.regs).read().ue().bit_is_set(),
+                UsartError::RegisterUnchanged
+            );
         }
 
         // To set BAUD rate, see L4 RM section 38.5.4: "USART baud rate generation".
@@ -363,84 +335,72 @@ where
     R: Deref<Target = pac::usart1::RegisterBlock> + RccPeriph,
 {
     /// Enable this U(S)ART peripheral.
-    pub fn enable(&mut self) {
+    pub fn enable(&mut self) -> Result<(), UsartError> {
         cr1!(self.regs).modify(|_, w| w.ue().set_bit());
-        while cr1!(self.regs).read().ue().bit_is_clear() {}
+        bounded_loop!(
+            cr1!(self.regs).read().ue().bit_is_clear(),
+            UsartError::RegisterUnchanged
+        );
+        Ok(())
     }
 
     /// Disable this U(S)ART peripheral.
-    pub fn disable(&mut self) {
+    pub fn disable(&mut self) -> Result<(), UsartError> {
         cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
-        while cr1!(self.regs).read().ue().bit_is_set() {}
+        bounded_loop!(
+            cr1!(self.regs).read().ue().bit_is_set(),
+            UsartError::RegisterUnchanged
+        );
+        Ok(())
     }
 
     /// Transmit data, as a sequence of u8. See L44 RM, section 38.5.2: "Character transmission procedure"
-    pub fn write(&mut self, data: &[u8]) -> Result<(), UartError> {
+    pub fn write(&mut self, data: &[u8]) -> Result<(), UsartError> {
         // todo: how does this work with a 9 bit words? Presumably you'd need to make `data`
         // todo take `&u16`.
 
         // 7. Write the data to send in the USART_TDR register (this clears the TXE bit). Repeat this
         // for each data to be transmitted in case of single buffer.
 
-        cfg_if! {
-            if #[cfg(not(feature = "f4"))] {
-                for word in data {
-                    let mut i = 0;
-
-                    #[cfg(feature = "h5")]
-                    while isr!(self.regs).read().txfe().bit_is_clear() {
-                        i += 1;
-                        if i >= MAX_ITERS {
-                            // return Err(UartError::Hardware);
-                        }
-                    }
-
-                    #[cfg(not(feature = "h5"))]
-                    // Note: Per these PACs, TXFNF and TXE are on the same field, so this is actually
-                    // checking txfnf if the fifo is enabled.
-                    while isr!(self.regs).read().txe().bit_is_clear() {
-                        i += 1;
-                        if i >= MAX_ITERS {
-                            return Err(UartError::Hardware);
-                        }
-                    }
-
-                    self.regs
-                        .tdr
-                        .modify(|_, w| unsafe { w.tdr().bits(*word as u16) });
+        for word in data {
+            cfg_if! {
+                if #[cfg(feature = "h5")] {
+                    bounded_loop!(
+                        isr!(self.regs).read().txfe().bit_is_clear(),
+                        UsartError::RegisterUnchanged
+                    );
+                } else if #[cfg(feature = "f4")] {
+                    bounded_loop!(
+                        isr!(self.regs).read().tc().bit_is_clear(),
+                        UsartError::RegisterUnchanged
+                    );
+                    bounded_loop!(isr!(self.regs).read().txe().bit_is_clear(),
+                        UsartError::RegisterUnchanged);
+                } else {
+                    bounded_loop!(
+                        isr!(self.regs).read().txe().bit_is_clear(),
+                        UsartError::RegisterUnchanged
+                    );
                 }
-                // 8. After writing the last data into the USART_TDR register, wait until TC=1. This indicates
-                // that the transmission of the last frame is complete. This is required for instance when
-                // the USART is disabled or enters the Halt mode to avoid corrupting the last
-                // transmission
-                let mut i = 0;
-                while isr!(self.regs).read().tc().bit_is_clear() {
-                        i += 1;
-                        if i >= MAX_ITERS {
-                            return Err(UartError::Hardware);
-                        }
-                }
-            } else {
-                for word in data {
-                    let mut i = 0;
-                    while self.regs.sr.read().txe().bit_is_clear() {
-                        i += 1;
-                        if i >= MAX_ITERS {
-                            return Err(UartError::Hardware);
-                        }
-                    }
+            }
+
+            // 8. After writing the last data into the USART_TDR register, wait until TC=1. This indicates
+            // that the transmission of the last frame is complete. This is required for instance when
+            // the USART is disabled or enters the Halt mode to avoid corrupting the last
+            // transmission
+            cfg_if! {
+                if #[cfg(feature = "f4")] {
                     self.regs
                         .dr
                         .modify(|_, w| unsafe { w.dr().bits(*word as u16) });
-
-                }
-                let mut i = 0;
-                while self.regs.sr.read().tc().bit_is_clear() {
-                                            i += 1;
-                        if i >= MAX_ITERS {
-                            return Err(UartError::Hardware);
-                        }
-                }
+                    bounded_loop!(self.regs.sr.read().tc().bit_is_clear(), UsartError::RegisterUnchanged);
+                } else {
+                    // Note: Per these PACs, TXFNF and TXE are on the same field, so this is actually
+                    // checking txfnf if the fifo is enabled.
+                    self.regs
+                        .tdr
+                        .modify(|_, w| unsafe { w.tdr().bits(*word as u16) });
+                    }
             }
         }
 
@@ -466,39 +426,29 @@ where
     }
 
     /// Receive data into a u8 buffer. See L44 RM, section 38.5.3: "Character reception procedure"
-    pub fn read(&mut self, buf: &mut [u8]) -> Result<(), UartError> {
+    pub fn read(&mut self, buf: &mut [u8]) -> Result<(), UsartError> {
         for i in 0..buf.len() {
-            let mut i_ = 0;
-            cfg_if! {
-                if #[cfg(not(feature = "f4"))] {
-                    // Wait for the next bit
+            // Wait for the next bit
 
-                    #[cfg(feature = "h5")]
-                    while isr!(self.regs).read().rxfne().bit_is_clear() {
-                        i_ += 1;
-                        if i_ >= MAX_ITERS {
-                            return Err(UartError::Hardware);
-                        }
-                    }
+            #[cfg(feature = "h5")]
+            bounded_loop!(
+                isr!(self.regs).read().rxfne().bit_is_clear(),
+                UsartError::RegisterUnchanged
+            );
 
-                    #[cfg(not(feature = "h5"))]
-                    while isr!(self.regs).read().rxne().bit_is_clear() {
-                        i_ += 1;
-                        if i_ >= MAX_ITERS {
-                            return Err(UartError::Hardware);
-                        }
-                    }
+            #[cfg(not(feature = "h5"))]
+            bounded_loop!(
+                isr!(self.regs).read().rxne().bit_is_clear(),
+                UsartError::RegisterUnchanged
+            );
 
-                    buf[i] = self.regs.rdr.read().rdr().bits() as u8;
-                } else {
-                    while self.regs.sr.read().rxne().bit_is_clear() {
-                        i_ += 1;
-                        if i_ >= MAX_ITERS {
-                            return Err(UartError::Hardware);
-                        }
-                    }
-                    buf[i] = self.regs.dr.read().dr().bits() as u8;
-                }
+            #[cfg(not(feature = "f4"))]
+            {
+                buf[i] = self.regs.rdr.read().rdr().bits() as u8;
+            }
+            #[cfg(feature = "f4")]
+            {
+                buf[i] = self.regs.dr.read().dr().bits() as u8;
             }
         }
 
@@ -541,7 +491,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<(), DmaError> {
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
         // To map a DMA channel for USART transmission, use
@@ -591,7 +541,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )
             }
             #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
             dma::DmaPeriph::Dma2 => {
@@ -606,7 +556,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )
             }
         }
 
@@ -637,7 +587,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<(), DmaError> {
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
@@ -675,7 +625,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )
             }
             #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
             dma::DmaPeriph::Dma2 => {
@@ -690,7 +640,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )
             }
         }
 
@@ -919,7 +869,7 @@ where
         }
     }
 
-    fn check_status(&mut self) -> Result<(), UartError> {
+    fn check_status(&mut self) -> Result<(), UsartError> {
         cfg_if! {
             if #[cfg(feature = "f4")] {
                 let status = self.regs.sr.read();
@@ -928,18 +878,18 @@ where
             }
         }
         let mut result = if status.pe().bit_is_set() {
-            Err(UartError::Parity)
+            Err(UsartError::Parity)
         } else if status.fe().bit_is_set() {
-            Err(UartError::Framing)
+            Err(UsartError::Framing)
         } else if status.ore().bit_is_set() {
-            Err(UartError::Overrun)
+            Err(UsartError::Overrun)
         } else {
             Ok(())
         };
 
         #[cfg(not(feature = "wl"))]
         if status.nf().bit_is_set() {
-            result = Err(UartError::Noise);
+            result = Err(UsartError::Noise);
         }
 
         if result.is_err() {
@@ -969,20 +919,20 @@ mod embedded_io_impl {
 
     use super::*;
 
-    impl Error for UartError {
+    impl Error for UsartError {
         fn kind(&self) -> ErrorKind {
             match self {
-                UartError::Framing => ErrorKind::Other,
-                UartError::Noise => ErrorKind::Other,
-                UartError::Overrun => ErrorKind::OutOfMemory,
-                UartError::Parity => ErrorKind::InvalidData,
-                UartError::Hardware => ErrorKind::TimedOut,
+                UsartError::Framing => ErrorKind::Other,
+                UsartError::Noise => ErrorKind::Other,
+                UsartError::Overrun => ErrorKind::OutOfMemory,
+                UsartError::Parity => ErrorKind::InvalidData,
+                UsartError::Hardware => ErrorKind::TimedOut,
             }
         }
     }
 
     impl<R> ErrorType for Usart<R> {
-        type Error = UartError;
+        type Error = UsartError;
     }
 
     impl<R> Read for Usart<R>

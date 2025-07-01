@@ -15,51 +15,10 @@ use crate::pac::DMA as DMA1;
 #[cfg(not(any(feature = "g0", feature = "h5")))]
 use crate::pac::DMA1;
 use crate::{
-    MAX_ITERS,
     clocks::Clocks,
     pac::{self, RCC},
     util::RccPeriph,
 };
-
-macro_rules! busy_wait {
-    ($regs:expr, $flag:ident) => {
-        let mut i = 0;
-
-        loop {
-            let isr = $regs.isr.read();
-
-            i += 1;
-            if i >= MAX_ITERS {
-                return Err(I2cError::Hardware);
-            }
-
-            if isr.$flag().bit_is_set() {
-                break;
-            } else if isr.berr().bit_is_set() {
-                $regs.icr.write(|w| w.berrcf().set_bit());
-                return Err(I2cError::Bus);
-            } else if isr.arlo().bit_is_set() {
-                $regs.icr.write(|w| w.arlocf().set_bit());
-                return Err(I2cError::Arbitration);
-            } else if isr.nackf().bit_is_set() {
-                $regs.icr.write(|w| w.stopcf().set_bit().nackcf().set_bit());
-
-                // If a pending TXIS flag is set, write dummy data to TXDR
-                if $regs.isr.read().txis().bit_is_set() {
-                    $regs.txdr.write(|w| unsafe { w.txdata().bits(0) });
-                }
-
-                // If TXDR is not flagged as empty, write 1 to flush it
-                if $regs.isr.read().txe().bit_is_clear() {
-                    $regs.isr.write(|w| w.txe().set_bit());
-                }
-
-                return Err(I2Error::Nack);
-            } else {
-            }
-        }
-    };
-}
 
 /// I2C error
 #[non_exhaustive]
@@ -376,7 +335,6 @@ where
         if originally_enabled {
             self.regs.cr1.modify(|_, w| w.pe().clear_bit());
 
-            let mut i = 0;
             bounded_loop!(
                 self.regs.cr1.read().pe().bit_is_set(),
                 I2cError::RegisterUnchanged
@@ -392,6 +350,37 @@ where
 
         if originally_enabled {
             self.regs.cr1.modify(|_, w| w.pe().set_bit());
+        }
+
+        Ok(())
+    }
+
+    ///
+    fn check_for_errors(&self) -> Result<(), I2cError> {
+        let isr = self.regs.isr.read();
+
+        if isr.berr().bit_is_set() {
+            self.regs.icr.write(|w| w.berrcf().set_bit());
+            return Err(I2cError::Bus);
+        } else if isr.arlo().bit_is_set() {
+            self.regs.icr.write(|w| w.arlocf().set_bit());
+            return Err(I2cError::Arbitration);
+        } else if isr.nackf().bit_is_set() {
+            self.regs
+                .icr
+                .write(|w| w.stopcf().set_bit().nackcf().set_bit());
+
+            // If a pending TXIS flag is set, write dummy data to TXDR
+            if self.regs.isr.read().txis().bit_is_set() {
+                self.regs.txdr.write(|w| unsafe { w.txdata().bits(0) });
+            }
+
+            // If TXDR is not flagged as empty, write 1 to flush it
+            if self.regs.isr.read().txe().bit_is_clear() {
+                self.regs.isr.write(|w| w.txe().set_bit());
+            }
+
+            return Err(I2cError::Nack);
         }
 
         Ok(())
@@ -415,7 +404,11 @@ where
 
         for byte in bytes {
             // Wait until we have received something
-            busy_wait!(self.regs, rxne)?;
+            bounded_loop!(
+                self.regs.isr.read().rxne().bit_is_set(),
+                I2cError::RegisterUnchanged,
+                (self.check_for_errors()?)
+            );
 
             *byte = self.regs.rxdr.read().rxdata().bits();
         }
@@ -428,7 +421,6 @@ where
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
-        let mut i = 0;
         bounded_loop!(
             self.regs.cr2.read().start().bit_is_set(),
             I2cError::RegisterUnchanged
@@ -440,7 +432,11 @@ where
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte when
             // through)
-            busy_wait!(self.regs, txis); // TXDR register is empty
+            bounded_loop!(
+                self.regs.isr.read().txis().bit_is_set(),
+                I2cError::RegisterUnchanged,
+                (self.check_for_errors()?)
+            );
 
             // Put byte on the wire
             self.regs.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
@@ -470,14 +466,23 @@ where
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte went through)
 
-            busy_wait!(self.regs, txis); // TXDR register is empty
+            bounded_loop!(
+                self.regs.isr.read().txis().bit_is_set(),
+                I2cError::RegisterUnchanged,
+                (self.check_for_errors()?)
+            );
 
             // Put byte on the wire
             self.regs.txdr.write(|w| unsafe { w.txdata().bits(*byte) });
         }
 
         // Wait until the write finishes before beginning to read.
-        busy_wait!(self.regs, tc); // transfer is complete
+        // busy_wait!(self.regs, tc); // transfer is complete
+        bounded_loop!(
+            self.regs.isr.read().tc().bit_is_set(),
+            I2cError::RegisterUnchanged,
+            (self.check_for_errors()?)
+        );
 
         // reSTART and prepare to receive bytes into `buffer`
 
@@ -485,7 +490,11 @@ where
 
         for byte in buffer {
             // Wait until we have received something
-            busy_wait!(self.regs, rxne);
+            bounded_loop!(
+                self.regs.isr.read().rxne().bit_is_set(),
+                I2cError::RegisterUnchanged,
+                (self.check_for_errors()?)
+            );
 
             *byte = self.regs.rxdr.read().rxdata().bits();
         }
@@ -586,7 +595,7 @@ where
 
         bounded_loop!(
             self.regs.cr1.read().txdmaen().bit_is_clear(),
-            I2cError::RegisterUnchaged
+            I2cError::RegisterUnchanged
         );
 
         // Only the data are transferred with DMA.
@@ -628,7 +637,8 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )
+                .map_err(|_| I2cError::RegisterUnchanged)
             }
             #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
             dma::DmaPeriph::Dma2 => {
@@ -643,11 +653,10 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )
+                .map_err(|_| I2cError::RegisterUnchanged)
             }
         }
-
-        Ok(())
     }
 
     /// Read data, using DMA. See L44 RM, 37.4.16: "Reception using DMA"
@@ -661,7 +670,8 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<(), I2cError> {
+        // -> Result<(), I2cError> {
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
@@ -679,7 +689,7 @@ where
         self.regs.cr1.modify(|_, w| w.rxdmaen().set_bit());
         bounded_loop!(
             self.regs.cr1.read().rxdmaen().bit_is_clear(),
-            I2cError::RegisterUnchaged
+            I2cError::RegisterUnchanged
         );
 
         // • In master mode, the initialization, the slave address, direction, number of bytes and
@@ -714,7 +724,8 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )
+                .map_err(|_| I2cError::RegisterUnchanged)
             }
             #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
             dma::DmaPeriph::Dma2 => {
@@ -729,7 +740,8 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )
+                .map_err(|_| I2cError::RegisterUnchanged)
             }
         }
     }

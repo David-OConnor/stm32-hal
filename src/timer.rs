@@ -35,7 +35,7 @@ use num_traits::float::FloatCore; // To round floats.
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552")))]
-use crate::dma::{self, ChannelCfg, DmaChannel};
+use crate::dma::{self, ChannelCfg, DmaChannel, DmaError};
 #[cfg(feature = "g0")]
 use crate::pac::DMA as DMA1;
 #[cfg(not(feature = "g0"))]
@@ -665,7 +665,7 @@ macro_rules! make_timer {
                 channel_cfg: ChannelCfg,
                 ds_32_bits: bool,
                 dma_periph: dma::DmaPeriph,
-            ) {
+            ) -> Result<(), DmaError> {
                 // Note: F3 and L4 are unsupported here, since I'm not sure how to select teh
                 // correct Timer channel.
 
@@ -751,7 +751,7 @@ macro_rules! make_timer {
                             if ds_32_bits { dma::DataSize::S32} else { dma::DataSize::S16 },
                             dma::DataSize::S16,
                             channel_cfg,
-                        );
+                        )?;
                     }
                     #[cfg(not(any(feature = "g0", feature = "wb")))]
                     dma::DmaPeriph::Dma2 => {
@@ -768,10 +768,10 @@ macro_rules! make_timer {
                             if ds_32_bits { dma::DataSize::S32} else { dma::DataSize::S16 },
                             dma::DataSize::S16,
                             channel_cfg,
-                        );
+                        )?;
                     }
                 }
-
+                Ok(())
             }
 
             #[cfg(not(any(feature = "g0", feature = "f", feature = "l552", feature = "l4")))]
@@ -785,7 +785,7 @@ macro_rules! make_timer {
                 channel_cfg: ChannelCfg,
                 ds_32_bits: bool,
                 dma_periph: dma::DmaPeriph,
-            ) {
+            ) -> Result<(), DmaError> {
                 let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
                 let periph_addr = &self.regs.dmar as *const _ as u32;
@@ -817,7 +817,7 @@ macro_rules! make_timer {
                             if ds_32_bits { dma::DataSize::S32} else { dma::DataSize::S16 },
                             dma::DataSize::S16,
                             channel_cfg,
-                        );
+                        )?;
                     }
                     #[cfg(not(any(feature = "g0", feature = "wb")))]
                     dma::DmaPeriph::Dma2 => {
@@ -834,9 +834,10 @@ macro_rules! make_timer {
                             if ds_32_bits { dma::DataSize::S32} else { dma::DataSize::S16 },
                             dma::DataSize::S16,
                             channel_cfg,
-                        );
+                        )?;
                     }
                 }
+                Ok(())
             }
 
             /// Get the time elapsed since the start of the timer, taking overflow wraps into account.

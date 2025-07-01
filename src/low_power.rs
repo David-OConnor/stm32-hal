@@ -5,16 +5,11 @@ use cfg_if::cfg_if;
 use cortex_m::{Peripherals, asm::wfi};
 
 #[cfg(any(feature = "l4", feature = "l5"))]
-use crate::clocks::{Clocks, MsiRange};
+use crate::clocks::{Clocks, MsiRange, RccError};
 #[cfg(any(feature = "l4", feature = "l5"))]
 use crate::pac;
 #[cfg(not(feature = "h7"))]
 use crate::pac::PWR;
-
-#[derive(Debug, defmt::Format)]
-pub enum LpError {
-    RegisterUnchanged,
-}
 
 // See L4 Reference Manual section 5.3.6. The values correspond to the PWR_CR1 LPMS bits.
 // todo PWR_CR1, LPMS field.
@@ -32,7 +27,7 @@ pub enum StopMode {
 /// You must select an MSI speed of 2Mhz or lower. Note that you may need to adjust peripheral
 /// implementations that rely on system clock or APB speed.
 #[cfg(any(feature = "l4", feature = "l5"))]
-pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) {
+pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) -> Result<(), RccError> {
     let rcc = unsafe { &(*pac::RCC::ptr()) };
     let pwr = unsafe { &(*PWR::ptr()) };
 
@@ -40,16 +35,18 @@ pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) {
     if speed as u8 > MsiRange::R2M as u8 {
         panic!("Selected Msi speed must be 2Mhz or lower to enter use low power run.")
     }
-    clocks.change_msi_speed(speed);
+    clocks.change_msi_speed(speed)?;
     // LPR = 1
-    pwr.cr1.modify(|_, w| w.lpr().set_bit())
+    pwr.cr1.modify(|_, w| w.lpr().set_bit());
+
+    Ok(())
 }
 
 /// L4 RM, table 24
 /// Return to normal run mode from low-power run. Requires you to increase the clock speed
 /// manually after running this.
 #[cfg(any(feature = "l4", feature = "l5"))]
-pub fn return_from_low_power_run() -> Result<(), LpError> {
+pub fn return_from_low_power_run() -> Result<(), RccError> {
     let pwr = unsafe { &(*PWR::ptr()) };
 
     // LPR = 0
@@ -58,7 +55,7 @@ pub fn return_from_low_power_run() -> Result<(), LpError> {
     // Wait until REGLPF = 0
     bounded_loop!(
         pwr.sr2.read().reglpf().bit_is_set(),
-        LpError::RegisterUnchanged
+        RccError::RegisterUnchanged
     );
 
     // Increase the system clock frequency

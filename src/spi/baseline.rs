@@ -2,7 +2,8 @@ use core::{ops::Deref, ptr};
 
 use super::*;
 use crate::{
-    MAX_ITERS, check_errors,
+    check_errors,
+    dma::DmaError,
     pac::{self, RCC},
     util::RccPeriph,
 };
@@ -265,7 +266,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<(), DmaError> {
         // todo: Accept u16 words too.
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
@@ -295,7 +296,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
             #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
             dma::DmaPeriph::Dma2 => {
@@ -310,11 +311,13 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
         }
 
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
+
+        Ok(())
     }
 
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
@@ -327,7 +330,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<(), DmaError> {
         // Static write and read buffers?
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
@@ -371,7 +374,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
             #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
             dma::DmaPeriph::Dma2 => {
@@ -386,7 +389,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
         }
 
@@ -395,6 +398,8 @@ where
 
         // 4. Enable the SPI by setting the SPE bit.
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
+
+        Ok(())
     }
 
     /// Transfer data from DMA; this is the basic reading API, using both write and read transfers:
@@ -409,7 +414,7 @@ where
         channel_cfg_write: ChannelCfg,
         channel_cfg_read: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<(), DmaError> {
         // todo: Accept u16 words too.
         let (ptr_write, len_write) = (buf_write.as_ptr(), buf_write.len());
         let (ptr_read, len_read) = (buf_read.as_mut_ptr(), buf_read.len());
@@ -454,7 +459,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_write,
-                );
+                )?;
 
                 dma::cfg_channel(
                     &mut regs,
@@ -466,7 +471,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_read,
-                );
+                )?;
             }
             #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
             dma::DmaPeriph::Dma2 => {
@@ -481,7 +486,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_write,
-                );
+                )?;
 
                 dma::cfg_channel(
                     &mut regs,
@@ -493,12 +498,14 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_read,
-                );
+                )?;
             }
         }
 
         self.regs.cr2.modify(|_, w| w.txdmaen().set_bit());
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
+
+        Ok(())
     }
 
     /// Enable an interrupt. Note that unlike on other peripherals, there's no explicit way to

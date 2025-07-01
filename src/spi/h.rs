@@ -173,15 +173,17 @@ where
         // When CRC is used, it is sent automatically after the last data in the block is processed.
         // TXC/EOT is set when CRC frame is completed in this case. When a transmission is
         // suspended the software has to wait till CSTART bit is cleared.
+        let sr = &self.regs.sr;
         bounded_loop!(
-            self.regs.sr.read().txc().bit_is_clear() && self.regs.sr.read().eot().bit_is_clear(),
+            sr.read().txc().bit_is_clear() && sr.read().eot().bit_is_clear(),
             SpiError::RegisterUnchanged
         );
         // 2. Read all RxFIFO data (until RXWNE=0 and RXPLVL=00)
-        // todo: bound this loop
-        while self.regs.sr.read().rxwne().bit_is_set() || self.regs.sr.read().rxplvl().bits() != 0 {
-            unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) };
-        }
+        bounded_loop!(
+            sr.read().rxwne().bit_is_set() || sr.read().rxplvl().bits() != 0,
+            SpiError::RegisterUnchanged,
+            { unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const ()) } }
+        );
         // 3. Disable the SPI (SPE=0).
         self.regs.cr1.modify(|_, w| w.spe().clear_bit());
 
@@ -236,7 +238,7 @@ where
         let len = write_words.len();
         let mut write = write_words.iter();
         for _ in 0..core::cmp::min(FIFO_LEN, len) {
-            self.send(*write.next().unwrap());
+            self.send(unsafe { *write.next().unwrap_unchecked() })?;
         }
 
         // Continue filling write FIFO and emptying read FIFO
@@ -261,7 +263,7 @@ where
         // Fill the first half of the write FIFO
         let len = words.len();
         for i in 0..core::cmp::min(FIFO_LEN, len) {
-            self.send(words[i]);
+            self.send(words[i])?;
         }
 
         for i in FIFO_LEN..len + FIFO_LEN {
@@ -301,7 +303,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<(), DmaError> {
         // todo: Accept u16 and u32 words too.
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
@@ -324,7 +326,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
 
             dma::DmaPeriph::Dma2 => {
@@ -339,12 +341,14 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
         }
 
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
         self.regs.cr1.modify(|_, w| w.cstart().set_bit()); // Must be separate from SPE enable.
+
+        Ok(())
     }
 
     pub unsafe fn write_dma(
@@ -353,7 +357,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<(), DmaError> {
         // Static write and read buffers?
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
@@ -390,7 +394,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
             dma::DmaPeriph::Dma2 => {
                 let mut regs = unsafe { &(*pac::DMA2::ptr()) };
@@ -404,7 +408,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
         }
 
@@ -414,6 +418,8 @@ where
         // 4. Enable the SPI by setting the SPE bit.
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
         self.regs.cr1.modify(|_, w| w.cstart().set_bit()); // Must be separate from SPE enable.
+
+        Ok(())
     }
 
     /// Transfer data from DMA; this is the basic reading API, using both write and read transfers:
@@ -427,7 +433,7 @@ where
         channel_cfg_write: ChannelCfg,
         channel_cfg_read: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<(), DmaError> {
         // todo: Accept u16 and u32 words too.
         let (ptr_write, len_write) = (buf_write.as_ptr(), buf_write.len());
         let (ptr_read, len_read) = (buf_read.as_mut_ptr(), buf_read.len());
@@ -459,7 +465,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_write,
-                );
+                )?;
 
                 dma::cfg_channel(
                     &mut regs,
@@ -471,7 +477,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_read,
-                );
+                )?;
             }
 
             dma::DmaPeriph::Dma2 => {
@@ -486,7 +492,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_write,
-                );
+                )?;
 
                 dma::cfg_channel(
                     &mut regs,
@@ -498,7 +504,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_read,
-                );
+                )?;
             }
         }
 
@@ -506,6 +512,8 @@ where
 
         self.regs.cr1.modify(|_, w| w.spe().set_bit());
         self.regs.cr1.modify(|_, w| w.cstart().set_bit()); // Must be separate from SPE enable.
+
+        Ok(())
     }
 
     /// Enable an interrupt.

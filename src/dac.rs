@@ -6,6 +6,7 @@ use core::ops::Deref;
 use cortex_m::delay::Delay;
 
 use crate::{
+    dma::DmaError,
     pac::{self, RCC},
     util::RccPeriph,
 };
@@ -439,7 +440,7 @@ where
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
         // dma: &mut Dma<D>,
-    ) {
+    ) -> Result<(), DmaError> {
         // where
         // D: Deref<Target = dma_p::RegisterBlock>,
         // {
@@ -561,7 +562,7 @@ where
                     dma::DataSize::S16,
                     dma::DataSize::S16,
                     channel_cfg,
-                );
+                )
             }
             #[cfg(not(any(feature = "f3x4", feature = "g0")))]
             dma::DmaPeriph::Dma2 => {
@@ -576,7 +577,7 @@ where
                     dma::DataSize::S16,
                     dma::DataSize::S16,
                     channel_cfg,
-                );
+                )
             }
         }
     }

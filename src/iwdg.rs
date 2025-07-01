@@ -8,7 +8,7 @@ use crate::pac::IWDG1 as IWDG;
 const IWDG_CLOCK: f32 = 32_000.;
 
 #[derive(Debug, defmt::Format)]
-enum IwdgError {
+pub enum IwdgError {
     RegisterUnchanged,
 }
 

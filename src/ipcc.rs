@@ -148,7 +148,12 @@ impl Ipcc {
 
     /// The Half-duplex channel mode is used when one processor sends a communication and the
     /// other processor sends a response to each communication (ping-pong). Blocking.
-    pub fn send_half_duplex(&mut self, core: Core, channel: IpccChannel, data: &[u8]) {
+    pub fn send_half_duplex(
+        &mut self,
+        core: Core,
+        channel: IpccChannel,
+        data: &[u8],
+    ) -> Result<(), IpccError> {
         // RM, section 37.3.3: To send communication data:
         // * The sending processor waits for its response pending software variable to get 0.
         // – Once the response pending software variable is 0 the communication data is
@@ -202,6 +207,8 @@ impl Ipcc {
                 IpccChannel::C6 => w.ch6fm().clear_bit(),
             }),
         }
+
+        Ok(())
     }
 
     /// Send a half-duplex response.
@@ -318,6 +325,7 @@ impl Ipcc {
                 }
             },
         }
+        Ok(())
     }
 
     /// Receive in half duplex mode.
