@@ -5,7 +5,11 @@
 
 use cfg_if::cfg_if;
 
-use crate::{pac::RCC, util::rcc_en_reset};
+use crate::{
+    error::{Error, Result},
+    pac::RCC,
+    util::{bounded_loop, rcc_en_reset},
+};
 
 // todo: H5 support.
 cfg_if! {
@@ -29,11 +33,6 @@ cfg_if! {
         pub mod g4;
         pub use g4::*;
     } else {
-        #[derive(Debug, defmt::Format)]
-        pub enum CanError {
-            RegisterUnchanged,
-        }
-
         /// Interface to the CAN peripheral.
         pub struct Can {
             pub regs: CAN,
@@ -87,7 +86,7 @@ cfg_if! {
         /// Note: Perhaps due to a reset of message ram called by the FDCAN crate's `.into_config_mode()`,
         /// we run this in application firmware once in config mode. Although a better API would be in the constructor
         /// This must be done after initial setup (Enabling RCC clocks most-likely).
-        pub fn set_message_ram_layout() {
+        pub fn set_message_ram_layout() -> Result<()> {
             let regs = unsafe { &(*CAN::ptr()) };
 
             // RM, section 56.4.1: Operation modes: "Access to the FDCAN configuration registers is only
@@ -96,9 +95,9 @@ cfg_if! {
             // is set. CCE bit in FDCAN_CCCR register is automatically cleared when INIT bit in
             // FDCAN_CCCR is cleared."
             regs.cccr.modify(|_, w| w.init().set_bit());
-            bounded_loop!(regs.cccr.read().init().bit_is_clear(), CanError::RegisterUnchanged);
+            bounded_loop!(regs.cccr.read().init().bit_is_clear(), Error::RegisterUnchanged);
             regs.cccr.modify(|_, w| w.cce().set_bit());
-            bounded_loop!(regs.cccr.read().cce().bit_is_clear(), CanError::RegisterUnchanged);
+            bounded_loop!(regs.cccr.read().cce().bit_is_clear(), Error::RegisterUnchanged);
 
             let mut word_addr = 0x000; // todo: 0x400 for FDCAN2?
 

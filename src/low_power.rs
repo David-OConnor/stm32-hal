@@ -5,11 +5,16 @@ use cfg_if::cfg_if;
 use cortex_m::{Peripherals, asm::wfi};
 
 #[cfg(any(feature = "l4", feature = "l5"))]
-use crate::clocks::{Clocks, MsiRange, RccError};
+use crate::clocks::{Clocks, MsiRange};
 #[cfg(any(feature = "l4", feature = "l5"))]
 use crate::pac;
 #[cfg(not(feature = "h7"))]
 use crate::pac::PWR;
+
+use crate::{
+    error::{Error, Result},
+    util::bounded_loop,
+};
 
 // See L4 Reference Manual section 5.3.6. The values correspond to the PWR_CR1 LPMS bits.
 // todo PWR_CR1, LPMS field.
@@ -27,7 +32,7 @@ pub enum StopMode {
 /// You must select an MSI speed of 2Mhz or lower. Note that you may need to adjust peripheral
 /// implementations that rely on system clock or APB speed.
 #[cfg(any(feature = "l4", feature = "l5"))]
-pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) -> Result<(), RccError> {
+pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) -> Result<()> {
     let rcc = unsafe { &(*pac::RCC::ptr()) };
     let pwr = unsafe { &(*PWR::ptr()) };
 
@@ -46,7 +51,7 @@ pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) -> Result<(), RccErro
 /// Return to normal run mode from low-power run. Requires you to increase the clock speed
 /// manually after running this.
 #[cfg(any(feature = "l4", feature = "l5"))]
-pub fn return_from_low_power_run() -> Result<(), RccError> {
+pub fn return_from_low_power_run() -> Result<()> {
     let pwr = unsafe { &(*PWR::ptr()) };
 
     // LPR = 0
@@ -55,7 +60,7 @@ pub fn return_from_low_power_run() -> Result<(), RccError> {
     // Wait until REGLPF = 0
     bounded_loop!(
         pwr.sr2.read().reglpf().bit_is_set(),
-        RccError::RegisterUnchanged
+        Error::RegisterUnchanged
     );
 
     // Increase the system clock frequency

@@ -14,16 +14,17 @@ use core::ops::Deref;
 use cfg_if::cfg_if;
 
 #[cfg(not(any(feature = "l552", feature = "h5")))]
-use crate::dma::{self, ChannelCfg, DmaChannel, DmaError};
+use crate::dma::{self, ChannelCfg, DmaChannel};
 #[cfg(feature = "g0")]
 use crate::pac::DMA as DMA1;
 #[cfg(not(any(feature = "g0", feature = "h5")))]
 use crate::pac::DMA1;
 use crate::{
     clocks::Clocks,
+    error::{Error, Result},
     pac::{self, RCC},
-    usart::{OverSampling, Parity, StopBits, UsartConfig, UsartError, UsartInterrupt},
-    util::{BaudPeriph, RccPeriph, cr1, isr},
+    usart::{Parity, UsartConfig, UsartError, UsartInterrupt},
+    util::{BaudPeriph, RccPeriph, bounded_loop, cr1, isr},
 };
 
 /// Represents the USART peripheral, for serial communications.
@@ -39,12 +40,7 @@ where
 {
     /// Initialize a U[s]ART peripheral, including configuration register writes, and enabling and
     /// resetting its RCC peripheral clock. `baud` is the baud rate, in bytes-per-second.
-    pub fn new(
-        regs: R,
-        baud: u32,
-        config: UsartConfig,
-        clock_cfg: &Clocks,
-    ) -> Result<Self, UsartError> {
+    pub fn new(regs: R, baud: u32, config: UsartConfig, clock_cfg: &Clocks) -> Result<Self> {
         let rcc = unsafe { &(*RCC::ptr()) };
         R::en_reset(rcc);
 
@@ -127,14 +123,14 @@ where
 {
     /// Set the BAUD rate. Called during init, and can be called later to change BAUD
     /// during program execution.
-    pub fn set_baud(&mut self, baud: u32, clock_cfg: &Clocks) -> Result<(), UsartError> {
+    pub fn set_baud(&mut self, baud: u32, clock_cfg: &Clocks) -> Result<()> {
         let originally_enabled = cr1!(self.regs).read().ue().bit_is_set();
 
         if originally_enabled {
             cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
             bounded_loop!(
                 cr1!(self.regs).read().ue().bit_is_set(),
-                UsartError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
         }
 
@@ -173,27 +169,27 @@ where
     R: Deref<Target = pac::lpuart1::RegisterBlock> + RccPeriph,
 {
     /// Enable this U[s]ART peripheral.
-    pub fn enable(&mut self) -> Result<(), UsartError> {
+    pub fn enable(&mut self) -> Result<()> {
         cr1!(self.regs).modify(|_, w| w.ue().set_bit());
         bounded_loop!(
             cr1!(self.regs).read().ue().bit_is_clear(),
-            UsartError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
         Ok(())
     }
 
     /// Disable this U[s]ART peripheral.
-    pub fn disable(&mut self) -> Result<(), UsartError> {
+    pub fn disable(&mut self) -> Result<()> {
         cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
         bounded_loop!(
             cr1!(self.regs).read().ue().bit_is_set(),
-            UsartError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
         Ok(())
     }
 
     /// Transmit data, as a sequence of u8. See L44 RM, section 38.5.2: "Character transmission procedure"
-    pub fn write(&mut self, data: &[u8]) -> Result<(), UsartError> {
+    pub fn write(&mut self, data: &[u8]) -> Result<()> {
         // todo: how does this work with a 9 bit words? Presumably you'd need to make `data`
         // todo take `&u16`.
 
@@ -204,7 +200,7 @@ where
             #[cfg(feature = "h5")]
             bounded_loop!(
                 isr!(self.regs).read().txfe().bit_is_clear(),
-                UsartError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
 
             #[cfg(not(feature = "h5"))]
@@ -212,7 +208,7 @@ where
             // checking txfnf if the fifo is enabled.
             bounded_loop!(
                 isr!(self.regs).read().txe().bit_is_clear(),
-                UsartError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
 
             #[cfg(not(feature = "f4"))]
@@ -232,7 +228,7 @@ where
         // transmission
         bounded_loop!(
             isr!(self.regs).read().tc().bit_is_clear(),
-            UsartError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         Ok(())
@@ -257,19 +253,19 @@ where
     }
 
     /// Receive data into a u8 buffer. See L44 RM, section 38.5.3: "Character reception procedure"
-    pub fn read(&mut self, buf: &mut [u8]) -> Result<(), UsartError> {
+    pub fn read(&mut self, buf: &mut [u8]) -> Result<()> {
         for i in 0..buf.len() {
             // Wait for the next bit
             #[cfg(feature = "h5")]
             bounded_loop!(
                 isr!(self.regs).read().rxfne().bit_is_clear(),
-                UsartError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
 
             #[cfg(not(feature = "h5"))]
             bounded_loop!(
                 isr!(self.regs).read().rxne().bit_is_clear(),
-                UsartError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
 
             #[cfg(not(feature = "f4"))]
@@ -321,7 +317,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) -> Result<(), DmaError> {
+    ) -> Result<()> {
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
         // To map a DMA channel for USART transmission, use
@@ -418,7 +414,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) -> Result<(), DmaError> {
+    ) -> Result<()> {
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
@@ -503,7 +499,7 @@ where
     /// Enable a specific type of interrupt. See G4 RM, Table 349: USART interrupt requests.
     /// If `Some`, the inner value of `CharDetect` sets the address of the char to match.
     /// If `None`, the interrupt is enabled without changing the char to match.
-    pub fn enable_interrupt(&mut self, interrupt: UsartInterrupt) -> Result<(), UsartError> {
+    pub fn enable_interrupt(&mut self, interrupt: UsartInterrupt) -> Result<()> {
         match interrupt {
             UsartInterrupt::CharDetect(char_wrapper) => {
                 if let Some(char) = char_wrapper {
@@ -511,7 +507,7 @@ where
                     cr1!(self.regs).modify(|_, w| w.ue().clear_bit());
                     bounded_loop!(
                         cr1!(self.regs).read().ue().bit_is_set(),
-                        UsartError::RegisterUnchanged
+                        Error::RegisterUnchanged
                     );
 
                     // Enable character-detecting UART interrupt
@@ -537,7 +533,7 @@ where
                     cr1!(self.regs).modify(|_, w| w.ue().set_bit());
                     bounded_loop!(
                         cr1!(self.regs).read().ue().bit_is_clear(),
-                        UsartError::RegisterUnchanged
+                        Error::RegisterUnchanged
                     );
                 }
 
@@ -673,26 +669,26 @@ where
         }
     }
 
-    fn check_status(&mut self) -> Result<(), UsartError> {
+    fn check_status(&mut self) -> Result<()> {
         let status = isr!(self.regs).read();
         let mut result = if status.pe().bit_is_set() {
-            Err(UsartError::Parity)
+            Err(Error::UsartError(UsartError::Parity))
         } else if status.fe().bit_is_set() {
-            Err(UsartError::Framing)
+            Err(Error::UsartError(UsartError::Framing))
         } else if status.ore().bit_is_set() {
-            Err(UsartError::Overrun)
+            Err(Error::UsartError(UsartError::Overrun))
         } else {
             Ok(())
         };
 
         #[cfg(not(any(feature = "wl", feature = "h7")))]
         if status.nf().bit_is_set() {
-            result = Err(UsartError::Noise);
+            result = Err(Error::UsartError(UsartError::Noise));
         }
         #[cfg(feature = "h7")]
         if status.ne().bit_is_set() {
             // todo: QC
-            result = Err(UsartError::Noise);
+            result = Err(Error::UsartError(UsartError::Noise));
         }
 
         if result.is_err() {
@@ -718,16 +714,12 @@ where
 
 #[cfg(feature = "embedded_hal")]
 mod embedded_io_impl {
-    use embedded_io::*;
-
-    use crate::usart::UsartError;
+    use embedded_io::{ErrorType, Read, ReadReady, Write, WriteReady};
 
     use super::*;
 
-    // (Error for Uart implemented in the usart module)
-
     impl<R> ErrorType for LpUart<R> {
-        type Error = UsartError;
+        type Error = crate::error::Error;
     }
 
     impl<R> Read for LpUart<R>
@@ -735,23 +727,18 @@ mod embedded_io_impl {
         R: Deref<Target = pac::lpuart1::RegisterBlock> + RccPeriph + BaudPeriph,
         LpUart<R>: ReadReady,
     {
-        fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Self::Error> {
+        fn read(&mut self, mut buf: &mut [u8]) -> core::result::Result<usize, Self::Error> {
             // Block until at least one byte can be read:
-            bounded_loop!(!self.ready(), UsartError::RegisterUnchanged);
-            // while !self.read_ready()? {
-            //     cortex_m::asm::nop();
-            // }
+            while !self.read_ready()? {
+                cortex_m::asm::nop();
+            }
 
             let buf_len = buf.len();
-            bounded_loop!(
-                !buf.is_empty() && self.ready(),
-                UsartError::RegisterUnchanged,
-                {
-                    let (first, remaining) = buf.split_first_mut().unwrap();
-                    *first = self.read_one();
-                    buf = remaining;
-                }
-            );
+            while !buf.is_empty() && self.read_ready()? {
+                let (first, remaining) = buf.split_first_mut().unwrap();
+                *first = self.read_one();
+                buf = remaining;
+            }
             Ok(buf_len - buf.len())
         }
     }
@@ -760,7 +747,7 @@ mod embedded_io_impl {
     where
         R: Deref<Target = pac::lpuart1::RegisterBlock> + RccPeriph + BaudPeriph,
     {
-        fn read_ready(&mut self) -> Result<bool, Self::Error> {
+        fn read_ready(&mut self) -> core::result::Result<bool, Self::Error> {
             self.check_status()?;
             cfg_if! {
                 if #[cfg(feature = "h5")] {
@@ -777,29 +764,26 @@ mod embedded_io_impl {
     where
         R: Deref<Target = pac::lpuart1::RegisterBlock> + RccPeriph + BaudPeriph,
     {
-        fn write(&mut self, mut buf: &[u8]) -> Result<usize, Self::Error> {
+        fn write(&mut self, mut buf: &[u8]) -> core::result::Result<usize, Self::Error> {
             // Block until at least one byte can be written:
-            bounded_loop!(!self.write_ready()?, UsartError::RegisterUnchanged);
-
+            while !self.write_ready()? {
+                cortex_m::asm::nop();
+            }
             let buf_len = buf.len();
 
-            bounded_loop!(
-                !buf.is_empty() && self.write_ready(),
-                UsartError::RegisterUnchanged,
-                {
-                    let (byte, remaining) = buf.split_first().unwrap();
-                    self.write_one(*byte);
-                    buf = remaining;
-                }
-            );
+            while !buf.is_empty() && self.write_ready()? {
+                let (byte, remaining) = buf.split_first().unwrap();
+                self.write_one(*byte);
+                buf = remaining;
+            }
             Ok(buf_len - buf.len())
         }
 
-        fn flush(&mut self) -> Result<(), Self::Error> {
-            bounded_loop!(
-                isr!(self.regs).read().tc().bit_is_clear(),
-                UsartError::RegisterUnchanged
-            );
+        fn flush(&mut self) -> core::result::Result<(), Self::Error> {
+            // fixme
+            while isr!(self.regs).read().tc().bit_is_clear() {
+                cortex_m::asm::nop();
+            }
             Ok(())
         }
     }
@@ -808,7 +792,7 @@ mod embedded_io_impl {
     where
         R: Deref<Target = pac::lpuart1::RegisterBlock> + RccPeriph + BaudPeriph,
     {
-        fn write_ready(&mut self) -> Result<bool, Self::Error> {
+        fn write_ready(&mut self) -> core::result::Result<bool, Self::Error> {
             cfg_if! {
                 if #[cfg(feature = "h5")] {
                     let ready = isr!(self.regs).read().txfe().bit_is_set();

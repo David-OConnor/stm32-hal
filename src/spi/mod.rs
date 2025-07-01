@@ -2,7 +2,7 @@
 //! Provides APIs to configure, read, and write from
 //! SPI, with blocking, nonblocking, and DMA functionality.
 
-use core::{ops::Deref, ptr};
+use core::ops::Deref;
 
 cfg_if::cfg_if! {
     if #[cfg(any(feature = "h5", feature = "h7"))] {
@@ -16,14 +16,12 @@ cfg_if::cfg_if! {
 
 use cfg_if::cfg_if;
 
-use crate::{dma::DmaError, pac, util::RccPeriph};
+use crate::{error::Result, pac, util::RccPeriph};
 
 cfg_if! {
     if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
-        use crate::pac::dma as dma_p;
         use crate::pac::DMA as DMA1;
     } else {
-        use crate::pac::dma1 as dma_p;
         use crate::pac::DMA1;
     }
 }
@@ -31,7 +29,7 @@ cfg_if! {
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552")))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel}; // todo temp
+use crate::dma::{self, ChannelCfg, DmaChannel}; // todo temp
 
 #[macro_export]
 macro_rules! check_errors {
@@ -42,18 +40,18 @@ macro_rules! check_errors {
         let crc_error = $sr.crcerr().bit_is_set();
 
         if $sr.ovr().bit_is_set() {
-            return Err(SpiError::Overrun);
+            return Err(Error::SpiError(SpiError::Overrun));
         } else if $sr.modf().bit_is_set() {
-            return Err(SpiError::ModeFault);
+            return Err(Error::SpiError(SpiError::ModeFault));
         } else if crc_error {
-            return Err(SpiError::Crc);
+            return Err(Error::SpiError(SpiError::Crc));
         }
     };
 }
 
 /// SPI error
 #[non_exhaustive]
-#[derive(Copy, Clone, Debug, defmt::Format)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, defmt::Format)]
 pub enum SpiError {
     /// Overrun occurred
     Overrun,
@@ -61,7 +59,6 @@ pub enum SpiError {
     ModeFault,
     /// CRC error
     Crc,
-    RegisterUnchanged,
     DuplexFailed, // todo temp?
 }
 
@@ -258,7 +255,7 @@ where
         channel: DmaChannel,
         channel2: Option<DmaChannel>,
         dma_periph: dma::DmaPeriph,
-    ) -> Result<(), DmaError> {
+    ) -> Result<()> {
         // (RM:) To close communication it is mandatory to follow these steps in order:
         // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
 
@@ -296,7 +293,7 @@ where
         dma_periph: dma::DmaPeriph,
         channel_tx: DmaChannel,
         channel_rx: Option<DmaChannel>,
-    ) -> Result<(), DmaError> {
+    ) -> Result<()> {
         // The hardware seems to automatically enable Tx too; and we use it when transmitting.
         dma::clear_interrupt(dma_periph, channel_tx, dma::DmaInterrupt::TransferComplete)?;
 

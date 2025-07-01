@@ -40,7 +40,7 @@ use cfg_if::cfg_if;
 use paste::paste;
 
 #[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
-use crate::dma::{self, ChannelCfg, DmaChannel, DmaError};
+use crate::dma::{self, ChannelCfg, DmaChannel};
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
@@ -1408,10 +1408,10 @@ pub unsafe fn write_dma(
     dma_channel: DmaChannel,
     channel_cfg: ChannelCfg,
     dma_periph: dma::DmaPeriph,
-) -> Result<(), DmaError> {
+) -> crate::error::Result<()> {
     let (ptr, len) = (buf.as_ptr(), buf.len());
 
-    let periph_addr = &(*(regs(port))).bsrr as *const _ as u32;
+    let periph_addr = unsafe { &(*(regs(port))).bsrr as *const _ as u32 };
 
     #[cfg(feature = "h7")]
     let num_data = len as u32;
@@ -1466,10 +1466,10 @@ pub unsafe fn read_dma(
     dma_channel: DmaChannel,
     channel_cfg: ChannelCfg,
     dma_periph: dma::DmaPeriph,
-) -> Result<(), DmaError> {
+) -> crate::error::Result<()> {
     let (ptr, len) = (buf.as_ptr(), buf.len());
 
-    let periph_addr = &(*(regs(port))).idr as *const _ as u32;
+    let periph_addr = unsafe { &(*(regs(port))).idr as *const _ as u32 };
 
     #[cfg(feature = "h7")]
     let num_data = len as u32;

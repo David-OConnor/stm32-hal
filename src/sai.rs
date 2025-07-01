@@ -24,7 +24,7 @@ use crate::pac::sai;
 use crate::pac::sai1 as sai;
 #[cfg(feature = "h7")]
 use crate::pac::sai4 as sai;
-use crate::{clocks::Clocks, dma::DmaError, pac::RCC, util::RccPeriph};
+use crate::{clocks::Clocks, error::Result, pac::RCC, util::RccPeriph};
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
@@ -978,7 +978,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         dma_channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma: &mut Dma<D>,
-    ) -> Result<(), DmaError>
+    ) -> Result<()>
     where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
@@ -1069,7 +1069,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         dma_channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma: &mut Dma<D>,
-    ) -> Result<(), DmaError>
+    ) -> Result<()>
     where
         D: Deref<Target = dma_p::RegisterBlock>,
     {

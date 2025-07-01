@@ -2,8 +2,9 @@ use cfg_if::cfg_if;
 
 use crate::{
     clocks::RccError,
-    pac::{self, FLASH, RCC},
-    util::rcc_en_reset,
+    error::{Error, Result},
+    pac::{FLASH, RCC},
+    util::{bounded_loop, rcc_en_reset},
 };
 
 cfg_if! {
@@ -391,7 +392,7 @@ impl Clocks {
     /// `Invalid`, and don't setup if not.
     /// <https://docs.rs/stm32f3xx-hal/0.5.0/stm32f3xx_hal/rcc/struct.CFGR.html>
     /// Use the STM32CubeIDE Clock Configuration tab to help.
-    pub fn setup(&self) -> Result<(), RccError> {
+    pub fn setup(&self) -> Result<()> {
         if let Err(e) = self.validate_speeds() {
             return Err(e);
         }
@@ -457,14 +458,14 @@ impl Clocks {
                 // Wait for the HSE to be ready.
                 bounded_loop!(
                     rcc.cr.read().hserdy().is_not_ready(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
             }
             InputSrc::Hsi => {
                 rcc.cr.modify(|_, w| w.hsion().bit(true));
                 bounded_loop!(
                     rcc.cr.read().hsirdy().is_not_ready(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
             }
             InputSrc::Pll(pll_src) => {
@@ -474,7 +475,7 @@ impl Clocks {
                         rcc.cr.modify(|_, w| w.hseon().bit(true));
                         bounded_loop!(
                             rcc.cr.read().hserdy().is_not_ready(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                     _ => {
@@ -482,7 +483,7 @@ impl Clocks {
                         rcc.cr.modify(|_, w| w.hsion().bit(true));
                         bounded_loop!(
                             rcc.cr.read().hsirdy().is_not_ready(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                 }
@@ -497,10 +498,7 @@ impl Clocks {
             // Turn off the PLL: Required for modifying some of the settings below.
             rcc.cr.modify(|_, w| w.pllon().off());
             // Wait for the PLL to no longer be ready before executing certain writes.
-            bounded_loop!(
-                rcc.cr.read().pllrdy().is_ready(),
-                RccError::RegisterUnchanged
-            );
+            bounded_loop!(rcc.cr.read().pllrdy().is_ready(), Error::RegisterUnchanged);
             cfg_if! {
                 if #[cfg(feature = "f3")] {
                    rcc.cfgr.modify(|_, w| {
@@ -534,7 +532,7 @@ impl Clocks {
 
             bounded_loop!(
                 rcc.cr.read().pllrdy().is_not_ready(),
-                RccError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
         }
 
@@ -576,7 +574,7 @@ impl Clocks {
 
     /// Re-select innput source; used on Stop and Standby modes, where the system reverts
     /// to HSI after wake.
-    pub fn reselect_input(&self) -> Result<(), RccError> {
+    pub fn reselect_input(&self) -> Result<()> {
         let rcc = unsafe { &(*RCC::ptr()) };
         // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
 
@@ -587,7 +585,7 @@ impl Clocks {
                 rcc.cr.modify(|_, w| w.hseon().set_bit());
                 bounded_loop!(
                     rcc.cr.read().hserdy().is_not_ready(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
 
                 rcc.cfgr
@@ -598,13 +596,13 @@ impl Clocks {
                 rcc.cr.modify(|_, w| w.hseon().set_bit());
                 bounded_loop!(
                     rcc.cr.read().hserdy().is_not_ready(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
 
                 rcc.cr.modify(|_, w| w.pllon().off());
                 bounded_loop!(
                     rcc.cr.read().pllrdy().is_not_ready(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
 
                 rcc.cfgr
@@ -613,7 +611,7 @@ impl Clocks {
                 rcc.cr.modify(|_, w| w.pllon().on());
                 bounded_loop!(
                     rcc.cr.read().pllrdy().is_not_ready(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
             }
             InputSrc::Hsi => (), // Already reset to this.
@@ -714,7 +712,7 @@ impl Clocks {
         }
     }
 
-    pub fn validate_speeds(&self) -> Result<(), RccError> {
+    pub fn validate_speeds(&self) -> Result<()> {
         cfg_if! {
             if #[cfg(feature = "f3")] {
                 let max_clock = 72_000_000;
@@ -731,26 +729,26 @@ impl Clocks {
 
         #[cfg(feature = "f4")]
         if self.plln < 50 || self.plln > 432 || self.pllm < 2 || self.pllm > 63 {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         let max_hclk = max_clock;
 
         // todo: min clock? eg for apxb?
         if self.sysclk() > max_hclk {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         if self.hclk() > max_hclk {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         if self.apb1() > max_clock {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         if self.apb2() > max_clock {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         Ok(())

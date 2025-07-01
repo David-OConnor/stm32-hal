@@ -9,33 +9,35 @@
 #[cfg(feature = "monotonic")]
 use core;
 use core::{
-    ops::Deref,
     sync::atomic::{AtomicU32, Ordering},
     time::Duration,
 };
+
+#[cfg(not(any(
+    feature = "f401",
+    feature = "f410",
+    feature = "f411",
+    feature = "f413",
+    feature = "g031",
+    feature = "g041",
+    feature = "g070",
+    feature = "g030",
+    feature = "wb",
+    feature = "wl"
+)))]
+use core::ops::Deref;
 
 use cfg_if::cfg_if;
 use paste::paste;
 #[cfg(feature = "monotonic")]
 use rtic_monotonic::Monotonic;
 
-cfg_if! {
-    if #[cfg(feature = "embedded_hal")] {
-        // use embedded_hal::{
-        //     blocking::delay::{DelayMs, DelayUs},
-        //     timer::CountDown,
-        // };
-        // use embedded_time::{rate::Hertz, duration};
-        // use void::Void;
-    }
-}
-
 use num_traits::float::FloatCore; // To round floats.
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552")))]
-use crate::dma::{self, ChannelCfg, DmaChannel, DmaError};
+use crate::dma::{self, ChannelCfg, DmaChannel};
 #[cfg(feature = "g0")]
 use crate::pac::DMA as DMA1;
 #[cfg(not(feature = "g0"))]
@@ -43,19 +45,33 @@ use crate::pac::DMA1;
 // todo: LPTIM (low-power timers) and HRTIM (high-resolution timers). And Advanced control functionality
 use crate::{
     clocks::Clocks,
+    error::{Error, Result},
     instant::Instant,
     pac::{self, RCC},
-    util::{RccPeriph, rcc_en_reset},
+    util::rcc_en_reset,
 };
+
+#[cfg(not(any(
+    feature = "f401",
+    feature = "f410",
+    feature = "f411",
+    feature = "f413",
+    feature = "g031",
+    feature = "g041",
+    feature = "g070",
+    feature = "g030",
+    feature = "wb",
+    feature = "wl"
+)))]
+use crate::util::RccPeriph;
 
 // This `TICK_OVERFLOW_COUNT` must be incremented in firmware in the timer's update interrupt.
 pub static TICK_OVERFLOW_COUNT: AtomicU32 = AtomicU32::new(0);
 
 // todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
 
-#[derive(Clone, Copy, Debug, defmt::Format)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, defmt::Format)]
 pub enum TimerError {
-    RegisterUnchanged,
     /// Used for when attempting to set a timer period that is out of range.
     ValueError,
 }
@@ -539,7 +555,7 @@ macro_rules! make_timer {
 
             /// Set the timer frequency, in Hz. Overrides the period or frequency set
             /// in the constructor.
-            pub fn set_freq(&mut self, mut freq: f32) -> Result<(), TimerError> {
+            pub fn set_freq(&mut self, mut freq: f32) -> Result<()> {
                 assert!(freq > 0.);
                 // todo: Take into account the `timxsw` bit in RCC CFGR3, which may also
                 // todo require an adjustment to freq.
@@ -567,7 +583,7 @@ macro_rules! make_timer {
 
             /// Set the timer period, in seconds. Overrides the period or frequency set
             /// in the constructor.
-            pub fn set_period(&mut self, period: f32) -> Result<(), TimerError> {
+            pub fn set_period(&mut self, period: f32) -> Result<()> {
                 assert!(period > 0.);
                 self.set_freq(1. / period)
             }
@@ -665,7 +681,7 @@ macro_rules! make_timer {
                 channel_cfg: ChannelCfg,
                 ds_32_bits: bool,
                 dma_periph: dma::DmaPeriph,
-            ) -> Result<(), DmaError> {
+            ) -> Result<()> {
                 // Note: F3 and L4 are unsupported here, since I'm not sure how to select teh
                 // correct Timer channel.
 
@@ -698,7 +714,7 @@ macro_rules! make_timer {
 
                 // 1. Configure the corresponding DMA channel as follows:
                 // –DMA channel peripheral address is the DMAR register address
-                let periph_addr = &self.regs.dmar as *const _ as u32;
+                let periph_addr = unsafe { &self.regs.dmar as *const _ as u32 };
                 // –DMA channel memory address is the address of the buffer in the RAM containing
                 // the data to be transferred by DMA into CCRx registers.
 
@@ -723,7 +739,7 @@ macro_rules! make_timer {
                 // 00000: TIMx_CR1
                 // 00001: TIMx_CR2
                 // 00010: TIMx_SMCR
-                self.regs.dcr.modify(|_, w| {
+                self.regs.dcr.modify(|_, w| unsafe {
                     w.dba().bits(base_address);
                     w.dbl().bits(burst_len as u8 - 1)
                 });
@@ -785,17 +801,17 @@ macro_rules! make_timer {
                 channel_cfg: ChannelCfg,
                 ds_32_bits: bool,
                 dma_periph: dma::DmaPeriph,
-            ) -> Result<(), DmaError> {
+            ) -> Result<()> {
                 let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
-                let periph_addr = &self.regs.dmar as *const _ as u32;
+                let periph_addr = unsafe { &self.regs.dmar as *const _ as u32 };
 
                 #[cfg(feature = "h7")]
                 let num_data = len as u32;
                 #[cfg(not(feature = "h7"))]
                 let num_data = len as u16;
 
-                self.regs.dcr.modify(|_, w| {
+                self.regs.dcr.modify(|_, w| unsafe {
                     w.dba().bits(base_address);
                     w.dbl().bits(burst_len as u8 - 1)
                 });
@@ -910,6 +926,17 @@ macro_rules! make_timer {
                 unsafe { self.regs.isr.read().bits() }
             }
         }
+
+        // cfg_if! {
+        //     if #[cfg(feature = "embedded_hal")] {
+        //         // use embedded_hal::{
+        //         //     blocking::delay::{DelayMs, DelayUs},
+        //         //     timer::CountDown,
+        //         // };
+        //         // use embedded_time::{rate::Hertz, duration};
+        //         // use void::Void;
+        //     }
+        // }
 
         // #[cfg(feature = "embedded_hal")]
         // // #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
@@ -1875,7 +1902,7 @@ macro_rules! cc_1_channel {
 /// Calculate values required to set the timer frequency: `PSC` and `ARR`. This can be
 /// used for initial timer setup, or changing the value later. If used in performance-sensitive
 /// code or frequently, set ARR and PSC directly instead of using this.
-fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16), TimerError> {
+fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16)> {
     // `period` and `clock_speed` are both in Hz.
 
     // PSC and ARR range: 0 to 65535
@@ -1902,7 +1929,7 @@ fn calc_freq_vals(freq: f32, clock_speed: u32) -> Result<(u16, u16), TimerError>
     let arr = rhs / (psc + 1.) - 1.;
 
     if arr > max_val || psc > max_val {
-        return Err(TimerError::ValueError {});
+        return Err(Error::TimerError(TimerError::ValueError));
     }
 
     Ok((psc as u16, arr as u16))
@@ -1968,7 +1995,7 @@ cfg_if! {
             /// Set the timer period, in seconds. Overrides the period or frequency set
             /// in the constructor.  If changing pe riod frequently, don't use this method, as
             /// it has computational overhead: use `set_auto_reload` and `set_prescaler` methods instead.
-            pub fn set_period(&mut self, time: f32) -> Result<(), TimerError> {
+            pub fn set_period(&mut self, time: f32) -> Result<() > {
                 assert!(time > 0.);
                 self.set_freq(1. / time)
             }
@@ -1976,7 +2003,7 @@ cfg_if! {
             /// Set the timer frequency, in Hz. Overrides the period or frequency set
             /// in the constructor. If changing frequency frequently, don't use this method, as
             /// it has computational overhead: use `set_auto_reload` and `set_prescaler` methods instead.
-            pub fn set_freq(&mut self, freq: f32) -> Result<(), TimerError> {
+            pub fn set_freq(&mut self, freq: f32) -> Result<() > {
                 assert!(freq > 0.);
 
                 let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;

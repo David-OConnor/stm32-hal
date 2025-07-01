@@ -6,7 +6,7 @@ use core::ops::Deref;
 use cortex_m::delay::Delay;
 
 use crate::{
-    dma::DmaError,
+    error::Result,
     pac::{self, RCC},
     util::RccPeriph,
 };
@@ -440,7 +440,7 @@ where
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
         // dma: &mut Dma<D>,
-    ) -> Result<(), DmaError> {
+    ) -> Result<()> {
         // where
         // D: Deref<Target = dma_p::RegisterBlock>,
         // {

@@ -10,7 +10,9 @@ use cfg_if::cfg_if;
 use crate::pac::SYSCFG;
 use crate::{
     clocks::RccError,
+    error::{Error, Result},
     pac::{CRS, FLASH, PWR, RCC},
+    util::bounded_loop,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -460,7 +462,7 @@ impl Clocks {
     /// Use the `default()` implementation as a safe baseline.
     /// This method also configures the PWR VOS setting, and can be used to enable VOS boost,
     /// if `vos_range` is set to `VosRange::VOS0`.
-    pub fn setup(&self) -> Result<(), RccError> {
+    pub fn setup(&self) -> Result<()> {
         if let Err(e) = self.validate_speeds() {
             return Err(e);
         }
@@ -506,7 +508,7 @@ impl Clocks {
 
                         bounded_loop!(
                             pwr.d3cr.read().vosrdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     } else {
                         pwr.voscr
@@ -514,7 +516,7 @@ impl Clocks {
 
                         bounded_loop!(
                             pwr.vossr.read().vosrdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                 }
@@ -530,12 +532,12 @@ impl Clocks {
                 #[cfg(feature = "h7")]
                 bounded_loop!(
                     pwr.d3cr.read().vosrdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
                 #[cfg(feature = "h5")]
                 bounded_loop!(
                     pwr.vossr.read().vosrdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
 
                 // Once the VCORE supply has reached the required level, the system frequency can be
@@ -573,7 +575,7 @@ impl Clocks {
                 rcc.cr.modify(|_, w| w.csion().bit(true));
                 bounded_loop!(
                     rcc.cr.read().csirdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
             }
             InputSrc::Hse(_) => {
@@ -581,7 +583,7 @@ impl Clocks {
                 // Wait for the HSE to be ready.
                 bounded_loop!(
                     rcc.cr.read().hserdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
             }
             InputSrc::Hsi(div) => {
@@ -591,7 +593,7 @@ impl Clocks {
                 });
                 bounded_loop!(
                     rcc.cr.read().hsirdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
             }
             InputSrc::Pll1 => {
@@ -601,14 +603,14 @@ impl Clocks {
                         rcc.cr.modify(|_, w| w.csion().bit(true));
                         bounded_loop!(
                             rcc.cr.read().csirdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                     PllSrc::Hse(_) => {
                         rcc.cr.modify(|_, w| w.hseon().bit(true));
                         bounded_loop!(
                             rcc.cr.read().hserdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                     PllSrc::Hsi(div) => {
@@ -618,7 +620,7 @@ impl Clocks {
                         });
                         bounded_loop!(
                             rcc.cr.read().hsirdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                     PllSrc::None => {}
@@ -732,7 +734,7 @@ impl Clocks {
             // Wait for the PLL to no longer be ready before executing certain writes.
             bounded_loop!(
                 rcc.cr.read().pll1rdy().bit_is_set(),
-                RccError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
 
             // Set and reset by software to select the proper reference frequency range used for PLL1.
@@ -817,7 +819,7 @@ impl Clocks {
             rcc.cr.modify(|_, w| w.pll1on().set_bit());
             bounded_loop!(
                 rcc.cr.read().pll1rdy().bit_is_set(),
-                RccError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
         }
 
@@ -826,7 +828,7 @@ impl Clocks {
             rcc.cr.modify(|_, w| w.pll2on().clear_bit());
             bounded_loop!(
                 rcc.cr.read().pll2rdy().bit_is_set(),
-                RccError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
 
             let pll2_rng_val = match self.pll_input_speed(self.pll_src, 2) {
@@ -883,7 +885,7 @@ impl Clocks {
             rcc.cr.modify(|_, w| w.pll2on().set_bit());
             bounded_loop!(
                 rcc.cr.read().pll2rdy().bit_is_clear(),
-                RccError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
         }
 
@@ -891,7 +893,7 @@ impl Clocks {
             rcc.cr.modify(|_, w| w.pll3on().clear_bit());
             bounded_loop!(
                 rcc.cr.read().pll3rdy().bit_is_set(),
-                RccError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
 
             let pll3_rng_val = match self.pll_input_speed(self.pll_src, 3) {
@@ -948,7 +950,7 @@ impl Clocks {
             rcc.cr.modify(|_, w| w.pll3on().set_bit());
             bounded_loop!(
                 rcc.cr.read().pll3rdy().bit_is_clear(),
-                RccError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
         }
 
@@ -956,7 +958,7 @@ impl Clocks {
             rcc.cr.modify(|_, w| w.hsi48on().set_bit());
             bounded_loop!(
                 rcc.cr.read().hsi48rdy().bit_is_clear(),
-                RccError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
         }
 
@@ -965,7 +967,7 @@ impl Clocks {
 
     /// Re-select input source; used on Stop and Standby modes, where the system reverts
     /// to HSI after wake.
-    pub fn reselect_input(&self) -> Result<(), RccError> {
+    pub fn reselect_input(&self) -> Result<()> {
         // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
 
         let rcc = unsafe { &(*RCC::ptr()) };
@@ -977,7 +979,7 @@ impl Clocks {
                 rcc.cr.modify(|_, w| w.hseon().set_bit());
                 bounded_loop!(
                     rcc.cr.read().hserdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
 
                 rcc.cfgr
@@ -990,7 +992,7 @@ impl Clocks {
                         rcc.cr.modify(|_, w| w.hseon().set_bit());
                         bounded_loop!(
                             rcc.cr.read().hserdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                     PllSrc::Hsi(div) => {
@@ -1001,7 +1003,7 @@ impl Clocks {
                         });
                         bounded_loop!(
                             rcc.cr.read().hsirdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                     PllSrc::Csi => (), // todo
@@ -1012,7 +1014,7 @@ impl Clocks {
                 rcc.cr.modify(|_, w| w.pll1on().clear_bit());
                 bounded_loop!(
                     rcc.cr.read().pll1rdy().bit_is_set(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
 
                 rcc.cfgr
@@ -1021,7 +1023,7 @@ impl Clocks {
                 rcc.cr.modify(|_, w| w.pll1on().set_bit());
                 bounded_loop!(
                     rcc.cr.read().pll1rdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
             }
             InputSrc::Hsi(div) => {
@@ -1037,7 +1039,7 @@ impl Clocks {
                     });
                     bounded_loop!(
                         rcc.cr.read().hsirdy().bit_is_clear(),
-                        RccError::RegisterUnchanged
+                        Error::RegisterUnchanged
                     );
                 }
             }
@@ -1189,7 +1191,7 @@ impl Clocks {
         }
     }
 
-    pub fn validate_speeds(&self) -> Result<(), RccError> {
+    pub fn validate_speeds(&self) -> Result<()> {
         cfg_if! {
             if #[cfg(feature = "h735")] {
                 let max_sysclk = 480_000_000;
@@ -1221,13 +1223,13 @@ impl Clocks {
             || self.pll3.divp < 2
         // todo: R and Q
         {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         if let InputSrc::Pll1 = self.input_src {
             let pll_input_speed = self.pll_input_speed(self.pll_src, 1);
             if pll_input_speed < 1_000_000 || pll_input_speed > 16_000_000 {
-                return Err(RccError::Speed);
+                return Err(Error::RccError(RccError::Speed));
             }
             // VCO0: Wide VCO range: 192 to 836 MHz (default after reset) (VCOH)
             // Note: The RM appears out of date: Revision "V" supports 960_000_000Mhz
@@ -1235,12 +1237,12 @@ impl Clocks {
             let vco_speed = self.vco_output_freq(self.pll_src, 1);
             if pll_input_speed >= 2_000_000 && (vco_speed < 192_000_000 || vco_speed > 960_000_000)
             {
-                return Err(RccError::Speed);
+                return Err(Error::RccError(RccError::Speed));
             }
             // 1: Medium VCO range: 150 to 420 MHz. (VCOL)
             // Note: You may get power savings
             if pll_input_speed < 2_000_000 && (vco_speed < 150_000_000 || vco_speed > 420_000_000) {
-                return Err(RccError::Speed);
+                return Err(Error::RccError(RccError::Speed));
             }
         }
 
@@ -1252,19 +1254,19 @@ impl Clocks {
         // todo: Note that this involves repeatedly calculating sysclk.
         // todo. We could work around thsi by calcing it once here.
         if self.sysclk() > max_sysclk {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         if self.hclk() > max_hclk {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         if self.apb1() > max_apb {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         if self.apb2() > max_apb {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         // todo: Apb3/4

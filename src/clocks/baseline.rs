@@ -9,11 +9,14 @@ use cfg_if::cfg_if;
 #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]
 use crate::pac::CRS;
 use crate::{
-    MAX_ITERS,
     clocks::RccError,
+    error::{Error, Result},
     pac::{self, FLASH, RCC},
-    util::rcc_en_reset,
+    util::bounded_loop,
 };
+
+#[cfg(not(any(feature = "wb", feature = "wl")))]
+use crate::util::rcc_en_reset;
 
 // todo: WB is missing second LSI2, and perhaps other things.
 
@@ -90,71 +93,71 @@ pub enum StopWuck {
 }
 
 cfg_if! {
-if #[cfg(feature = "g0")] {
-#[derive(Clone, Copy, PartialEq)]
-/// Clock input source, also known as system clock switch. Sets RCC_CFGR register, SW field.
-pub enum InputSrc {
-Hsi,
-Hse(u32), // freq in Mhz,
-Pll(PllSrc),
-Lsi,
-Lse,
-}
+    if #[cfg(feature = "g0")] {
+        #[derive(Clone, Copy, PartialEq)]
+        /// Clock input source, also known as system clock switch. Sets RCC_CFGR register, SW field.
+        pub enum InputSrc {
+            Hsi,
+            Hse(u32), // freq in Mhz,
+            Pll(PllSrc),
+            Lsi,
+            Lse,
+        }
 
-impl InputSrc {
-/// Required due to numerical value on non-uniform discrim being experimental.
-/// (ie, can't set on `Pll(Pllsrc)`. G0 RM, section 5.4.3.
-pub fn bits(&self) -> u8 {
-match self {
-Self::Hsi => 0b000,
-Self::Hse(_) => 0b001,
-Self::Pll(_) => 0b010,
-Self::Lsi => 0b011,
-Self::Lse => 0b100,
-}
-}
-}
-} else if #[cfg(feature = "g4")] {
-#[derive(Clone, Copy, PartialEq)]
-pub enum InputSrc {
-Hsi,
-Hse(u32), // freq in Hz,
-Pll(PllSrc),
-}
+        impl InputSrc {
+            /// Required due to numerical value on non-uniform discrim being experimental.
+            /// (ie, can't set on `Pll(Pllsrc)`. G0 RM, section 5.4.3.
+            pub fn bits(&self) -> u8 {
+                match self {
+                    Self::Hsi => 0b000,
+                    Self::Hse(_) => 0b001,
+                    Self::Pll(_) => 0b010,
+                    Self::Lsi => 0b011,
+                    Self::Lse => 0b100,
+                }
+            }
+        }
+    } else if #[cfg(feature = "g4")] {
+        #[derive(Clone, Copy, PartialEq)]
+        pub enum InputSrc {
+            Hsi,
+            Hse(u32), // freq in Hz,
+            Pll(PllSrc),
+        }
 
-impl InputSrc {
-/// Required due to numerical value on non-uniform discrim being experimental.
-/// (ie, can't set on `Pll(Pllsrc)`.
-pub fn bits(&self) -> u8 {
-match self {
-Self::Hsi => 0b01,
-Self::Hse(_) => 0b10,
-Self::Pll(_) => 0b11,
-}
-}
-}
-} else {  // ie L4 and L5
-#[derive(Clone, Copy, PartialEq)]
-pub enum InputSrc {
-Msi(MsiRange),
-Hsi,
-Hse(u32), // freq in Hz,
-Pll(PllSrc),
-}
+        impl InputSrc {
+            /// Required due to numerical value on non-uniform discrim being experimental.
+            /// (ie, can't set on `Pll(Pllsrc)`.
+            pub fn bits(&self) -> u8 {
+                match self {
+                    Self::Hsi => 0b01,
+                    Self::Hse(_) => 0b10,
+                    Self::Pll(_) => 0b11,
+                }
+            }
+        }
+    } else {  // ie L4 and L5
+        #[derive(Clone, Copy, PartialEq)]
+        pub enum InputSrc {
+            Msi(MsiRange),
+            Hsi,
+            Hse(u32), // freq in Hz,
+            Pll(PllSrc),
+        }
 
-impl InputSrc {
-/// Required due to numerical value on non-uniform discrim being experimental.
-/// (ie, can't set on `Pll(Pllsrc)`.
-pub fn bits(&self) -> u8 {
-match self {
-Self::Msi(_) => 0b00,
-Self::Hsi => 0b01,
-Self::Hse(_) => 0b10,
-Self::Pll(_) => 0b11,
-}
-}
-}
-}
+        impl InputSrc {
+            /// Required due to numerical value on non-uniform discrim being experimental.
+            /// (ie, can't set on `Pll(Pllsrc)`.
+            pub fn bits(&self) -> u8 {
+                match self {
+                    Self::Msi(_) => 0b00,
+                    Self::Hsi => 0b01,
+                    Self::Hse(_) => 0b10,
+                    Self::Pll(_) => 0b11,
+                }
+            }
+        }
+    }
 }
 
 #[cfg(feature = "wb")]
@@ -620,7 +623,7 @@ impl Clocks {
     /// are invalid.
     /// Use the STM32CubeIDE Clock Configuration tab to help identify valid configs.
     /// Use the `default()` implementation as a safe baseline.
-    pub fn setup(&self) -> Result<(), RccError> {
+    pub fn setup(&self) -> Result<()> {
         if let Err(e) = self.validate_speeds() {
             return Err(e);
         }
@@ -819,7 +822,7 @@ impl Clocks {
 
                 bounded_loop!(
                     rcc.cr.read().msirdy().bit_is_set(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
 
                 rcc.cr.modify(|_, w| unsafe {
@@ -831,7 +834,7 @@ impl Clocks {
                 // Wait for the MSI to be ready.
                 bounded_loop!(
                     rcc.cr.read().msirdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
                 // todo: If LSE is enabled, calibrate MSI.
             }
@@ -840,7 +843,7 @@ impl Clocks {
                 // Wait for the HSE to be ready.
                 bounded_loop!(
                     rcc.cr.read().hserdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
             }
             InputSrc::Hsi => {
@@ -848,7 +851,7 @@ impl Clocks {
 
                 bounded_loop!(
                     rcc.cr.read().hsirdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
             }
             InputSrc::Pll(pll_src) => {
@@ -865,7 +868,7 @@ impl Clocks {
 
                         bounded_loop!(
                             rcc.cr.read().msirdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                     PllSrc::Hse(_) => {
@@ -873,7 +876,7 @@ impl Clocks {
 
                         bounded_loop!(
                             rcc.cr.read().hserdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                     PllSrc::Hsi => {
@@ -881,7 +884,7 @@ impl Clocks {
 
                         bounded_loop!(
                             rcc.cr.read().hsirdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                     PllSrc::None => {}
@@ -893,7 +896,7 @@ impl Clocks {
 
                 bounded_loop!(
                     rcc.csr.read().lsirdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
             }
             #[cfg(feature = "g0")]
@@ -902,7 +905,7 @@ impl Clocks {
 
                 bounded_loop!(
                     rcc.bdcr.read().lserdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
             }
         }
@@ -950,7 +953,7 @@ impl Clocks {
 
             bounded_loop!(
                 rcc.cr.read().pllrdy().bit_is_set(),
-                RccError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
 
             cfg_if! {
@@ -1049,7 +1052,7 @@ impl Clocks {
             rcc.cr.modify(|_, w| w.pllon().set_bit());
             bounded_loop!(
                 rcc.cr.read().pllrdy().bit_is_clear(),
-                RccError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
 
             cfg_if! {
@@ -1058,7 +1061,7 @@ impl Clocks {
                         rcc.cr.modify(|_, w| w.pllsai1on().set_bit());
                         bounded_loop!(
                             rcc.cr.read().pllsai1rdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                     #[cfg(any(feature = "l4x5", feature = "l4x6",))]
@@ -1066,7 +1069,7 @@ impl Clocks {
                         rcc.cr.modify(|_, w| w.pllsai2on().set_bit());
                         bounded_loop!(
                             rcc.cr.read().pllsai2rdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                 }
@@ -1080,7 +1083,7 @@ impl Clocks {
             rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
             bounded_loop!(
                 rcc.crrcr.read().hsi48rdy().bit_is_clear(),
-                RccError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
         }
 
@@ -1160,7 +1163,7 @@ impl Clocks {
 
     /// Re-select input source; used after Stop and Standby modes, where the system reverts
     /// to MSI or HSI after wake.
-    pub fn reselect_input(&self) -> Result<(), RccError> {
+    pub fn reselect_input(&self) -> Result<()> {
         let rcc = unsafe { &(*RCC::ptr()) };
 
         // Re-select the input source; useful for changing input source, or reverting
@@ -1172,7 +1175,7 @@ impl Clocks {
                 rcc.cr.modify(|_, w| w.hseon().set_bit());
                 bounded_loop!(
                     rcc.cr.read().hserdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
 
                 rcc.cfgr
@@ -1185,7 +1188,7 @@ impl Clocks {
                         rcc.cr.modify(|_, w| w.hseon().set_bit());
                         bounded_loop!(
                             rcc.cr.read().hserdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
                     }
                     PllSrc::Hsi => {
@@ -1195,7 +1198,7 @@ impl Clocks {
                             rcc.cr.modify(|_, w| w.hsion().set_bit());
                             bounded_loop!(
                                 rcc.cr.read().hsirdy().bit_is_clear(),
-                                RccError::RegisterUnchanged
+                                Error::RegisterUnchanged
                             );
                         }
                         // If on G, we'll already be on HSI, so need to take action.
@@ -1216,7 +1219,7 @@ impl Clocks {
                             rcc.cr.modify(|_, w| w.msion().set_bit());
                             bounded_loop!(
                                 rcc.cr.read().msirdy().bit_is_clear(),
-                                RccError::RegisterUnchanged
+                                Error::RegisterUnchanged
                             );
                         }
                     }
@@ -1226,7 +1229,7 @@ impl Clocks {
                 rcc.cr.modify(|_, w| w.pllon().clear_bit());
                 bounded_loop!(
                     rcc.cr.read().pllrdy().bit_is_set(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
 
                 rcc.cfgr
@@ -1235,7 +1238,7 @@ impl Clocks {
                 rcc.cr.modify(|_, w| w.pllon().set_bit());
                 bounded_loop!(
                     rcc.cr.read().pllrdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
             }
             InputSrc::Hsi => {
@@ -1254,7 +1257,7 @@ impl Clocks {
                         rcc.cr.modify(|_, w| w.hsion().set_bit());
                         bounded_loop!(
                             rcc.cr.read().hsirdy().bit_is_clear(),
-                            RccError::RegisterUnchanged
+                            Error::RegisterUnchanged
                         );
 
                         rcc.cfgr
@@ -1278,7 +1281,7 @@ impl Clocks {
                     rcc.cr.modify(|_, w| w.msion().set_bit());
                     bounded_loop!(
                         rcc.cr.read().msirdy().bit_is_clear(),
-                        RccError::RegisterUnchanged
+                        Error::RegisterUnchanged
                     );
 
                     rcc.cfgr
@@ -1290,7 +1293,7 @@ impl Clocks {
                 rcc.csr.modify(|_, w| w.lsion().set_bit());
                 bounded_loop!(
                     rcc.csr.read().lsirdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
                 rcc.cfgr
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
@@ -1300,7 +1303,7 @@ impl Clocks {
                 rcc.bdcr.modify(|_, w| w.lseon().set_bit());
                 bounded_loop!(
                     rcc.bdcr.read().lserdy().bit_is_clear(),
-                    RccError::RegisterUnchanged
+                    Error::RegisterUnchanged
                 );
                 rcc.cfgr
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
@@ -1313,7 +1316,7 @@ impl Clocks {
     #[cfg(any(feature = "l4", feature = "l5"))]
     /// Use this to change the MSI speed. Run this only if your clock source is MSI.
     /// Ends in a state with MSI on at the new speed, and HSI off.
-    pub fn change_msi_speed(&mut self, range: MsiRange) -> Result<(), RccError> {
+    pub fn change_msi_speed(&mut self, range: MsiRange) -> Result<()> {
         // todo: Calibrate MSI with LSE / HSE(?) if avail?
 
         let rcc = unsafe { &(*RCC::ptr()) };
@@ -1328,7 +1331,7 @@ impl Clocks {
         // So, we can change MSI range while it's running.
         bounded_loop!(
             rcc.cr.read().msirdy().bit_is_clear(),
-            RccError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         rcc.cr
@@ -1346,7 +1349,7 @@ impl Clocks {
     /// source or PLL source. You may need to re-run this after exiting `stop` mode. Only works for USB
     /// if you have an LSE connected.
     /// Note: MSIPLLEN must be enabled after LSE is enabled. So, run this function after RCC clock setup.
-    pub fn enable_msi_48(&self) -> Result<(), RccError> {
+    pub fn enable_msi_48(&self) -> Result<()> {
         let rcc = unsafe { &(*RCC::ptr()) };
 
         if let InputSrc::Msi(_) = self.input_src {
@@ -1367,7 +1370,7 @@ impl Clocks {
         rcc.cr.modify(|_, w| w.msion().clear_bit());
         bounded_loop!(
             rcc.cr.read().msirdy().bit_is_set(),
-            RccError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         // L44 RM, section 6.2.3: When a 32.768 kHz external oscillator is present in the application, it is possible to configure
@@ -1389,7 +1392,7 @@ impl Clocks {
 
         bounded_loop!(
             rcc.cr.read().msirdy().bit_is_clear(),
-            RccError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         Ok(())
@@ -1445,24 +1448,24 @@ impl Clocks {
     }
 
     cfg_if! {
-    if #[cfg(any(feature = "g0", feature = "wl"))] {
-    pub fn usb(&self) -> u32 {
-    unimplemented!("No USB on G0 or WL");
-    }
-    } else if #[cfg(feature = "g4")] {
-    pub fn usb(&self) -> u32 {
-    48_000_000 // Uses hsi48.
-    }
-    } else { // L4 and L5
-    pub fn usb(&self) -> u32 {
-    match self.clk48_src {
-    Clk48Src::Hsi48 => 48_000_000,
-    Clk48Src::PllSai1 => unimplemented!(),
-    Clk48Src::Pllq => unimplemented!(),
-    Clk48Src::Msi => unimplemented!(),
-    }
-    }
-    }
+        if #[cfg(any(feature = "g0", feature = "wl"))] {
+            pub fn usb(&self) -> u32 {
+                unimplemented!("No USB on G0 or WL");
+            }
+        } else if #[cfg(feature = "g4")] {
+            pub fn usb(&self) -> u32 {
+            48_000_000 // Uses hsi48.
+            }
+        } else { // L4 and L5
+            pub fn usb(&self) -> u32 {
+            match self.clk48_src {
+                Clk48Src::Hsi48 => 48_000_000,
+                Clk48Src::PllSai1 => unimplemented!(),
+                Clk48Src::Pllq => unimplemented!(),
+                Clk48Src::Msi => unimplemented!(),
+                }
+            }
+        }
     }
 
     /// Get the APB1 peripheral clock frequency frequency, in hz
@@ -1484,33 +1487,33 @@ impl Clocks {
     }
 
     cfg_if! {
-    if #[cfg(feature = "g0")] {
-    // On G0, a single APB prescaler is used for both APB1 and APB2.
-    pub fn apb2(&self) -> u32 {
-    self.hclk() / self.apb1_prescaler.value() as u32
-    }
+        if #[cfg(feature = "g0")] {
+            // On G0, a single APB prescaler is used for both APB1 and APB2.
+            pub fn apb2(&self) -> u32 {
+                self.hclk() / self.apb1_prescaler.value() as u32
+            }
 
-    pub fn apb2_timer(&self) -> u32 {
-    if let ApbPrescaler::Div1 = self.apb1_prescaler {
-    self.apb2()
-    } else {
-    self.apb2() * 2
-    }
-    }
-    } else {
-    /// Get the APB2 peipheral clock frequency, in hz.
-    pub fn apb2(&self) -> u32 {
-    self.hclk() / self.apb2_prescaler.value() as u32
-    }
+            pub fn apb2_timer(&self) -> u32 {
+                if let ApbPrescaler::Div1 = self.apb1_prescaler {
+                    self.apb2()
+                } else {
+                    self.apb2() * 2
+                }
+            }
+        } else {
+            /// Get the APB2 peipheral clock frequency, in hz.
+            pub fn apb2(&self) -> u32 {
+                self.hclk() / self.apb2_prescaler.value() as u32
+            }
 
-    pub fn apb2_timer(&self) -> u32 {
-    if let ApbPrescaler::Div1 = self.apb2_prescaler {
-    self.apb2()
-    } else {
-    self.apb2() * 2
-    }
-    }
-    }
+            pub fn apb2_timer(&self) -> u32 {
+                if let ApbPrescaler::Div1 = self.apb2_prescaler {
+                    self.apb2()
+                } else {
+                    self.apb2() * 2
+                }
+            }
+        }
     }
 
     /// Get the SAI audio clock frequency, in hz
@@ -1545,7 +1548,7 @@ impl Clocks {
         }
     }
 
-    pub fn validate_speeds(&self) -> Result<(), RccError> {
+    pub fn validate_speeds(&self) -> Result<()> {
         #[cfg(feature = "l4")]
         let max_clock = 80_000_000;
 
@@ -1575,31 +1578,31 @@ impl Clocks {
             || self.pllsai1.divn < 7
             || self.pllsai1.divn > 86
         {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         if self.pll.pdiv == 1 {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
         if self.pllsai1.pdiv == 1 {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         #[cfg(any(feature = "l4x5", feature = "l4x6"))]
         if self.pllsai2.pdiv == 1 {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         #[cfg(feature = "g0")]
         if self.pll.divn < 9 || self.pll.divn > 86 {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         #[cfg(feature = "g4")]
         if self.pll.divn < 8 || self.pll.divn > 127 {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         // todo: on WB, input src / PlLM * plln Must be between 96 and 344 Mhz.
@@ -1610,22 +1613,22 @@ impl Clocks {
         // todo: Note that this involves repeatedly calculating sysclk.
         // todo. We could work around thsi by calcing it once here.
         if self.sysclk() > max_clock {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         // todo: What are the actual hclk limits? Not always sysclk?
 
         if self.hclk() > max_clock {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         if self.apb1() > max_clock {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         #[cfg(not(feature = "g0"))]
         if self.apb2() > max_clock {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         Ok(())

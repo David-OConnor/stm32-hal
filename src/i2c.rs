@@ -16,13 +16,14 @@ use crate::pac::DMA as DMA1;
 use crate::pac::DMA1;
 use crate::{
     clocks::Clocks,
+    error::{Error, Result},
     pac::{self, RCC},
-    util::RccPeriph,
+    util::{RccPeriph, bounded_loop},
 };
 
 /// I2C error
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, defmt::Format)]
 pub enum I2cError {
     /// Bus error
     Bus,
@@ -30,11 +31,10 @@ pub enum I2cError {
     Arbitration,
     /// NACK
     Nack,
-    // Overrun, // slave mode only
-    // Pec, // SMBUS mode only
-    // Timeout, // SMBUS mode only
-    // Alert, // SMBUS mode only
-    RegisterUnchanged,
+    Overrun, // slave mode only
+    Pec,     // SMBUS mode only
+    Timeout, // SMBUS mode only
+    Alert,   // SMBUS mode only
 }
 
 #[derive(Clone, Copy)]
@@ -319,7 +319,7 @@ where
     }
 
     /// Enable SMBus support. See L44 RM, section 37.4.11: SMBus initialization
-    pub fn enable_smbus(&mut self) -> Result<(), I2cError> {
+    pub fn enable_smbus(&mut self) -> Result<()> {
         // todo: Roll this into an init setting or I2cConfig struct etc.
         // PEC calculation is enabled by setting the PECEN bit in the I2C_CR1 register. Then the PEC
         // transfer is managed with the help of a hardware byte counter: NBYTES[7:0] in the I2C_CR2
@@ -337,7 +337,7 @@ where
 
             bounded_loop!(
                 self.regs.cr1.read().pe().bit_is_set(),
-                I2cError::RegisterUnchanged
+                Error::RegisterUnchanged
             );
         }
 
@@ -356,15 +356,15 @@ where
     }
 
     ///
-    fn check_for_errors(&self) -> Result<(), I2cError> {
+    fn check_for_errors(&self) -> Result<()> {
         let isr = self.regs.isr.read();
 
         if isr.berr().bit_is_set() {
             self.regs.icr.write(|w| w.berrcf().set_bit());
-            return Err(I2cError::Bus);
+            return Err(Error::I2cError(I2cError::Bus));
         } else if isr.arlo().bit_is_set() {
             self.regs.icr.write(|w| w.arlocf().set_bit());
-            return Err(I2cError::Arbitration);
+            return Err(Error::I2cError(I2cError::Arbitration));
         } else if isr.nackf().bit_is_set() {
             self.regs
                 .icr
@@ -380,21 +380,21 @@ where
                 self.regs.isr.write(|w| w.txe().set_bit());
             }
 
-            return Err(I2cError::Nack);
+            return Err(Error::I2cError(I2cError::Nack));
         }
 
         Ok(())
     }
 
     /// Read multiple words to a buffer. Can return an error due to Bus, Arbitration, or NACK.
-    pub fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), I2cError> {
+    pub fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<()> {
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
 
         bounded_loop!(
             self.regs.cr2.read().start().bit_is_set(),
-            I2cError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         // Set START and prepare to receive bytes into
@@ -406,7 +406,7 @@ where
             // Wait until we have received something
             bounded_loop!(
                 self.regs.isr.read().rxne().bit_is_set(),
-                I2cError::RegisterUnchanged,
+                Error::RegisterUnchanged,
                 (self.check_for_errors()?)
             );
 
@@ -417,13 +417,13 @@ where
     }
 
     /// Write an array of words. Can return an error due to Bus, Arbitration, or NACK.
-    pub fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), I2cError> {
+    pub fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<()> {
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
         bounded_loop!(
             self.regs.cr2.read().start().bit_is_set(),
-            I2cError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         self.set_cr2_write(addr, bytes.len() as u8, true);
@@ -434,7 +434,7 @@ where
             // through)
             bounded_loop!(
                 self.regs.isr.read().txis().bit_is_set(),
-                I2cError::RegisterUnchanged,
+                Error::RegisterUnchanged,
                 (self.check_for_errors()?)
             );
 
@@ -446,18 +446,13 @@ where
     }
 
     /// Write and read an array of words. Can return an error due to Bus, Arbitration, or NACK.
-    pub fn write_read(
-        &mut self,
-        addr: u8,
-        bytes: &[u8],
-        buffer: &mut [u8],
-    ) -> Result<(), I2cError> {
+    pub fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<()> {
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
         bounded_loop!(
             self.regs.cr2.read().start().bit_is_set(),
-            I2cError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         self.set_cr2_write(addr, bytes.len() as u8, false);
@@ -468,7 +463,7 @@ where
 
             bounded_loop!(
                 self.regs.isr.read().txis().bit_is_set(),
-                I2cError::RegisterUnchanged,
+                Error::RegisterUnchanged,
                 (self.check_for_errors()?)
             );
 
@@ -480,7 +475,7 @@ where
         // busy_wait!(self.regs, tc); // transfer is complete
         bounded_loop!(
             self.regs.isr.read().tc().bit_is_set(),
-            I2cError::RegisterUnchanged,
+            Error::RegisterUnchanged,
             (self.check_for_errors()?)
         );
 
@@ -492,7 +487,7 @@ where
             // Wait until we have received something
             bounded_loop!(
                 self.regs.isr.read().rxne().bit_is_set(),
-                I2cError::RegisterUnchanged,
+                Error::RegisterUnchanged,
                 (self.check_for_errors()?)
             );
 
@@ -577,7 +572,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) -> Result<(), I2cError> {
+    ) -> Result<()> {
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
@@ -595,7 +590,7 @@ where
 
         bounded_loop!(
             self.regs.cr1.read().txdmaen().bit_is_clear(),
-            I2cError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         // Only the data are transferred with DMA.
@@ -638,7 +633,6 @@ where
                     dma::DataSize::S8,
                     channel_cfg,
                 )
-                .map_err(|_| I2cError::RegisterUnchanged)
             }
             #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
             dma::DmaPeriph::Dma2 => {
@@ -654,7 +648,6 @@ where
                     dma::DataSize::S8,
                     channel_cfg,
                 )
-                .map_err(|_| I2cError::RegisterUnchanged)
             }
         }
     }
@@ -670,8 +663,8 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) -> Result<(), I2cError> {
-        // -> Result<(), I2cError> {
+    ) -> Result<()> {
+        // -> Result<()> {
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
@@ -689,7 +682,7 @@ where
         self.regs.cr1.modify(|_, w| w.rxdmaen().set_bit());
         bounded_loop!(
             self.regs.cr1.read().rxdmaen().bit_is_clear(),
-            I2cError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         // • In master mode, the initialization, the slave address, direction, number of bytes and
@@ -725,7 +718,6 @@ where
                     dma::DataSize::S8,
                     channel_cfg,
                 )
-                .map_err(|_| I2cError::RegisterUnchanged)
             }
             #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
             dma::DmaPeriph::Dma2 => {
@@ -741,7 +733,6 @@ where
                     dma::DataSize::S8,
                     channel_cfg,
                 )
-                .map_err(|_| I2cError::RegisterUnchanged)
             }
         }
     }
@@ -760,7 +751,7 @@ where
 // {
 //     type Error = Error;
 //
-//     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
+//     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<()> {
 //         I2c::write(self, addr, bytes)
 //     }
 // }
@@ -773,7 +764,7 @@ where
 // {
 //     type Error = Error;
 //
-//     fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
+//     fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<()> {
 //         I2c::read(self, addr, bytes)
 //     }
 // }
@@ -786,7 +777,7 @@ where
 // {
 //     type Error = Error;
 //
-//     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
+//     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<()> {
 //         I2c::write_read(self, addr, bytes, buffer)
 //     }
 // }

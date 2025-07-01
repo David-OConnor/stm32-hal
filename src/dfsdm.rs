@@ -24,9 +24,12 @@ cfg_if! {
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
-#[cfg(not(any(feature = "f4", feature = "l552")))]
-use crate::dma::{self, ChannelCfg, DmaChannel, DmaError};
 use crate::pac::DMA1;
+#[cfg(not(any(feature = "f4", feature = "l552")))]
+use crate::{
+    dma::{self, ChannelCfg, DmaChannel},
+    error::Result,
+};
 
 #[derive(Clone, Copy)]
 pub enum Filter {
@@ -1169,7 +1172,7 @@ where
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
         // dma: &mut Dma<D>,
-    ) -> Result<(), DmaError> {
+    ) -> Result<()> {
         // where
         //     D: Deref<Target = dma_p::RegisterBlock>,
         // {

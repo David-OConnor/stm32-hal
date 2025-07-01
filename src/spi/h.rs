@@ -4,9 +4,10 @@ use core::{cell::UnsafeCell, ops::Deref, ptr};
 
 use super::*;
 use crate::{
-    MAX_ITERS, check_errors,
+    check_errors,
+    error::{Error, Result},
     pac::{self, RCC},
-    util::RccPeriph,
+    util::{RccPeriph, bounded_loop},
 };
 
 // Depth of FIFO to use. See RM0433 Rev 7, Table 409. Note that 16 is acceptable on this MCU,
@@ -167,7 +168,7 @@ where
     /// paragraph. It is important to do this before the system enters a low-power mode when the
     /// peripheral clock is stopped. Ongoing transactions can be corrupted in this case. In some
     /// modes the disable procedure is the only way to stop continuous communication running.
-    pub fn disable(&mut self) -> Result<(), SpiError> {
+    pub fn disable(&mut self) -> Result<()> {
         // The correct disable procedure is (except when receive only mode is used):
         // 1. Wait until TXC=1 and/or EOT=1 (no more data to transmit and last data frame sent).
         // When CRC is used, it is sent automatically after the last data in the block is processed.
@@ -176,12 +177,12 @@ where
         let sr = &self.regs.sr;
         bounded_loop!(
             sr.read().txc().bit_is_clear() && sr.read().eot().bit_is_clear(),
-            SpiError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
         // 2. Read all RxFIFO data (until RXWNE=0 and RXPLVL=00)
         bounded_loop!(
             sr.read().rxwne().bit_is_set() || sr.read().rxplvl().bits() != 0,
-            SpiError::RegisterUnchanged,
+            Error::RegisterUnchanged,
             { unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const ()) } }
         );
         // 3. Disable the SPI (SPE=0).
@@ -195,13 +196,13 @@ where
     ///
     /// * Assumes the transaction has started (CSTART handled externally)
     /// * Assumes at least one word has already been written to the Tx FIFO
-    fn exchange(&mut self, word: u8) -> Result<u8, SpiError> {
+    fn exchange(&mut self, word: u8) -> Result<u8> {
         let status = self.regs.sr.read();
         check_errors!(status);
 
         bounded_loop!(
             !self.regs.sr.read().dxp().is_available(),
-            SpiError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         // NOTE(write_volatile/read_volatile) write/read only 1 word
@@ -215,12 +216,12 @@ where
     ///
     /// Assumes the transaction has started (CSTART handled externally)
     /// Assumes at least one word has already been written to the Tx FIFO
-    pub fn read(&mut self) -> Result<u8, SpiError> {
+    pub fn read(&mut self) -> Result<u8> {
         check_errors!(self.regs.sr.read());
 
         bounded_loop!(
             !self.regs.sr.read().rxp().is_not_empty(),
-            SpiError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         // NOTE(read_volatile) read only 1 word
@@ -228,7 +229,7 @@ where
     }
 
     /// Write multiple bytes on the SPI line, blocking until complete.
-    pub fn write(&mut self, write_words: &[u8]) -> Result<(), SpiError> {
+    pub fn write(&mut self, write_words: &[u8]) -> Result<()> {
         // both buffers are the same length
         if write_words.is_empty() {
             return Ok(());
@@ -255,7 +256,7 @@ where
     }
 
     /// Read multiple bytes to a buffer, blocking until complete.
-    pub fn transfer(&mut self, words: &mut [u8]) -> Result<(), SpiError> {
+    pub fn transfer(&mut self, words: &mut [u8]) -> Result<()> {
         if words.is_empty() {
             return Ok(());
         }
@@ -281,7 +282,7 @@ where
         Ok(())
     }
 
-    fn send(&mut self, word: u8) -> Result<(), SpiError> {
+    fn send(&mut self, word: u8) -> Result<()> {
         check_errors!(self.regs.sr.read());
 
         // NOTE(write_volatile) see note above
@@ -303,7 +304,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) -> Result<(), DmaError> {
+    ) -> Result<()> {
         // todo: Accept u16 and u32 words too.
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
@@ -357,7 +358,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) -> Result<(), DmaError> {
+    ) -> Result<()> {
         // Static write and read buffers?
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
@@ -433,7 +434,7 @@ where
         channel_cfg_write: ChannelCfg,
         channel_cfg_read: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) -> Result<(), DmaError> {
+    ) -> Result<()> {
         // todo: Accept u16 and u32 words too.
         let (ptr_write, len_write) = (buf_write.as_ptr(), buf_write.len());
         let (ptr_read, len_read) = (buf_read.as_mut_ptr(), buf_read.len());

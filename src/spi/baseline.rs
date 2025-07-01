@@ -3,9 +3,9 @@ use core::{ops::Deref, ptr};
 use super::*;
 use crate::{
     check_errors,
-    dma::DmaError,
+    error::{Error, Result},
     pac::{self, RCC},
-    util::RccPeriph,
+    util::{RccPeriph, bounded_loop},
 };
 
 // Depth of FIFO to use. See G4 RM, table 359.
@@ -139,19 +139,19 @@ where
     /// paragraph. It is important to do this before the system enters a low-power mode when the
     /// peripheral clock is stopped. Ongoing transactions can be corrupted in this case. In some
     /// modes the disable procedure is the only way to stop continuous communication running.
-    pub fn disable(&mut self) -> Result<(), SpiError> {
+    pub fn disable(&mut self) -> Result<()> {
         // The correct disable procedure is (except when receive only mode is used):
 
         // 1. Wait until FTLVL[1:0] = 00 (no more data to transmit).
         #[cfg(not(feature = "f4"))]
         bounded_loop!(
             self.regs.sr.read().ftlvl().bits() != 0,
-            SpiError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
         // 2. Wait until BSY=0 (the last data frame is processed).
         bounded_loop!(
             self.regs.sr.read().bsy().bit_is_set(),
-            SpiError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
         // 3. Disable the SPI (SPE=0).
         // todo: Instructions say to stop SPI (including to close DMA comms), but this breaks non-DMA writes, which assume
@@ -168,14 +168,14 @@ where
     }
 
     /// Read a single byte if available, or block until it's available.
-    pub fn read(&mut self) -> Result<u8, SpiError> {
+    pub fn read(&mut self) -> Result<u8> {
         check_errors!(self.regs.sr.read());
 
         // todo: Use fIFO like in H7 code?
 
         bounded_loop!(
             !self.regs.sr.read().rxne().bit_is_set(),
-            SpiError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         Ok(unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) })
@@ -183,12 +183,12 @@ where
 
     /// Write a single byte if available, or block until it's available.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
-    pub fn write_one(&mut self, byte: u8) -> Result<(), SpiError> {
+    pub fn write_one(&mut self, byte: u8) -> Result<()> {
         check_errors!(self.regs.sr.read());
 
         bounded_loop!(
             !self.regs.sr.read().txe().bit_is_set(),
-            SpiError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         #[allow(invalid_reference_casting)]
@@ -201,7 +201,7 @@ where
 
     /// Write multiple bytes on the SPI line, blocking until complete.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
-    pub fn write(&mut self, words: &[u8]) -> Result<(), SpiError> {
+    pub fn write(&mut self, words: &[u8]) -> Result<()> {
         // todo: Take advantage of the FIFO, like H7?
         for word in words {
             self.write_one(*word)?;
@@ -213,7 +213,7 @@ where
 
     /// Read multiple bytes to a buffer, blocking until complete.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
-    pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<(), SpiError> {
+    pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<()> {
         for word in words.iter_mut() {
             self.write_one(*word)?;
             *word = self.read()?;
@@ -227,7 +227,7 @@ where
         &mut self,
         write_buf: &'w [u8],
         read_buf: &'w mut [u8],
-    ) -> Result<(), SpiError> {
+    ) -> Result<()> {
         for (i, word) in write_buf.iter().enumerate() {
             self.write_one(*word)?;
             if i < read_buf.len() {
@@ -266,7 +266,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) -> Result<(), DmaError> {
+    ) -> Result<()> {
         // todo: Accept u16 words too.
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
@@ -330,7 +330,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) -> Result<(), DmaError> {
+    ) -> Result<()> {
         // Static write and read buffers?
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
@@ -414,7 +414,7 @@ where
         channel_cfg_write: ChannelCfg,
         channel_cfg_read: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) -> Result<(), DmaError> {
+    ) -> Result<()> {
         // todo: Accept u16 words too.
         let (ptr_write, len_write) = (buf_write.as_ptr(), buf_write.len());
         let (ptr_read, len_read) = (buf_read.as_mut_ptr(), buf_read.len());

@@ -12,9 +12,9 @@ use crate::dma::DmaInput;
 use crate::dma::{self, ChannelCfg, DmaChannel};
 use crate::{
     clocks::Clocks,
-    dma::DmaError,
+    error::{Error, Result},
     pac::{self, RCC},
-    util::rcc_en_reset,
+    util::{bounded_loop, rcc_en_reset},
 };
 
 // Address of the ADCinterval voltage reference. This address is found in the User manual. It appears
@@ -40,11 +40,6 @@ cfg_if! {
 }
 
 const MAX_ADVREGEN_STARTUP_US: u32 = 10;
-
-#[derive(Debug, defmt::Format)]
-pub enum AdcError {
-    RegisterUnchanged,
-}
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum AdcDevice {
@@ -372,7 +367,7 @@ macro_rules! hal {
                     device: AdcDevice,
                     cfg: AdcConfig,
                     ahb_freq: u32, // Used for blocking delays in init.
-                ) -> Result<Self, AdcError> {
+                ) -> Result<Self> {
                     let mut adc = Self {
                         regs,
                         device,
@@ -492,7 +487,7 @@ macro_rules! hal {
             /// Enable the ADC.
             /// ADEN=1 enables the ADC. The flag ADRDY will be set once the ADC is ready for
             /// operation.
-            pub fn enable(&mut self) -> Result<(), AdcError> {
+            pub fn enable(&mut self) -> Result<()> {
                 // 1. Clear the ADRDY bit in the ADC_ISR register by writing ‘1’.
                 self.regs.isr.modify(|_, w| w.adrdy().set_bit());
                 // 2. Set ADEN=1.
@@ -500,7 +495,7 @@ macro_rules! hal {
                 // 3. Wait until ADRDY=1 (ADRDY is set after the ADC startup time). This can be done
                 // using the associated interrupt (setting ADRDYIE=1).
                 // Wait until ready
-                bounded_loop!(self.regs.isr.read().adrdy().bit_is_clear(), AdcError::RegisterUnchanged);
+                bounded_loop!(self.regs.isr.read().adrdy().bit_is_clear(), Error::RegisterUnchanged);
                 // 4. Clear the ADRDY bit in the ADC_ISR register by writing ‘1’ (optional).
                 self.regs.isr.modify(|_, w| w.adrdy().set_bit());
                 Ok(())
@@ -509,7 +504,7 @@ macro_rules! hal {
             /// Disable the ADC.
             /// ADDIS=1 disables the ADC. ADEN and ADDIS are then automatically cleared by
             /// hardware as soon as the analog ADC is effectively disabled
-            pub fn disable(&mut self) -> Result<(), AdcError> {
+            pub fn disable(&mut self) -> Result<()> {
                 // 1. Check that both ADSTART=0 and JADSTART=0 to ensure that no conversion is
                 // ongoing. If required, stop any regular and injected conversion ongoing by setting
                 // ADSTP=1 and JADSTP=1 and then wait until ADSTP=0 and JADSTP=0.
@@ -520,7 +515,7 @@ macro_rules! hal {
 
                 // 3. If required by the application, wait until ADEN=0, until the analog
                 // ADC is effectively disabled (ADDIS will automatically be reset once ADEN=0)
-                bounded_loop!(self.regs.cr.read().aden().bit_is_set(), AdcError::RegisterUnchanged);
+                bounded_loop!(self.regs.cr.read().aden().bit_is_set(), Error::RegisterUnchanged);
 
                 Ok(())
             }
@@ -533,7 +528,7 @@ macro_rules! hal {
             /// partial result discarded (ADC_JDRy register is not updated with the current conversion).
             /// The scan sequence is also aborted and reset (meaning that relaunching the ADC would
             /// restart a new sequence).
-            pub fn stop_conversions(&mut self) -> Result<(), AdcError> {
+            pub fn stop_conversions(&mut self) -> Result<()> {
                 // The software can decide to stop regular conversions ongoing by setting ADSTP=1 and
                 // injected conversions ongoing by setting JADSTP=1.
                 // Stopping conversions will reset the ongoing ADC operation. Then the ADC can be
@@ -544,7 +539,10 @@ macro_rules! hal {
                         w.adstp().set_bit();
                         w.jadstp().set_bit()
                     });
-                    bounded_loop!(self.regs.cr.read().adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set(), AdcError::RegisterUnchanged);
+                    bounded_loop!(
+                        self.regs.cr.read().adstart().bit_is_set() || self.regs.cr.read().jadstart().bit_is_set(),
+                        Error::RegisterUnchanged
+                    );
                 }
                 Ok(())
             }
@@ -631,7 +629,7 @@ macro_rules! hal {
             /// Calibrate. See L4 RM, 16.5.8, or F404 RM, section 15.3.8.
             /// Stores calibration values, which can be re-inserted later,
             /// eg after entering ADC deep sleep mode, or MCU STANDBY or VBAT.
-            pub fn calibrate(&mut self, input_type: InputType, ahb_freq: u32) -> Result<(), AdcError> {
+            pub fn calibrate(&mut self, input_type: InputType, ahb_freq: u32) -> Result<()> {
                 // 1. Ensure DEEPPWD=0, ADVREGEN=1 and that ADC voltage regulator startup time has
                 // elapsed.
                 if !self.is_advregen_enabled() {
@@ -665,7 +663,10 @@ macro_rules! hal {
                 // the bits CALFACT_S\[6:0\] or CALFACT_D\[6:0\] of ADC_CALFACT register (depending on
                 // single-ended or differential input calibration)
                 // 5. Wait until ADCAL=0.
-                bounded_loop!(self.regs.cr.read().adcal().bit_is_set(), AdcError::RegisterUnchanged);
+                bounded_loop!(
+                    self.regs.cr.read().adcal().bit_is_set(),
+                    Error::RegisterUnchanged
+                );
 
                 // 6. The calibration factor can be read from ADC_CALFACT register.
                 match input_type {
@@ -692,7 +693,7 @@ macro_rules! hal {
 
             /// Insert a previously-saved calibration value into the ADC.
             /// Se L4 RM, 16.4.8.
-            pub fn inject_calibration(&mut self) -> Result<(), AdcError> {
+            pub fn inject_calibration(&mut self) -> Result<()> {
                 // 1. Ensure ADEN=1 and ADSTART=0 and JADSTART=0 (ADC enabled and no
                 // conversion is ongoing).
                 if !self.is_enabled() {
@@ -721,7 +722,7 @@ macro_rules! hal {
             }
 
             /// Select single-ended, or differential conversions for a given channel.
-            pub fn set_input_type(&mut self, channel: u8, input_type: InputType) -> Result<(), AdcError> {
+            pub fn set_input_type(&mut self, channel: u8, input_type: InputType) -> Result<()> {
                 // L44 RM, 16.4.7:
                 // Channels can be configured to be either single-ended input or differential input by writing
                 // into bits DIFSEL\[15:1\] in the ADC_DIFSEL register. This configuration must be written while
@@ -806,7 +807,7 @@ macro_rules! hal {
             }
 
             /// Select the sample time for a given channel.
-            pub fn set_sample_time(&mut self, chan: u8, smp: SampleTime) -> Result<(), AdcError> {
+            pub fn set_sample_time(&mut self, chan: u8, smp: SampleTime) -> Result<()> {
                 // Channel is the ADC channel to use.
 
                 // RM: Note: only allowed when ADSTART = 0 and JADSTART = 0.
@@ -849,7 +850,7 @@ macro_rules! hal {
 
             /// Find and store the internal voltage reference, to improve conversion from reading
             /// to voltage accuracy. See L44 RM, section 16.4.34: "Monitoring the internal voltage reference"
-            fn setup_vdda(&mut self, ahb_freq: u32) -> Result<(), AdcError> {
+            fn setup_vdda(&mut self, ahb_freq: u32) -> Result<()> {
                 let common_regs = unsafe { &*pac::$ADC_COMMON::ptr() };
                 // RM: It is possible to monitor the internal voltage reference (VREFINT) to have a reference point for
                 // evaluating the ADC VREF+ voltage level.
@@ -961,7 +962,7 @@ macro_rules! hal {
             /// Start a conversion: Either a single measurement, or continuous conversions.
             /// Blocks until the conversion is complete.
             /// See L4 RM 16.4.15 for details.
-            pub fn start_conversion(&mut self, sequence: &[u8]) -> Result<(), AdcError> {
+            pub fn start_conversion(&mut self, sequence: &[u8]) -> Result<()> {
                 // todo: You should call this elsewhere, once, to prevent unneded reg writes.
                 for (i, channel) in sequence.iter().enumerate() {
                     self.set_sequence(*channel, i as u8 + 1); // + 1, since sequences start at 1.
@@ -979,7 +980,10 @@ macro_rules! hal {
                 // the EOC (end of regular conversion) flag is set.
                 // After the regular sequence is complete: The EOS (end of regular sequence) flag is set.
                 // wait until complete.
-                bounded_loop!(self.regs.isr.read().eos().bit_is_clear(), AdcError::RegisterUnchanged);
+                bounded_loop!(
+                    self.regs.isr.read().eos().bit_is_clear(),
+                    Error::RegisterUnchanged
+                );
 
                 Ok(())
             }
@@ -999,13 +1003,13 @@ macro_rules! hal {
             }
 
             /// Take a single reading; return a raw integer value.
-            pub fn read(&mut self, channel: u8) -> Result<u16, AdcError> {
+            pub fn read(&mut self, channel: u8) -> Result<u16> {
                 self.start_conversion(&[channel])?;
                 Ok(self.read_result())
             }
 
             /// Take a single reading; return a voltage.
-            pub fn read_voltage(&mut self, channel: u8) -> Result<f32, AdcError> {
+            pub fn read_voltage(&mut self, channel: u8) -> Result<f32> {
                 let reading = self.read(channel)?;
                 Ok(self.reading_to_voltage(reading))
             }
@@ -1029,11 +1033,11 @@ macro_rules! hal {
                 dma_channel: DmaChannel,
                 channel_cfg: ChannelCfg,
                 dma_periph: dma::DmaPeriph,
-            ) -> Result<(), DmaError> {
+            ) -> Result<()> {
                 let (ptr, len) = (buf.as_mut_ptr(), buf.len());
                 // The software is allowed to write (dmaen and dmacfg) only when ADSTART=0 and JADSTART=0 (which
                 // ensures that no conversion is ongoing)
-                self.stop_conversions().map_err(|_| DmaError::RegisterUnchanged)?;
+                self.stop_conversions()?;
 
                 #[cfg(not(feature = "h7"))]
                 self.regs.cfgr.modify(|_, w| {

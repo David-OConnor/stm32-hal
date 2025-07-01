@@ -40,7 +40,7 @@ cfg_if! {
     }
 }
 
-#[derive(Copy, Clone, Debug, defmt::Format)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, defmt::Format)]
 /// Possible error states for flash operations.
 pub enum FlashError {
     /// Flash controller is not done yet
@@ -53,7 +53,6 @@ pub enum FlashError {
     PageOutOfRange,
     /// (Legal) command failed
     Failure,
-    RegisterUnchanged,
 }
 
 pub struct Flash {

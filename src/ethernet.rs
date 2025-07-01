@@ -14,14 +14,10 @@ use smoltcp::{
 };
 
 use crate::{
+    error::Result,
     pac::{self, ETHERNET_DMA, ETHERNET_MAC, ETHERNET_MTL, RCC},
     util::RccPeriph,
 };
-
-#[derive(Debuf, defmt::Format)]
-pub enum EthError {
-    RegisterUnchanged,
-}
 
 /// Configuration data for Ethernet
 pub struct EthConfig {}
@@ -64,7 +60,7 @@ where
     }
 
     /// H743 RM, section 58.9.1: DMA initialization
-    pub fn init_dma(&mut self) -> Result<(), EthError> {
+    pub fn init_dma(&mut self) -> Result<()> {
         // Complete the following steps to initialize the DMA:
 
         // 1. Provide a software reset to reset all MAC internal registers and logic (bit 0 of DMA
@@ -76,7 +72,7 @@ where
         // todo: Use DmaError instead?
         bounded_loop!(
             self.regs_dma.dmamr.read().swr().bit_is_set(),
-            EthError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         // 3. Program the following fields to initialize the System bus mode register

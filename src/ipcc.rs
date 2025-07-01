@@ -1,17 +1,16 @@
 //! Inter-processor communication controller (IPCC).
 //! Used on STM32WB for communication between cores.
 
-use crate::pac::{self, IPCC, RCC};
+use crate::{
+    error::{Error, Result},
+    pac::{self, IPCC, RCC},
+    util::bounded_loop,
+};
 
 // todo: C1_1 and C2_1 etc for channels instead of separate core enum?
 // todo: Consider macros to reduce DRY here, re Core and Channel matching.
 // todo: Consolidate match arms to reduce DRY match statements for the diff steps
 // todo excecuted in a given fn.
-
-#[derive(Debug, defmt::Format)]
-pub enum IpccError {
-    RegisterUnchanged,
-}
 
 #[derive(Clone, Copy)]
 /// Represents one of six channels. We use this enum for both Core1 and Core2 channels.
@@ -153,7 +152,7 @@ impl Ipcc {
         core: Core,
         channel: IpccChannel,
         data: &[u8],
-    ) -> Result<(), IpccError> {
+    ) -> Result<()> {
         // RM, section 37.3.3: To send communication data:
         // * The sending processor waits for its response pending software variable to get 0.
         // – Once the response pending software variable is 0 the communication data is
@@ -161,7 +160,7 @@ impl Ipcc {
         // todo: is this right?
         bounded_loop!(
             self.channel_is_free(core, channel),
-            IpccError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         //  Once the complete communication data has been posted, the channel status flag
@@ -217,13 +216,13 @@ impl Ipcc {
         core: Core,
         channel: IpccChannel,
         data: &[u8],
-    ) -> Result<(), IpccError> {
+    ) -> Result<()> {
         // To send a response:
         // * The receiving processor waits for its response pending software variable to get 1.
         // – Once the response pending software variable is 1 the response is posted.
         bounded_loop!(
             self.channel_is_free(core, channel),
-            IpccError::RegisterUnchanged
+            Error::RegisterUnchanged
         );
 
         // todo: Write response here?
