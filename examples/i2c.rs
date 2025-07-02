@@ -17,8 +17,9 @@ use hal::{
     dma::{self, Dma, DmaChannel, DmaInterrupt, DmaPeriph, DmaWriteBuf},
     gpio::{Pin, PinMode, Port},
     i2c::{I2c, I2cConfig, I2cSpeed, NoiseFilter},
-    low_power, pac::{self, I2C1},
-    setup_nvic, init_globals,
+    init_globals, low_power,
+    pac::{self, I2C1},
+    setup_nvic,
 };
 
 static WRITE_BUF: [u8; 2] = [0, 0];
@@ -31,10 +32,7 @@ const DMA_PERIPH: DmaPeriph = DmaPeriph::Dma1;
 const TX_CH: DmaChannel = DmaChannel::C6;
 const RX_CH: DmaChannel = DmaChannel::C7;
 
-make_globals!(
-    (I2C, I2c<I2C1>),
-);
-
+make_globals!((I2C, I2c<I2C1>),);
 
 #[entry]
 fn main() -> ! {
@@ -109,18 +107,10 @@ fn main() -> ! {
     i2c.write_read(ADDR, &[conversion_reg], &mut read_buf).ok();
     let reading = i16::from_be_bytes([read_buf[0], read_buf[1]]);
 
-    init_globals!(
-        (I2C, i2c),
-    );
+    init_globals!((I2C, i2c),);
 
     // Unmask the interrupt lines. See the `DMA_CH6` and `DMA_CH7` interrupt handlers below.
-    setup_nvic!(
-        [
-            (DMA1_CH6, 3),
-            (DMA2_CH7, 3),
-        ],
-        cp
-    );
+    setup_nvic!([(DMA1_CH6, 3), (DMA2_CH7, 3),], cp);
 
     loop {
         low_power::sleep_now();
@@ -130,24 +120,14 @@ fn main() -> ! {
 #[interrupt]
 /// This interrupt fires when a DMA transmission is complete. Read the results.
 fn DMA1_CH6() {
-    dma::clear_interrupt(
-        DMA_PERIPH,
-        TX_CH,
-        DmaInterrupt::TransferComplete,
-    );
+    dma::clear_interrupt(DMA_PERIPH, TX_CH, DmaInterrupt::TransferComplete);
 
     dma::stop(DMA_PERIPH, TX_CH);
 
     with(|cs| {
         access_global!(I2C, i2c, cs);
         unsafe {
-            i2c.read_dma(
-                ADDR,
-                &mut READ_BUF,
-                RX_CH,
-                Default::default(),
-                DMA_PERIPH,
-            );
+            i2c.read_dma(ADDR, &mut READ_BUF, RX_CH, Default::default(), DMA_PERIPH);
         }
     });
 
@@ -157,11 +137,7 @@ fn DMA1_CH6() {
 #[interrupt]
 /// This interrupt fires when a DMA read is complete. Handle readings.
 fn DMA1_CH7() {
-    dma::clear_interrupt(
-        DMA_PERIPH,
-        RX_CH,
-        DmaInterrupt::TransferComplete,
-    );
+    dma::clear_interrupt(DMA_PERIPH, RX_CH, DmaInterrupt::TransferComplete);
 
     dma::stop(DMA_PERIPH, RX_CH);
 

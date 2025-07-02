@@ -7,24 +7,33 @@
 
 use cortex_m::{self, peripheral::NVIC};
 use cortex_m_rt::entry;
+use critical_section::{CriticalSection, Mutex, with};
+use defmt::println;
+use defmt_rtt as _;
 use hal::{
-    clocks::{self, Clk48Src, Clocks, CrsSyncSrc},
+    clocks::{self, Clk48Src, Clocks, CrsSyncSrc, enable_crs},
     gpio::{Pin, PinMode, Port},
     pac,
     prelude::*,
     usb::{Peripheral, UsbBus, UsbBusType},
 };
+use panic_probe as _;
+use usb_device::{bus::UsbBusAllocator, prelude::*};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 static mut USB_BUS: Option<UsbBusAllocator<UsbBusType>> = None;
 
+// See note below about if using custom buffer sizes.
+// pub type UsbSerial<'a> = SerialPort<'a, UsbBusType, &'a mut [u8], &'a mut [u8]>;
+
 make_globals!(
-    (USB_SERIAL, SerialPort<UsbBusType>),
-    (USB_DEVICE, UsbDevice<UsbBusType>),
+    (USB_DEV, UsbDevice<'static, UsbBusType>),
+    (USB_SERIAL, SerialPort<'static, UsbBusType>),
+    // Or, if you use custom buffer sizes:
+    // (USB_SERIAL, UsbSerial<'static>),
 );
 
-#[entry]
-fn main() -> ! {
+fn init() {
     // Set up CPU peripherals
     let mut cp = cortex_m::Peripherals::take().unwrap();
     // Set up microcontroller peripherals
@@ -44,85 +53,117 @@ fn main() -> ! {
     clock_cfg::enable_crs(CrsSyncSrc::Usb);
 
     // Enable `pwren`. Note that this is also set up by the `rtc` initialization, so this
-    // step isn't required if you have the RTC set up.
-    dp.RCC.apb1enr1.modify(|_, w| w.pwren().set_bit());
+    // step isn't required if you have the RTC set up. Only required on some configurations.
+    // dp.RCC.apb1enr1.modify(|_, w| w.pwren().set_bit());
+
     // Enable USB power, on applicable MCUs like L4.
-    usb::enable_usb_pwr(&mut dp.PWR, &mut dp.RCC);
+    // usb::enable_usb_pwr(&mut dp.PWR, &mut dp.RCC);
 
     // Set up USB pins. Note: This only applies to some MCUs; others don't require this,
     // nor have the appropriate alt functions.
-    let _usb_dm = gpioa.new_pin(11, PinMode::Alt(14));
-    let _usb_dp = gpioa.new_pin(12, PinMode::Alt(14));
+    // let _usb_dm = gpioa.new_pin(11, PinMode::Alt(14));
+    // let _usb_dp = gpioa.new_pin(12, PinMode::Alt(14));
 
     let usb = Peripheral { usb: dp.USB };
     let usb_bus = UsbBus::new(usb);
+
     let usb_serial = SerialPort::new(usb_bus);
 
-    let usb_dev = UsbDeviceBuilder::new(USB_BUS.as_ref().unwrap(), UsbVidPid(0x16c0, 0x27dd))
+    // Or, if specifying manual buffers, e.g. larger than the default:
+    let usb_serial = SerialPort::new_with_store(
+        unsafe { USB_BUS.as_ref().unwrap() },
+        unsafe { &mut USB_TX_STORE[..] },
+        unsafe { &mut USB_RX_STORE[..] },
+    );
+
+    let usb_dev = UsbDeviceBuilder::new(
+        unsafe { USB_BUS.as_ref().unwrap() },
+        UsbVidPid(0x16c0, 0x27dd),
+    )
+    .strings(&[StringDescriptors::default()
         .manufacturer("A Company")
         .product("Serial port")
         // We use `serial_number` to identify the device to the PC. If it's too long,
         // we get permissions errors on the PC.
-        .serial_number("SN")
-        .device_class(USB_CLASS_CDC)
-        .build();
+        .serial_number("SN")])
+    .unwrap()
+    .device_class(usbd_serial::USB_CLASS_CDC)
+    .build();
 
     init_globals!((USB_DEVICE, usb_device), (USB_SERIAL, usb_serial));
 
     setup_nvic!([(USB_FS, 1),], cp);
+}
+
+/// Handle incoming data from the USB port.
+pub fn handle_rx(
+    usb_serial: &mut UsbSerial<'static>,
+    usb_dev: &mut UsbDevice<'static, UsbBusType>,
+    rx_buf: &[u8],
+    cs: CriticalSection,
+) {
+    // We have access to the RX buffer in this function.
+    println!("Received a message over USB: {:?}", rx_buf);
+
+    // Example sending a message:
+    if rx_buf[0] == 10 {
+        // Populate A/R.
+        let mut tx_buf = [0; 10];
+
+        let msg_len = 10;
+
+        let mut offset = 0;
+        while offset < msg_len {
+            match usb_serial.write(&tx_buf[offset..msg_len]) {
+                Ok(0) | Err(UsbError::WouldBlock) => {
+                    usb_dev.poll(&mut [usb_serial]);
+                }
+                Ok(written) => offset += written,
+                Err(e) => {
+                    defmt::warn!("USB write error: {:?}", e);
+                    break;
+                }
+            }
+        }
+
+        while usb_serial.flush().err() == Some(UsbError::WouldBlock) {
+            usb_dev.poll(&mut [usb_serial]);
+        }
+    }
+}
+
+#[entry]
+fn main() -> ! {
+    init();
 
     loop {
-        // It's probably better to do this with an interrupt than polling. Polling here
-        // keep the syntax simple. To use in an interrupt, set up the USB-related structs as
-        // `Mutex<RefCell<Option<...>>>`, and use the `USB_LP_CAN_RX0` interrupt handler etc.
-        // See the `interrupts` example.
-        if !usb_device.poll(&mut [usb_serial]) {
-            continue;
-        }
-
-        let mut buf = [0u8; 8];
-        match usb_serial.read(&mut buf) {
-            // todo: match all start bits and end bits. Running into an error using the naive approach.
-            Ok(count) => {
-                usb_serial.write(&[1, 2, 3]).ok();
-            }
-            Err(_) => {
-                //...
-            }
-        }
+        asm::nop();
     }
 }
 
 #[interrupt]
 /// Interrupt handler for USB (serial)
 /// Note that the name of this handler depends on the variant assigned in the associated PAC.
-/// Other examples include `USB_LP` (G4), and `USB_HS` (H7)
-fn USB_FS() {
+/// Other examples include `USB_LP` (G4), and `USB_HS` and `USB_FS` (H7)
+fn USB_LP() {
     with(|cs| {
-        access_global!(USB_SERIAL, usb_serial, cs);
-        access_global!(USB_DEVICE, usb_device, cs);
+        access_globals!([(USB_DEV, dev), (USB_SERIAL, serial),], cs);
 
-        if !usb_device.poll(&mut [usb_serial]) {
+        if !dev.poll(&mut [serial]) {
             return;
         }
 
-        let mut buf = [0u8; 8];
+        let mut rx_buf = [0; 10];
 
-        match usb_serial.read(&mut buf) {
-            Ok(_count) => match buf[0..2] {
-                [100, 150] => {
-                    usb_serial
-                        .write(&[]) // Data to write goes in this buffer.
-                        .ok();
-                }
-                _ => {}
-            },
-            Err(_) => {}
+        if let Ok(count) = serial.read(&mut rx_buf) {
+            println!("Bytes read: {}", count);
+
+            handle_rx(serial, dev, &rx_buf, cs);
         }
     });
 }
 
-// same panicking *behavior* as `panic-probe` but doesn't print a panic message
+// Same panicking *behavior* as `panic-probe` but doesn't print a panic message
 // this prevents the panic message being printed *twice* when `defmt::panic` is invoked
 #[defmt::panic_handler]
 fn panic() -> ! {
