@@ -47,9 +47,14 @@ chrono = { version = "0.4.23", default-features = false }
 # These USB and CAN crates are only imported if one of the `can`, `usb`, `usbotg_fs`, or `usbotg_hs`
 # features are used.
 # Workaround using a fork of stm32-usbd until the main one is released on crates.
-#stm32-usbd = { package = "stm32-usbd2", version = "0.7.0", optional = true }
+
+# These three for non-synopsis. todo: Add in for synopsis, along with our write helper, if applicable.
 stm32-usbd = { version = "0.7.0", optional = true }
+# usb-device = { version = "0.3.2", optional = true}
+# usbd-serial = { version = "0.2.2", optional = true}
+
 synopsys-usb-otg = { version = "0.4.0", features = ["cortex-m"], optional = true }
+
 bxcan = { version = "0.8.0", optional = true }
 fdcan = { version = "0.2.1", optional = true }
 
@@ -167,12 +172,17 @@ wb55 = ["stm32wb/stm32wb55", "wb"]
 wle5 = ["stm32wl/stm32wle5", "wl"]
 
 usb = ["dep:stm32-usbd"]
+#usb = ["dep:stm32-usbd", "usb-device", "usbd-serial"]
+
 usbotg_fs = ["synopsys-usb-otg/fs"]  # eg F4 for FS.
 usbotg_hs = ["synopsys-usb-otg/hs"]  # eg H7 for HS.
+
 can_bx = ["dep:bxcan"]
 can_fd_g = ["fdcan/fdcan_g0_g4_l5"]
 can_fd_h = ["fdcan/fdcan_h7"]
-net = ["dep:smoltcp"]
+
+# net = ["dep:smoltcp"]
+
 embedded_hal = ["dep:embedded-hal", "dep:embedded-io"]
 monotonic = ["dep:rtic-monotonic"]
 

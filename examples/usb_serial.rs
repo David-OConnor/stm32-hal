@@ -53,10 +53,11 @@ fn init() {
     clock_cfg::enable_crs(CrsSyncSrc::Usb);
 
     // Enable `pwren`. Note that this is also set up by the `rtc` initialization, so this
-    // step isn't required if you have the RTC set up. Only required on some configurations.
+    // step isn't required if you have the RTC set up. Only required on some configurations,
+    // , e.g. L4, L5, and G0.
     // dp.RCC.apb1enr1.modify(|_, w| w.pwren().set_bit());
 
-    // Enable USB power, on applicable MCUs like L4.
+    // Enable USB power, on applicable MCUs, e.g. L4, L5, and G0.
     // usb::enable_usb_pwr(&mut dp.PWR, &mut dp.RCC);
 
     // Set up USB pins. Note: This only applies to some MCUs; others don't require this,

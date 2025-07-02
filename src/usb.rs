@@ -20,10 +20,15 @@
  Strangely, the register modification commands for the l4x5 have OTG in their names
 */
 
+use core::borrow::BorrowMut;
+
 use cfg_if::cfg_if;
 pub use stm32_usbd::UsbBus;
 use stm32_usbd::UsbPeripheral;
 
+// use usb_device::{bus::UsbBusAllocator, prelude::*};
+// use usb_device::class_prelude::UsbBus as UsbBus_;
+// use usbd_serial::{self, SerialPort};
 #[cfg(any(feature = "l4", feature = "l5", feature = "g0"))]
 use crate::pac::PWR;
 use crate::{pac, pac::USB, util::rcc_en_reset};
@@ -131,3 +136,31 @@ pub fn enable_usb_pwr() {
     let pwr = unsafe { &*pac::PWR::ptr() };
     pwr.cr2.modify(|_, w| w.usv().set_bit());
 }
+
+// todo: We need to sort out the SerialPort traits to makme this work. Non-trivial.
+
+// /// Helper to handle chunked USB writing. Blocks.
+// pub fn write_usb<B: UsbBus_, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>>(
+//     usb_serial: SerialPort<'static, B, RS, WS>,
+//     usb_dev: &mut UsbDevice<'static, UsbBusType>,
+//     buf: &[u8],
+//     msg_len: usize
+// ) {
+//     let mut offset = 0;
+//     while offset < msg_len {
+//         match usb_serial.write(&buf[offset..msg_len]) {
+//             Ok(0) | Err(UsbError::WouldBlock) => {
+//                 usb_dev.poll(&mut [usb_serial]);
+//             }
+//             Ok(written) => offset += written,
+//             Err(e) => {
+//                 // defmt::warn!("USB write error: {:?}", e);
+//                 break;
+//             }
+//         }
+//     }
+
+//     while usb_serial.flush().err() == Some(UsbError::WouldBlock) {
+//         usb_dev.poll(&mut [usb_serial]);
+//     }
+// }
