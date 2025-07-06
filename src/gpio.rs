@@ -1408,10 +1408,10 @@ pub unsafe fn write_dma(
     dma_channel: DmaChannel,
     channel_cfg: ChannelCfg,
     dma_periph: dma::DmaPeriph,
-) {
+) -> crate::error::Result<()> {
     let (ptr, len) = (buf.as_ptr(), buf.len());
 
-    let periph_addr = &(*(regs(port))).bsrr as *const _ as u32;
+    let periph_addr = unsafe { &(*(regs(port))).bsrr as *const _ as u32 };
 
     #[cfg(feature = "h7")]
     let num_data = len as u32;
@@ -1431,7 +1431,7 @@ pub unsafe fn write_dma(
                 dma::DataSize::S32,
                 dma::DataSize::S32,
                 channel_cfg,
-            );
+            )?;
         }
         #[cfg(not(any(feature = "g0", feature = "wb")))]
         dma::DmaPeriph::Dma2 => {
@@ -1446,9 +1446,10 @@ pub unsafe fn write_dma(
                 dma::DataSize::S32,
                 dma::DataSize::S32,
                 channel_cfg,
-            );
+            )?;
         }
     }
+    Ok(())
 }
 
 #[cfg(not(any(
@@ -1465,10 +1466,10 @@ pub unsafe fn read_dma(
     dma_channel: DmaChannel,
     channel_cfg: ChannelCfg,
     dma_periph: dma::DmaPeriph,
-) {
+) -> crate::error::Result<()> {
     let (ptr, len) = (buf.as_ptr(), buf.len());
 
-    let periph_addr = &(*(regs(port))).idr as *const _ as u32;
+    let periph_addr = unsafe { &(*(regs(port))).idr as *const _ as u32 };
 
     #[cfg(feature = "h7")]
     let num_data = len as u32;
@@ -1488,7 +1489,7 @@ pub unsafe fn read_dma(
                 dma::DataSize::S32,
                 dma::DataSize::S32,
                 channel_cfg,
-            );
+            )?;
         }
         #[cfg(not(any(feature = "g0", feature = "wb")))]
         dma::DmaPeriph::Dma2 => {
@@ -1503,7 +1504,9 @@ pub unsafe fn read_dma(
                 dma::DataSize::S32,
                 dma::DataSize::S32,
                 channel_cfg,
-            );
+            )?;
         }
     }
+
+    Ok(())
 }

@@ -143,8 +143,7 @@
 
 // todo: H7B3 has too many changes in v14 PAC; not supporting at this time. (2021-10-07)
 
-// Used for while loops, to allow returning an error instead of hanging.
-pub(crate) const MAX_ITERS: u32 = 300_000; // todo: What should this be?
+// TODO: Unify the different error types into a more sensible structure.
 
 #[cfg(not(any(
     feature = "f301",
@@ -397,8 +396,10 @@ pub mod dac;
 )))]
 pub mod dfsdm;
 
-#[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
+#[cfg(not(any(feature = "l552", feature = "h5", feature = "f4")))]
 pub mod dma;
+
+pub mod error;
 
 #[cfg(all(feature = "h7", feature = "net"))]
 pub mod ethernet;
@@ -436,17 +437,17 @@ pub mod power;
 // F3, F4, G0, and WL don't have Quad SPI. L5 and newer H variants (eg H735) use OctoSPI,
 // also supported by this module.
 #[cfg(not(any(
-feature = "f",
-feature = "l4x3", // todo: PAC bug?
-feature = "g0",
-feature = "g431",
-feature = "g441",
-feature = "g471",
-feature = "g491",
-feature = "g4a1",
-feature = "wl",
-feature = "l5", // todo: PAC errors on some regs.
-feature = "h5",
+    feature = "f",
+    feature = "l4x3", // todo: PAC bug?
+    feature = "g0",
+    feature = "g431",
+    feature = "g441",
+    feature = "g471",
+    feature = "g491",
+    feature = "g4a1",
+    feature = "wl",
+    feature = "l5", // todo: PAC errors on some regs.
+    feature = "h5",
 )))]
 pub mod qspi;
 
