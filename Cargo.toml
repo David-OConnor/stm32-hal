@@ -27,7 +27,7 @@ stm32l4 = { version = "0.16.0", optional = true }
 stm32l5 = { version = "0.16.0", optional = true }
 stm32g0 = { version = "0.16.0", optional = true }
 stm32g4 = { version = "0.16.0", optional = true }
-#stm32h5 = { version = "0.16.0", optional = true }
+stm32h5 = { version = "0.16.0", optional = true }
 stm32h7 = { version = "0.16.0", optional = true }
 stm32wb = { version = "0.16.0", optional = true }
 stm32wl = { version = "0.16.0", optional = true }
@@ -84,7 +84,7 @@ l4rt = ["stm32l4/rt"]
 l5rt = ["stm32l5/rt"]
 g0rt = ["stm32g0/rt"]
 g4rt = ["stm32g4/rt"]
-#h5rt = ["stm32h5/rt"]
+h5rt = ["stm32h5/rt"]
 h7rt = ["stm32h7/rt"]
 wbrt = ["stm32wb/rt"]
 wlrt = ["stm32wl/rt"]
@@ -151,10 +151,10 @@ g484 = ["stm32g4/stm32g484", "g4"]
 g491 = ["stm32g4/stm32g491", "g4"]
 g4a1 = ["stm32g4/stm32g4a1", "g4"]
 
-#h503 = ["stm32h5/stm32h503", "h5"]
-#h562 = ["stm32h5/stm32h562", "h5"]
-#h563 = ["stm32h5/stm32h563", "h5"]
-#h573 = ["stm32h5/stm32h573", "h5"]
+h503 = ["stm32h5/stm32h503", "h5"]
+h562 = ["stm32h5/stm32h562", "h5"]
+h563 = ["stm32h5/stm32h563", "h5"]
+h573 = ["stm32h5/stm32h573", "h5"]
 
 # [H7](https://docs.rs/crate/stm32h7/latest/source/Cargo.toml)
 h735 = ["stm32h7/stm32h735", "h7"]

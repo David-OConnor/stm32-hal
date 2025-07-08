@@ -997,11 +997,11 @@ macro_rules! hal {
                 while self.regs.isr().read().eos().bit_is_clear() {}  // wait until complete.
             }
 
+            #[cfg(feature = "h7")]
             /// Read data from a conversion. In OneShot mode, this will generally be run right
             /// after `start_conversion`.
-            pub fn read_result(&mut self) -> u16 {
-                let ch = 18; // todo temp!!
-                #[cfg(all(feature = "h7", not(feature = "h735")))]
+            pub fn read_result(&mut self, ch: u8) -> u16 {
+                #[cfg(not(feature = "h735"))]
                 self.regs.pcsel().modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() & !(1 << ch)) });
 
                 // todo: Figure this out, and put back (July 2025/pack 0.16)
@@ -1030,6 +1030,14 @@ macro_rules! hal {
                 //     _ => ()
                 // }
 
+                return self.regs.dr().read().bits() as u16;
+                return self.regs.dr().read().rdata().bits() as u16;
+            }
+
+            #[cfg(not(feature = "h7"))]
+            /// Read data from a conversion. In OneShot mode, this will generally be run right
+            /// after `start_conversion`.
+            pub fn read_result(&mut self) -> u16 {
                 #[cfg(feature = "l4")]
                 return self.regs.dr().read().bits() as u16;
                 #[cfg(not(feature = "l4"))]
@@ -1039,7 +1047,10 @@ macro_rules! hal {
             /// Take a single reading; return a raw integer value.
             pub fn read(&mut self, channel: u8) -> u16 {
                 self.start_conversion(&[channel]);
-                self.read_result()
+                #[cfg(feature = "h7")]
+                return self.read_result(channel);
+                #[cfg(not(feature = "h7"))]
+                return self.read_result();
             }
 
             /// Take a single reading; return a voltage.

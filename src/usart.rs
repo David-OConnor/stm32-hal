@@ -227,21 +227,25 @@ where
                     w.m1().bit(word_len_bits.0 != 0);
                     w.m0().bit(word_len_bits.1 != 0);
                     return w.ps().bit(result.config.parity == Parity::EnabledOdd);
+                } else if #[cfg(feature = "f")] {
+                    // todo: QC this.
+                    w.m().bit(word_len_bits.0 != 0);
+                    return w.ps().bit(result.config.parity == Parity::EnabledOdd);
                 } else {
                     return w.ps().bit(result.config.parity == Parity::EnabledOdd);
                 }
             }
         });
 
-        // todo: Workaround due to a PAC bug, where M0 is missing.
-        #[cfg(feature = "f")]
-        result.regs.cr1().write(|w| unsafe {
-            w.bits(
-                result.regs.cr1().read().bits()
-                    | ((word_len_bits.0 as u32) << 28)
-                    | ((word_len_bits.1 as u32) << 12),
-            )
-        });
+        // // todo: Workaround due to a PAC bug, where M0 is missing.
+        // #[cfg(feature = "f")]
+        // result.regs.cr1().write(|w| unsafe {
+        //     w.bits(
+        //         result.regs.cr1().read().bits()
+        //             | ((word_len_bits.0 as u32) << 28)
+        //             | ((word_len_bits.1 as u32) << 12),
+        //     )
+        // });
 
         #[cfg(not(feature = "f4"))]
         result
@@ -344,9 +348,13 @@ where
         // – BRR[15:4] = USARTDIV[15:4]
         // todo: BRR needs to be modified per the above if on oversampling 8.
 
-        self.regs
-            .brr()
-            .write(|w| unsafe { w.bits(usart_div as u32) });
+        #[cfg(feature = "f4")]
+        let div = usart_div as u16;
+        #[cfg(not(feature = "f4"))]
+        // let div = usart_div as u32;
+        let div = usart_div;
+
+        self.regs.brr().write(|w| unsafe { w.bits(div) });
 
         self.baud = baud;
 

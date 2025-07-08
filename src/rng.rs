@@ -25,6 +25,8 @@ impl Rng {
         cfg_if! {
             if #[cfg(feature = "g0")] {
                 rcc_en_reset!(ahb1, rng, rcc);
+            } else if #[cfg(feature = "c0")] {
+                rcc_en_reset!(ahb, rng, rcc);
             } else if #[cfg(any(feature = "wb", feature = "wl"))] {
                 rcc_en_reset!(ahb3, rng, rcc);
             } else {

@@ -300,9 +300,9 @@ macro_rules! set_alt {
                 match $pin {
                     $(
                         $num => {
-                            #[cfg(feature = "h5")]
+                            #[cfg(any(feature = "h5", feature = "c0"))]
                             (*$regs).moder().modify(|_, w| w.[<mode $num>]().bits(PinMode::Alt(0).val()));
-                            #[cfg(not(feature = "h5"))]
+                            #[cfg(not(any(feature = "h5", feature = "c0")))]
                             (*$regs).moder().modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
                             #[cfg(any(feature = "l5", feature = "g0",feature = "c0", feature = "h5", feature = "h7", feature = "wb"))]
                             (*$regs).[<afr $lh>]().modify(|_, w| w.[<$field_af $num>]().bits($val));
@@ -323,9 +323,9 @@ macro_rules! get_input_data {
             unsafe {
                 match $pin {
                     $(
-                        #[cfg(feature = "h5")]
+                        #[cfg(any(feature = "h5", feature = "c0"))]
                         $num => (*$regs).idr().read().[<id $num>]().bit_is_set(),
-                        #[cfg(not(feature = "h5"))]
+                        #[cfg(not(any(feature = "h5", feature = "c0")))]
                         $num => (*$regs).idr().read().[<idr $num>]().bit_is_set(),
                     )+
                     _ => panic!("GPIO pins must be 0 - 15."),
@@ -377,7 +377,7 @@ macro_rules! set_exti {
                         }
 
                         cfg_if! {
-                            if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
+                            if #[cfg(any(feature = "g4", feature = "wb", feature = "wl", feature = "c0"))] {
                                 exti.rtsr1().modify(|_, w| w.[<rt $num>]().bit($rising));
                                 exti.ftsr1().modify(|_, w| w.[<ft $num>]().bit($falling));
                             // } else if #[cfg(any(feature = "wb", feature = "wl"))] {
@@ -393,7 +393,7 @@ macro_rules! set_exti {
                             }
                         }
 
-                        #[cfg(not(feature = "g0"))]
+                        #[cfg(not(any(feature = "g0", feature = "c0")))]
                         syscfg
                             .[<exticr $crnum>]()
                             .modify(|_, w| unsafe { w.[<exti $num>]().bits($val) });
@@ -416,11 +416,11 @@ macro_rules! set_exti_f4 {
             match $pin {
                 $(
                     $num => {
-                        exti.imr.modify(|_, w| w.[<mr $num>]().unmasked());
-                        exti.rtsr.modify(|_, w| w.[<tr $num>]().bit($rising));
-                        exti.ftsr.modify(|_, w| w.[<tr $num>]().bit($falling));
+                        exti.imr().modify(|_, w| w.[<mr $num>]().unmasked());
+                        exti.rtsr().modify(|_, w| w.[<tr $num>]().bit($rising));
+                        exti.ftsr().modify(|_, w| w.[<tr $num>]().bit($falling));
                         syscfg
-                            .[<exticr $crnum>]
+                            .[<exticr $crnum>]()
                             .modify(|_, w| unsafe { w.[<exti $num>]().bits($val) });
                     }
                 )+
@@ -677,7 +677,8 @@ impl Pin {
                 feature = "l412",
                 feature = "l4x3",
                 feature = "wb",
-                feature = "wl"
+                feature = "wl",
+                feature = "c0",
             )))]
             Port::F => {
                 cfg_if! {
@@ -695,7 +696,7 @@ impl Pin {
                         if rcc.ahb1enr().read().gpiofen().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpiof, rcc);
                         }
-                    } else if #[cfg(any(feature = "g0", feature = "c0"))] {
+                    } else if #[cfg(any(feature = "g0"))] {
                         if rcc.iopenr().read().iopfen().bit_is_clear() {
                             rcc.iopenr().modify(|_, w| w.iopfen().bit(true));
                             rcc.ioprstr().modify(|_, w| w.iopfrst().bit(true));
@@ -844,7 +845,7 @@ impl Pin {
 
     /// Set pin mode. Eg, Output, Input, Analog, or Alt. Sets the `MODER` register.
     pub fn mode(&mut self, value: PinMode) {
-        #[cfg(feature = "h5")] // todo: Probably needs a PAC fix for H5.
+        #[cfg(any(feature = "h5", feature = "c0"))] // todo: Probably needs a PAC fix for H5.
         set_field!(
             self.regs(),
             self.pin,
@@ -855,7 +856,7 @@ impl Pin {
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
         );
 
-        #[cfg(not(feature = "h5"))] // todo: Probably needs a PAC fix for H5.
+        #[cfg(not(any(feature = "h5", feature = "c0")))] // todo: Probably needs a PAC fix for H5.
         set_field!(
             self.regs(),
             self.pin,
@@ -886,7 +887,7 @@ impl Pin {
 
     /// Set output speed to Low, Medium, or High. Sets the `OSPEEDR` register.
     pub fn output_speed(&mut self, value: OutputSpeed) {
-        #[cfg(not(feature = "h5"))] // todo: Probably needs a PAC fix for H5.
+        #[cfg(not(any(feature = "h5", feature = "c0")))] // todo: impl on H5 and C0
         set_field!(
             self.regs(),
             self.pin,
@@ -900,7 +901,7 @@ impl Pin {
 
     /// Set internal pull resistor: Pull up, pull down, or floating. Sets the `PUPDR` register.
     pub fn pull(&mut self, value: Pull) {
-        #[cfg(feature = "h5")] // todo: Probably needs a PAC fix for H5.
+        #[cfg(any(feature = "h5", feature = "c0"))]
         set_field!(
             self.regs(),
             self.pin,
@@ -911,7 +912,7 @@ impl Pin {
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
         );
 
-        #[cfg(not(feature = "h5"))] // todo: Probably needs a PAC fix for H5.
+        #[cfg(not(any(feature = "h5", feature = "c0")))]
         set_field!(
             self.regs(),
             self.pin,

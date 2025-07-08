@@ -349,6 +349,7 @@ where
         // Doesn't use the newer API.
         match channel {
             DacChannel::C1 => cr.modify(|_, w| w.en1().clear_bit()),
+            #[cfg(not(feature = "wl"))]
             DacChannel::C2 => cr.modify(|_, w| w.en2().clear_bit()),
         };
     }
