@@ -15,9 +15,7 @@ use cfg_if::cfg_if;
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
-#[cfg(feature = "g0")]
-use crate::pac::DMA as DMA1;
-#[cfg(not(any(feature = "g0", feature = "h5")))]
+#[cfg(not(any(feature = "h5")))]
 use crate::pac::DMA1;
 use crate::{
     MAX_ITERS,
@@ -491,7 +489,7 @@ where
                         }
                     }
 
-                    buf[i] = self.regs.rdr().read().rdr()bits() as u8;
+                    buf[i] = self.regs.rdr().read().rdr().bits() as u8;
                 } else {
                     while self.regs.sr().read().rxne().bit_is_clear() {
                         i_ += 1;
@@ -556,10 +554,7 @@ where
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
-        #[cfg(feature = "h7")]
         let num_data = len as u32;
-        #[cfg(not(feature = "h7"))]
-        let num_data = len as u16;
 
         // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
         // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
@@ -649,10 +644,7 @@ where
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
-        #[cfg(feature = "h7")]
         let num_data = len as u32;
-        #[cfg(not(feature = "h7"))]
-        let num_data = len as u16;
 
         // DMA mode can be enabled for reception by setting the DMAR bit in USART_CR3 register.
         self.regs.cr3().modify(|_, w| w.dmar().bit(true));
@@ -875,7 +867,7 @@ where
             #[cfg(not(any(feature = "f3", feature = "l4", feature = "h7")))]
             UsartInterrupt::Tcbgt => self.regs.icr().write(|w| w.tcbgtcf().bit(true)),
             #[cfg(feature = "h7")]
-            UsartInterrupt::Tcbgt => self.regs.icr().write(|w| w.tcbgtc().bit(true)),
+            UsartInterrupt::Tcbgt => self.regs.icr().write(|w| w.tcbgtcf().bit(true)),
             UsartInterrupt::TransmissionComplete => self.regs.icr().write(|w| w.tccf().bit(true)),
             UsartInterrupt::TransmitEmpty => self.regs.rqr().write(|w| w.txfrq().bit(true)),
         };

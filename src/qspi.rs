@@ -222,7 +222,7 @@ impl Qspi {
         //
         let fsize = (cfg.mem_size * 1_000_000).ilog2() - 1;
         #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
-        regs.dcr
+        regs.dcr()
             .modify(|_, w| unsafe { w.fsize().bits(fsize as u8) });
 
         // RM: This field [prescaler] defines the scaler factor for generating CLK based on the
@@ -277,7 +277,7 @@ impl Qspi {
 
     /// Clear an interrupt flag
     pub fn clear_interrupt(&mut self, interrupt: QspiInterrupt) {
-        self.regs.fcr.write(|w| match interrupt {
+        self.regs.fcr().write(|w| match interrupt {
             QspiInterrupt::FifoThreshold => panic!("Can't clear that interrupt manually."),
             QspiInterrupt::StatusMatch => w.csmf().bit(true),
             QspiInterrupt::TransferComplete => w.ctcf().bit(true),
@@ -308,25 +308,25 @@ impl Qspi {
         // (From DLR field description: Number of data to be retrieved (value+1) in indirect
         // and status-polling modes... 0x0000_0000: 1 byte is to be transferred etc)
         self.regs
-            .dlr
+            .dlr()
             .write(|w| unsafe { w.dl().bits(data.len() as u32 - 1) });
 
-        // 2. Specify the frame format, mode and instruction code in the QUADSPI_CCR.
+        // 2. Specify the frame format, mode and instruction code in the QUADSPI_ccr().
         // 3. Specify optional alternate byte to be sent right after the address phase in the
         // QUADSPI_ABR.
         // (Handled in init)
-        // 4. Specify the operating mode in the QUADSPI_CR. If FMODE = 00 (indirect write mode)
+        // 4. Specify the operating mode in the QUADSPI_cr(). If FMODE = 00 (indirect write mode)
         // and DMAEN = 1, then QUADSPI_AR should be specified before QUADSPI_CR,
         // because otherwise QUADSPI_DR might be written by the DMA before QUADSPI_AR
         // is updated (if the DMA controller has already been enabled)
         #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
         // todo: Equiv for octo?
         self.regs
-            .ccr
+            .ccr()
             .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::IndirectWrite as u8) });
         // 5. Specify the targeted address in the QUADSPI_AR.
         self.regs
-            .ar
+            .ar()
             .modify(|_, w| unsafe { w.address().bits(addr) });
 
         // 6. Read/Write the data from/to the FIFO through the QUADSPI_DR.
@@ -380,15 +380,15 @@ impl Qspi {
 
         // Steps are equivalent to those listed in `write_indirect`.
         self.regs
-            .dlr
+            .dlr()
             .write(|w| unsafe { w.dl().bits(buf.len() as u32 - 1) });
         #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
         // todo: Equiv for octo?
         self.regs
-            .ccr
+            .ccr()
             .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::IndirectRead as u8) });
         self.regs
-            .ar
+            .ar()
             .modify(|_, w| unsafe { w.address().bits(addr) });
 
         // Check for underflow on the FIFO.
@@ -419,11 +419,11 @@ impl Qspi {
         // todo: Equiv for octo?
         if self.regs.ccr().read().fmode().bits() != FunctionalMode::MemoryMapped as u8 {
             self.regs
-                .ccr
+                .ccr()
                 .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::MemoryMapped as u8) });
         }
 
-        let addr = MEM_MAPPED_BASE_ADdr() as *const u32; // as const what?
+        let addr = MEM_MAPPED_BASE_ADDR as *const u32; // as const what?
         unsafe { core::ptr::read(addr.offset(offset)) }
     }
 }

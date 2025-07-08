@@ -323,6 +323,7 @@ library.
 
 
 ## Errata
+- July 2025: H735 ADC inop; needs patch. Comp inop.
 - SDIO and ethernet unimplemented
 - DMA unimplemented on F4, and L552
 - H7 BDMA and MDMA unimplemented

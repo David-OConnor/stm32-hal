@@ -277,7 +277,7 @@ where
         R::write_sel(&mut dma_regs);
 
         let periph_addr = &self.regs.dr() as *const _ as u32;
-        let num_data = len as u16;
+        let num_data = len as u32;
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
@@ -353,7 +353,7 @@ where
         R::write_sel(&mut dma_regs);
 
         let periph_addr = &self.regs.dr() as *const _ as u32;
-        let num_data = len as u16;
+        let num_data = len as u32;
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
@@ -418,8 +418,6 @@ where
         let periph_addr_write = &self.regs.dr() as *const _ as u32;
         let periph_addr_read = &self.regs.dr() as *const _ as u32;
 
-        // let num_data_write = len_write as u16;
-        // let num_data_read = len_read as u16;
         let num_data_write = len_write as u32;
         let num_data_read = len_read as u32;
 

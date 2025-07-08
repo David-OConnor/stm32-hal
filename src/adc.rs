@@ -3,7 +3,7 @@
 use core::ptr;
 
 use cfg_if::cfg_if;
-use cortex_m::{asm, delay::Delay};
+use cortex_m::asm;
 use paste::paste;
 
 #[cfg(any(feature = "f3", feature = "l4"))]
@@ -433,11 +433,14 @@ macro_rules! hal {
                     // ...The software is allowed to write this bit only when ADSTART=0 and JADSTART=0 (which
                     // ensures that no conversion is ongoing)."
                     // todo: On H7, allow disabling boost, either manually, or by checking the clock speed.
-                    #[cfg(all(feature = "h7", not(any(feature = "h743", feature = "h753"))))]
-                    result.regs.cr().modify(|_, w| w.boost().bits(1));
+                    #[cfg(all(feature = "h7", not(any(feature = "h743", feature = "h753", feature = "h735"))))]
+                    result.regs.cr().modify(|_, w| unsafe { w.boost().bits(1)});
 
                     #[cfg(any(feature = "h743", feature = "h753"))]
                     result.regs.cr().modify(|_, w| w.boost().bit(true));
+
+                    // #[cfg(feature = "h735")]
+                    // result.regs.cr().modify(|_, w| w.boost().bits(1));
 
                     result.enable();
 
@@ -471,13 +474,14 @@ macro_rules! hal {
                     panic!("ADC sequence length must be in 1..=16")
                 }
 
-                self.regs.sqr1()modify(|_, w| unsafe { w.l().bits(len - 1) });
+                self.regs.sqr1().modify(|_, w| unsafe { w.l().bits(len - 1) });
             }
 
             /// Set the alignment mode.
             pub fn set_align(&self, align: Align) {
-                #[cfg(feature = "h7")]
-                self.regs.cfgr2.modify(|_, w| w.lshift().bits(align as u8));
+                #[cfg(all(feature = "h7", not(feature = "h735")))]
+                self.regs.cfgr2().modify(|_, w| unsafe { w.lshift().bits(align as u8)});
+                // todo: How to do on H735?
 
                 #[cfg(not(feature = "h7"))]
                 self.regs.cfgr().modify(|_, w| w.align().bit(align as u8 != 0));
@@ -614,7 +618,6 @@ macro_rules! hal {
             ///
             /// This is based on the MAX_ADVREGEN_STARTUP_US of the device.
             fn wait_advregen_startup(&self, ahb_freq: u32) {
-                let cp = unsafe { cortex_m::Peripherals::steal() };
                 crate::delay_us(MAX_ADVREGEN_STARTUP_US, ahb_freq)
             }
 
@@ -663,11 +666,15 @@ macro_rules! hal {
                         let val = self.regs.calfact().read().calfact_s().bits();
                         #[cfg(not(feature = "h7"))]
                         let val = val as u16;
+                        #[cfg(feature = "h735")]
+                        let val = val as u16;
                         self.cfg.cal_single_ended = Some(val);
                     }
                     InputType::Differential => {
                          let val = self.regs.calfact().read().calfact_d().bits();
                          #[cfg(not(feature = "h7"))]
+                         let val = val as u16;
+                         #[cfg(feature = "h735")]
                          let val = val as u16;
                          self.cfg.cal_differential = Some(val);
                     }
@@ -693,12 +700,12 @@ macro_rules! hal {
                 if let Some(cal) = self.cfg.cal_single_ended {
                     #[cfg(not(feature = "h7"))]
                     let cal = cal as u8;
-                    self.regs.calfact().modify(|_, w| unsafe { w.calfact_s().bits(cal) });
+                    self.regs.calfact().modify(|_, w| unsafe { w.calfact_s().bits(cal.try_into().unwrap()) });
                 }
                 if let Some(cal) = self.cfg.cal_differential {
                     #[cfg(not(feature = "h7"))]
                     let cal = cal as u8;
-                    self.regs.calfact().modify(|_, w| unsafe { w.calfact_d().bits(cal) });
+                    self.regs.calfact().modify(|_, w| unsafe { w.calfact_d().bits(cal.try_into().unwrap()) });
                 }
 
                 // 3. When a conversion is launched, the calibration factor will be injected into the analog
@@ -768,15 +775,15 @@ macro_rules! hal {
             /// Select a sequence to sample, by inputting a single channel and position.
             pub fn set_sequence(&mut self, chan: u8, position: u8) {
                 match position {
-                    1 => self.regs.sqr1()modify(|_, w| unsafe { w.sq1().bits(chan) }),
-                    2 => self.regs.sqr1()modify(|_, w| unsafe { w.sq2().bits(chan) }),
-                    3 => self.regs.sqr1()modify(|_, w| unsafe { w.sq3().bits(chan) }),
-                    4 => self.regs.sqr1()modify(|_, w| unsafe { w.sq4().bits(chan) }),
-                    5 => self.regs.sqr2()modify(|_, w| unsafe { w.sq5().bits(chan) }),
-                    6 => self.regs.sqr2()modify(|_, w| unsafe { w.sq6().bits(chan) }),
-                    7 => self.regs.sqr2()modify(|_, w| unsafe { w.sq7().bits(chan) }),
-                    8 => self.regs.sqr2()modify(|_, w| unsafe { w.sq8().bits(chan) }),
-                    9 => self.regs.sqr2()modify(|_, w| unsafe { w.sq9().bits(chan) }),
+                    1 => self.regs.sqr1().modify(|_, w| unsafe { w.sq1().bits(chan) }),
+                    2 => self.regs.sqr1().modify(|_, w| unsafe { w.sq2().bits(chan) }),
+                    3 => self.regs.sqr1().modify(|_, w| unsafe { w.sq3().bits(chan) }),
+                    4 => self.regs.sqr1().modify(|_, w| unsafe { w.sq4().bits(chan) }),
+                    5 => self.regs.sqr2().modify(|_, w| unsafe { w.sq5().bits(chan) }),
+                    6 => self.regs.sqr2().modify(|_, w| unsafe { w.sq6().bits(chan) }),
+                    7 => self.regs.sqr2().modify(|_, w| unsafe { w.sq7().bits(chan) }),
+                    8 => self.regs.sqr2().modify(|_, w| unsafe { w.sq8().bits(chan) }),
+                    9 => self.regs.sqr2().modify(|_, w| unsafe { w.sq9().bits(chan) }),
                     10 => self.regs.sqr3().modify(|_, w| unsafe { w.sq10().bits(chan) }),
                     11 => self.regs.sqr3().modify(|_, w| unsafe { w.sq11().bits(chan) }),
                     12 => self.regs.sqr3().modify(|_, w| unsafe { w.sq12().bits(chan) }),
@@ -785,10 +792,36 @@ macro_rules! hal {
                     15 => self.regs.sqr4().modify(|_, w| unsafe { w.sq15().bits(chan) }),
                     16 => self.regs.sqr4().modify(|_, w| unsafe { w.sq16().bits(chan) }),
                     _ => panic!("Sequence out of bounds. Only 16 positions are available, starting at 1."),
-                }
+                };
 
-                #[cfg(feature = "h7")]
+                #[cfg(all(feature = "h7", not(feature = "h735")))]
                 self.regs.pcsel().modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
+
+                // todo: Figure this out, and put back (July 2025/pack 0.16)
+                // #[cfg(feature = "h735")]
+                // match chan {
+                //     0 => self.regs.pcsel().modify(|r, w| w.pcsel0().bit(true)),
+                //     1 => self.regs.pcsel().modify(|r, w| w.pcsel1().bit(true)),
+                //     2 => self.regs.pcsel().modify(|r, w| w.pcsel2().bit(true)),
+                //     3 => self.regs.pcsel().modify(|r, w| w.pcsel3().bit(true)),
+                //     4 => self.regs.pcsel().modify(|r, w| w.pcsel4().bit(true)),
+                //     5 => self.regs.pcsel().modify(|r, w| w.pcsel5().bit(true)),
+                //     6 => self.regs.pcsel().modify(|r, w| w.pcsel6().bit(true)),
+                //     7 => self.regs.pcsel().modify(|r, w| w.pcsel7().bit(true)),
+                //     8 => self.regs.pcsel().modify(|r, w| w.pcsel8().bit(true)),
+                //     9 => self.regs.pcsel().modify(|r, w| w.pcsel9().bit(true)),
+                //     10 => self.regs.pcsel().modify(|r, w| w.pcsel10().bit(true)),
+                //     11 => self.regs.pcsel().modify(|r, w| w.pcsel11().bit(true)),
+                //     12 => self.regs.pcsel().modify(|r, w| w.pcsel12().bit(true)),
+                //     13 => self.regs.pcsel().modify(|r, w| w.pcsel13().bit(true)),
+                //     14 => self.regs.pcsel().modify(|r, w| w.pcsel14().bit(true)),
+                //     15 => self.regs.pcsel().modify(|r, w| w.pcsel15().bit(true)),
+                //     16 => self.regs.pcsel().modify(|r, w| w.pcsel16().bit(true)),
+                //     17 => self.regs.pcsel().modify(|r, w| w.pcsel17().bit(true)),
+                //     18 => self.regs.pcsel().modify(|r, w| w.pcsel18().bit(true)),
+                //     19=> self.regs.pcsel().modify(|r, w| w.pcsel19().bit(true)),
+                //     _ => ()
+                // };
             }
 
             /// Select the sample time for a given channel.
@@ -912,7 +945,7 @@ macro_rules! hal {
 
                     // todo: This address may be different on different MCUs, even within the same family.
                     // Although, it seems relatively consistent. Check User Manuals.
-                    let vrefint_cal: u16 = unsafe { ptr::read_volatile(&*(VREFINT_ADdr() as *const _)) };
+                    let vrefint_cal: u16 = unsafe { ptr::read_volatile(&*(VREFINT_ADDR as *const _)) };
                     VREFINT_VOLTAGE * vrefint_cal as f32 / reading as f32
                 };
             }
@@ -968,8 +1001,34 @@ macro_rules! hal {
             /// after `start_conversion`.
             pub fn read_result(&mut self) -> u16 {
                 let ch = 18; // todo temp!!
-                #[cfg(feature = "h7")]
+                #[cfg(all(feature = "h7", not(feature = "h735")))]
                 self.regs.pcsel().modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() & !(1 << ch)) });
+
+                // todo: Figure this out, and put back (July 2025/pack 0.16)
+                // #[cfg(feature = "h735")]
+                // match ch {
+                //     0 => self.regs.pcsel().modify(|r, w| w.pcsel0().bit(true)),
+                //     1 => self.regs.pcsel().modify(|r, w| w.pcsel1().bit(true)),
+                //     2 => self.regs.pcsel().modify(|r, w| w.pcsel2().bit(true)),
+                //     3 => self.regs.pcsel().modify(|r, w| w.pcsel3().bit(true)),
+                //     4 => self.regs.pcsel().modify(|r, w| w.pcsel4().bit(true)),
+                //     5 => self.regs.pcsel().modify(|r, w| w.pcsel5().bit(true)),
+                //     6 => self.regs.pcsel().modify(|r, w| w.pcsel6().bit(true)),
+                //     7 => self.regs.pcsel().modify(|r, w| w.pcsel7().bit(true)),
+                //     8 => self.regs.pcsel().modify(|r, w| w.pcsel8().bit(true)),
+                //     9 => self.regs.pcsel().modify(|r, w| w.pcsel9().bit(true)),
+                //     10 => self.regs.pcsel().modify(|r, w| w.pcsel10().bit(true)),
+                //     11 => self.regs.pcsel().modify(|r, w| w.pcsel11().bit(true)),
+                //     12 => self.regs.pcsel().modify(|r, w| w.pcsel12().bit(true)),
+                //     13 => self.regs.pcsel().modify(|r, w| w.pcsel13().bit(true)),
+                //     14 => self.regs.pcsel().modify(|r, w| w.pcsel14().bit(true)),
+                //     15 => self.regs.pcsel().modify(|r, w| w.pcsel15().bit(true)),
+                //     16 => self.regs.pcsel().modify(|r, w| w.pcsel16().bit(true)),
+                //     17 => self.regs.pcsel().modify(|r, w| w.pcsel17().bit(true)),
+                //     18 => self.regs.pcsel().modify(|r, w| w.pcsel18().bit(true)),
+                //     19=> self.regs.pcsel().modify(|r, w| w.pcsel19().bit(true)),
+                //     _ => ()
+                // }
 
                 #[cfg(feature = "l4")]
                 return self.regs.dr().read().bits() as u16;
@@ -1020,12 +1079,14 @@ macro_rules! hal {
                     w.dmaen().bit(true)
                 });
 
-                #[cfg(feature = "h7")]
+                #[cfg(all(feature = "h7", not(feature = "h735")))]
                 self.regs.cfgr().modify(|_, w| {
                     // Note: To use non-DMA after this has been set, need to configure manually.
                     // ie set back to 0b00.
                     w.dmngt().bits(if channel_cfg.circular == dma::Circular::Enabled { 0b11 } else { 0b01 })
                 });
+
+                // todo: How to do in H735? Pac 0.16 change? Jully 2025.
 
                 // L44 RM, Table 41. "DMA1 requests for each channel
                 // todo: DMA2 support.
@@ -1102,10 +1163,7 @@ macro_rules! hal {
                 // • Scan sequence is stopped and reset.
                 // • The DMA is stopped.
 
-                // #[cfg(feature = "h7")]
                 let num_data = len as u32;
-                // #[cfg(not(feature = "h7"))]
-                // let num_data = len as u16;
 
                 match dma_periph {
                     dma::DmaPeriph::Dma1 => {

@@ -68,18 +68,18 @@ impl Crc {
         });
         cfg_if! {
             if #[cfg(any(feature = "h7"))] {
-                self.regs.pol().write(|w| w.pol().bits(config.poly.pol()));
+                self.regs.pol().write(|w| unsafe { w.pol().bits(config.poly.pol())});
             } else {
                 self.regs.pol().write(|w| unsafe { w.bits(config.poly.pol()) });
             }
         }
 
         // writing to INIT sets DR to its value
-        #[cfg(not(any(feature = "h7", feature = "l4")))]
-        self.regs
-            .init()
-            .write(|w| unsafe { w.crc_init().bits(config.initial) });
-        #[cfg(any(feature = "h7", feature = "l4"))]
+        // #[cfg(not(any(feature = "h7", feature = "l4")))]
+        // self.regs
+        //     .init()
+        //     .write(|w| unsafe { w.crc_init().bits(config.initial) });
+        // #[cfg(any(feature = "h7", feature = "l4"))]
         self.regs
             .init()
             .write(|w| unsafe { w.init().bits(config.initial) });
@@ -93,21 +93,20 @@ impl Crc {
         let mut words = data.chunks_exact(4);
         for word in words.by_ref() {
             let word = u32::from_be_bytes(word.try_into().unwrap());
-            // todo: Put back once PAC settles. Currently causing error on H7
-            // self.regs.dr_mut().write(|w| w.dr().bits(word));
+            self.regs.dr().write(unsafe { |w| w.dr().bits(word) });
         }
 
         // there will be at most 3 bytes remaining, so 1 half-word and 1 byte
         let mut half_word = words.remainder().chunks_exact(2);
         if let Some(half_word) = half_word.next() {
             let _half_word = u16::from_be_bytes(half_word.try_into().unwrap());
-            // todo: Put back once PAC settles. Currently causing error on H7
-            // self.regs.dr16_mut().write(|w| w.dr16().bits(half_word));
+            self.regs
+                .dr16()
+                .write(unsafe { |w| w.dr16().bits(_half_word) });
         }
 
         if let Some(byte) = half_word.remainder().first() {
-            // todo: Put back once PAC settles. Currently causing error on H7
-            // self.regs.dr8_mut().write(|w| w.dr8().bits(*byte));
+            self.regs.dr8().write(unsafe { |w| w.dr8().bits(*byte) });
         }
     }
 

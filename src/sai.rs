@@ -301,7 +301,7 @@ pub enum SaiInterrupt {
     AfsDet,
     /// The LFSDET flag in the SAI_xSR register can be set only when the SAI audio block
     /// operates as a slave. The frame length, the frame polarity and the frame offset configuration
-    /// are known in register SAI_xFRCR.
+    /// are known in register SAI_xFRcr().
     LfsDet,
     /// The CNRDY flag in the SAI_xSR register is relevant only if the SAI audio block is configured
     /// to operate in AC’97 mode (PRTCFG[1:0] = 10 in the SAI_xCR1 register). If CNRDYIE bit is
@@ -776,7 +776,7 @@ where
         // So, to enable the first 2 slots, we set 0b11. The code below calculates this.
         let slot_en_bits = 2_u16.pow(config_a.num_slots as u32) - 1;
 
-        regs.cha().slotr.modify(|_, w| unsafe {
+        regs.cha().slotr().modify(|_, w| unsafe {
             w.sloten().bits(slot_en_bits);
             // The slot is the basic element in the audio frame. The number of slots in the audio frame is
             // equal to NBSLOT[3:0] + 1.
@@ -788,7 +788,7 @@ where
         });
 
         let slot_en_bits = 2_u16.pow(config_b.num_slots as u32) - 1;
-        regs.chb().slotr.modify(|_, w| unsafe {
+        regs.chb().slotr().modify(|_, w| unsafe {
             w.sloten().bits(slot_en_bits);
             w.nbslot().bits(config_b.num_slots - 1);
             w.slotsz().bits(config_b.slotsize as u8);
@@ -825,7 +825,7 @@ where
                 w.cken4().bit(config_a.pdm_clock_used == 4);
                 // 3. Enable the PDM interface, via PDMEN bit.
                 w.pdmen().bit(true)
-            })
+            });
         }
 
         // 4. Enable the SAI_A.
@@ -888,7 +888,7 @@ This bit is used only when the audio block operates in master mode (MODE[1] = 0)
 It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
                 }
             }
-        }
+        };
     }
 
     /// Disable an audio subblock (channel). See H743 RM, section 51.4.15.
@@ -902,7 +902,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         match channel {
             SaiChannel::A => self.regs.cha().cr1().modify(|_, w| w.saien().clear_bit()),
             SaiChannel::B => self.regs.chb().cr1().modify(|_, w| w.saien().clear_bit()),
-        }
+        };
     }
 
     /// Read a word of data.
@@ -938,14 +938,14 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
             SaiChannel::A => self
                 .regs
                 .cha()
-                .dr
+                .dr()
                 .write(|w| unsafe { w.bits(left_word as u32).bits(right_word as u32) }),
             SaiChannel::B => self
                 .regs
                 .chb()
-                .dr
+                .dr()
                 .write(|w| unsafe { w.bits(left_word as u32).bits(right_word as u32) }),
-        }
+        };
 
         // todo: Why 2 words?
         // todo: Check FIFO level?
@@ -1009,7 +1009,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         match sai_channel {
             SaiChannel::A => self.regs.cha().cr1().modify(|_, w| w.dmaen().bit(true)),
             SaiChannel::B => self.regs.chb().cr1().modify(|_, w| w.dmaen().bit(true)),
-        }
+        };
 
         // Follow the sequence below to configure the SAI interface in DMA mode:
         // 1. Configure SAI and FIFO threshold levels to specify when the DMA request will be
@@ -1023,10 +1023,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
             SaiChannel::B => &self.regs.chb().dr() as *const _ as u32,
         };
 
-        #[cfg(feature = "h7")]
         let len = len as u32;
-        #[cfg(not(feature = "h7"))]
-        let len = len as u16;
 
         let cfg_datasize = match sai_channel {
             SaiChannel::A => self.config_a.datasize,
@@ -1092,17 +1089,14 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         match sai_channel {
             SaiChannel::A => self.regs.cha().cr1().modify(|_, w| w.dmaen().bit(true)),
             SaiChannel::B => self.regs.chb().cr1().modify(|_, w| w.dmaen().bit(true)),
-        }
+        };
 
         let periph_addr = match sai_channel {
             SaiChannel::A => &self.regs.cha().dr() as *const _ as u32,
             SaiChannel::B => &self.regs.chb().dr() as *const _ as u32,
         };
 
-        #[cfg(feature = "h7")]
         let num_data = len as u32;
-        #[cfg(not(feature = "h7"))]
-        let num_data = len as u16;
 
         let cfg_datasize = match sai_channel {
             SaiChannel::A => self.config_a.datasize,
@@ -1143,7 +1137,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
 
         match channel {
             SaiChannel::A => {
-                self.regs.cha().im.modify(|_, w| match interrupt_type {
+                self.regs.cha().im().modify(|_, w| match interrupt_type {
                     SaiInterrupt::Freq => w.freqie().bit(true),
                     SaiInterrupt::Ovrudr => w.ovrudrie().bit(true),
                     SaiInterrupt::AfsDet => w.afsdetie().bit(true),
@@ -1154,7 +1148,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
                 });
             }
             SaiChannel::B => {
-                self.regs.chb().im.modify(|_, w| match interrupt_type {
+                self.regs.chb().im().modify(|_, w| match interrupt_type {
                     SaiInterrupt::Freq => w.freqie().bit(true),
                     SaiInterrupt::Ovrudr => w.ovrudrie().bit(true),
                     SaiInterrupt::AfsDet => w.afsdetie().bit(true),
@@ -1171,7 +1165,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
     pub fn clear_interrupt(&mut self, interrupt_type: SaiInterrupt, channel: SaiChannel) {
         match channel {
             SaiChannel::A => {
-                self.regs.cha().clrfr.write(|w| match interrupt_type {
+                self.regs.cha().clrfr().write(|w| match interrupt_type {
                     // This Interrupt (FREQ bit in SAI_xSR register) is
                     // cleared by hardware when the FIFO becomes empty (FLVL[2:0] bits in SAI_xSR is equal
                     // to 0b000) i.e no data are stored in FIFO.
@@ -1185,7 +1179,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
                 });
             }
             SaiChannel::B => {
-                self.regs.chb().clrfr.write(|w| match interrupt_type {
+                self.regs.chb().clrfr().write(|w| match interrupt_type {
                     SaiInterrupt::Freq => w.cmutedet().bit(true),
                     SaiInterrupt::Ovrudr => w.covrudr().bit(true),
                     SaiInterrupt::AfsDet => w.cafsdet().bit(true),

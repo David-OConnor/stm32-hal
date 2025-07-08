@@ -407,7 +407,7 @@ impl Clocks {
         let hclk = sysclk / self.hclk_prescaler.value() as u32;
         cfg_if! {
             if #[cfg(feature = "f3")] {  // RM section 4.5.1
-                flash.acr.modify(|_, w| unsafe {
+                flash.acr().modify(|_, w| unsafe {
                     if hclk <= 24_000_000 {
                         w.latency().bits(WaitState::W0 as u8)
                     } else if hclk <= 48_000_000 {
@@ -417,7 +417,7 @@ impl Clocks {
                     }
                 });
             } else {  // F4
-                flash.acr.modify(|_, w| unsafe {
+                flash.acr().modify(|_, w| unsafe {
                     if hclk <= 30_000_000 {
                         w.latency().bits(WaitState::W0 as u8)
                     } else if hclk <= 60_000_000 {
@@ -489,7 +489,7 @@ impl Clocks {
 
             cfg_if! {
                 if #[cfg(feature = "f3")] {
-                   rcc.cfgr().modify(|_, w| {
+                   rcc.cfgr().modify(|_, w| unsafe {
                     // Some f3 varients uses a 'bit' field instead. Haven't looked up how to handle.
                     cfg_if! {
                         if #[cfg(any(feature = "f301", feature = "f373", feature = "f3x4"))] {
@@ -513,7 +513,8 @@ impl Clocks {
             }
 
             #[cfg(feature = "f3")]
-            rcc.cfgr2.modify(|_, w| w.prediv().bits(self.prediv as u8));
+            rcc.cfgr2()
+                .modify(|_, w| unsafe { w.prediv().bits(self.prediv as u8) });
 
             // Now turn PLL back on, once we're configured things that can only be set with it off.
             rcc.cr().modify(|_, w| w.pllon().on());

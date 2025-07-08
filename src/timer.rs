@@ -36,9 +36,6 @@ use num_traits::float::FloatCore; // To round floats.
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552")))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
-#[cfg(feature = "g0")]
-use crate::pac::DMA as DMA1;
-#[cfg(not(feature = "g0"))]
 use crate::pac::DMA1;
 // todo: LPTIM (low-power timers) and HRTIM (high-resolution timers). And Advanced control functionality
 use crate::{
@@ -51,7 +48,7 @@ use crate::{
 // This `TICK_OVERFLOW_COUNT` must be incremented in firmware in the timer's update interrupt.
 pub static TICK_OVERFLOW_COUNT: AtomicU32 = AtomicU32::new(0);
 
-// todo: Low power timer enabling etc. eg on L4, RCC_APB1ENR1.LPTIM1EN
+// todo: Low power timer enabling etc. eg on L4, RCC_APB1Enr1().LPTIM1EN
 
 #[derive(Clone, Copy, Debug, defmt::Format)]
 /// Used for when attempting to set a timer period that is out of range.
@@ -701,10 +698,7 @@ macro_rules! make_timer {
 
                 // Number of data to transfer is our buffer len number of registers we're editing, x
                 // number of half-words written to each reg.
-                #[cfg(feature = "h7")]
                 let num_data = len as u32;
-                #[cfg(not(feature = "h7"))]
-                let num_data = len as u16;
 
                 // 2.
                 // Configure the DCR register by configuring the DBA and DBL bit fields as follows:
@@ -720,7 +714,7 @@ macro_rules! make_timer {
                 // 00000: TIMx_CR1
                 // 00001: TIMx_CR2
                 // 00010: TIMx_SMCR
-                self.regs.dcr().modify(|_, w| {
+                self.regs.dcr().modify(|_, w| unsafe {
                     w.dba().bits(base_address);
                     w.dbl().bits(burst_len as u8 - 1)
                 });
@@ -787,10 +781,7 @@ macro_rules! make_timer {
 
                 let periph_addr = &self.regs.dmar() as *const _ as u32;
 
-                #[cfg(feature = "h7")]
                 let num_data = len as u32;
-                #[cfg(not(feature = "h7"))]
-                let num_data = len as u16;
 
                 self.regs.dcr().modify(|_, w| unsafe {
                     w.dba().bits(base_address);
@@ -1211,20 +1202,20 @@ macro_rules! cc_4_channels {
                 cfg_if! {
                     if #[cfg(feature = "g0")] {
                         match channel {
-                            TimChannel::C1 => self.regs.ccr1.read().bits(),
-                            TimChannel::C2 => self.regs.ccr2.read().bits(),
-                            TimChannel::C3 => self.regs.ccr3.read().bits(),
+                            TimChannel::C1 => self.regs.ccr1().read().bits(),
+                            TimChannel::C2 => self.regs.ccr2().read().bits(),
+                            TimChannel::C3 => self.regs.ccr3().read().bits(),
                             #[cfg(not(feature = "wl"))]
-                            TimChannel::C4 => self.regs.ccr4.read().bits(),
-                        };
+                            TimChannel::C4 => self.regs.ccr4().read().bits(),
+                        }
                     } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
                         match channel {
-                            TimChannel::C1 => self.regs.ccr1.read().ccr1().bits(),
-                            TimChannel::C2 => self.regs.ccr2.read().ccr2().bits(),
-                            TimChannel::C3 => self.regs.ccr3.read().ccr3().bits(),
+                            TimChannel::C1 => self.regs.ccr1().read().ccr1().bits(),
+                            TimChannel::C2 => self.regs.ccr2().read().ccr2().bits(),
+                            TimChannel::C3 => self.regs.ccr3().read().ccr3().bits(),
                             #[cfg(not(feature = "wl"))]
-                            TimChannel::C4 => self.regs.ccr4.read().ccr4().bits(),
-                        };
+                            TimChannel::C4 => self.regs.ccr4().read().ccr4().bits(),
+                        }
                     } else {
                         match channel {
                             TimChannel::C1 => self.regs.ccr1().read().ccr().bits().into(),
@@ -1232,7 +1223,7 @@ macro_rules! cc_4_channels {
                             TimChannel::C3 => self.regs.ccr3().read().ccr().bits().into(),
                             #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4().read().ccr().bits().into(),
-                        };
+                        }
                     }
                 }
             }
@@ -1243,19 +1234,19 @@ macro_rules! cc_4_channels {
                 cfg_if! {
                     if #[cfg(feature = "g0")] {
                         // match channel {
-                            // TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr1().bits(duty.try_into().unwrap())),
-                            // TimChannel::C2 => self.regs.ccr2.write(|w| w.ccr2().bits(duty.try_into().unwrap())),
-                            // TimChannel::C3 => self.regs.ccr3.write(|w| w.ccr3().bits(duty.try_into().unwrap())),
-                            // TimChannel::C4 => self.regs.ccr4.write(|w| w.ccr4().bits(duty.try_into().unwrap())),
+                            // TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr1().bits(duty.try_into().unwrap())),
+                            // TimChannel::C2 => self.regs.ccr2().write(|w| w.ccr2().bits(duty.try_into().unwrap())),
+                            // TimChannel::C3 => self.regs.ccr3().write(|w| w.ccr3().bits(duty.try_into().unwrap())),
+                            // TimChannel::C4 => self.regs.ccr4().write(|w| w.ccr4().bits(duty.try_into().unwrap())),
                         // };
                     } else if #[cfg(any(feature = "l5", feature = "wb", feature = "wl"))] {
                         unsafe {
                             match channel {
-                                TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr1().bits(duty.try_into().unwrap())),
-                                TimChannel::C2 => self.regs.ccr2.write(|w| w.ccr2().bits(duty.try_into().unwrap())),
-                                TimChannel::C3 => self.regs.ccr3.write(|w| w.ccr3().bits(duty.try_into().unwrap())),
+                                TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr1().bits(duty.try_into().unwrap())),
+                                TimChannel::C2 => self.regs.ccr2().write(|w| w.ccr2().bits(duty.try_into().unwrap())),
+                                TimChannel::C3 => self.regs.ccr3().write(|w| w.ccr3().bits(duty.try_into().unwrap())),
                                 #[cfg(not(feature = "wl"))]
-                                TimChannel::C4 => self.regs.ccr4.write(|w| w.ccr4().bits(duty.try_into().unwrap())),
+                                TimChannel::C4 => self.regs.ccr4().write(|w| w.ccr4().bits(duty.try_into().unwrap())),
                             };
                         }
                     } else {
@@ -1511,22 +1502,22 @@ macro_rules! cc_2_channels {
                 cfg_if! {
                     if #[cfg(feature = "g0")] {
                         match channel {
-                            TimChannel::C1 => self.regs.ccr1.read().bits().try_into().unwrap(),
-                            TimChannel::C2 => self.regs.ccr2.read().bits().try_into().unwrap(),
+                            TimChannel::C1 => self.regs.ccr1().read().bits().try_into().unwrap(),
+                            TimChannel::C2 => self.regs.ccr2().read().bits().try_into().unwrap(),
                             _ => panic!()
-                        };
+                        }
                     } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
                         match channel {
-                            TimChannel::C1 => self.regs.ccr1.read().ccr1().bits(),
-                            TimChannel::C2 => self.regs.ccr2.read().ccr2().bits(),
+                            TimChannel::C1 => self.regs.ccr1().read().ccr1().bits(),
+                            TimChannel::C2 => self.regs.ccr2().read().ccr2().bits(),
                             _ => panic!()
-                        };
+                        }
                     } else {
                         match channel {
                             TimChannel::C1 => self.regs.ccr1().read().ccr().bits().try_into().unwrap(),
                             TimChannel::C2 => self.regs.ccr2().read().ccr().bits().try_into().unwrap(),
                             _ => panic!()
-                        };
+                        }
                     }
                 }
             }
@@ -1544,8 +1535,8 @@ macro_rules! cc_2_channels {
                     } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
                         unsafe {
                             match channel {
-                                TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr1().bits(duty.try_into().unwrap())),
-                                TimChannel::C2 => self.regs.ccr2.write(|w| w.ccr2().bits(duty.try_into().unwrap())),
+                                TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr1().bits(duty.try_into().unwrap())),
+                                TimChannel::C2 => self.regs.ccr2().write(|w| w.ccr2().bits(duty.try_into().unwrap())),
                                 _ => panic!()
                             };
                         }
@@ -1629,7 +1620,7 @@ macro_rules! cc_2_channels {
                         .ccmr1_input()
                         .modify(unsafe { |_, w| w.cc2s().bits(mode as u8) }),
                         _ => panic!()
-                }
+                };
             }
 
             /// Set preload mode.
@@ -1737,19 +1728,19 @@ macro_rules! cc_1_channel {
                         match channel {
                             // todo: This isn't right!!
                             // todo: PAC is showing G0 having Tim15 as 32 bits. Is this right?
-                            TimChannel::C1 => self.regs.ccr1.read().bits().try_into().unwrap(),
+                            TimChannel::C1 => self.regs.ccr1().read().bits().try_into().unwrap(),
                             _ => panic!()
-                        };
+                        }
                     } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
                         match channel {
-                            TimChannel::C1 => self.regs.ccr1.read().ccr1().bits(),
+                            TimChannel::C1 => self.regs.ccr1().read().ccr1().bits(),
                             _ => panic!()
-                        };
+                        }
                     } else {
                         match channel {
                             TimChannel::C1 => self.regs.ccr1().read().ccr().bits().try_into().unwrap(),
                             _ => panic!()
-                        };
+                        }
                     }
                 }
             }
@@ -1761,13 +1752,13 @@ macro_rules! cc_1_channel {
                     if #[cfg(feature = "g0")] {
                         match channel {
                             // todo: This isn't right!!
-                            TimChannel::C1 => self.regs.ccr1.read().bits(),
+                            TimChannel::C1 => self.regs.ccr1().read().bits(),
                             _ => panic!()
                         };
                     } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
                         unsafe {
                             match channel {
-                                TimChannel::C1 => self.regs.ccr1.write(|w| w.ccr1().bits(duty.try_into().unwrap())),
+                                TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr1().bits(duty.try_into().unwrap())),
                                 _ => panic!()
                             };
                         }
@@ -1983,11 +1974,11 @@ cfg_if! {
             }
 
             /// Return the integer associated with the maximum duty period.
-            pub fn get_max_duty(&self) -> u16 {
-                #[cfg(feature = "l5")]
-                return self.regs.arr().read().bits() as u16;
-                #[cfg(not(feature = "l5"))]
-                self.regs.arr().read().arr().bits()
+            pub fn get_max_duty(&self) -> u32 {
+                // #[cfg(feature = "l5")]
+                return self.regs.arr().read().bits()
+                // #[cfg(not(feature = "l5"))]
+                // self.regs.arr().read().arr().bits()
             }
 
             /// Set the auto-reload register value. Used for adjusting frequency.

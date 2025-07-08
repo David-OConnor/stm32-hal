@@ -658,7 +658,7 @@ impl Clocks {
         rcc.cfgr().modify(|_, w| unsafe { w.hpre().bits(HclkPrescaler::Div2 as u8) });
         // 2. Clear the R1MODE bit is in the PWR_CR5 register.
         let pwr = unsafe { &(*pac::PWR::ptr()) };
-        pwr.cr5.modify(|_, w| w.r1mode().clear_bit());
+        pwr.cr5().modify(|_, w| w.r1mode().clear_bit());
         }
 
         // (Remaining steps accomplished below)
@@ -761,7 +761,7 @@ impl Clocks {
         // Note: This can increase power use.
 
         #[cfg(not(feature = "l5"))]
-        flash.acr.modify(|_, w| unsafe {
+        flash.acr().modify(|_, w| unsafe {
             #[cfg(not(feature = "g0"))]
             w.dcrst().bit(true);
             w.icrst().bit(true)
@@ -769,7 +769,7 @@ impl Clocks {
 
         // Note: At least on G4, Dcache and ICache are enabled by default in hardware. Although Prefetch isn't.
         #[cfg(not(feature = "l5"))]
-        flash.acr.modify(|_, w| unsafe {
+        flash.acr().modify(|_, w| unsafe {
             // G0: Instruction cache, but no data cache.
             w.latency().bits(wait_state as u8);
             #[cfg(not(feature = "g0"))]
@@ -789,7 +789,7 @@ impl Clocks {
             .modify(|_, w| unsafe { w.latency().bits(wait_state as u8) });
 
         #[cfg(feature = "l5")] // todo: u5 too.
-        icache.icache_cr.modify(|_, w| w.en().bit(true));
+        icache.icache_cr().modify(|_, w| w.en().bit(true));
 
         // Reference Manual, 6.2.5:
         // The device embeds 3 PLLs: PLL, PLLSAI1, PLLSAI2. Each PLL provides up to three
@@ -901,10 +901,10 @@ impl Clocks {
             }
             #[cfg(feature = "g0")]
             InputSrc::Lsi => {
-                rcc.csr.modify(|_, w| w.lsion().bit(true));
+                rcc.csr().modify(|_, w| w.lsion().bit(true));
 
                 i = 0;
-                while rcc.csr.read().lsirdy().bit_is_clear() {
+                while rcc.csr().read().lsirdy().bit_is_clear() {
                     wait_hang!(i);
                 }
             }
@@ -965,57 +965,34 @@ impl Clocks {
                 wait_hang!(i);
             }
 
-            cfg_if! {
-                if #[cfg(feature = "g0")] {
-                    rcc.pllsyscfgr().modify(|_, w| unsafe {
-                        w.pllsrc().bits(pll_src.bits());
-                        w.pllren().bit(true);
-                        w.pllqen().bit(self.pll.pllq_en);
-                        w.pllpen().bit(self.pll.pllp_en);
-                        w.plln().bits(self.pll.divn);
-                        w.pllm().bits(self.pll.divm as u8);
-                        w.pllr().bits(self.pll.divr as u8);
-                        w.pllq().bits(self.pll.divq as u8);
-                        w.pllp().bits(self.pll.divp as u8)
-                    });
-                } else {
-                    rcc.pllcfgr().modify(|_, w| unsafe {
-                        w.pllsrc().bits(pll_src.bits());
-                        w.pllren().bit(true);
-                        w.pllqen().bit(self.pll.pllq_en);
-                        w.pllpen().bit(self.pll.pllp_en);
-                        w.plln().bits(self.pll.divn);
-                        w.pllm().bits(self.pll.divm as u8);
-                        w.pllr().bits(self.pll.divr as u8);
-                        #[cfg(not(any(feature = "wb", feature = "wl", feature = "l4x5", feature = "l4x3")))]
-                        w.pllpdiv().bits(self.pll.pdiv);
-                        #[cfg(not(any(feature = "wb", feature = "wl")))]
-                        w.pllp().bit(self.pll.divp as u8 != 0);
-                        #[cfg(any(feature = "wb", feature = "wl"))]
-                        w.pllp().bits(self.pll.divp as u8);
-                        w.pllq().bits(self.pll.divq as u8)
+            rcc.pllcfgr().modify(|_, w| unsafe {
+                w.pllsrc().bits(pll_src.bits());
+                w.pllren().bit(true);
+                w.pllqen().bit(self.pll.pllq_en);
+                w.pllpen().bit(self.pll.pllp_en);
+                w.plln().bits(self.pll.divn);
+                w.pllm().bits(self.pll.divm as u8);
+                w.pllr().bits(self.pll.divr as u8);
+                #[cfg(not(any(
+                    feature = "wb",
+                    feature = "wl",
+                    feature = "l4x5",
+                    feature = "l4x3",
+                    feature = "g0"
+                )))]
+                w.pllpdiv().bits(self.pll.pdiv);
+                #[cfg(not(any(feature = "wb", feature = "wl", feature = "g0")))]
+                w.pllp().bit(self.pll.divp as u8 != 0);
+                #[cfg(any(feature = "wb", feature = "wl", feature = "g0"))]
+                w.pllp().bits(self.pll.divp as u8);
+                w.pllq().bits(self.pll.divq as u8)
+            });
 
-
-                    });
-                }
-            }
-
-            cfg_if! {
-                if #[cfg(feature = "g0")] {
-                    // Set Pen, Qen, and Ren after we enable the PLL.
-                    rcc.pllsyscfgr().modify(|_, w| {
-                        w.pllpen().bit(true);
-                        w.pllqen().bit(true);
-                        w.pllren().bit(true)
-                    });
-                } else {
-                    rcc.pllcfgr().modify(|_, w| {
-                        w.pllpen().bit(true);
-                        w.pllqen().bit(true);
-                        w.pllren().bit(true)
-                    });
-                }
-            }
+            rcc.pllcfgr().modify(|_, w| {
+                w.pllpen().bit(true);
+                w.pllqen().bit(true);
+                w.pllren().bit(true)
+            });
 
             cfg_if! {
                 // todo: Missing some settings I'm not sure what to make of on L.
@@ -1192,7 +1169,7 @@ impl Clocks {
                     wait_hang!(i);
                 }
 
-                rcc.cfgr
+                rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
             }
             InputSrc::Pll(pll_src) => {
@@ -1304,9 +1281,9 @@ impl Clocks {
             }
             #[cfg(feature = "g0")]
             InputSrc::Lsi => {
-                rcc.csr.modify(|_, w| w.lsion().bit(true));
+                rcc.csr().modify(|_, w| w.lsion().bit(true));
                 let mut i = 0;
-                while rcc.csr.read().lsirdy().bit_is_clear() {
+                while rcc.csr().read().lsirdy().bit_is_clear() {
                     wait_hang!(i);
                 }
                 rcc.cfgr()
@@ -1345,7 +1322,7 @@ impl Clocks {
         // So, we can change MSI range while it's running.
         while rcc.cr().read().msirdy().bit_is_clear() {}
 
-        rcc.cr
+        rcc.cr()
             .modify(|_, w| unsafe { w.msirange().bits(range as u8).msirgsel().bit(true) });
 
         // Update our config to reflect the new speed.

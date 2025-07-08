@@ -37,7 +37,7 @@ pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) {
     }
     clocks.change_msi_speed(speed);
     // LPR = 1
-    pwr.cr1().modify(|_, w| w.lpr().bit(true))
+    pwr.cr1().modify(|_, w| w.lpr().bit(true));
 }
 
 /// L4 RM, table 24
@@ -51,7 +51,7 @@ pub fn return_from_low_power_run() {
     pwr.cr1().modify(|_, w| w.lpr().clear_bit());
 
     // Wait until REGLPF = 0
-    while pwr.sr2.read().reglpf().bit_is_set() {}
+    while pwr.sr2().read().reglpf().bit_is_set() {}
 
     // Increase the system clock frequency
 }
@@ -91,7 +91,7 @@ cfg_if! {
             let pwr = unsafe { &(*PWR::ptr()) };
 
             // todo: On some F4 variants, you may need to `select voltage regulator
-            // todo mode by configuring LPDS, MRUDS, LPUDS and UDEN bits in PWR_CR.`
+            // todo mode by configuring LPDS, MRUDS, LPUDS and UDEN bits in PWR_cr().`
             //WFI (Wait for Interrupt) or WFE (Wait for Event) while:
 
             // Set SLEEPDEEP bit in ARM® Cortex®-M4 System Control register
@@ -138,7 +138,7 @@ cfg_if! {
             pwr.cr().modify(|_, w| {
                 w.pdds().bit(true);
                 // Clear WUF bit in Power Control/Status register (PWR_CSR) (Must do this by setting CWUF bit in
-                // PWR_CR.)
+                // PWR_cr().)
                 w.cwuf().bit(true)
             });
 
@@ -326,7 +326,7 @@ cfg_if! {
         //     pwr.cr().modify(|_, w| {
         //         w.pdds().bit(true);
         //         // Clear WUF bit in Power Control/Status register (PWR_CSR) (Must do this by setting CWUF bit in
-        //         // PWR_CR.)
+        //         // PWR_cr().)
         //         w.cwuf().bit(true)
         //     });
 

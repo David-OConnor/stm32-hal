@@ -36,7 +36,7 @@ macro_rules! create_cans {
 
             /// Print the (raw) contents of the status register.
             pub fn read_status(&self) -> u32 {
-                unsafe { self.regs.psr.read().bits() }
+                unsafe { self.regs.psr().read().bits() }
             }
         }
         unsafe impl fdcan::Instance for $can {

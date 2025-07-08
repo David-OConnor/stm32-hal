@@ -43,7 +43,7 @@ pub enum IpccMode {
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
-/// IPCC interrupts. Enabled in IPCC_C1CR.
+/// IPCC interrupts. Enabled in IPCC_C1cr().
 pub enum IpccInterrupt {
     /// TXFIE: Processor 1 transmit channel free interrupt enable
     /// IPCC_C1TOC2SR
@@ -155,7 +155,7 @@ impl Ipcc {
         // to 1 (this gives memory access and generates the RX occupied interrupt to the
         // receiving processor).
         match core {
-            Core::C1 => self.regs.c1scr.write(|w| match channel {
+            Core::C1 => self.regs.c1scr().write(|w| match channel {
                 IpccChannel::C1 => w.ch1s().bit(true),
                 IpccChannel::C2 => w.ch2s().bit(true),
                 IpccChannel::C3 => w.ch3s().bit(true),
@@ -163,7 +163,7 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5s().bit(true),
                 IpccChannel::C6 => w.ch6s().bit(true),
             }),
-            Core::C2 => self.regs.c2scr.write(|w| match channel {
+            Core::C2 => self.regs.c2scr().write(|w| match channel {
                 IpccChannel::C1 => w.ch1s().bit(true),
                 IpccChannel::C2 => w.ch2s().bit(true),
                 IpccChannel::C3 => w.ch3s().bit(true),
@@ -214,42 +214,42 @@ impl Ipcc {
                 // Note about SCR: Listed technically as "rw" in manual, but also listed as "reads
                 // always as 0". PAC reflects write-only
                 IpccChannel::C1 => {
-                    self.regs.c1scr.write(|w| w.ch1c().bit(true));
+                    self.regs.c1scr().write(|w| w.ch1c().bit(true));
                     self.regs.c1mr.modify(|_, w| {
                         w.ch1fm().clear_bit();
                         w.ch1om().clear_bit()
                     });
                 }
                 IpccChannel::C2 => {
-                    self.regs.c1scr.write(|w| w.ch2c().bit(true));
+                    self.regs.c1scr().write(|w| w.ch2c().bit(true));
                     self.regs.c1mr.modify(|_, w| {
                         w.ch2fm().clear_bit();
                         w.ch2om().clear_bit()
                     });
                 }
                 IpccChannel::C3 => {
-                    self.regs.c1scr.write(|w| w.ch3c().bit(true));
+                    self.regs.c1scr().write(|w| w.ch3c().bit(true));
                     self.regs.c1mr.modify(|_, w| {
                         w.ch3fm().clear_bit();
                         w.ch3om().clear_bit()
                     });
                 }
                 IpccChannel::C4 => {
-                    self.regs.c1scr.write(|w| w.ch4c().bit(true));
+                    self.regs.c1scr().write(|w| w.ch4c().bit(true));
                     self.regs.c1mr.modify(|_, w| {
                         w.ch4fm().clear_bit();
                         w.ch4om().clear_bit()
                     });
                 }
                 IpccChannel::C5 => {
-                    self.regs.c1scr.write(|w| w.ch5c().bit(true));
+                    self.regs.c1scr().write(|w| w.ch5c().bit(true));
                     self.regs.c1mr.modify(|_, w| {
                         w.ch5fm().clear_bit();
                         w.ch5om().clear_bit()
                     });
                 }
                 IpccChannel::C6 => {
-                    self.regs.c1scr.write(|w| w.ch6c().bit(true));
+                    self.regs.c1scr().write(|w| w.ch6c().bit(true));
                     self.regs.c1mr.modify(|_, w| {
                         w.ch6fm().clear_bit();
                         w.ch6om().clear_bit()
@@ -258,42 +258,42 @@ impl Ipcc {
             },
             Core::C2 => match channel {
                 IpccChannel::C1 => {
-                    self.regs.c2scr.write(|w| w.ch1c().bit(true));
+                    self.regs.c2scr().write(|w| w.ch1c().bit(true));
                     self.regs.c2mr.modify(|_, w| {
                         w.ch1fm().clear_bit();
                         w.ch1om().clear_bit()
                     });
                 }
                 IpccChannel::C2 => {
-                    self.regs.c2scr.write(|w| w.ch2c().bit(true));
+                    self.regs.c2scr().write(|w| w.ch2c().bit(true));
                     self.regs.c2mr.modify(|_, w| {
                         w.ch2fm().clear_bit();
                         w.ch2om().clear_bit()
                     });
                 }
                 IpccChannel::C3 => {
-                    self.regs.c2scr.write(|w| w.ch3c().bit(true));
+                    self.regs.c2scr().write(|w| w.ch3c().bit(true));
                     self.regs.c2mr.modify(|_, w| {
                         w.ch3fm().clear_bit();
                         w.ch3om().clear_bit()
                     });
                 }
                 IpccChannel::C4 => {
-                    self.regs.c2scr.write(|w| w.ch4c().bit(true));
+                    self.regs.c2scr().write(|w| w.ch4c().bit(true));
                     self.regs.c2mr.modify(|_, w| {
                         w.ch4fm().clear_bit();
                         w.ch4om().clear_bit()
                     });
                 }
                 IpccChannel::C5 => {
-                    self.regs.c2scr.write(|w| w.ch5c().bit(true));
+                    self.regs.c2scr().write(|w| w.ch5c().bit(true));
                     self.regs.c2mr.modify(|_, w| {
                         w.ch5fm().clear_bit();
                         w.ch5om().clear_bit()
                     });
                 }
                 IpccChannel::C6 => {
-                    self.regs.c2scr.write(|w| w.ch6c().bit(true));
+                    self.regs.c2scr().write(|w| w.ch6c().bit(true));
                     self.regs.c2mr.modify(|_, w| {
                         w.ch6fm().clear_bit();
                         w.ch6om().clear_bit()
@@ -317,7 +317,7 @@ impl Ipcc {
         // the subsequent response.
         // todo: In ISR?
         match core {
-            Core::C1 => self.regs.c1scr.write(|w| match channel {
+            Core::C1 => self.regs.c1scr().write(|w| match channel {
                 IpccChannel::C1 => w.ch1s().bit(true),
                 IpccChannel::C2 => w.ch2s().bit(true),
                 IpccChannel::C3 => w.ch3s().bit(true),
@@ -325,7 +325,7 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5s().bit(true),
                 IpccChannel::C6 => w.ch6s().bit(true),
             }),
-            Core::C2 => self.regs.c2scr.write(|w| match channel {
+            Core::C2 => self.regs.c2scr().write(|w| match channel {
                 IpccChannel::C1 => w.ch1s().bit(true),
                 IpccChannel::C2 => w.ch2s().bit(true),
                 IpccChannel::C3 => w.ch3s().bit(true),
@@ -377,7 +377,7 @@ impl Ipcc {
     /// Enable a specific type of IPCC interrupt. Note that there isn't an associated `clear_interrupt`
     /// function, due to the way IPCC is set up.
     pub fn enable_interrupt(&mut self, interrupt: IpccInterrupt) {
-        self.regs.c1cr.modify(|_, w| match interrupt {
+        self.regs.c1cr().modify(|_, w| match interrupt {
             IpccInterrupt::TxFree => w.txfie().bit(true),
             IpccInterrupt::RxOccupied => w.rxoie().bit(true),
         });
@@ -482,7 +482,7 @@ impl Ipcc {
     /// Clears IPCC receive channel status.
     pub fn clear_flag_channel(&mut self, core: Core, channel: IpccChannel) {
         match core {
-            Core::C1 => self.regs.c1scr.write(|w| match channel {
+            Core::C1 => self.regs.c1scr().write(|w| match channel {
                 IpccChannel::C1 => w.ch1c().bit(true),
                 IpccChannel::C2 => w.ch2c().bit(true),
                 IpccChannel::C3 => w.ch3c().bit(true),
@@ -490,7 +490,7 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5c().bit(true),
                 IpccChannel::C6 => w.ch6c().bit(true),
             }),
-            Core::C2 => self.regs.c2scr.write(|w| match channel {
+            Core::C2 => self.regs.c2scr().write(|w| match channel {
                 IpccChannel::C1 => w.ch1c().bit(true),
                 IpccChannel::C2 => w.ch2c().bit(true),
                 IpccChannel::C3 => w.ch3c().bit(true),
@@ -504,7 +504,7 @@ impl Ipcc {
     /// Sets IPCC receive channel status.
     pub fn set_flag_channel(&mut self, core: Core, channel: IpccChannel) {
         match core {
-            Core::C1 => self.regs.c1scr.write(|w| match channel {
+            Core::C1 => self.regs.c1scr().write(|w| match channel {
                 IpccChannel::C1 => w.ch1s().bit(true),
                 IpccChannel::C2 => w.ch2s().bit(true),
                 IpccChannel::C3 => w.ch3s().bit(true),
@@ -512,7 +512,7 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5s().bit(true),
                 IpccChannel::C6 => w.ch6s().bit(true),
             }),
-            Core::C2 => self.regs.c2scr.write(|w| match channel {
+            Core::C2 => self.regs.c2scr().write(|w| match channel {
                 IpccChannel::C1 => w.ch1s().bit(true),
                 IpccChannel::C2 => w.ch2s().bit(true),
                 IpccChannel::C3 => w.ch3s().bit(true),

@@ -65,7 +65,7 @@ cfg_if! {
             pub fn read_status(&self) -> u32 {
                 cfg_if! {
                     if #[cfg(any(feature = "h7", feature = "l5"))] {
-                        unsafe { self.regs.psr.read().bits() }
+                        unsafe { self.regs.psr().read().bits() }
                     } else {
                         unsafe { self.regs.msr.read().bits() }
                     }
@@ -90,27 +90,27 @@ cfg_if! {
             // Note: we do this as 2 separate writes. RM: "CCE bit in FDCAN_CCCR register can only be set/cleared while INIT bit in FDCAN_CCCR
             // is set. CCE bit in FDCAN_CCCR register is automatically cleared when INIT bit in
             // FDCAN_CCCR is cleared."
-            regs.cccr.modify(|_, w| w.init().bit(true));
-            while regs.cccr.read().init().bit_is_clear() {}
-            regs.cccr.modify(|_, w| w.cce().bit(true));
-            while regs.cccr.read().cce().bit_is_clear() {}
+            regs.cccr().modify(|_, w| w.init().bit(true));
+            while regs.cccr().read().init().bit_is_clear() {}
+            regs.cccr().modify(|_, w| w.cce().bit(true));
+            while regs.cccr().read().cce().bit_is_clear() {}
 
             let mut word_addr = 0x000; // todo: 0x400 for FDCAN2?
 
             use fdcan::message_ram::*;
 
             // 11-bit filter
-            regs.sidfc
+            regs.sidfc()
                 .modify(|_, w| unsafe { w.flssa().bits(word_addr) });
             word_addr += STANDARD_FILTER_MAX as u16;
 
             // 29-bit filter
-            regs.xidfc
+            regs.xidfc()
                 .modify(|_, w| unsafe { w.flesa().bits(word_addr) });
             word_addr += 2 * EXTENDED_FILTER_MAX as u16;
 
             // Rx FIFO 0
-            regs.rxf0c.modify(|_, w| unsafe {
+            regs.rxf0c().modify(|_, w| unsafe {
                 w.f0sa()
                     .bits(word_addr)
                     .f0s()
@@ -121,7 +121,7 @@ cfg_if! {
             word_addr += 18 * RX_FIFO_MAX as u16;
 
             // Rx FIFO 1
-            regs.rxf1c.modify(|_, w| unsafe {
+            regs.rxf1c().modify(|_, w| unsafe {
                 w.f1sa()
                     .bits(word_addr)
                     .f1s()
@@ -133,7 +133,7 @@ cfg_if! {
 
             // Rx buffer - see below
             // Tx event FIFO
-            regs.txefc.modify(|_, w| unsafe {
+            regs.txefc().modify(|_, w| unsafe {
                 w.efsa()
                     .bits(word_addr)
                     .efs()
@@ -144,20 +144,20 @@ cfg_if! {
             word_addr += 2 * TX_EVENT_MAX as u16;
 
             // Tx buffers
-            regs.txbc
+            regs.txbc()
                 .modify(|_, w| unsafe { w.tbsa().bits(word_addr).tfqs().bits(TX_FIFO_MAX) });
             word_addr += 18 * TX_FIFO_MAX as u16;
 
             // Rx Buffer - not used
-            regs.rxbc.modify(|_, w| unsafe { w.rbsa().bits(word_addr) });
+            regs.rxbc().modify(|_, w| unsafe { w.rbsa().bits(word_addr) });
 
             // TX event FIFO?
             // Trigger memory?
 
             // Set the element sizes to 16 bytes
-            regs.rxesc
+            regs.rxesc()
                 .modify(|_, w| unsafe { w.rbds().bits(0b111).f1ds().bits(0b111).f0ds().bits(0b111) });
-            regs.txesc.modify(|_, w| unsafe { w.tbds().bits(0b111) });
+            regs.txesc().modify(|_, w| unsafe { w.tbds().bits(0b111) });
         }
 
         // Implement the traits required for the `bxcan` or `fdcan` library.
