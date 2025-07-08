@@ -661,7 +661,7 @@ where
 
         // We use config A's settings here, and ignore config B. These must be set with SAI disabled.
         #[cfg(not(any(feature = "l4", feature = "wb", feature = "g4")))]
-        regs.gcr.modify(|_, w| unsafe {
+        regs.gcr().modify(|_, w| unsafe {
             w.syncout().bits(config_a.sync_out as u8);
             w.syncin().bits(config_a.sync_in as u8)
         });
@@ -753,7 +753,7 @@ where
 
         // The audio frame length can be configured to up to 256 bit clock cycles, by setting
         // FRL[7:0] field in the SAI_xFRCR register.
-        regs.cha().frcr.modify(|_, w| unsafe {
+        regs.cha().frcr().modify(|_, w| unsafe {
             w.fsoff().bit(config_a.fs_offset as u8 != 0);
             w.fspol().bit(config_a.fs_polarity as u8 != 0);
             w.fsdef().bit(config_a.fs_signal as u8 != 0);
@@ -761,7 +761,7 @@ where
             w.frl().bits((config_a.frame_length - 1) as u8)
         });
 
-        regs.chb().frcr.modify(|_, w| unsafe {
+        regs.chb().frcr().modify(|_, w| unsafe {
             w.fsoff().bit(config_a.fs_offset as u8 != 0);
             w.fspol().bit(config_b.fs_polarity as u8 != 0);
             w.fsdef().bit(config_b.fs_signal as u8 != 0);
@@ -812,7 +812,7 @@ where
         if config_a.pdm_mode {
             assert!(config_a.pdm_clock_used <= 4 && config_a.pdm_clock_used >= 1);
 
-            regs.pdmcr.modify(|_, w| unsafe {
+            regs.pdmcr().modify(|_, w| unsafe {
                 // a) Define the number of digital microphones via MICNBR.
                 w.micnbr().bits(config_a.num_pdm_mics as u8);
                 // b) Enable the bitstream clock needed in the application by setting the corresponding

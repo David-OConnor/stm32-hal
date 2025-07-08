@@ -548,7 +548,7 @@ macro_rules! make_timer {
                 let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;
 
                 self.regs.arr().write(|w| unsafe { w.bits(arr.into()) });
-                self.regs.psc().write(|w| unsafe { w.bits(psc().into()) });
+                self.regs.psc().write(|w| unsafe { w.bits(psc.into()) });
 
                 // (PSC+1)*(ARR+1) = TIMclk/Updatefrequency = TIMclk * period
                 // period = (PSC+1)*(ARR+1) / TIMclk
@@ -578,7 +578,7 @@ macro_rules! make_timer {
 
             /// Set the prescaler value. Used for adjusting frequency.
             pub fn set_prescaler(&mut self, psc: u16) {
-                self.regs.psc().write(|w| unsafe { w.bits(psc().into()) });
+                self.regs.psc().write(|w| unsafe { w.bits(psc.into()) });
             }
 
             /// Reset the countdown; set the counter to 0.
@@ -619,7 +619,7 @@ macro_rules! make_timer {
             pub fn read_count(&self) -> u32 {
                 // todo: This depends on resolution. We read the whole
                 // todo res and pass a u32 just in case.
-                // self.regs.cnt().read().cnt()().bits()
+                // self.regs.cnt().read().cnt().bits()
                 self.regs.cnt().read().bits()
             }
 
@@ -643,7 +643,7 @@ macro_rules! make_timer {
                 #[cfg(feature = "g0")]
                 return self.regs.arr().read().bits().try_into().unwrap();
                 #[cfg(not(feature = "g0"))]
-                self.regs.arr().read().arr()().bits().try_into().unwrap()
+                self.regs.arr().read().arr().bits().try_into().unwrap()
             }
 
              /// See G4 RM, section 29.4.24: Dma burst mode. "The TIMx timers have the capability to
@@ -1150,7 +1150,7 @@ macro_rules! cc_4_channels {
                 // todo: SMCR: Set in the Input PWM settings, but not normal input capture (?)
                 // 6. Select the valid trigger input: write the TS bits to 101 in the TIMx_SMCR register
                 // (TI1FP1 selected).
-                // self.regs.smcr.modify(|_, w| unsafe {
+                // self.regs.smcr().modify(|_, w| unsafe {
                 //     w.ts().bits(trigger as u8);
                 //     // 7. Configure the slave mode controller in reset mode: write the SMS bits to 0100 in the
                 //     // TIMx_SMCR register.
@@ -1200,7 +1200,6 @@ macro_rules! cc_4_channels {
                             #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "wb", feature = "h7")))]
                             w.oc4m_3().bit((mode as u8) >> 3 != 0);
                             w.oc4m().bits((mode as u8) & 0b111)
-
                         });
                     }
                 }
@@ -1217,7 +1216,7 @@ macro_rules! cc_4_channels {
                             TimChannel::C3 => self.regs.ccr3.read().bits(),
                             #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4.read().bits(),
-                        }
+                        };
                     } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
                         match channel {
                             TimChannel::C1 => self.regs.ccr1.read().ccr1().bits(),
@@ -1225,7 +1224,7 @@ macro_rules! cc_4_channels {
                             TimChannel::C3 => self.regs.ccr3.read().ccr3().bits(),
                             #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4.read().ccr4().bits(),
-                        }
+                        };
                     } else {
                         match channel {
                             TimChannel::C1 => self.regs.ccr1().read().ccr().bits().into(),
@@ -1233,7 +1232,7 @@ macro_rules! cc_4_channels {
                             TimChannel::C3 => self.regs.ccr3().read().ccr().bits().into(),
                             #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4().read().ccr().bits().into(),
-                        }
+                        };
                     }
                 }
             }
@@ -1257,7 +1256,7 @@ macro_rules! cc_4_channels {
                                 TimChannel::C3 => self.regs.ccr3.write(|w| w.ccr3().bits(duty.try_into().unwrap())),
                                 #[cfg(not(feature = "wl"))]
                                 TimChannel::C4 => self.regs.ccr4.write(|w| w.ccr4().bits(duty.try_into().unwrap())),
-                            }
+                            };
                         }
                     } else {
                         unsafe {
@@ -1267,7 +1266,7 @@ macro_rules! cc_4_channels {
                                 TimChannel::C3 => self.regs.ccr3().write(|w| w.ccr().bits(duty.try_into().unwrap())),
                                 #[cfg(not(feature = "wl"))]
                                 TimChannel::C4 => self.regs.ccr4().write(|w| w.ccr().bits(duty.try_into().unwrap())),
-                            }
+                            };
                         }
                     }
                 }
@@ -1300,7 +1299,7 @@ macro_rules! cc_4_channels {
                     TimChannel::C3 => self.regs.ccer().modify(|_, w| w.cc3p().bit(polarity.bit())),
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => self.regs.ccer().modify(|_, w| w.cc4p().bit(polarity.bit())),
-                }
+                };
             }
 
             /// Set complementary output polarity. See docs on the `Polarity` enum.
@@ -1313,7 +1312,7 @@ macro_rules! cc_4_channels {
                     TimChannel::C4 => self.regs.ccer().modify(|_, w| w.cc4np().bit(polarity.bit())),
                     #[cfg(any(feature = "f4", feature = "wl", feature = "l4"))] // PAC ommission
                     _ => panic!(),
-                }
+                };
             }
             /// Disables capture compare on a specific channel.
             pub fn disable_capture_compare(&mut self, channel: TimChannel) {
@@ -1475,7 +1474,7 @@ macro_rules! cc_2_channels {
                     _ => panic!()
                 }
 
-                // self.regs.smcr.modify(|_, w| unsafe {
+                // self.regs.smcr().modify(|_, w| unsafe {
                 //     w.ts().bits(trigger as u8);
                 //     w.sms().bits(slave_mode as u8)
                 // });
@@ -1705,7 +1704,7 @@ macro_rules! cc_1_channel {
                 };
 
                 // todo?
-                // self.regs.smcr.modify(|_, w| unsafe {
+                // self.regs.smcr().modify(|_, w| unsafe {
                 //     w.ts().bits(trigger as u8);
                 //     w.sms().bits(slave_mode as u8)
                 // });
@@ -1978,7 +1977,7 @@ cfg_if! {
                 let (psc, arr) = calc_freq_vals(freq, self.clock_speed)?;
 
                 self.regs.arr().write(|w| unsafe { w.bits(arr.into()) });
-                self.regs.psc().write(|w| unsafe { w.bits(psc().into()) });
+                self.regs.psc().write(|w| unsafe { w.bits(psc.into()) });
 
                 Ok(())
             }
@@ -1988,7 +1987,7 @@ cfg_if! {
                 #[cfg(feature = "l5")]
                 return self.regs.arr().read().bits() as u16;
                 #[cfg(not(feature = "l5"))]
-                self.regs.arr().read().arr()().bits()
+                self.regs.arr().read().arr().bits()
             }
 
             /// Set the auto-reload register value. Used for adjusting frequency.
@@ -1998,7 +1997,7 @@ cfg_if! {
 
             /// Set the prescaler value. Used for adjusting frequency.
             pub fn set_prescaler(&mut self, psc: u16) {
-                self.regs.psc().write(|w| unsafe { w.bits(psc().into()) });
+                self.regs.psc().write(|w| unsafe { w.bits(psc.into()) });
             }
 
             /// Reset the count; set the counter to 0.
@@ -2011,7 +2010,7 @@ cfg_if! {
                 #[cfg(feature = "l5")]
                 return self.regs.cnt().read().bits() as u16;
                 #[cfg(not(feature = "l5"))]
-                self.regs.cnt().read().cnt()().bits()
+                self.regs.cnt().read().cnt().bits()
             }
 
             /// Allow selected information to be sent in master mode to slave timers for

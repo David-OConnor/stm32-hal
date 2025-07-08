@@ -389,10 +389,10 @@ macro_rules! hal {
                             } else if #[cfg(feature = "h7")] {
                                 match device {
                                     AdcDevice::One | AdcDevice::Two => {
-                                        rcc.ahb1enr.modify(|_, w| w.adc12en().bit(true));
+                                        rcc.ahb1enr().modify(|_, w| w.adc12en().bit(true));
                                     }
                                     AdcDevice::Three => {
-                                        rcc.ahb4enr.modify(|_, w| w.adc3en().bit(true));
+                                        rcc.ahb4enr().modify(|_, w| w.adc3en().bit(true));
                                     }
                                 }
                             } else if #[cfg(any(feature = "g4"))] {
@@ -788,7 +788,7 @@ macro_rules! hal {
                 }
 
                 #[cfg(feature = "h7")]
-                self.regs.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
+                self.regs.pcsel().modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
             }
 
             /// Select the sample time for a given channel.
@@ -969,7 +969,7 @@ macro_rules! hal {
             pub fn read_result(&mut self) -> u16 {
                 let ch = 18; // todo temp!!
                 #[cfg(feature = "h7")]
-                self.regs.pcsel.modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() & !(1 << ch)) });
+                self.regs.pcsel().modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() & !(1 << ch)) });
 
                 #[cfg(feature = "l4")]
                 return self.regs.dr().read().bits() as u16;
@@ -1102,10 +1102,10 @@ macro_rules! hal {
                 // • Scan sequence is stopped and reset.
                 // • The DMA is stopped.
 
-                #[cfg(feature = "h7")]
+                // #[cfg(feature = "h7")]
                 let num_data = len as u32;
-                #[cfg(not(feature = "h7"))]
-                let num_data = len as u16;
+                // #[cfg(not(feature = "h7"))]
+                // let num_data = len as u16;
 
                 match dma_periph {
                     dma::DmaPeriph::Dma1 => {
@@ -1174,17 +1174,17 @@ macro_rules! hal {
                     AdcInterrupt::InjectedOverflow => w.jqovf().bit(true),
                 });
                 // match interrupt {
-                //     AdcInterrupt::Ready => self.regs.icr.write(|_w| w.adrdy().bit(true)),
-                //     AdcInterrupt::EndOfConversion => self.regs.icr.write(|w| w.eoc().bit(true)),
-                //     AdcInterrupt::EndOfSequence => self.regs.icr.write(|_w| w.eos().bit(true)),
-                //     AdcInterrupt::EndofConversionInjected => self.regs.icr.write(|_w| w.jeoc().bit(true)),
-                //     AdcInterrupt::EndOfSequenceInjected => self.regs.icr.write(|_w| w.jeos().bit(true)),
-                //     AdcInterrupt::Watchdog1 => self.regs.icr.write(|_w| w.awd1().bit(true)),
-                //     AdcInterrupt::Watchdog2 => self.regs.icr.write(|_w| w.awd2().bit(true)),
-                //     AdcInterrupt::Watchdog3 => self.regs.icr.write(|_w| w.awd3().bit(true)),
-                //     AdcInterrupt::EndOfSamplingPhase => self.regs.icr.write(|_w| w.eosmp().bit(true)),
-                //     AdcInterrupt::Overrun => self.regs.icr.write(|_w| w.ovr().bit(true)),
-                //     AdcInterrupt::InjectedOverflow => self.regs.icr.write(|_w| w.jqovf().bit(true)),
+                //     AdcInterrupt::Ready => self.regs.icr().write(|_w| w.adrdy().bit(true)),
+                //     AdcInterrupt::EndOfConversion => self.regs.icr().write(|w| w.eoc().bit(true)),
+                //     AdcInterrupt::EndOfSequence => self.regs.icr().write(|_w| w.eos().bit(true)),
+                //     AdcInterrupt::EndofConversionInjected => self.regs.icr().write(|_w| w.jeoc().bit(true)),
+                //     AdcInterrupt::EndOfSequenceInjected => self.regs.icr().write(|_w| w.jeos().bit(true)),
+                //     AdcInterrupt::Watchdog1 => self.regs.icr().write(|_w| w.awd1().bit(true)),
+                //     AdcInterrupt::Watchdog2 => self.regs.icr().write(|_w| w.awd2().bit(true)),
+                //     AdcInterrupt::Watchdog3 => self.regs.icr().write(|_w| w.awd3().bit(true)),
+                //     AdcInterrupt::EndOfSamplingPhase => self.regs.icr().write(|_w| w.eosmp().bit(true)),
+                //     AdcInterrupt::Overrun => self.regs.icr().write(|_w| w.ovr().bit(true)),
+                //     AdcInterrupt::InjectedOverflow => self.regs.icr().write(|_w| w.jqovf().bit(true)),
                 // }
             }
 

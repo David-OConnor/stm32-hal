@@ -206,7 +206,9 @@ where
         unsafe {
             let txdr = &self.regs.txdr() as *const _ as *const UnsafeCell<u8>;
             ptr::write_volatile(UnsafeCell::raw_get(txdr), word);
-            return Ok(ptr::read_volatile(&self.regs.rxdr() as *const _ as *const u8));
+            return Ok(ptr::read_volatile(
+                &self.regs.rxdr() as *const _ as *const u8
+            ));
         }
     }
     /// Read a single byte if available, or block until it's available.

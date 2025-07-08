@@ -1460,7 +1460,7 @@ where
         // todo figure out what's wrong and put back.
         // match channel {
         //      DfsdmChannel::F0 => {
-        //          self.regs.flt0icr.write(|w| match interrupt_type {
+        //          self.regs.flt0icr().write(|w| match interrupt_type {
         //              DfsdmInterrupt::EndOfInjectedConversion => (),
         //              DfsdmInterrupt::EndOfConversion => (),
         //              DfsdmInterrupt::DataOverrunInjected => w.clrjovrf.bit(true),
@@ -1472,7 +1472,7 @@ where
         //          });
         //      }
         //      DfsdmChannel::F1 => {
-        //          self.regs.flt1icr.write(|w| match interrupt_type {
+        //          self.regs.flt1icr().write(|w| match interrupt_type {
         //              DfsdmInterrupt::EndOfInjectedConversion => (),
         //              DfsdmInterrupt::EndOfConversion => (),
         //              DfsdmInterrupt::DataOverrunInjected => w.clrjovrf().bit(true),
@@ -1483,7 +1483,7 @@ where
         //          });
         //      }
         //      DfsdmChannel::F2 => {
-        //          self.regs.flt2icr.write(|w| match interrupt_type {
+        //          self.regs.flt2icr().write(|w| match interrupt_type {
         //              DfsdmInterrupt::EndOfInjectedConversion => (),
         //              DfsdmInterrupt::EndOfConversion => (),
         //              DfsdmInterrupt::DataOverrunInjected => w.clrjovrf().bit(true),
@@ -1494,7 +1494,7 @@ where
         //          });
         //      }
         //      DfsdmChannel::F3 => {
-        //          self.regs.flt3icr.write(|w| match interrupt_type {
+        //          self.regs.flt3icr().write(|w| match interrupt_type {
         //              DfsdmInterrupt::EndOfInjectedConversion => (),
         //              DfsdmInterrupt::EndOfConversion => (),
         //              DfsdmInterrupt::DataOverrunInjected => w.clrjovrf().bit(true),

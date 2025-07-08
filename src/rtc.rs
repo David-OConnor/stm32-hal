@@ -130,7 +130,7 @@ impl Rtc {
 
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "f4"))] {
-                rcc.apb1enr.modify(|_, w| w.pwren().bit(true));
+                rcc.apb1enr().modify(|_, w| w.pwren().bit(true));
                 pwr.cr().read(); // read to allow the pwr clock to enable
                 pwr.cr().modify(|_, w| w.dbp().bit(true));
                 while pwr.cr().read().dbp().bit_is_clear() {}
@@ -161,14 +161,14 @@ impl Rtc {
                 pwr.cr1().modify( | _, w| w.dbp().bit(true));
                 while pwr.cr1().read().dbp().bit_is_clear() {}
             } else if #[cfg(feature = "h5")] {
-                rcc.apb3enr.modify(|_, w| w.rtcapben().bit(true));
-                rcc.apb3lpenr.modify(|_, w| w.rtcapblpen().bit(true));  // In sleep and stop modes.
+                rcc.apb3enr().modify(|_, w| w.rtcapben().bit(true));
+                rcc.apb3lpenr().modify(|_, w| w.rtcapblpen().bit(true));  // In sleep and stop modes.
                 pwr.dbpcr.read(); // read to allow the pwr clock to enable // todo??
                 pwr.dbpcr.modify( | _, w| w.dbp().bit(true));
                 while pwr.dbpcr.read().dbp().bit_is_clear() {}
             } else { // eg h7
-                rcc.apb4enr.modify(|_, w| w.rtcapben().bit(true));
-                rcc.apb4lpenr.modify(|_, w| w.rtcapblpen().bit(true));  // In sleep and stop modes.
+                rcc.apb4enr().modify(|_, w| w.rtcapben().bit(true));
+                rcc.apb4lpenr().modify(|_, w| w.rtcapblpen().bit(true));  // In sleep and stop modes.
                 pwr.cr1().read(); // read to allow the pwr clock to enable
                 pwr.cr1().modify( | _, w| w.dbp().bit(true));
                 while pwr.cr1().read().dbp().bit_is_clear() {}
@@ -181,28 +181,28 @@ impl Rtc {
                 cfg_if! {
                     if #[cfg(feature = "wb")] {
                     // todo: LSI2?
-                        rcc.csr.modify(|_, w| w.lsi1on().bit(true));
-                        while rcc.csr.read().lsi1rdy().bit_is_clear() {}
+                        rcc.csr().modify(|_, w| w.lsi1on().bit(true));
+                        while rcc.csr().read().lsi1rdy().bit_is_clear() {}
                     } else if #[cfg(feature = "h5")] {
-                        rcc.bdcr.modify(|_, w| w.lsion().bit(true));
-                        while rcc.bdcr.read().lsirdy().bit_is_clear() {}
+                        rcc.bdcr().modify(|_, w| w.lsion().bit(true));
+                        while rcc.bdcr().read().lsirdy().bit_is_clear() {}
                     } else {
-                        rcc.csr.modify(|_, w| w.lsion().bit(true));
-                        while rcc.csr.read().lsirdy().bit_is_clear() {}
+                        rcc.csr().modify(|_, w| w.lsion().bit(true));
+                        while rcc.csr().read().lsirdy().bit_is_clear() {}
                     }
                 }
             }
             RtcClockSource::Lse => {
                 // Can only set lsebyp when lse is off, so do this as a separate step.
-                rcc.bdcr
+                rcc.bdcr()
                     .modify(|_, w| w.lsebyp().bit(config.bypass_lse_output));
-                rcc.bdcr.modify(|_, w| w.lseon().bit(true));
-                while rcc.bdcr.read().lserdy().bit_is_clear() {}
+                rcc.bdcr().modify(|_, w| w.lseon().bit(true));
+                while rcc.bdcr().read().lserdy().bit_is_clear() {}
             }
             _ => (),
         }
 
-        rcc.bdcr.modify(|_, w| {
+        rcc.bdcr().modify(|_, w| {
             // 3. Select the RTC clock source in the Backup domain control register (RCC_BDCR).
             unsafe { w.rtcsel().bits(result.config.clock_source as u8) };
             // 4. Enable the RTC clock by setting the RTCEN [15] bit in the Backup domain control
@@ -230,7 +230,7 @@ impl Rtc {
                 }, // pol high
             );
 
-            regs.prer.modify(|_, w| unsafe {
+            regs.prer().modify(|_, w| unsafe {
                 w.prediv_s().bits(config.sync_prescaler);
                 w.prediv_a().bits(config.async_prescaler)
             });
@@ -332,7 +332,7 @@ impl Rtc {
         }
 
         self.regs
-            .wutr
+            .wutr()
             .modify(|_, w| unsafe { w.wut().bits(wutr as u16) });
 
         // Select the desired clock source. Program WUCKSEL[2:0] bits in RTC_CR register.
@@ -371,7 +371,7 @@ impl Rtc {
         // 10x: ck_spre (usually 1 Hz) clock is selected
         // 11x: ck_spre (usually 1 Hz) clock is selected and 216 is added to the WUT counter value
         self.regs
-            .cr
+            .cr()
             .modify(|_, w| unsafe { w.wucksel().bits(word) });
     }
 
@@ -425,8 +425,8 @@ impl Rtc {
 
         // We can't use the `edit_regs` abstraction here due to being unable to call a method
         // in the closure.
-        self.regs.wpr.write(|w| unsafe { w.bits(0xCA) });
-        self.regs.wpr.write(|w| unsafe { w.bits(0x53) });
+        self.regs.wpr().write(|w| unsafe { w.bits(0xCA) });
+        self.regs.wpr().write(|w| unsafe { w.bits(0x53) });
 
         // Disable the wakeup timer. Clear WUTE bit in RTC_CR register
         self.regs.cr().modify(|_, w| w.wute().clear_bit());
@@ -435,7 +435,7 @@ impl Rtc {
         // Poll WUTWF until it is set in RTC_ISR (RTC2)/RTC_ICSR (RTC3) (May not be avail on F3)
         cfg_if! {
             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
-                while self.regs.icsr.read().wutwf().bit_is_clear() {}
+                while self.regs.icsr().read().wutwf().bit_is_clear() {}
             } else {
                 while self.regs.isr().read().wutwf().bit_is_clear() {}
             }
@@ -451,32 +451,32 @@ impl Rtc {
 
         cfg_if! {
             if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
-                self.regs.scr.write(|w| w.cwutf().bit(true));
+                self.regs.scr().write(|w| w.cwutf().bit(true));
             } else {
                 self.regs.isr().modify(|_, w| w.wutf().clear_bit());
             }
         }
 
-        self.regs.wpr.write(|w| unsafe { w.bits(0xFF) });
+        self.regs.wpr().write(|w| unsafe { w.bits(0xFF) });
     }
 
     /// Enable the wakeup timer.
     pub fn enable_wakeup(&mut self) {
         unsafe {
-            self.regs.wpr.write(|w| w.bits(0xCA));
-            self.regs.wpr.write(|w| w.bits(0x53));
+            self.regs.wpr().write(|w| w.bits(0xCA));
+            self.regs.wpr().write(|w| w.bits(0x53));
             self.regs.cr().modify(|_, w| w.wute().bit(true));
-            self.regs.wpr.write(|w| w.bits(0xFF));
+            self.regs.wpr().write(|w| w.bits(0xFF));
         }
     }
 
     /// Disable the wakeup timer.
     pub fn disable_wakeup(&mut self) {
         unsafe {
-            self.regs.wpr.write(|w| w.bits(0xCA));
-            self.regs.wpr.write(|w| w.bits(0x53));
+            self.regs.wpr().write(|w| w.bits(0xCA));
+            self.regs.wpr().write(|w| w.bits(0x53));
             self.regs.cr().modify(|_, w| w.wute().clear_bit());
-            self.regs.wpr.write(|w| w.bits(0xFF));
+            self.regs.wpr().write(|w| w.bits(0xFF));
         }
     }
 
@@ -488,8 +488,8 @@ impl Rtc {
 
         // We can't use the `edit_regs` abstraction here due to being unable to call a method
         // in the closure.
-        self.regs.wpr.write(|w| unsafe { w.bits(0xCA) });
-        self.regs.wpr.write(|w| unsafe { w.bits(0x53) });
+        self.regs.wpr().write(|w| unsafe { w.bits(0xCA) });
+        self.regs.wpr().write(|w| unsafe { w.bits(0x53) });
 
         let started_enabled = self.regs.cr().read().wute().bit_is_set();
         if started_enabled {
@@ -498,7 +498,7 @@ impl Rtc {
 
         cfg_if! {
             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
-                while self.regs.icsr.read().wutwf().bit_is_clear() {}
+                while self.regs.icsr().read().wutwf().bit_is_clear() {}
             } else {
                 while self.regs.isr().read().wutwf().bit_is_clear() {}
             }
@@ -510,7 +510,7 @@ impl Rtc {
             self.regs.cr().modify(|_, w| w.wute().bit(true));
         }
 
-        self.regs.wpr.write(|w| unsafe { w.bits(0xFF) });
+        self.regs.wpr().write(|w| unsafe { w.bits(0xFF) });
     }
 
     /// Clears the wakeup flag. Must be cleared manually after every RTC wakeup.
@@ -521,7 +521,7 @@ impl Rtc {
 
             cfg_if! {
                 if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
-                    regs.scr.write(|w| w.cwutf().bit(true));
+                    regs.scr().write(|w| w.cwutf().bit(true));
                 } else {
                     // Note that we clear this by writing 0, which isn't
                     // the standard convention, eg in other families, and
@@ -543,8 +543,8 @@ impl Rtc {
     {
         // Disable write protection
         // This is safe, as we're only writin the correct and expected values.
-        self.regs.wpr.write(|w| unsafe { w.bits(0xCA) });
-        self.regs.wpr.write(|w| unsafe { w.bits(0x53) });
+        self.regs.wpr().write(|w| unsafe { w.bits(0xCA) });
+        self.regs.wpr().write(|w| unsafe { w.bits(0x53) });
 
         // todo: L4 has ICSR and ISR regs. Maybe both for backwards compat?
 
@@ -552,29 +552,29 @@ impl Rtc {
              if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
                  // Enter init mode if required. This is generally used to edit the clock or calendar,
                  // but not for initial enabling steps.
-                 if init_mode && self.regs.icsr.read().initf().bit_is_clear() {
+                 if init_mode && self.regs.icsr().read().initf().bit_is_clear() {
                      // are we already in init mode?
-                     self.regs.icsr.modify(|_, w| w.init().bit(true));
-                     while self.regs.icsr.read().initf().bit_is_clear() {} // wait to return to init state
+                     self.regs.icsr().modify(|_, w| w.init().bit(true));
+                     while self.regs.icsr().read().initf().bit_is_clear() {} // wait to return to init state
                  }
 
                  // Edit the regs specified in the closure, now that they're writable.
                  closure(&mut self.regs);
 
                  if init_mode {
-                     self.regs.icsr.modify(|_, w| w.init().clear_bit()); // Exits init mode
-                     while self.regs.icsr.read().initf().bit_is_set() {}
+                     self.regs.icsr().modify(|_, w| w.init().clear_bit()); // Exits init mode
+                     while self.regs.icsr().read().initf().bit_is_set() {}
                  }
             // } else if #[cfg(feature = "wl")] {
             //     if init_mode && self.regs.isr().read().initf().bit_is_clear() {
-            //         self.regs.icsr.modify(|_, w| w.init().bit(true));
-            //         while self.regs.icsr.read().initf().bit_is_clear() {} // wait to return to init state
+            //         self.regs.icsr().modify(|_, w| w.init().bit(true));
+            //         while self.regs.icsr().read().initf().bit_is_clear() {} // wait to return to init state
             //     }
 
             //     closure(&mut self.regs);
 
             //     if init_mode {
-            //         self.regs.icsr.modify(|_, w| w.init().clear_bit()); // Exits init mode
+            //         self.regs.icsr().modify(|_, w| w.init().clear_bit()); // Exits init mode
             //         while self.regs.sr().read().initf().bit_is_set() {}
             //     }
             } else {
@@ -594,7 +594,7 @@ impl Rtc {
 
         // Re-enable write protection.
         // This is safe, as the field accepts the full range of 8-bit values.
-        self.regs.wpr.write(|w| unsafe { w.bits(0xFF) });
+        self.regs.wpr().write(|w| unsafe { w.bits(0xFF) });
     }
 
     /// set time using NaiveTime (ISO 8601 time without timezone)
@@ -627,8 +627,8 @@ impl Rtc {
         }
         let (st, su) = bcd2_encode(seconds as u32)?;
         self.edit_regs(true, |regs| {
-            regs.tr
-                .modify(|_, w| unsafe { w.st().bits(st).su().bits(su) })
+            regs.tr()
+                .modify(|_, w| unsafe { w.st().bits(st).su().bits(su) });
         });
 
         Ok(())
@@ -641,8 +641,8 @@ impl Rtc {
         }
         let (mnt, mnu) = bcd2_encode(minutes as u32)?;
         self.edit_regs(true, |regs| {
-            regs.tr
-                .modify(|_, w| unsafe { w.mnt().bits(mnt).mnu().bits(mnu) })
+            regs.tr()
+                .modify(|_, w| unsafe { w.mnt().bits(mnt).mnu().bits(mnu) });
         });
 
         Ok(())
@@ -653,8 +653,8 @@ impl Rtc {
         let (ht, hu) = bcd2_encode(hours as u32)?;
 
         self.edit_regs(true, |regs| {
-            regs.tr
-                .modify(|_, w| unsafe { w.ht().bits(ht).hu().bits(hu) })
+            regs.tr()
+                .modify(|_, w| unsafe { w.ht().bits(ht).hu().bits(hu) });
         });
 
         Ok(())
@@ -666,7 +666,7 @@ impl Rtc {
             return Err(Error::InvalidInputData);
         }
         self.edit_regs(true, |regs| {
-            regs.dr().modify(|_, w| unsafe { w.wdu().bits(weekday) })
+            regs.dr().modify(|_, w| unsafe { w.wdu().bits(weekday) });
         });
 
         Ok(())
@@ -679,8 +679,8 @@ impl Rtc {
         }
         let (dt, du) = bcd2_encode(day as u32)?;
         self.edit_regs(true, |regs| {
-            regs.dr
-                .modify(unsafe { |_, w| w.dt().bits(dt).du().bits(du) })
+            regs.dr()
+                .modify(unsafe { |_, w| w.dt().bits(dt).du().bits(du) });
         });
 
         Ok(())
@@ -693,8 +693,8 @@ impl Rtc {
         }
         let (mt, mu) = bcd2_encode(month as u32)?;
         self.edit_regs(true, |regs| {
-            regs.dr
-                .modify(|_, w| unsafe { w.mt().bit(mt > 0).mu().bits(mu) })
+            regs.dr()
+                .modify(|_, w| unsafe { w.mt().bit(mt > 0).mu().bits(mu) });
         });
 
         Ok(())
@@ -709,8 +709,8 @@ impl Rtc {
         let (yt, yu) = bcd2_encode(year as u32 - 2_000)?;
         // todo RTC is 2000 based ? Not sure best way to handle this.
         self.edit_regs(true, |regs| {
-            regs.dr
-                .modify(|_, w| unsafe { w.yt().bits(yt).yu().bits(yu) })
+            regs.dr()
+                .modify(|_, w| unsafe { w.yt().bits(yt).yu().bits(yu) });
         });
 
         Ok(())
@@ -765,7 +765,7 @@ impl Rtc {
                 w.mt().bit(mt > 0);
                 w.mu().bits(mu);
                 w.yt().bits(yt);
-                w.yu().bits(yu)
+                w.yu().bits(yu);
             })
         });
 
@@ -777,7 +777,7 @@ impl Rtc {
                 w.mnu().bits(mnu);
                 w.st().bits(st);
                 w.su().bits(su);
-                w.pm().clear_bit()
+                w.pm().clear_bit();
             })
         });
 

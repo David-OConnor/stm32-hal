@@ -65,19 +65,19 @@ impl Ipcc {
     /// its RCC peripheral clock.
     pub fn new(regs: IPCC) -> Self {
         let mut rcc = unsafe { &(*RCC::ptr()) };
-        rcc.ahb3enr.modify(|_, w| w.ipccen().bit(true));
-        rcc.ahb3rstr.modify(|_, w| w.ipccrst().bit(true));
-        rcc.ahb3rstr.modify(|_, w| w.ipccrst().clear_bit());
+        rcc.ahb3enr().modify(|_, w| w.ipccen().bit(true));
+        rcc.ahb3rstr().modify(|_, w| w.ipccrst().bit(true));
+        rcc.ahb3rstr().modify(|_, w| w.ipccrst().clear_bit());
 
         // todo?
-        // rcc.ahb4enr.modify(|_, w| w.ipccen().bit(true));
-        // rcc.ahb4rstr.modify(|_, w| w.ipccrst().bit(true));
-        // rcc.ahb4rstr.modify(|_, w| w.ipccrst().clear_bit());
+        // rcc.ahb4enr().modify(|_, w| w.ipccen().bit(true));
+        // rcc.ahb4rstr().modify(|_, w| w.ipccrst().bit(true));
+        // rcc.ahb4rstr().modify(|_, w| w.ipccrst().clear_bit());
 
         // todo: Got this line from stm32wb-hal.
         // Single memory access delay after peripheral is enabled.
         // This dummy read uses `read_volatile` internally, so it shouldn't be removed by an optimizer.
-        let _ = rcc.ahb3enr.read().ipccen();
+        let _ = rcc.ahb3enr().read().ipccen();
 
         // Enable interrupts.
         let mut result = Self { regs };

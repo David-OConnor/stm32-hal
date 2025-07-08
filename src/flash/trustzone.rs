@@ -111,8 +111,8 @@ impl Flash {
                     return Ok(());
                 }
 
-                self.regs.nskeyr.write(|w| unsafe { w.bits(FLASH_KEY1) });
-                self.regs.nskeyr.write(|w| unsafe { w.bits(FLASH_KEY2) });
+                self.regs.nskeyr().write(|w| unsafe { w.bits(FLASH_KEY1) });
+                self.regs.nskeyr().write(|w| unsafe { w.bits(FLASH_KEY2) });
 
                 if self.regs.nscr.read().nslock().bit_is_clear() {
                     Ok(())
@@ -125,8 +125,8 @@ impl Flash {
                     return Ok(());
                 }
 
-                self.regs.seckeyr.write(|w| unsafe { w.bits(FLASH_KEY1) });
-                self.regs.seckeyr.write(|w| unsafe { w.bits(FLASH_KEY2) });
+                self.regs.seckeyr().write(|w| unsafe { w.bits(FLASH_KEY1) });
+                self.regs.seckeyr().write(|w| unsafe { w.bits(FLASH_KEY2) });
 
                 if self.regs.seccr.read().seclock().bit_is_clear() {
                     Ok(())
