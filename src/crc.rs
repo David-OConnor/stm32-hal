@@ -19,19 +19,19 @@ impl CrcExt for CRC {
     fn crc(self, rcc: &mut RCC) -> Crc {
         cfg_if! {
             if #[cfg(feature = "f3")] {
-                rcc.ahbenr.modify(|_, w| w.crcen().set_bit());
+                rcc.ahbenr.modify(|_, w| w.crcen().bit(true));
                 // F3 doesn't appear to have a crcrst field in `ahbrstr`, per RM.
             } else if #[cfg(feature = "g0")] {
-                rcc.ahbenr.modify(|_, w| w.crcen().set_bit());
-                rcc.ahbrstr.modify(|_, w| w.crcrst().set_bit());
+                rcc.ahbenr.modify(|_, w| w.crcen().bit(true));
+                rcc.ahbrstr.modify(|_, w| w.crcrst().bit(true));
                 rcc.ahbrstr.modify(|_, w| w.crcrst().clear_bit());
             } else if #[cfg(any(feature = "l4", feature = "wb", feature = "l5", feature = "g4"))] {
-                rcc.ahb1enr.modify(|_, w| w.crcen().set_bit());
-                rcc.ahb1rstr.modify(|_, w| w.crcrst().set_bit());
+                rcc.ahb1enr.modify(|_, w| w.crcen().bit(true));
+                rcc.ahb1rstr.modify(|_, w| w.crcrst().bit(true));
                 rcc.ahb1rstr.modify(|_, w| w.crcrst().clear_bit());
             } else { // H7
-                rcc.ahb4enr.modify(|_, w| w.crcen().set_bit());
-                rcc.ahb4rstr.modify(|_, w| w.crcrst().set_bit());
+                rcc.ahb4enr.modify(|_, w| w.crcen().bit(true));
+                rcc.ahb4rstr.modify(|_, w| w.crcrst().bit(true));
                 rcc.ahb4rstr.modify(|_, w| w.crcrst().clear_bit());
             }
         }
@@ -56,7 +56,7 @@ impl Crc {
 
         // manual says unit must be reset (or DR read) before change of polynomial
         // (technically only in case of ongoing calculation, but DR is buffered)
-        self.regs.cr.modify(|_, w| unsafe {
+        self.regs.cr().modify(|_, w| unsafe {
             w.polysize()
                 .bits(config.poly.polysize())
                 .rev_in()
@@ -64,7 +64,7 @@ impl Crc {
                 .rev_out()
                 .bit(config.reverse_output)
                 .reset()
-                .set_bit()
+                .bit(true)
         });
         cfg_if! {
             if #[cfg(any(feature = "h7"))] {
@@ -123,7 +123,7 @@ impl Crc {
     /// This does not reset the configuration options.
     pub fn finish(&mut self) -> u32 {
         let result = self.read_crc();
-        self.regs.cr.modify(|_, w| w.reset().set_bit());
+        self.regs.cr().modify(|_, w| w.reset().bit(true));
         result
     }
 
@@ -141,7 +141,7 @@ impl Crc {
     /// algorithm that does not apply an output XOR or reverse the output bits.
     pub fn read_state(&self) -> u32 {
         let state = self.read_crc_no_xor();
-        if self.regs.cr.read().rev_out().bit_is_set() {
+        if self.regs.cr().read().rev_out().bit_is_set() {
             state.reverse_bits()
         } else {
             state
@@ -152,7 +152,7 @@ impl Crc {
     #[inline(always)]
     fn read_crc_no_xor(&self) -> u32 {
         #[cfg(not(any(feature = "h7", feature = "l4")))]
-        return self.regs.dr.read().dr().bits();
+        return self.regs.dr().read().dr().bits();
         #[cfg(any(feature = "h7", feature = "l4"))]
         return self.regs.dr().read().dr().bits();
     }
@@ -164,7 +164,7 @@ impl Crc {
             ///
             /// The IDR is not involved with CRC calculation.
             pub fn set_idr(&mut self, value: u32) {
-                self.regs.idr.write(|w| unsafe { w.idr().bits(value) });
+                self.regs.idr().write(|w| unsafe { w.idr().bits(value) });
             }
         } else {
             /// Write the independent data register. The IDR can be used as
@@ -172,7 +172,7 @@ impl Crc {
             ///
             /// The IDR is not involved with CRC calculation.
             pub fn set_idr(&mut self, value: u8) {
-                self.regs.idr.write(|w| unsafe { w.idr().bits(value) });
+                self.regs.idr().write(|w| unsafe { w.idr().bits(value) });
             }
         }
     }
@@ -183,14 +183,14 @@ impl Crc {
             ///
             /// The IDR is not involved with CRC calculation.
             pub fn get_idr(&self) -> u32 {
-                self.regs.idr.read().idr().bits()
+                self.regs.idr().read().idr().bits()
             }
         } else {
             /// Get the current value of the independent data register.
             ///
             /// The IDR is not involved with CRC calculation.
             pub fn get_idr(&self) -> u8 {
-                self.regs.idr.read().idr().bits()
+                self.regs.idr().read().idr().bits()
             }
         }
     }

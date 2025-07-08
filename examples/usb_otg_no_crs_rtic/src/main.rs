@@ -18,11 +18,11 @@ pub mod usb {
     pub fn enable_usb_pwr() {
         // Enable PWR peripheral
         let rcc = unsafe { &(*RCC::ptr()) };
-        rcc.apb1enr1.modify(|_, w| w.pwren().set_bit());
+        rcc.apb1enr1.modify(|_, w| w.pwren().bit(true));
 
         // Enable VddUSB
         let pwr = unsafe { &*PWR::ptr() };
-        pwr.cr2.modify(|_, w| w.usv().set_bit());
+        pwr.cr2().modify(|_, w| w.usv().bit(true));
     }
 }
 

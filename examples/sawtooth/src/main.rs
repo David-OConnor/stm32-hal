@@ -50,13 +50,13 @@ mod app {
         timer.enable_interrupt(TimerInterrupt::Update);
 
         // Enable TRGO from TIM4 to provide a reset source to the DAC Sawtooth wave generator
-        timer.regs.cr2.modify(|_, w| unsafe { w.mms().bits(MasterModeSelection::Update as u8) });
+        timer.regs.cr2().modify(|_, w| unsafe { w.mms().bits(MasterModeSelection::Update as u8) });
         timer.enable();
 
         let mut inc_timer = Timer::new_tim2(dp.TIM2, 1000.0, Default::default(), &clock_cfg);
 
         // Enable TRGO from TIM2 to provide an increment source to the DAC Sawtooth wave generator
-        inc_timer.regs.cr2.modify(|_, w| unsafe { w.mms().bits(MasterModeSelection::Update as u8) });
+        inc_timer.regs.cr2().modify(|_, w| unsafe { w.mms().bits(MasterModeSelection::Update as u8) });
         inc_timer.enable();
 
 

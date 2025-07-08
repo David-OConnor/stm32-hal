@@ -55,7 +55,7 @@ fn init() {
     // Enable `pwren`. Note that this is also set up by the `rtc` initialization, so this
     // step isn't required if you have the RTC set up. Only required on some configurations,
     // , e.g. L4, L5, and G0.
-    // dp.RCC.apb1enr1.modify(|_, w| w.pwren().set_bit());
+    // dp.RCC.apb1enr1.modify(|_, w| w.pwren().bit(true));
 
     // Enable USB power, on applicable MCUs, e.g. L4, L5, and G0.
     // usb::enable_usb_pwr(&mut dp.PWR, &mut dp.RCC);

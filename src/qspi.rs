@@ -164,12 +164,12 @@ impl Qspi {
 
         // cfg_if! {
         //     if #[cfg(any(feature = "l4", feature = "l5", feature = "")] {
-        //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
-        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+        //         rcc.ahb3enr.modify(|_, w| w.qspien().bit(true));
+        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().bit(true));
         //         rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
         //     } else { // G and H7
-        //         rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
-        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+        //         rcc.ahb3enr.modify(|_, w| w.qspien().bit(true));
+        //         rcc.ahb3rstr.modify(|_, w| w.qspirst().bit(true));
         //         rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
         //     }
         // }
@@ -178,31 +178,31 @@ impl Qspi {
 
         cfg_if! {
             if #[cfg(any(feature = "h735", feature = "h7b3"))] {
-                rcc.ahb3enr.modify(|_, w| w.octospi1en().set_bit());
-                rcc.ahb3rstr.modify(|_, w| w.octospi1rst().set_bit());
+                rcc.ahb3enr.modify(|_, w| w.octospi1en().bit(true));
+                rcc.ahb3rstr.modify(|_, w| w.octospi1rst().bit(true));
                 rcc.ahb3rstr.modify(|_, w| w.octospi1rst().clear_bit());
             } else if #[cfg(feature = "h5")] {
-                rcc.ahb4enr.modify(|_, w| w.octospi1en().set_bit());
-                rcc.ahb4rstr.modify(|_, w| w.octospi1rst().set_bit());
+                rcc.ahb4enr.modify(|_, w| w.octospi1en().bit(true));
+                rcc.ahb4rstr.modify(|_, w| w.octospi1rst().bit(true));
                 rcc.ahb4rstr.modify(|_, w| w.octospi1rst().clear_bit());
             } else if #[cfg(feature = "l5")] {
-                rcc.ahb3enr.modify(|_, w| w.ospi1en().set_bit());
-                rcc.ahb3rstr.modify(|_, w| w.ospi1rst().set_bit());
+                rcc.ahb3enr.modify(|_, w| w.ospi1en().bit(true));
+                rcc.ahb3rstr.modify(|_, w| w.ospi1rst().bit(true));
                 rcc.ahb3rstr.modify(|_, w| w.ospi1rst().clear_bit());
             } else {
-                rcc.ahb3enr.modify(|_, w| w.qspien().set_bit());
-                rcc.ahb3rstr.modify(|_, w| w.qspirst().set_bit());
+                rcc.ahb3enr.modify(|_, w| w.qspien().bit(true));
+                rcc.ahb3rstr.modify(|_, w| w.qspirst().bit(true));
                 rcc.ahb3rstr.modify(|_, w| w.qspirst().clear_bit());
             }
         }
 
         // Disable QUADSPI before configuring it.
-        regs.cr.write(|w| w.en().clear_bit());
+        regs.cr().write(|w| w.en().clear_bit());
 
         // Many fields, including all CCR fields, can only be set when `BUSY` is clear.
-        while regs.sr.read().busy().bit_is_set() {}
+        while regs.sr().read().busy().bit_is_set() {}
 
-        regs.ccr.modify(|_, w| unsafe {
+        regs.ccr().modify(|_, w| unsafe {
             w.abmode().bits(cfg.protocol_mode as u8);
             w.admode().bits(cfg.protocol_mode as u8);
             w.imode().bits(cfg.protocol_mode as u8);
@@ -247,31 +247,31 @@ impl Qspi {
 
         #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
         // todo: Equiv for octo?
-        regs.cr.write(|w| unsafe {
+        regs.cr().write(|w| unsafe {
             w.prescaler().bits(cfg.clock_division as u8 - 1);
             w.sshift().bit(sampling_edge as u8 != 0);
             w.fthres().bits(cfg.fifo_threshold - 1)
         });
 
         // Enable ther peripheral
-        regs.cr.modify(|_, w| w.en().set_bit());
+        regs.cr().modify(|_, w| w.en().bit(true));
 
         Self { regs, cfg }
     }
 
     /// Check if the QSPI peripheral is currently busy with a transaction
     pub fn is_busy(&self) -> bool {
-        self.regs.sr.read().busy().bit_is_set()
+        self.regs.sr().read().busy().bit_is_set()
     }
 
     /// Enable an interrupt
     pub fn enable_interrupt(&mut self, interrupt: QspiInterrupt) {
-        self.regs.cr.modify(|_, w| match interrupt {
-            QspiInterrupt::FifoThreshold => w.ftie().set_bit(),
-            QspiInterrupt::StatusMatch => w.smie().set_bit(),
-            QspiInterrupt::TransferComplete => w.tcie().set_bit(),
-            QspiInterrupt::Timeout => w.toie().set_bit(),
-            QspiInterrupt::TransferError => w.teie().set_bit(),
+        self.regs.cr().modify(|_, w| match interrupt {
+            QspiInterrupt::FifoThreshold => w.ftie().bit(true),
+            QspiInterrupt::StatusMatch => w.smie().bit(true),
+            QspiInterrupt::TransferComplete => w.tcie().bit(true),
+            QspiInterrupt::Timeout => w.toie().bit(true),
+            QspiInterrupt::TransferError => w.teie().bit(true),
         });
     }
 
@@ -279,10 +279,10 @@ impl Qspi {
     pub fn clear_interrupt(&mut self, interrupt: QspiInterrupt) {
         self.regs.fcr.write(|w| match interrupt {
             QspiInterrupt::FifoThreshold => panic!("Can't clear that interrupt manually."),
-            QspiInterrupt::StatusMatch => w.csmf().set_bit(),
-            QspiInterrupt::TransferComplete => w.ctcf().set_bit(),
-            QspiInterrupt::Timeout => w.ctof().set_bit(),
-            QspiInterrupt::TransferError => w.ctef().set_bit(),
+            QspiInterrupt::StatusMatch => w.csmf().bit(true),
+            QspiInterrupt::TransferComplete => w.ctcf().bit(true),
+            QspiInterrupt::Timeout => w.ctof().bit(true),
+            QspiInterrupt::TransferError => w.ctef().bit(true),
         });
     }
 
@@ -357,12 +357,12 @@ impl Qspi {
         unsafe {
             for word in data {
                 #[allow(invalid_reference_casting)]
-                ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, *word);
+                ptr::write_volatile(&self.regs.dr() as *const _ as *mut u8, *word);
             }
         }
 
         // Wait for the transaction to complete
-        while self.regs.sr.read().tcf().bit_is_clear() {}
+        while self.regs.sr().read().tcf().bit_is_clear() {}
 
         // Wait for the peripheral to indicate it is no longer busy.
         while self.is_busy() {}
@@ -392,13 +392,13 @@ impl Qspi {
             .modify(|_, w| unsafe { w.address().bits(addr) });
 
         // Check for underflow on the FIFO.
-        if (self.regs.sr.read().flevel().bits() as usize) < buf.len() {
+        if (self.regs.sr().read().flevel().bits() as usize) < buf.len() {
             return Err(QspiError::Underflow);
         }
 
         unsafe {
             for word in buf {
-                *word = ptr::read_volatile(&self.regs.dr as *const _ as *const u8);
+                *word = ptr::read_volatile(&self.regs.dr() as *const _ as *const u8);
             }
         }
 
@@ -417,13 +417,13 @@ impl Qspi {
 
         #[cfg(not(any(feature = "l5", feature = "h735", feature = "h7b3")))]
         // todo: Equiv for octo?
-        if self.regs.ccr.read().fmode().bits() != FunctionalMode::MemoryMapped as u8 {
+        if self.regs.ccr().read().fmode().bits() != FunctionalMode::MemoryMapped as u8 {
             self.regs
                 .ccr
                 .modify(|_, w| unsafe { w.fmode().bits(FunctionalMode::MemoryMapped as u8) });
         }
 
-        let addr = MEM_MAPPED_BASE_ADDR as *const u32; // as const what?
+        let addr = MEM_MAPPED_BASE_ADdr() as *const u32; // as const what?
         unsafe { core::ptr::read(addr.offset(offset)) }
     }
 }

@@ -223,7 +223,7 @@ Most peripheral modules use the following format:
 - When available, base setup and usage steps on instructions provided in Reference Manuals.
   These steps are copy+pasted in comments before the code that performs each one.
 - Don't use PAC convenience field settings; they're implemented inconsistently across PACs.
-  (eg don't use something like `en.enabled()`; use `en.set_bit()`.)
+  (eg don't use something like `en.enabled()`; use `en.bit(true)`.)
 - If using a commonly-named configuration enum like `Mode`, prefix it with the peripheral type,
   eg use `RadarMode` instead. This prevents namespace conflicts when importing the enums directly.
 
@@ -268,7 +268,7 @@ where
         let mut rcc = unsafe { &(*RCC::ptr()) };
         rcc_en_reset!(apb1, fcradar1, rcc);
 
-        regs.cr.modify(|_, w| w.prf().bit(prf as u8 != 0));        
+        regs.cr().modify(|_, w| w.prf().bit(prf as u8 != 0));        
 
         Self { regs, prf }
     }
@@ -279,12 +279,12 @@ where
 
         // 1. Select the hit to track by setting the HIT bits in the FCRDR_TR register. 
         #[cfg(feature = "h8")]
-        self.regs.tr.modify(|_, w| unsafe { w.hit().bits(hit_num) });
+        self.regs.tr().modify(|_, w| unsafe { w.hit().bits(hit_num) });
         #[cfg(feature = "g5")]
-        self.regs.tr.modify(|_, w| unsafe { w.hitn().bits(hit_num) });
+        self.regs.tr().modify(|_, w| unsafe { w.hitn().bits(hit_num) });
 
         // 2. Begin tracking by setting the TRKEN bit in the FCRDR_TR register.
-        self.regs.tr.modify(|_, w| w.trken().set_bit());
+        self.regs.tr().modify(|_, w| w.trken().bit(true));
 
         // In tracking mode, the TA flag can be monitored to make sure that the radar
         // is still tracking the target.
@@ -292,9 +292,9 @@ where
     
     /// Enable an interrupt.
     pub fn enable_interrupt(&mut self, interrupt: FcRadarInterrupt) {
-        self.regs.cr.modify(|_, w| match interrupt {
-            FcRadarInterrupt::TgtAcq => w.taie().set_bit(),
-            FcRadarInterrupt::LostTrack => w.ltie().set_bit(),
+        self.regs.cr().modify(|_, w| match interrupt {
+            FcRadarInterrupt::TgtAcq => w.taie().bit(true),
+            FcRadarInterrupt::LostTrack => w.ltie().bit(true),
         });
     }
 
@@ -302,8 +302,8 @@ where
     /// repeat firings.
     pub fn clear_interrupt(&mut self, interrupt: FcRadarInterrupt) {
         self.regs.icr.write(|w| match interrupt {
-            FcRadarInterrupt::TgtAcq =>  w.tacf().set_bit(),
-            FcRadarInterrupt::LostTrack => w.ltcf().set_bit(),
+            FcRadarInterrupt::TgtAcq =>  w.tacf().bit(true),
+            FcRadarInterrupt::LostTrack => w.ltcf().bit(true),
         });
     }
 }

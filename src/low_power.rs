@@ -37,7 +37,7 @@ pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) {
     }
     clocks.change_msi_speed(speed);
     // LPR = 1
-    pwr.cr1.modify(|_, w| w.lpr().set_bit())
+    pwr.cr1().modify(|_, w| w.lpr().bit(true))
 }
 
 /// L4 RM, table 24
@@ -48,7 +48,7 @@ pub fn return_from_low_power_run() {
     let pwr = unsafe { &(*PWR::ptr()) };
 
     // LPR = 0
-    pwr.cr1.modify(|_, w| w.lpr().clear_bit());
+    pwr.cr1().modify(|_, w| w.lpr().clear_bit());
 
     // Wait until REGLPF = 0
     while pwr.sr2.read().reglpf().bit_is_set() {}
@@ -102,14 +102,14 @@ cfg_if! {
             // 0: Enter Stop mode when the CPU enters Deepsleep. The regulator status
             // depends on the LPDS bit.
             // 1: Enter Stop mode when the CPU enters Deepsleep.
-            pwr.cr.modify(|_, w| {
+            pwr.cr().modify(|_, w| {
                 w.pdds().clear_bit();
                 // Select the voltage regulator mode by configuring LPDS bit in PWR_CR
                 // This bit is set and cleared by software. It works together with the PDDS bit.
                 // 0: Voltage regulator on during Stop mode
                 // 1: Voltage regulator in low-power mode during Stop mode
-                // pwr.cr.modify(|_, w| w.pdds().clear_bit());
-                 w.lpds().set_bit()
+                // pwr.cr().modify(|_, w| w.pdds().clear_bit());
+                 w.lpds().bit(true)
             });
 
 
@@ -135,11 +135,11 @@ cfg_if! {
             // 0: Enter Stop mode when the CPU enters Deepsleep. The regulator status
             // depends on the LPDS bit.
             // 1: Enter Standby mode when the CPU enters Deepsleep.
-            pwr.cr.modify(|_, w| {
-                w.pdds().set_bit();
+            pwr.cr().modify(|_, w| {
+                w.pdds().bit(true);
                 // Clear WUF bit in Power Control/Status register (PWR_CSR) (Must do this by setting CWUF bit in
                 // PWR_CR.)
-                w.cwuf().set_bit()
+                w.cwuf().bit(true)
             });
 
             wfi();
@@ -158,7 +158,7 @@ cfg_if! {
             scb.set_sleepdeep();
             // – No interrupt (for WFI) or event (for WFE) is pending
             // – LPMS = (according to mode) in PWR_CR1
-            pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(mode as u8) });
+            pwr.cr1().modify(|_, w| unsafe { w.lpms().bits(mode as u8) });
 
             // Or, unimplemented:
             // On Return from ISR while:
@@ -183,35 +183,35 @@ cfg_if! {
             // – No interrupt (for WFI) or event (for WFE) is pending
 
             // – LPMS = “011” in PWR_CR1
-            pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(0b011) });
+            pwr.cr1().modify(|_, w| unsafe { w.lpms().bits(0b011) });
 
             // – WUFx bits are cleared in power status register 1 (PWR_SR1)
             // (Clear by setting cwfuf bits in `pwr_scr`.)
             cfg_if! {
                 if #[cfg(feature = "l4")] {
                     pwr.scr.write(|w| {
-                        w.wuf1().set_bit();
-                        w.wuf2().set_bit();
-                        w.wuf3().set_bit();
-                        w.wuf4().set_bit();
-                        w.wuf5().set_bit()
+                        w.wuf1().bit(true);
+                        w.wuf2().bit(true);
+                        w.wuf3().bit(true);
+                        w.wuf4().bit(true);
+                        w.wuf5().bit(true)
                     });
                 } else if #[cfg(feature = "g0")] {
                     pwr.scr.write(|w| {
-                        w.cwuf1().set_bit();
-                        w.cwuf2().set_bit();
-                        // w.cwuf3().set_bit(); // todo: PAC ommission?
-                        w.cwuf4().set_bit();
-                        w.cwuf5().set_bit();
-                        w.cwuf6().set_bit()
+                        w.cwuf1().bit(true);
+                        w.cwuf2().bit(true);
+                        // w.cwuf3().bit(true); // todo: PAC ommission?
+                        w.cwuf4().bit(true);
+                        w.cwuf5().bit(true);
+                        w.cwuf6().bit(true)
                     });
                 } else {
                     pwr.scr.write(|w| {
-                        w.cwuf1().set_bit();
-                        w.cwuf2().set_bit();
-                        w.cwuf3().set_bit();
-                        w.cwuf4().set_bit();
-                        w.cwuf5().set_bit()
+                        w.cwuf1().bit(true);
+                        w.cwuf2().bit(true);
+                        w.cwuf3().bit(true);
+                        w.cwuf4().bit(true);
+                        w.cwuf5().bit(true)
                     });
                 }
             }
@@ -242,16 +242,16 @@ cfg_if! {
             scb.set_sleepdeep();
             // – No interrupt (for WFI) or event (for WFE) is pending
             // – LPMS = “011” in PWR_CR1
-            pwr.cr1.modify(|_, w| unsafe { w.lpms().bits(0b100) });
+            pwr.cr1().modify(|_, w| unsafe { w.lpms().bits(0b100) });
             // – WUFx bits are cleared in power status register 1 (PWR_SR1)
             // (Clear by setting cwfuf bits in `pwr_scr`.)
 
             // pwr.scr.write(|_, w| {
-            //     w.cwuf1().set_bit();
-            //     w.cwuf2().set_bit();
-            //     w.cwuf3().set_bit();
-            //     w.cwuf4().set_bit();
-            //     w.cwuf5().set_bit();
+            //     w.cwuf1().bit(true);
+            //     w.cwuf2().bit(true);
+            //     w.cwuf3().bit(true);
+            //     w.cwuf4().bit(true);
+            //     w.cwuf5().bit(true);
             // })
 
             // Or, unimplemented:
@@ -323,11 +323,11 @@ cfg_if! {
         //     // 0: Enter Stop mode when the CPU enters Deepsleep. The regulator status
         //     // depends on the LPDS bit.
         //     // 1: Enter Standby mode when the CPU enters Deepsleep.
-        //     pwr.cr.modify(|_, w| {
-        //         w.pdds().set_bit();
+        //     pwr.cr().modify(|_, w| {
+        //         w.pdds().bit(true);
         //         // Clear WUF bit in Power Control/Status register (PWR_CSR) (Must do this by setting CWUF bit in
         //         // PWR_CR.)
-        //         w.cwuf().set_bit()
+        //         w.cwuf().bit(true)
         //     });
 
         //     wfi();

@@ -474,8 +474,8 @@ impl Clocks {
         // todo: Is this the right module to do this in?
         #[cfg(feature = "h7")]
         {
-            rcc.apb4enr.modify(|_, w| w.syscfgen().set_bit());
-            rcc.apb4rstr.modify(|_, w| w.syscfgrst().set_bit());
+            rcc.apb4enr.modify(|_, w| w.syscfgen().bit(true));
+            rcc.apb4rstr.modify(|_, w| w.syscfgrst().bit(true));
             rcc.apb4rstr.modify(|_, w| w.syscfgrst().clear_bit());
         }
 
@@ -532,7 +532,7 @@ impl Clocks {
                 // (Handled above)
 
                 // 3. Enable the ODEN bit in the SYSCFG_PWRCR register.
-                syscfg.pwrcr.modify(|_, w| w.oden().set_bit());
+                syscfg.pwrcr.modify(|_, w| w.oden().bit(true));
 
                 // 4. Wait for VOSRDY to be set.
                 i = 0;
@@ -577,27 +577,27 @@ impl Clocks {
         // Enable oscillators, and wait until ready.
         match self.input_src {
             InputSrc::Csi => {
-                rcc.cr.modify(|_, w| w.csion().bit(true));
+                rcc.cr().modify(|_, w| w.csion().bit(true));
                 i = 0;
-                while rcc.cr.read().csirdy().bit_is_clear() {
+                while rcc.cr().read().csirdy().bit_is_clear() {
                     wait_hang!(i);
                 }
             }
             InputSrc::Hse(_) => {
-                rcc.cr.modify(|_, w| w.hseon().bit(true));
+                rcc.cr().modify(|_, w| w.hseon().bit(true));
                 // Wait for the HSE to be ready.
                 i = 0;
-                while rcc.cr.read().hserdy().bit_is_clear() {
+                while rcc.cr().read().hserdy().bit_is_clear() {
                     wait_hang!(i);
                 }
             }
             InputSrc::Hsi(div) => {
-                rcc.cr.modify(|_, w| unsafe {
+                rcc.cr().modify(|_, w| unsafe {
                     w.hsidiv().bits(div as u8);
                     w.hsion().bit(true)
                 });
                 i = 0;
-                while rcc.cr.read().hsirdy().bit_is_clear() {
+                while rcc.cr().read().hsirdy().bit_is_clear() {
                     wait_hang!(i);
                 }
             }
@@ -605,26 +605,26 @@ impl Clocks {
                 // todo: PLL setup here is DRY with the HSE, HSI, and Csi setup above.
                 match self.pll_src {
                     PllSrc::Csi => {
-                        rcc.cr.modify(|_, w| w.csion().bit(true));
+                        rcc.cr().modify(|_, w| w.csion().bit(true));
                         i = 0;
-                        while rcc.cr.read().csirdy().bit_is_clear() {
+                        while rcc.cr().read().csirdy().bit_is_clear() {
                             wait_hang!(i);
                         }
                     }
                     PllSrc::Hse(_) => {
-                        rcc.cr.modify(|_, w| w.hseon().bit(true));
+                        rcc.cr().modify(|_, w| w.hseon().bit(true));
                         i = 0;
-                        while rcc.cr.read().hserdy().bit_is_clear() {
+                        while rcc.cr().read().hserdy().bit_is_clear() {
                             wait_hang!(i);
                         }
                     }
                     PllSrc::Hsi(div) => {
-                        rcc.cr.modify(|_, w| unsafe {
+                        rcc.cr().modify(|_, w| unsafe {
                             w.hsidiv().bits(div as u8);
                             w.hsion().bit(true)
                         });
                         i = 0;
-                        while rcc.cr.read().hsirdy().bit_is_clear() {
+                        while rcc.cr().read().hsirdy().bit_is_clear() {
                             wait_hang!(i);
                         }
                     }
@@ -633,12 +633,12 @@ impl Clocks {
             }
         }
 
-        rcc.cr.modify(|_, w| {
+        rcc.cr().modify(|_, w| {
             // Enable bypass mode on HSE, since we're using a ceramic oscillator.
             w.hsebyp().bit(self.hse_bypass)
         });
 
-        rcc.cfgr.modify(|_, w| unsafe {
+        rcc.cfgr().modify(|_, w| unsafe {
             w.sw().bits(self.input_src.bits());
             w.stopwuck().bit(self.stop_wuck as u8 != 0)
         });
@@ -723,7 +723,8 @@ impl Clocks {
             // also: ADC and DAC.
         });
 
-        rcc.cr.modify(|_, w| w.hsecsson().bit(self.security_system));
+        rcc.cr()
+            .modify(|_, w| w.hsecsson().bit(self.security_system));
 
         // todo: Allow configuring the PLL in fractional mode.
 
@@ -735,9 +736,9 @@ impl Clocks {
         // the input source is PLL1.
         if let InputSrc::Pll1 = self.input_src {
             // Turn off the PLL: Required for modifying some of the settings below.
-            rcc.cr.modify(|_, w| w.pll1on().clear_bit());
+            rcc.cr().modify(|_, w| w.pll1on().clear_bit());
             // Wait for the PLL to no longer be ready before executing certain writes.
-            while rcc.cr.read().pll1rdy().bit_is_set() {}
+            while rcc.cr().read().pll1rdy().bit_is_set() {}
 
             // Set and reset by software to select the proper reference frequency range used for PLL1.
             // This bit must be written before enabling the PLL1.
@@ -818,18 +819,18 @@ impl Clocks {
             });
 
             // Now turn PLL back on, once we're configured things that can only be set with it off.
-            rcc.cr.modify(|_, w| w.pll1on().set_bit());
+            rcc.cr().modify(|_, w| w.pll1on().bit(true));
             i = 0;
-            while rcc.cr.read().pll1rdy().bit_is_clear() {
+            while rcc.cr().read().pll1rdy().bit_is_clear() {
                 wait_hang!(i);
             }
         }
 
         // todo DRY
         if self.pll2.enabled {
-            rcc.cr.modify(|_, w| w.pll2on().clear_bit());
+            rcc.cr().modify(|_, w| w.pll2on().clear_bit());
             i = 0;
-            while rcc.cr.read().pll2rdy().bit_is_set() {
+            while rcc.cr().read().pll2rdy().bit_is_set() {
                 wait_hang!(i);
             }
 
@@ -884,17 +885,17 @@ impl Clocks {
                 w.pll2r().bits(self.pll2.divr - 1)
             });
 
-            rcc.cr.modify(|_, w| w.pll2on().set_bit());
+            rcc.cr().modify(|_, w| w.pll2on().bit(true));
             i = 0;
-            while rcc.cr.read().pll2rdy().bit_is_clear() {
+            while rcc.cr().read().pll2rdy().bit_is_clear() {
                 wait_hang!(i);
             }
         }
 
         if self.pll3.enabled {
-            rcc.cr.modify(|_, w| w.pll3on().clear_bit());
+            rcc.cr().modify(|_, w| w.pll3on().clear_bit());
             i = 0;
-            while rcc.cr.read().pll3rdy().bit_is_set() {
+            while rcc.cr().read().pll3rdy().bit_is_set() {
                 wait_hang!(i);
             }
 
@@ -949,17 +950,17 @@ impl Clocks {
                 w.pll3r().bits(self.pll3.divr - 1)
             });
 
-            rcc.cr.modify(|_, w| w.pll3on().set_bit());
+            rcc.cr().modify(|_, w| w.pll3on().bit(true));
             i = 0;
-            while rcc.cr.read().pll3rdy().bit_is_clear() {
+            while rcc.cr().read().pll3rdy().bit_is_clear() {
                 wait_hang!(i);
             }
         }
 
         if self.hsi48_on {
-            rcc.cr.modify(|_, w| w.hsi48on().set_bit());
+            rcc.cr().modify(|_, w| w.hsi48on().bit(true));
             i = 0;
-            while rcc.cr.read().hsi48rdy().bit_is_clear() {
+            while rcc.cr().read().hsi48rdy().bit_is_clear() {
                 wait_hang!(i);
             }
         }
@@ -988,9 +989,9 @@ impl Clocks {
         // todo: But this saves a few reg writes.
         match self.input_src {
             InputSrc::Hse(_) => {
-                rcc.cr.modify(|_, w| w.hseon().set_bit());
+                rcc.cr().modify(|_, w| w.hseon().bit(true));
                 i = 0;
-                while rcc.cr.read().hserdy().bit_is_clear() {
+                while rcc.cr().read().hserdy().bit_is_clear() {
                     wait_hang!(i);
                 }
 
@@ -1001,20 +1002,20 @@ impl Clocks {
                 // todo: DRY with above.
                 match self.pll_src {
                     PllSrc::Hse(_) => {
-                        rcc.cr.modify(|_, w| w.hseon().set_bit());
+                        rcc.cr().modify(|_, w| w.hseon().bit(true));
                         i = 0;
-                        while rcc.cr.read().hserdy().bit_is_clear() {
+                        while rcc.cr().read().hserdy().bit_is_clear() {
                             wait_hang!(i);
                         }
                     }
                     PllSrc::Hsi(div) => {
                         // Generally reverts to Csi (see note below)
-                        rcc.cr.modify(|_, w| unsafe {
+                        rcc.cr().modify(|_, w| unsafe {
                             w.hsidiv().bits(div as u8); // todo: Do we need to reset the HSI div after low power?
                             w.hsion().bit(true)
                         });
                         i = 0;
-                        while rcc.cr.read().hsirdy().bit_is_clear() {
+                        while rcc.cr().read().hsirdy().bit_is_clear() {
                             wait_hang!(i);
                         }
                     }
@@ -1023,18 +1024,18 @@ impl Clocks {
                 }
 
                 // todo: PLL 2 and 3?
-                rcc.cr.modify(|_, w| w.pll1on().clear_bit());
+                rcc.cr().modify(|_, w| w.pll1on().clear_bit());
                 i = 0;
-                while rcc.cr.read().pll1rdy().bit_is_set() {
+                while rcc.cr().read().pll1rdy().bit_is_set() {
                     wait_hang!(i);
                 }
 
                 rcc.cfgr
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
 
-                rcc.cr.modify(|_, w| w.pll1on().set_bit());
+                rcc.cr().modify(|_, w| w.pll1on().bit(true));
                 i = 0;
-                while rcc.cr.read().pll1rdy().bit_is_clear() {
+                while rcc.cr().read().pll1rdy().bit_is_clear() {
                     wait_hang!(i);
                 }
             }
@@ -1045,12 +1046,12 @@ impl Clocks {
                     // Configured by HW to force Csi or HSI16 oscillator selection when exiting Stop mode or in
                     // case of failure of the HSE oscillator, depending on STOPWUCK value."
                     // In tests, from stop, it tends to revert to Csi.
-                    rcc.cr.modify(|_, w| unsafe {
+                    rcc.cr().modify(|_, w| unsafe {
                         w.hsidiv().bits(div as u8); // todo: Do we need to reset the HSI div after low power?
                         w.hsion().bit(true)
                     });
                     i = 0;
-                    while rcc.cr.read().hsirdy().bit_is_clear() {
+                    while rcc.cr().read().hsirdy().bit_is_clear() {
                         wait_hang!(i);
                     }
                 }
@@ -1101,7 +1102,7 @@ impl Clocks {
     ///```
     pub fn pll_is_enabled(&self) -> bool {
         let rcc = unsafe { &(*RCC::ptr()) };
-        rcc.cr.read().pll1on().bit_is_set()
+        rcc.cr().read().pll1on().bit_is_set()
     }
 
     /// Calculate the sysclock frequency, in hz. Note that for dual core variants, this is for CPU1.
@@ -1369,9 +1370,9 @@ impl Clocks {
                 // protection, unless the register is already unlocked.
                 // 2. Write the desired new option byte values in the corresponding option registers
                 // (FLASH_XXX_PRG).
-                // flash_regs.optsr2_prg.modify(|_, w| w.cpufreq_boost().set_bit());
+                // flash_regs.optsr2_prg.modify(|_, w| w.cpufreq_boost().bit(true));
                 // 3. Set the option byte start change OPTSTART bit to 1 in the FLASH_OPTCR register.
-                // flash_regs.optcr.modify(|_, w| w.optstart().set_bit());
+                // flash_regs.optcr.modify(|_, w| w.optstart().bit(true));
                 // 4. Wait until OPT_BUSY bit is cleared.
                 // while flash_regs.optcr.read().opt_busy().bit_is_set() { }
 
@@ -1409,16 +1410,16 @@ pub fn enable_crs(sync_src: CrsSyncSrc) {
     let crs = unsafe { &(*CRS::ptr()) };
     let rcc = unsafe { &(*RCC::ptr()) };
 
-    rcc.apb1henr.modify(|_, w| w.crsen().set_bit());
+    rcc.apb1henr.modify(|_, w| w.crsen().bit(true));
 
     crs.cfgr
         .modify(|_, w| unsafe { w.syncsrc().bits(sync_src as u8) });
 
-    crs.cr.modify(|_, w| {
+    crs.cr().modify(|_, w| {
         // Set autotrim enabled.
-        w.autotrimen().set_bit();
+        w.autotrimen().bit(true);
         // Enable CRS
-        w.cen().set_bit()
+        w.cen().bit(true)
     });
 
     // "The internal 48 MHz RC oscillator is mainly dedicated to provide a high precision clock to

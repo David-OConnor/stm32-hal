@@ -216,7 +216,7 @@ macro_rules! make_comp {
             }
 
             pub fn enable(&self) {
-                self.csr().modify(|_, w| w.en().set_bit());
+                self.csr().modify(|_, w| w.en().bit(true));
             }
 
             pub fn disable(&self) {
@@ -285,7 +285,7 @@ macro_rules! make_comp {
             /// a hardware reset.
             pub fn lock(&mut self) {
                 self.is_locked = true;
-                self.csr().modify(|_, w| w.lock().set_bit());
+                self.csr().modify(|_, w| w.lock().bit(true));
             }
 
             /// Gets the output level of the comparator
@@ -306,7 +306,7 @@ macro_rules! make_comp {
                     }
                     else if #[cfg(feature = "h7")] {
                         // On the H7, the comparator output is in a separate status register
-                        let status = unsafe { &(*pac::COMP1::ptr()).sr.read() };
+                        let status = unsafe { &(*pac::COMP1::ptr()).sr().read() };
 
                         // Check which channel this impl is for
                         match "$csr_reg" {

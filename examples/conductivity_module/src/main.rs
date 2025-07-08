@@ -173,7 +173,7 @@ fn USART1() {
         // this "msg_recieved" code.
         // for i in 0..MSG_SIZE {
         //     // Wait for the next bit
-        //     while unsafe {(*pac::USART1::ptr()).isr.read().rxne().bit_is_clear()} {}
+        //     while unsafe {(*pac::USART1::ptr()).isr().read().rxne().bit_is_clear()} {}
         //     msg[i] = rx.read().unwrap_or(0);
         // }
         uart.read(&mut msg);

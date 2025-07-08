@@ -130,48 +130,48 @@ impl Rtc {
 
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "f4"))] {
-                rcc.apb1enr.modify(|_, w| w.pwren().set_bit());
-                pwr.cr.read(); // read to allow the pwr clock to enable
-                pwr.cr.modify(|_, w| w.dbp().set_bit());
-                while pwr.cr.read().dbp().bit_is_clear() {}
+                rcc.apb1enr.modify(|_, w| w.pwren().bit(true));
+                pwr.cr().read(); // read to allow the pwr clock to enable
+                pwr.cr().modify(|_, w| w.dbp().bit(true));
+                while pwr.cr().read().dbp().bit_is_clear() {}
             } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "l412", feature = "wb", feature = "wl"))] {
                 // 1. Enable the power interface clock by setting the PWREN bits in the Section 6.4.18:
                 // APB1 peripheral clock enable register 1 (RCC_APB1ENR1)
                 #[cfg(not(any(feature = "wb", feature = "wl")))]
                 rcc.apb1enr1.modify(|_, w| {
-                    w.pwren().set_bit();
-                    w.rtcapben().set_bit()
+                    w.pwren().bit(true);
+                    w.rtcapben().bit(true)
                 });
                 #[cfg(any(feature = "wb", feature = "wl"))]
-                rcc.apb1enr1.modify(|_, w| w.rtcapben().set_bit());
+                rcc.apb1enr1.modify(|_, w| w.rtcapben().bit(true));
 
-                rcc.apb1smenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
-                pwr.cr1.read(); // Read to allow the pwr clock to enable
+                rcc.apb1smenr1.modify(|_, w| w.rtcapbsmen().bit(true));  // In sleep and stop modes.
+                pwr.cr1().read(); // Read to allow the pwr clock to enable
                 // 2. Set the DBP bit in the Power control register 1 (PWR_CR1) to enable access to the
                 // backup domain
-                pwr.cr1.modify( | _, w| w.dbp().set_bit()); // Unlock the backup domain
-                while pwr.cr1.read().dbp().bit_is_clear() {}
+                pwr.cr1().modify( | _, w| w.dbp().bit(true)); // Unlock the backup domain
+                while pwr.cr1().read().dbp().bit_is_clear() {}
             } else if #[cfg(any(feature = "g0"))] {
                 rcc.apbenr1.modify(|_, w| {
-                    w.pwren().set_bit();
-                    w.rtcapben().set_bit()
+                    w.pwren().bit(true);
+                    w.rtcapben().bit(true)
                 });
-                rcc.apbsmenr1.modify(|_, w| w.rtcapbsmen().set_bit());  // In sleep and stop modes.
-                pwr.cr1.read();
-                pwr.cr1.modify( | _, w| w.dbp().set_bit());
-                while pwr.cr1.read().dbp().bit_is_clear() {}
+                rcc.apbsmenr1.modify(|_, w| w.rtcapbsmen().bit(true));  // In sleep and stop modes.
+                pwr.cr1().read();
+                pwr.cr1().modify( | _, w| w.dbp().bit(true));
+                while pwr.cr1().read().dbp().bit_is_clear() {}
             } else if #[cfg(feature = "h5")] {
-                rcc.apb3enr.modify(|_, w| w.rtcapben().set_bit());
-                rcc.apb3lpenr.modify(|_, w| w.rtcapblpen().set_bit());  // In sleep and stop modes.
+                rcc.apb3enr.modify(|_, w| w.rtcapben().bit(true));
+                rcc.apb3lpenr.modify(|_, w| w.rtcapblpen().bit(true));  // In sleep and stop modes.
                 pwr.dbpcr.read(); // read to allow the pwr clock to enable // todo??
-                pwr.dbpcr.modify( | _, w| w.dbp().set_bit());
+                pwr.dbpcr.modify( | _, w| w.dbp().bit(true));
                 while pwr.dbpcr.read().dbp().bit_is_clear() {}
             } else { // eg h7
-                rcc.apb4enr.modify(|_, w| w.rtcapben().set_bit());
-                rcc.apb4lpenr.modify(|_, w| w.rtcapblpen().set_bit());  // In sleep and stop modes.
-                pwr.cr1.read(); // read to allow the pwr clock to enable
-                pwr.cr1.modify( | _, w| w.dbp().set_bit());
-                while pwr.cr1.read().dbp().bit_is_clear() {}
+                rcc.apb4enr.modify(|_, w| w.rtcapben().bit(true));
+                rcc.apb4lpenr.modify(|_, w| w.rtcapblpen().bit(true));  // In sleep and stop modes.
+                pwr.cr1().read(); // read to allow the pwr clock to enable
+                pwr.cr1().modify( | _, w| w.dbp().bit(true));
+                while pwr.cr1().read().dbp().bit_is_clear() {}
             }
         }
 
@@ -181,13 +181,13 @@ impl Rtc {
                 cfg_if! {
                     if #[cfg(feature = "wb")] {
                     // todo: LSI2?
-                        rcc.csr.modify(|_, w| w.lsi1on().set_bit());
+                        rcc.csr.modify(|_, w| w.lsi1on().bit(true));
                         while rcc.csr.read().lsi1rdy().bit_is_clear() {}
                     } else if #[cfg(feature = "h5")] {
-                        rcc.bdcr.modify(|_, w| w.lsion().set_bit());
+                        rcc.bdcr.modify(|_, w| w.lsion().bit(true));
                         while rcc.bdcr.read().lsirdy().bit_is_clear() {}
                     } else {
-                        rcc.csr.modify(|_, w| w.lsion().set_bit());
+                        rcc.csr.modify(|_, w| w.lsion().bit(true));
                         while rcc.csr.read().lsirdy().bit_is_clear() {}
                     }
                 }
@@ -196,7 +196,7 @@ impl Rtc {
                 // Can only set lsebyp when lse is off, so do this as a separate step.
                 rcc.bdcr
                     .modify(|_, w| w.lsebyp().bit(config.bypass_lse_output));
-                rcc.bdcr.modify(|_, w| w.lseon().set_bit());
+                rcc.bdcr.modify(|_, w| w.lseon().bit(true));
                 while rcc.bdcr.read().lserdy().bit_is_clear() {}
             }
             _ => (),
@@ -207,11 +207,11 @@ impl Rtc {
             unsafe { w.rtcsel().bits(result.config.clock_source as u8) };
             // 4. Enable the RTC clock by setting the RTCEN [15] bit in the Backup domain control
             // register (RCC_BDCR)
-            w.rtcen().set_bit()
+            w.rtcen().bit(true)
         });
 
         result.edit_regs(false, |regs| {
-            regs.cr.modify(
+            regs.cr().modify(
                 |_, w| {
                     unsafe {
                         w.fmt()
@@ -241,37 +241,37 @@ impl Rtc {
 
     /// Sets calendar clock to 24 hr format
     pub fn set_24h_fmt(&mut self) {
-        self.edit_regs(true, |regs| regs.cr.modify(|_, w| w.fmt().clear_bit()));
+        self.edit_regs(true, |regs| regs.cr().modify(|_, w| w.fmt().clear_bit()));
     }
 
     /// Sets calendar clock to 12 hr format
     pub fn set_12h_fmt(&mut self) {
-        self.edit_regs(true, |regs| regs.cr.modify(|_, w| w.fmt().set_bit()));
+        self.edit_regs(true, |regs| regs.cr().modify(|_, w| w.fmt().bit(true)));
     }
 
     /// Reads current hour format selection
     pub fn is_24h_fmt(&self) -> bool {
-        !self.regs.cr.read().fmt().bit()
+        !self.regs.cr().read().fmt().bit()
     }
 
     // /// Setup the alarm. See AN4759, section 2.3.1.
     // /// `sleep_time` is in ms. `Table 8` desribes these steps.
     // pub fn set_alarm(&mut self, exti: &mut EXTI) {
     // note: STM3241x and 42x have diff addresses, and are PAC incompatible!
-    //     exti.imr1.modify(|_, w| w.mr18().unmasked());
-    //     exti.rtsr1.modify(|_, w| w.tr18().set_bit());
+    //     exti.imr1().modify(|_, w| w.mr18().unmasked());
+    //     exti.rtsr1().modify(|_, w| w.tr18().bit(true));
     //     exti.ftsr1.modify(|_, w| w.tr18().clear_bit());
     //
     //     self.edit_regs(false, |regs| {
-    //         regs.cr.modify(|_, w| w.alrae().clear_bit());
+    //         regs.cr().modify(|_, w| w.alrae().clear_bit());
     //
-    //         while regs.cr.read().alrae().bit_is_set() {}
+    //         while regs.cr().read().alrae().bit_is_set() {}
     //
     //         // todo: Set the alarm time. This function will be broken until this is accomplished.
     //         // self.regs.alrmar.modify(|_, w| unsafe {});
     //
-    //         regs.cr.modify(|_, w| w.alrae().set_bit());
-    //         while regs.cr.read().alrae().bit_is_clear() {}
+    //         regs.cr().modify(|_, w| w.alrae().bit(true));
+    //         while regs.cr().read().alrae().bit_is_clear() {}
     //     })
     // }
 
@@ -396,29 +396,29 @@ impl Rtc {
 
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "l4"))] {
-                exti.imr1.modify(|_, w| w.mr20().unmasked());
-                exti.rtsr1.modify(|_, w| w.tr20().set_bit());
+                exti.imr1().modify(|_, w| w.mr20().unmasked());
+                exti.rtsr1().modify(|_, w| w.tr20().bit(true));
                 exti.ftsr1.modify(|_, w| w.tr20().clear_bit());
             } else if #[cfg(feature = "f4")] {
                 exti.imr.modify(|_, w| w.mr20().unmasked());
-                exti.rtsr.modify(|_, w| w.tr20().set_bit());
+                exti.rtsr.modify(|_, w| w.tr20().bit(true));
                 exti.ftsr.modify(|_, w| w.tr20().clear_bit());
             } else if #[cfg(feature = "g4")]{
-                exti.imr1.modify(|_, w| w.im20().unmasked());
-                exti.rtsr1.modify(|_, w| w.rt20().set_bit());
+                exti.imr1().modify(|_, w| w.im20().unmasked());
+                exti.rtsr1().modify(|_, w| w.rt20().bit(true));
                 exti.ftsr1.modify(|_, w| w.ft20().clear_bit());
             } else if #[cfg(any(feature = "l5", feature = "g0", feature = "wb", feature = "wl", feature = "h5"))] {
-                // exti.imr1.modify(|_, w| w.mr20().unmasked());
-                // exti.rtsr1.modify(|_, w| w.rt20().set_bit());
+                // exti.imr1().modify(|_, w| w.mr20().unmasked());
+                // exti.rtsr1().modify(|_, w| w.rt20().bit(true));
                 // exti.ftsr1.modify(|_, w| w.ft20().clear_bit());
 
            } else if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
                 exti.c1imr1.modify(|_, w| w.mr20().unmasked());
-                exti.rtsr1.modify(|_, w| w.tr20().set_bit());
+                exti.rtsr1().modify(|_, w| w.tr20().bit(true));
                 exti.ftsr1.modify(|_, w| w.tr20().clear_bit());
            } else { // H7
                 exti.cpuimr1.modify(|_, w| w.mr20().unmasked());
-                exti.rtsr1.modify(|_, w| w.tr20().set_bit());
+                exti.rtsr1().modify(|_, w| w.tr20().bit(true));
                 exti.ftsr1.modify(|_, w| w.tr20().clear_bit());
             }
         }
@@ -429,7 +429,7 @@ impl Rtc {
         self.regs.wpr.write(|w| unsafe { w.bits(0x53) });
 
         // Disable the wakeup timer. Clear WUTE bit in RTC_CR register
-        self.regs.cr.modify(|_, w| w.wute().clear_bit());
+        self.regs.cr().modify(|_, w| w.wute().clear_bit());
 
         // Ensure access to Wakeup auto-reload counter and bits WUCKSEL[2:0] is allowed.
         // Poll WUTWF until it is set in RTC_ISR (RTC2)/RTC_ICSR (RTC3) (May not be avail on F3)
@@ -437,23 +437,23 @@ impl Rtc {
             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
                 while self.regs.icsr.read().wutwf().bit_is_clear() {}
             } else {
-                while self.regs.isr.read().wutwf().bit_is_clear() {}
+                while self.regs.isr().read().wutwf().bit_is_clear() {}
             }
         }
 
         self.set_wakeup_interval_inner(sleep_time);
         // Re-enable the wakeup timer. Set WUTE bit in RTC_CR register.
         // The wakeup timer restarts counting down.
-        self.regs.cr.modify(|_, w| w.wute().set_bit());
+        self.regs.cr().modify(|_, w| w.wute().bit(true));
 
         // Enable the wakeup timer interrupt.
-        self.regs.cr.modify(|_, w| w.wutie().set_bit());
+        self.regs.cr().modify(|_, w| w.wutie().bit(true));
 
         cfg_if! {
             if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
-                self.regs.scr.write(|w| w.cwutf().set_bit());
+                self.regs.scr.write(|w| w.cwutf().bit(true));
             } else {
-                self.regs.isr.modify(|_, w| w.wutf().clear_bit());
+                self.regs.isr().modify(|_, w| w.wutf().clear_bit());
             }
         }
 
@@ -465,7 +465,7 @@ impl Rtc {
         unsafe {
             self.regs.wpr.write(|w| w.bits(0xCA));
             self.regs.wpr.write(|w| w.bits(0x53));
-            self.regs.cr.modify(|_, w| w.wute().set_bit());
+            self.regs.cr().modify(|_, w| w.wute().bit(true));
             self.regs.wpr.write(|w| w.bits(0xFF));
         }
     }
@@ -475,7 +475,7 @@ impl Rtc {
         unsafe {
             self.regs.wpr.write(|w| w.bits(0xCA));
             self.regs.wpr.write(|w| w.bits(0x53));
-            self.regs.cr.modify(|_, w| w.wute().clear_bit());
+            self.regs.cr().modify(|_, w| w.wute().clear_bit());
             self.regs.wpr.write(|w| w.bits(0xFF));
         }
     }
@@ -491,23 +491,23 @@ impl Rtc {
         self.regs.wpr.write(|w| unsafe { w.bits(0xCA) });
         self.regs.wpr.write(|w| unsafe { w.bits(0x53) });
 
-        let started_enabled = self.regs.cr.read().wute().bit_is_set();
+        let started_enabled = self.regs.cr().read().wute().bit_is_set();
         if started_enabled {
-            self.regs.cr.modify(|_, w| w.wute().clear_bit());
+            self.regs.cr().modify(|_, w| w.wute().clear_bit());
         }
 
         cfg_if! {
             if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
                 while self.regs.icsr.read().wutwf().bit_is_clear() {}
             } else {
-                while self.regs.isr.read().wutwf().bit_is_clear() {}
+                while self.regs.isr().read().wutwf().bit_is_clear() {}
             }
         }
 
         self.set_wakeup_interval_inner(sleep_time);
 
         if started_enabled {
-            self.regs.cr.modify(|_, w| w.wute().set_bit());
+            self.regs.cr().modify(|_, w| w.wute().bit(true));
         }
 
         self.regs.wpr.write(|w| unsafe { w.bits(0xFF) });
@@ -517,20 +517,20 @@ impl Rtc {
     /// Alternatively, you could call this in the RTC wakeup interrupt handler.
     pub fn clear_wakeup_flag(&mut self) {
         self.edit_regs(false, |regs| {
-            regs.cr.modify(|_, w| w.wute().clear_bit());
+            regs.cr().modify(|_, w| w.wute().clear_bit());
 
             cfg_if! {
                 if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
-                    regs.scr.write(|w| w.cwutf().set_bit());
+                    regs.scr.write(|w| w.cwutf().bit(true));
                 } else {
                     // Note that we clear this by writing 0, which isn't
                     // the standard convention, eg in other families, and
                     // other peripherals.
-                    regs.isr.modify(|_, w| w.wutf().clear_bit());
+                    regs.isr().modify(|_, w| w.wutf().clear_bit());
                 }
             }
 
-            regs.cr.modify(|_, w| w.wute().set_bit());
+            regs.cr().modify(|_, w| w.wute().bit(true));
         });
     }
 
@@ -554,7 +554,7 @@ impl Rtc {
                  // but not for initial enabling steps.
                  if init_mode && self.regs.icsr.read().initf().bit_is_clear() {
                      // are we already in init mode?
-                     self.regs.icsr.modify(|_, w| w.init().set_bit());
+                     self.regs.icsr.modify(|_, w| w.init().bit(true));
                      while self.regs.icsr.read().initf().bit_is_clear() {} // wait to return to init state
                  }
 
@@ -566,8 +566,8 @@ impl Rtc {
                      while self.regs.icsr.read().initf().bit_is_set() {}
                  }
             // } else if #[cfg(feature = "wl")] {
-            //     if init_mode && self.regs.isr.read().initf().bit_is_clear() {
-            //         self.regs.icsr.modify(|_, w| w.init().set_bit());
+            //     if init_mode && self.regs.isr().read().initf().bit_is_clear() {
+            //         self.regs.icsr.modify(|_, w| w.init().bit(true));
             //         while self.regs.icsr.read().initf().bit_is_clear() {} // wait to return to init state
             //     }
 
@@ -575,19 +575,19 @@ impl Rtc {
 
             //     if init_mode {
             //         self.regs.icsr.modify(|_, w| w.init().clear_bit()); // Exits init mode
-            //         while self.regs.sr.read().initf().bit_is_set() {}
+            //         while self.regs.sr().read().initf().bit_is_set() {}
             //     }
             } else {
-                 if init_mode && self.regs.isr.read().initf().bit_is_clear() {
-                     self.regs.isr.modify(|_, w| w.init().set_bit());
-                     while self.regs.isr.read().initf().bit_is_clear() {} // wait to return to init state
+                 if init_mode && self.regs.isr().read().initf().bit_is_clear() {
+                     self.regs.isr().modify(|_, w| w.init().bit(true));
+                     while self.regs.isr().read().initf().bit_is_clear() {} // wait to return to init state
                  }
 
                  closure(&mut self.regs);
 
                  if init_mode {
-                     self.regs.isr.modify(|_, w| w.init().clear_bit()); // Exits init mode
-                     while self.regs.isr.read().initf().bit_is_set() {}
+                     self.regs.isr().modify(|_, w| w.init().clear_bit()); // Exits init mode
+                     while self.regs.isr().read().initf().bit_is_set() {}
                  }
              }
         }
@@ -606,7 +606,7 @@ impl Rtc {
         let (st, su) = bcd2_encode(time.second())?;
 
         self.edit_regs(true, |regs| {
-            regs.tr.write(|w| unsafe {
+            regs.tr().write(|w| unsafe {
                 w.ht().bits(ht);
                 w.hu().bits(hu);
                 w.mnt().bits(mnt);
@@ -666,7 +666,7 @@ impl Rtc {
             return Err(Error::InvalidInputData);
         }
         self.edit_regs(true, |regs| {
-            regs.dr.modify(|_, w| unsafe { w.wdu().bits(weekday) })
+            regs.dr().modify(|_, w| unsafe { w.wdu().bits(weekday) })
         });
 
         Ok(())
@@ -729,7 +729,7 @@ impl Rtc {
         let (dt, du) = bcd2_encode(date.day())?;
 
         self.edit_regs(true, |regs| {
-            regs.dr.write(|w| unsafe {
+            regs.dr().write(|w| unsafe {
                 w.dt().bits(dt);
                 w.du().bits(du);
                 w.mt().bit(mt > 0);
@@ -759,7 +759,7 @@ impl Rtc {
         let (st, su) = bcd2_encode(date.second())?;
 
         self.edit_regs(true, |regs| {
-            regs.dr.write(|w| unsafe {
+            regs.dr().write(|w| unsafe {
                 w.dt().bits(dt);
                 w.du().bits(du);
                 w.mt().bit(mt > 0);
@@ -770,7 +770,7 @@ impl Rtc {
         });
 
         self.edit_regs(true, |regs| {
-            regs.tr.write(|w| unsafe {
+            regs.tr().write(|w| unsafe {
                 w.ht().bits(ht);
                 w.hu().bits(hu);
                 w.mnt().bits(mnt);
@@ -786,19 +786,19 @@ impl Rtc {
 
     /// Get the seconds component of the current time.
     pub fn get_seconds(&mut self) -> u8 {
-        let tr = self.regs.tr.read();
+        let tr = self.regs.tr().read();
         bcd2_decode(tr.st().bits(), tr.su().bits()) as u8
     }
 
     /// Get the minutes component of the current time.
     pub fn get_minutes(&mut self) -> u8 {
-        let tr = self.regs.tr.read();
+        let tr = self.regs.tr().read();
         bcd2_decode(tr.mnt().bits(), tr.mnu().bits()) as u8
     }
 
     /// Get the hours component of the current time.
     pub fn get_hours(&mut self) -> u8 {
-        let tr = self.regs.tr.read();
+        let tr = self.regs.tr().read();
         bcd2_decode(tr.ht().bits(), tr.hu().bits()) as u8
     }
 
@@ -814,26 +814,26 @@ impl Rtc {
 
     /// Get the weekday component of the current date.
     pub fn get_weekday(&mut self) -> u8 {
-        let dr = self.regs.dr.read();
+        let dr = self.regs.dr().read();
         bcd2_decode(dr.wdu().bits(), 0x00) as u8
     }
 
     /// Get the day component of the current date.
     pub fn get_day(&mut self) -> u8 {
-        let dr = self.regs.dr.read();
+        let dr = self.regs.dr().read();
         bcd2_decode(dr.dt().bits(), dr.du().bits()) as u8
     }
 
     /// Get the month component of the current date.
     pub fn get_month(&mut self) -> u8 {
-        let dr = self.regs.dr.read();
+        let dr = self.regs.dr().read();
         let mt: u8 = if dr.mt().bit() { 1 } else { 0 };
         bcd2_decode(mt, dr.mu().bits()) as u8
     }
 
     /// Get the year component of the current date.
     pub fn get_year(&mut self) -> u16 {
-        let dr = self.regs.dr.read();
+        let dr = self.regs.dr().read();
         (bcd2_decode(dr.yt().bits(), dr.yu().bits()) + 2000) as u16
     }
 

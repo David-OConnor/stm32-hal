@@ -40,49 +40,49 @@ impl SupplyConfig {
     /// Apply a given supply config. `voltage_level` only affects certain variants.
     pub fn setup(&self, pwr: &mut PWR, voltage_level: VoltageLevel) {
         match self {
-            Self::Default => pwr.cr3.modify(|_, w| unsafe {
+            Self::Default => pwr.cr3().modify(|_, w| unsafe {
                 w.sdlevel().bits(voltage_level as u8);
                 w.sdexthp().clear_bit();
-                w.sden().set_bit();
-                w.ldoen().set_bit();
+                w.sden().bit(true);
+                w.ldoen().bit(true);
                 w.bypass().clear_bit()
             }),
-            Self::Ldo => pwr.cr3.modify(|_, w| unsafe {
+            Self::Ldo => pwr.cr3().modify(|_, w| unsafe {
                 w.sden().clear_bit();
-                w.ldoen().set_bit();
+                w.ldoen().bit(true);
                 w.bypass().clear_bit()
             }),
-            Self::DirectSmps => pwr.cr3.modify(|_, w| unsafe {
+            Self::DirectSmps => pwr.cr3().modify(|_, w| unsafe {
                 w.sdexthp().clear_bit();
-                w.sden().set_bit();
+                w.sden().bit(true);
                 w.ldoen().clear_bit();
                 w.bypass().clear_bit()
             }),
-            Self::SmpsStepdownLdo => pwr.cr3.modify(|_, w| unsafe {
+            Self::SmpsStepdownLdo => pwr.cr3().modify(|_, w| unsafe {
                 w.sdlevel().bits(voltage_level as u8);
                 w.sdexthp().clear_bit();
-                w.sden().set_bit();
-                w.ldoen().set_bit();
+                w.sden().bit(true);
+                w.ldoen().bit(true);
                 w.bypass().clear_bit()
             }),
-            Self::SmpsStepdownExtLdo => pwr.cr3.modify(|_, w| unsafe {
+            Self::SmpsStepdownExtLdo => pwr.cr3().modify(|_, w| unsafe {
                 w.sdlevel().bits(voltage_level as u8);
-                w.sdexthp().set_bit();
-                w.sden().set_bit();
-                w.ldoen().set_bit();
+                w.sdexthp().bit(true);
+                w.sden().bit(true);
+                w.ldoen().bit(true);
                 w.bypass().clear_bit()
             }),
-            Self::SmpsStpdownExtBypass => pwr.cr3.modify(|_, w| unsafe {
+            Self::SmpsStpdownExtBypass => pwr.cr3().modify(|_, w| unsafe {
                 w.sdlevel().bits(voltage_level as u8);
-                w.sdexthp().set_bit();
-                w.sden().set_bit();
+                w.sdexthp().bit(true);
+                w.sden().bit(true);
                 w.ldoen().clear_bit();
-                w.bypass().set_bit()
+                w.bypass().bit(true)
             }),
-            Self::SmpsStepdownDisabledBypass => pwr.cr3.modify(|_, w| unsafe {
+            Self::SmpsStepdownDisabledBypass => pwr.cr3().modify(|_, w| unsafe {
                 w.sden().clear_bit();
                 w.ldoen().clear_bit();
-                w.bypass().set_bit()
+                w.bypass().bit(true)
             }),
         }
     }

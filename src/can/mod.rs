@@ -47,8 +47,8 @@ cfg_if! {
                         rcc_en_reset!(apb1, can1, rcc);
                     } else if #[cfg(feature = "h7")]{
                         // We don't yet have apb1h support in `rcc_en_reset`.
-                        rcc.apb1henr.modify(|_, w| w.fdcanen().set_bit());
-                        rcc.apb1hrstr.modify(|_, w| w.fdcanrst().set_bit());
+                        rcc.apb1henr.modify(|_, w| w.fdcanen().bit(true));
+                        rcc.apb1hrstr.modify(|_, w| w.fdcanrst().bit(true));
                         rcc.apb1hrstr.modify(|_, w| w.fdcanrst().clear_bit());
 
                         // set_message_ram_layout();
@@ -90,9 +90,9 @@ cfg_if! {
             // Note: we do this as 2 separate writes. RM: "CCE bit in FDCAN_CCCR register can only be set/cleared while INIT bit in FDCAN_CCCR
             // is set. CCE bit in FDCAN_CCCR register is automatically cleared when INIT bit in
             // FDCAN_CCCR is cleared."
-            regs.cccr.modify(|_, w| w.init().set_bit());
+            regs.cccr.modify(|_, w| w.init().bit(true));
             while regs.cccr.read().init().bit_is_clear() {}
-            regs.cccr.modify(|_, w| w.cce().set_bit());
+            regs.cccr.modify(|_, w| w.cce().bit(true));
             while regs.cccr.read().cce().bit_is_clear() {}
 
             let mut word_addr = 0x000; // todo: 0x400 for FDCAN2?

@@ -61,7 +61,7 @@ where
         // (Handled in GPIO modules and user code)
 
         // 2. Write to the SPI_CR1 register:
-        regs.cr1.modify(|_, w| unsafe {
+        regs.cr1().modify(|_, w| unsafe {
             // a) Configure the serial clock baud rate using the BR[2:0] bits (Note: 4)
             w.br().bits(baud_rate as u8);
             // b) Configure the CPOL and CPHA bits combination to define one of the four
@@ -84,19 +84,19 @@ where
             w.ssi().bit(cfg.slave_select == SlaveSelect::Software);
             // g) Configure the MSTR bit (in multimaster NSS configuration, avoid conflict state on
             // NSS if master is configured to prevent MODF error).
-            w.mstr().set_bit();
-            w.spe().set_bit() // Enable SPI
+            w.mstr().bit(true);
+            w.spe().bit(true) // Enable SPI
         });
 
         // 3. Write to SPI_CR2 register:
         #[cfg(feature = "f4")]
-        regs.cr2.modify(|_, w| {
+        regs.cr2().modify(|_, w| {
             w.ssoe()
                 .bit(cfg.slave_select == SlaveSelect::HardwareOutEnable)
         });
 
         #[cfg(not(feature = "f4"))]
-        regs.cr2.modify(|_, w| unsafe {
+        regs.cr2().modify(|_, w| unsafe {
             // a) Configure the DS[3:0] bits to select the data length for the transfer.
             w.ds().bits(cfg.data_size as u8);
             // b) Configure SSOE (Notes: 1 & 2 & 3).
@@ -125,11 +125,11 @@ where
 
     /// Change the SPI baud rate.
     pub fn reclock(&mut self, baud_rate: BaudRate) {
-        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+        self.regs.cr1().modify(|_, w| w.spe().clear_bit());
 
-        self.regs.cr1.modify(|_, w| unsafe {
+        self.regs.cr1().modify(|_, w| unsafe {
             w.br().bits(baud_rate as u8);
-            w.spe().set_bit()
+            w.spe().bit(true)
         });
     }
 
@@ -143,44 +143,44 @@ where
 
         // 1. Wait until FTLVL[1:0] = 00 (no more data to transmit).
         #[cfg(not(feature = "f4"))]
-        while self.regs.sr.read().ftlvl().bits() != 0 {}
+        while self.regs.sr().read().ftlvl().bits() != 0 {}
         // 2. Wait until BSY=0 (the last data frame is processed).
-        while self.regs.sr.read().bsy().bit_is_set() {}
+        while self.regs.sr().read().bsy().bit_is_set() {}
         // 3. Disable the SPI (SPE=0).
         // todo: Instructions say to stop SPI (including to close DMA comms), but this breaks non-DMA writes, which assume
         // todo SPI is enabled, the way we structure things.
-        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+        self.regs.cr1().modify(|_, w| w.spe().clear_bit());
         // 4. Read data until FRLVL[1:0] = 00 (read all the received data).
         #[cfg(not(feature = "f4"))]
-        while self.regs.sr.read().frlvl().bits() != 0 {
-            unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) };
+        while self.regs.sr().read().frlvl().bits() != 0 {
+            unsafe { ptr::read_volatile(&self.regs.dr() as *const _ as *const u8) };
         }
     }
 
     /// Read a single byte if available, or block until it's available.
     pub fn read(&mut self) -> Result<u8, SpiError> {
-        check_errors!(self.regs.sr.read());
+        check_errors!(self.regs.sr().read());
 
         // todo: Use fIFO like in H7 code?
 
         let mut i = 0;
-        while !self.regs.sr.read().rxne().bit_is_set() {
+        while !self.regs.sr().read().rxne().bit_is_set() {
             i += 1;
             if i >= MAX_ITERS {
                 return Err(SpiError::Hardware);
             }
         }
 
-        Ok(unsafe { ptr::read_volatile(&self.regs.dr as *const _ as *const u8) })
+        Ok(unsafe { ptr::read_volatile(&self.regs.dr() as *const _ as *const u8) })
     }
 
     /// Write a single byte if available, or block until it's available.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
     pub fn write_one(&mut self, byte: u8) -> Result<(), SpiError> {
-        check_errors!(self.regs.sr.read());
+        check_errors!(self.regs.sr().read());
 
         let mut i = 0;
-        while !self.regs.sr.read().txe().bit_is_set() {
+        while !self.regs.sr().read().txe().bit_is_set() {
             i += 1;
             if i >= MAX_ITERS {
                 return Err(SpiError::Hardware);
@@ -189,7 +189,7 @@ where
 
         #[allow(invalid_reference_casting)]
         unsafe {
-            ptr::write_volatile(&self.regs.dr as *const _ as *mut u8, byte)
+            ptr::write_volatile(&self.regs.dr() as *const _ as *mut u8, byte)
         };
 
         Ok(())
@@ -266,8 +266,8 @@ where
         // todo: Accept u16 words too.
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
-        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
-        self.regs.cr2.modify(|_, w| w.rxdmaen().set_bit());
+        self.regs.cr1().modify(|_, w| w.spe().clear_bit());
+        self.regs.cr2().modify(|_, w| w.rxdmaen().bit(true));
 
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel = R::read_chan();
@@ -276,7 +276,7 @@ where
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
-        let periph_addr = &self.regs.dr as *const _ as u32;
+        let periph_addr = &self.regs.dr() as *const _ as u32;
         let num_data = len as u16;
 
         match dma_periph {
@@ -311,7 +311,7 @@ where
             }
         }
 
-        self.regs.cr1.modify(|_, w| w.spe().set_bit());
+        self.regs.cr1().modify(|_, w| w.spe().bit(true));
     }
 
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
@@ -328,7 +328,7 @@ where
         // Static write and read buffers?
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
-        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+        self.regs.cr1().modify(|_, w| w.spe().clear_bit());
 
         // todo: Accept u16 words too.
 
@@ -352,7 +352,7 @@ where
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
-        let periph_addr = &self.regs.dr as *const _ as u32;
+        let periph_addr = &self.regs.dr() as *const _ as u32;
         let num_data = len as u16;
 
         match dma_periph {
@@ -388,10 +388,10 @@ where
         }
 
         // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
-        self.regs.cr2.modify(|_, w| w.txdmaen().set_bit());
+        self.regs.cr2().modify(|_, w| w.txdmaen().bit(true));
 
         // 4. Enable the SPI by setting the SPE bit.
-        self.regs.cr1.modify(|_, w| w.spe().set_bit());
+        self.regs.cr1().modify(|_, w| w.spe().bit(true));
     }
 
     /// Transfer data from DMA; this is the basic reading API, using both write and read transfers:
@@ -411,19 +411,19 @@ where
         let (ptr_write, len_write) = (buf_write.as_ptr(), buf_write.len());
         let (ptr_read, len_read) = (buf_read.as_mut_ptr(), buf_read.len());
 
-        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+        self.regs.cr1().modify(|_, w| w.spe().clear_bit());
 
         // todo: DRY here, with `write_dma`, and `read_dma`.
 
-        let periph_addr_write = &self.regs.dr as *const _ as u32;
-        let periph_addr_read = &self.regs.dr as *const _ as u32;
+        let periph_addr_write = &self.regs.dr() as *const _ as u32;
+        let periph_addr_read = &self.regs.dr() as *const _ as u32;
 
         let num_data_write = len_write as u16;
         let num_data_read = len_read as u16;
 
         // Be careful - order of enabling Rx and Tx may matter, along with other things like when we
         // enable the channels, and the SPI periph.
-        self.regs.cr2.modify(|_, w| w.rxdmaen().set_bit());
+        self.regs.cr2().modify(|_, w| w.rxdmaen().bit(true));
 
         #[cfg(any(feature = "f3", feature = "l4"))]
         let channel_write = R::write_chan();
@@ -494,18 +494,18 @@ where
             }
         }
 
-        self.regs.cr2.modify(|_, w| w.txdmaen().set_bit());
-        self.regs.cr1.modify(|_, w| w.spe().set_bit());
+        self.regs.cr2().modify(|_, w| w.txdmaen().bit(true));
+        self.regs.cr1().modify(|_, w| w.spe().bit(true));
     }
 
     /// Enable an interrupt. Note that unlike on other peripherals, there's no explicit way to
     /// clear these. RM: "Writing to the transmit data register always clears the TXE bit.
     /// The TXE flag is set by hardware."
     pub fn enable_interrupt(&mut self, interrupt_type: SpiInterrupt) {
-        self.regs.cr2.modify(|_, w| match interrupt_type {
-            SpiInterrupt::TxBufEmpty => w.txeie().set_bit(),
-            SpiInterrupt::RxBufNotEmpty => w.rxneie().set_bit(),
-            SpiInterrupt::Error => w.errie().set_bit(),
+        self.regs.cr2().modify(|_, w| match interrupt_type {
+            SpiInterrupt::TxBufEmpty => w.txeie().bit(true),
+            SpiInterrupt::RxBufNotEmpty => w.rxneie().bit(true),
+            SpiInterrupt::Error => w.errie().bit(true),
         });
     }
 }
