@@ -98,11 +98,11 @@ fn clear_error_flags(regs: &FLASH) {
             if sr.fasterr().bit_is_set() {
                 regs.sr().write(|w| w.fasterr().bit(true));
             }
-            #[cfg(not(any(feature = "wl", feature = "l4", feature = "g4")))]
+            #[cfg(not(any(feature = "wl", feature = "wb", feature = "l4", feature = "g4")))]
             if sr.misserr().bit_is_set() {
                 regs.sr().write(|w| w.misserr().bit(true));
             }
-            #[cfg(any(feature = "l4", feature = "g4"))]
+            #[cfg(any(feature = "l4", feature = "wb", feature = "g4"))]
             if sr.miserr().bit_is_set() {
                 regs.sr().write(|w| w.miserr().bit(true));
             }
@@ -296,7 +296,7 @@ impl Flash {
                         w.per().bit(true)
                     });
                 }
-            } else if #[cfg(any(feature = "l4", feature = "g4"))] {
+            } else if #[cfg(any(feature = "l4", feature = "wb", feature = "wl", feature = "g4"))] {
                  regs.cr().modify(|_, w| unsafe {
                     w.pnb().bits(page as u8);
                     w.per().bit(true)
@@ -339,7 +339,7 @@ impl Flash {
         Ok(())
     }
 
-    #[cfg(all(eature = "h7", not(feature = "h735")))]
+    #[cfg(all(feature = "h7", not(feature = "h735")))]
     /// Erase a 128kb sector. See H743 RM, section 4.3.10: FLASH erase operations; subsection
     /// Flash sector erase sequence. Note that this is similar to the procedure for other
     /// families, but has a different name "sector" vice "page", and the RM instructions
@@ -421,9 +421,9 @@ impl Flash {
         // 3. Set the MER1 bit or/and MER2 (depending on the bank) in the Flash control register
         // (FLASH_CR). Both banks can be selected in the same operation.
         cfg_if! {
-            if #[cfg(any(feature = "f3"))] {
+            if #[cfg(any(feature = "f", feature = "wb", feature = "wl"))] {
                 regs.cr().modify(|_, w| w.mer().bit(true));
-            } else if #[cfg(any(feature = "f4", feature = "g0", feature = "wb", feature = "wl"))] {
+            } else if #[cfg(any(feature = "g0", feature = "wl"))] {
                 regs.cr().modify(|_, w| w.mer1().bit(true));
             } else if #[cfg(feature = "h7")] {
                 // 3. Set the BER1/2 bit in the FLASH_CR1/2 register corresponding to the targeted bank.
@@ -463,9 +463,7 @@ impl Flash {
         cfg_if! {
             if #[cfg(feature = "h7")] {
                 regs.cr().modify(|_, w| w.ber().clear_bit());
-            } else if #[cfg(any(feature = "l4", feature = "g4"))] {
-                regs.cr().modify(|_, w| w.mer1().clear_bit());
-            } else if #[cfg(feature = "f3")] {
+            } else if #[cfg(any(feature = "f", feature = "wb", feature = "wl"))] {
                 regs.cr().modify(|_, w| w.mer().clear_bit());
             } else {
                 regs.cr().modify(|_, w| w.mer1().clear_bit());

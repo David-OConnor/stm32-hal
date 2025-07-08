@@ -92,7 +92,7 @@ where
 
         // Configure bus frequency into I2C peripheral
         self.regs
-            .cr2
+            .cr2()
             .write(|w| unsafe { w.freq().bits(freq as u8) });
 
         let trise = if speed <= 100_000 {
@@ -102,7 +102,9 @@ where
         };
 
         // Configure correct rise times
-        self.regs.trise.write(|w| w.trise().bits(trise as u8));
+        self.regs
+            .trise()
+            .write(|w| unsafe { w.trise().bits(trise as u8) });
 
         // I2C clock control calculation
         if speed <= 100_000 {
@@ -150,34 +152,34 @@ where
         // cleared otherwise, there may be an inherent race condition and flags may be missed.
         let sr1 = self.regs.sr1().read();
 
-        if sr1().timeout().bit_is_set() {
+        if sr1.timeout().bit_is_set() {
             self.regs.sr1().modify(|_, w| w.timeout().clear_bit());
             return Err(Error::TIMEOUT);
         }
 
-        if sr1().pecerr().bit_is_set() {
+        if sr1.pecerr().bit_is_set() {
             self.regs.sr1().modify(|_, w| w.pecerr().clear_bit());
             return Err(Error::CRC);
         }
 
-        if sr1().ovr().bit_is_set() {
+        if sr1.ovr().bit_is_set() {
             self.regs.sr1().modify(|_, w| w.ovr().clear_bit());
             return Err(Error::OVERRUN);
         }
 
-        if sr1().af().bit_is_set() {
+        if sr1.af().bit_is_set() {
             self.regs.sr1().modify(|_, w| w.af().clear_bit());
             return Err(Error::NACK);
         }
 
-        if sr1().arlo().bit_is_set() {
+        if sr1.arlo().bit_is_set() {
             self.regs.sr1().modify(|_, w| w.arlo().clear_bit());
             return Err(Error::ARBITRATION);
         }
 
         // The errata indicates that BERR may be incorrectly detected. It recommends ignoring and
         // clearing the BERR bit instead.
-        if sr1().berr().bit_is_set() {
+        if sr1.berr().bit_is_set() {
             self.regs.sr1().modify(|_, w| w.berr().clear_bit());
         }
 
@@ -196,13 +198,13 @@ where
             self.check_and_clear_error_flags()?;
 
             let sr2 = self.regs.sr2().read();
-            sr2().msl().bit_is_clear() && sr2().busy().bit_is_clear()
+            sr2.msl().bit_is_clear() && sr2.busy().bit_is_clear()
         } {}
 
         // Set up current address, we're trying to talk to
         self.regs
-            .dr
-            .write(|w| unsafe { w.bits(u32::from(addr) << 1) });
+            .dr()
+            .write(|w| unsafe { w.bits(u16::from(addr) << 1) });
 
         // Wait until address was sent
         while {
@@ -210,7 +212,7 @@ where
             let sr1 = self.check_and_clear_error_flags()?;
 
             // Wait for the address to be acknowledged
-            sr1().addr().bit_is_clear()
+            sr1.addr().bit_is_clear()
         } {}
 
         // Clear condition by reading SR2
@@ -233,7 +235,7 @@ where
         } {}
 
         // Push out a byte of data
-        self.regs.dr().write(|w| unsafe { w.bits(u32::from(byte)) });
+        self.regs.dr().write(|w| unsafe { w.bits(u16::from(byte)) });
 
         // Wait until byte is transferred
         while {

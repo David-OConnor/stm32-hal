@@ -948,7 +948,7 @@ impl Clocks {
         });
 
         #[cfg(feature = "wl")]
-        rcc.extcfgr
+        rcc.extcfgr()
             .modify(|_, w| unsafe { w.shdhpre().bits(self.hclk3_prescaler as u8) });
 
         rcc.cr().modify(|_, w| w.csson().bit(self.security_system));
@@ -1137,7 +1137,7 @@ impl Clocks {
         }
 
         #[cfg(feature = "wb")]
-        rcc.csr
+        rcc.csr()
             .modify(|_, w| unsafe { w.rfwkpsel().bits(self.rf_wakeup_src as u8) });
 
         Ok(())
@@ -1203,7 +1203,7 @@ impl Clocks {
                             w.msirgsel().bit(true)
                         });
                         #[cfg(feature = "wb")]
-                        rcc.cr
+                        rcc.cr()
                             .modify(|_, w| unsafe { w.msirange().bits(range as u8) });
 
                         if let StopWuck::Hsi = self.stop_wuck {
@@ -1265,7 +1265,7 @@ impl Clocks {
                     w.msirgsel().bit(true)
                 });
                 #[cfg(feature = "wb")]
-                rcc.cr
+                rcc.cr()
                     .modify(|_, w| unsafe { w.msirange().bits(range as u8) });
 
                 if let StopWuck::Hsi = self.stop_wuck {

@@ -404,9 +404,9 @@ impl Rtc {
                 exti.rtsr1().modify(|_, w| w.tr20().bit(true));
                 exti.ftsr1().modify(|_, w| w.tr20().clear_bit());
             } else if #[cfg(feature = "f4")] {
-                exti.imr.modify(|_, w| w.mr20().unmasked());
-                exti.rtsr.modify(|_, w| w.tr20().bit(true));
-                exti.ftsr.modify(|_, w| w.tr20().clear_bit());
+                exti.imr().modify(|_, w| w.mr20().unmasked());
+                exti.rtsr().modify(|_, w| w.tr20().bit(true));
+                exti.ftsr().modify(|_, w| w.tr20().clear_bit());
             } else if #[cfg(feature = "g4")]{
                 exti.imr1().modify(|_, w| w.im20().unmasked());
                 exti.rtsr1().modify(|_, w| w.rt20().bit(true));

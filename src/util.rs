@@ -327,6 +327,7 @@ pub trait RccPeriph {
     feature = "g041",
     feature = "g070",
     feature = "g030",
+    feature = "c0",
     feature = "wb",
     feature = "wl"
 )))]
@@ -366,6 +367,7 @@ impl RccPeriph for pac::TIM6 {
     feature = "g041",
     feature = "g070",
     feature = "g030",
+    feature = "c0",
     feature = "wb",
     feature = "wl"
 )))]
@@ -421,7 +423,7 @@ impl RccPeriph for pac::I2C1 {
     }
 }
 
-#[cfg(not(any(feature = "wb", feature = "f3x4")))]
+#[cfg(not(any(feature = "wb", feature = "f3x4", feature = "c0")))]
 impl RccPeriph for pac::I2C2 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb1, i2c2, rcc);
@@ -489,7 +491,7 @@ impl RccPeriph for pac::SPI1 {
     }
 }
 
-#[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl")))]
+#[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl", feature = "c0")))]
 impl RccPeriph for pac::SPI2 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb1, spi2, rcc);
@@ -520,6 +522,7 @@ impl RccPeriph for pac::SPI2 {
     feature = "f3x4",
     feature = "f410",
     feature = "g0",
+    feature = "c0",
     feature = "wb",
     feature = "wl"
 )))]
@@ -578,6 +581,7 @@ impl RccPeriph for pac::SPI4 {
     feature = "f3",
     feature = "f4",
     feature = "g0",
+    feature = "c0",
     feature = "g4", // todo: G4 PAC issue re getting channel-specific reg blocks.
     feature = "h7b3",
     feature = "wl"
@@ -792,6 +796,7 @@ impl RccPeriph for pac::USART2 {
     feature = "f413",
     feature = "l4x1",
     feature = "g0",
+    feature = "c0",
     feature = "wb",
     feature = "wl",
 )))]
@@ -993,7 +998,8 @@ impl RccPeriph for pac::LPUART1 {
     feature = "f411",
     feature = "f412",
     feature = "wb",
-    feature = "g0"
+    feature = "g0",
+    feature = "c0",
 )))]
 cfg_if! {
     if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {

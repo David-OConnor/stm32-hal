@@ -117,15 +117,15 @@ impl Hsem {
         // Cnier doesn't have individual fields
         match core {
             Core::C1 => {
-                let orig_value = self.regs.c1ier.read().bits();
+                let orig_value = self.regs.c1ier().read().bits();
                 self.regs
-                    .c1ier
+                    .c1ier()
                     .write(|w| unsafe { w.bits(orig_value | (1 << semaphore_num)) });
             }
             Core::C2 => {
-                let orig_value = self.regs.c2ier.read().bits();
+                let orig_value = self.regs.c2ier().read().bits();
                 self.regs
-                    .c2ier
+                    .c2ier()
                     .write(|w| unsafe { w.bits(orig_value | (1 << semaphore_num)) });
             }
         }
@@ -142,13 +142,13 @@ impl Hsem {
             Core::C1 => {
                 let orig_value = self.regs.c1icr().read().bits();
                 self.regs
-                    .c1icr
+                    .c1icr()
                     .write(|w| unsafe { w.bits(orig_value | (1 << semaphore_num)) });
             }
             Core::C2 => {
                 let orig_value = self.regs.c2icr().read().bits();
                 self.regs
-                    .c2icr
+                    .c2icr()
                     .write(|w| unsafe { w.bits(orig_value | (1 << semaphore_num)) });
             }
         }

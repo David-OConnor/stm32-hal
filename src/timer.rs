@@ -1200,20 +1200,19 @@ macro_rules! cc_4_channels {
             /// to find the portion of the duty cycle used.
             pub fn get_duty(&self, channel: TimChannel) -> $res {
                 cfg_if! {
-                    if #[cfg(feature = "g0")] {
-                        match channel {
+                    if #[cfg(any(feature = "wb", feature = "wl"))] {
+                        (match channel {
                             TimChannel::C1 => self.regs.ccr1().read().bits(),
                             TimChannel::C2 => self.regs.ccr2().read().bits(),
                             TimChannel::C3 => self.regs.ccr3().read().bits(),
                             #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4().read().bits(),
-                        }
-                    } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
+                        }) as $res
+                    } else if #[cfg(any(feature = "l5"))] {
                         match channel {
                             TimChannel::C1 => self.regs.ccr1().read().ccr1().bits(),
                             TimChannel::C2 => self.regs.ccr2().read().ccr2().bits(),
                             TimChannel::C3 => self.regs.ccr3().read().ccr3().bits(),
-                            #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4().read().ccr4().bits(),
                         }
                     } else {
@@ -1232,20 +1231,12 @@ macro_rules! cc_4_channels {
             /// needs to be re-run if you change ARR at any point.
             pub fn set_duty(&mut self, channel: TimChannel, duty: $res) {
                 cfg_if! {
-                    if #[cfg(feature = "g0")] {
-                        // match channel {
-                            // TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr1().bits(duty.try_into().unwrap())),
-                            // TimChannel::C2 => self.regs.ccr2().write(|w| w.ccr2().bits(duty.try_into().unwrap())),
-                            // TimChannel::C3 => self.regs.ccr3().write(|w| w.ccr3().bits(duty.try_into().unwrap())),
-                            // TimChannel::C4 => self.regs.ccr4().write(|w| w.ccr4().bits(duty.try_into().unwrap())),
-                        // };
-                    } else if #[cfg(any(feature = "l5", feature = "wb", feature = "wl"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         unsafe {
                             match channel {
                                 TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr1().bits(duty.try_into().unwrap())),
                                 TimChannel::C2 => self.regs.ccr2().write(|w| w.ccr2().bits(duty.try_into().unwrap())),
                                 TimChannel::C3 => self.regs.ccr3().write(|w| w.ccr3().bits(duty.try_into().unwrap())),
-                                #[cfg(not(feature = "wl"))]
                                 TimChannel::C4 => self.regs.ccr4().write(|w| w.ccr4().bits(duty.try_into().unwrap())),
                             };
                         }
@@ -1724,14 +1715,7 @@ macro_rules! cc_1_channel {
             /// to find the portion of the duty cycle used.
             pub fn get_duty(&self, channel: TimChannel) -> $res {
                 cfg_if! {
-                    if #[cfg(feature = "g0")] {
-                        match channel {
-                            // todo: This isn't right!!
-                            // todo: PAC is showing G0 having Tim15 as 32 bits. Is this right?
-                            TimChannel::C1 => self.regs.ccr1().read().bits().try_into().unwrap(),
-                            _ => panic!()
-                        }
-                    } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
+                    if #[cfg(any(feature = "l5"))] {
                         match channel {
                             TimChannel::C1 => self.regs.ccr1().read().ccr1().bits(),
                             _ => panic!()
@@ -1749,13 +1733,7 @@ macro_rules! cc_1_channel {
             /// needs to be re-run if you change ARR at any point.
             pub fn set_duty(&mut self, channel: TimChannel, duty: $res) {
                 cfg_if! {
-                    if #[cfg(feature = "g0")] {
-                        match channel {
-                            // todo: This isn't right!!
-                            TimChannel::C1 => self.regs.ccr1().read().bits(),
-                            _ => panic!()
-                        };
-                    } else if #[cfg(any(feature = "wb", feature = "wl", feature = "l5"))] {
+                     if #[cfg(any(feature = "l5"))] {
                         unsafe {
                             match channel {
                                 TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr1().bits(duty.try_into().unwrap())),
@@ -1904,6 +1882,7 @@ cfg_if! {
         feature = "g041",
         feature = "g070",
         feature = "g030",
+        feature = "c0",
         feature = "wb",
         feature = "wl"
     )))]  {
@@ -2127,7 +2106,7 @@ cfg_if! {
         feature = "l4x3",
         feature = "f410",
         feature = "wb",
-        feature = "wl"
+        feature = "wl",
     )))] {
         make_timer!(TIM3, tim3, 1, u32);
         cc_4_channels!(TIM3, u32);

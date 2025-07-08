@@ -113,7 +113,7 @@ impl Ipcc {
     pub fn receive_simplex(&mut self, core: Core, channel: IpccChannel) {
         // RM, section 37.3.2: To receive a communication, the channel occupied interrupt is unmasked (CHnOM = 0):
         match core {
-            Core::C1 => self.regs.c1mr.modify(|_, w| match channel {
+            Core::C1 => self.regs.c1mr().modify(|_, w| match channel {
                 IpccChannel::C1 => w.ch1om().clear_bit(),
                 IpccChannel::C2 => w.ch2om().clear_bit(),
                 IpccChannel::C3 => w.ch3om().clear_bit(),
@@ -121,7 +121,7 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5om().clear_bit(),
                 IpccChannel::C6 => w.ch6om().clear_bit(),
             }),
-            Core::C2 => self.regs.c2mr.modify(|_, w| match channel {
+            Core::C2 => self.regs.c2mr().modify(|_, w| match channel {
                 IpccChannel::C1 => w.ch1om().clear_bit(),
                 IpccChannel::C2 => w.ch2om().clear_bit(),
                 IpccChannel::C3 => w.ch3om().clear_bit(),
@@ -129,7 +129,7 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5om().clear_bit(),
                 IpccChannel::C6 => w.ch6om().clear_bit(),
             }),
-        }
+        };
 
         // - On a RX occupied interrupt, the receiving processor checks which channel became
         // occupied, masks the associated channel occupied interrupt (CHnOM) and reads the
@@ -171,12 +171,12 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5s().bit(true),
                 IpccChannel::C6 => w.ch6s().bit(true),
             }),
-        }
+        };
 
         // * Once the channel status flag CHnF is set, the channel free interrupt is unmasked
         // (CHnFM = 0).
         match core {
-            Core::C1 => self.regs.c1mr.modify(|_, w| match channel {
+            Core::C1 => self.regs.c1mr().modify(|_, w| match channel {
                 IpccChannel::C1 => w.ch1fm().clear_bit(),
                 IpccChannel::C2 => w.ch2fm().clear_bit(),
                 IpccChannel::C3 => w.ch3fm().clear_bit(),
@@ -184,7 +184,7 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5fm().clear_bit(),
                 IpccChannel::C6 => w.ch6fm().clear_bit(),
             }),
-            Core::C2 => self.regs.c2mr.modify(|_, w| match channel {
+            Core::C2 => self.regs.c2mr().modify(|_, w| match channel {
                 IpccChannel::C1 => w.ch1fm().clear_bit(),
                 IpccChannel::C2 => w.ch2fm().clear_bit(),
                 IpccChannel::C3 => w.ch3fm().clear_bit(),
@@ -192,7 +192,7 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5fm().clear_bit(),
                 IpccChannel::C6 => w.ch6fm().clear_bit(),
             }),
-        }
+        };
     }
 
     /// Send a half-duplex response.
@@ -215,42 +215,42 @@ impl Ipcc {
                 // always as 0". PAC reflects write-only
                 IpccChannel::C1 => {
                     self.regs.c1scr().write(|w| w.ch1c().bit(true));
-                    self.regs.c1mr.modify(|_, w| {
+                    self.regs.c1mr().modify(|_, w| {
                         w.ch1fm().clear_bit();
                         w.ch1om().clear_bit()
                     });
                 }
                 IpccChannel::C2 => {
                     self.regs.c1scr().write(|w| w.ch2c().bit(true));
-                    self.regs.c1mr.modify(|_, w| {
+                    self.regs.c1mr().modify(|_, w| {
                         w.ch2fm().clear_bit();
                         w.ch2om().clear_bit()
                     });
                 }
                 IpccChannel::C3 => {
                     self.regs.c1scr().write(|w| w.ch3c().bit(true));
-                    self.regs.c1mr.modify(|_, w| {
+                    self.regs.c1mr().modify(|_, w| {
                         w.ch3fm().clear_bit();
                         w.ch3om().clear_bit()
                     });
                 }
                 IpccChannel::C4 => {
                     self.regs.c1scr().write(|w| w.ch4c().bit(true));
-                    self.regs.c1mr.modify(|_, w| {
+                    self.regs.c1mr().modify(|_, w| {
                         w.ch4fm().clear_bit();
                         w.ch4om().clear_bit()
                     });
                 }
                 IpccChannel::C5 => {
                     self.regs.c1scr().write(|w| w.ch5c().bit(true));
-                    self.regs.c1mr.modify(|_, w| {
+                    self.regs.c1mr().modify(|_, w| {
                         w.ch5fm().clear_bit();
                         w.ch5om().clear_bit()
                     });
                 }
                 IpccChannel::C6 => {
                     self.regs.c1scr().write(|w| w.ch6c().bit(true));
-                    self.regs.c1mr.modify(|_, w| {
+                    self.regs.c1mr().modify(|_, w| {
                         w.ch6fm().clear_bit();
                         w.ch6om().clear_bit()
                     });
@@ -259,48 +259,48 @@ impl Ipcc {
             Core::C2 => match channel {
                 IpccChannel::C1 => {
                     self.regs.c2scr().write(|w| w.ch1c().bit(true));
-                    self.regs.c2mr.modify(|_, w| {
+                    self.regs.c2mr().modify(|_, w| {
                         w.ch1fm().clear_bit();
                         w.ch1om().clear_bit()
                     });
                 }
                 IpccChannel::C2 => {
                     self.regs.c2scr().write(|w| w.ch2c().bit(true));
-                    self.regs.c2mr.modify(|_, w| {
+                    self.regs.c2mr().modify(|_, w| {
                         w.ch2fm().clear_bit();
                         w.ch2om().clear_bit()
                     });
                 }
                 IpccChannel::C3 => {
                     self.regs.c2scr().write(|w| w.ch3c().bit(true));
-                    self.regs.c2mr.modify(|_, w| {
+                    self.regs.c2mr().modify(|_, w| {
                         w.ch3fm().clear_bit();
                         w.ch3om().clear_bit()
                     });
                 }
                 IpccChannel::C4 => {
                     self.regs.c2scr().write(|w| w.ch4c().bit(true));
-                    self.regs.c2mr.modify(|_, w| {
+                    self.regs.c2mr().modify(|_, w| {
                         w.ch4fm().clear_bit();
                         w.ch4om().clear_bit()
                     });
                 }
                 IpccChannel::C5 => {
                     self.regs.c2scr().write(|w| w.ch5c().bit(true));
-                    self.regs.c2mr.modify(|_, w| {
+                    self.regs.c2mr().modify(|_, w| {
                         w.ch5fm().clear_bit();
                         w.ch5om().clear_bit()
                     });
                 }
                 IpccChannel::C6 => {
                     self.regs.c2scr().write(|w| w.ch6c().bit(true));
-                    self.regs.c2mr.modify(|_, w| {
+                    self.regs.c2mr().modify(|_, w| {
                         w.ch6fm().clear_bit();
                         w.ch6om().clear_bit()
                     });
                 }
             },
-        }
+        };
     }
 
     /// Receive in half duplex mode.
@@ -333,7 +333,7 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5s().bit(true),
                 IpccChannel::C6 => w.ch6s().bit(true),
             }),
-        }
+        };
 
         // To receive the response the channel free interrupt is unmasked (CHnFM = 0):
         // * On a TX free interrupt, the sending processor checks which channel became free,
@@ -356,20 +356,20 @@ impl Ipcc {
         // todo currently this is for when processor 1 is transmitting.
         match core {
             Core::C1 => match channel {
-                IpccChannel::C1 => self.regs.c1toc2sr.read().ch1f().bit_is_clear(),
-                IpccChannel::C2 => self.regs.c1toc2sr.read().ch2f().bit_is_clear(),
-                IpccChannel::C3 => self.regs.c1toc2sr.read().ch3f().bit_is_clear(),
-                IpccChannel::C4 => self.regs.c1toc2sr.read().ch4f().bit_is_clear(),
-                IpccChannel::C5 => self.regs.c1toc2sr.read().ch5f().bit_is_clear(),
-                IpccChannel::C6 => self.regs.c1toc2sr.read().ch6f().bit_is_clear(),
+                IpccChannel::C1 => self.regs.c1toc2sr().read().ch1f().bit_is_clear(),
+                IpccChannel::C2 => self.regs.c1toc2sr().read().ch2f().bit_is_clear(),
+                IpccChannel::C3 => self.regs.c1toc2sr().read().ch3f().bit_is_clear(),
+                IpccChannel::C4 => self.regs.c1toc2sr().read().ch4f().bit_is_clear(),
+                IpccChannel::C5 => self.regs.c1toc2sr().read().ch5f().bit_is_clear(),
+                IpccChannel::C6 => self.regs.c1toc2sr().read().ch6f().bit_is_clear(),
             },
             Core::C2 => match channel {
-                IpccChannel::C1 => self.regs.c2toc1sr.read().ch1f().bit_is_clear(),
-                IpccChannel::C2 => self.regs.c2toc1sr.read().ch2f().bit_is_clear(),
-                IpccChannel::C3 => self.regs.c2toc1sr.read().ch3f().bit_is_clear(),
-                IpccChannel::C4 => self.regs.c2toc1sr.read().ch4f().bit_is_clear(),
-                IpccChannel::C5 => self.regs.c2toc1sr.read().ch5f().bit_is_clear(),
-                IpccChannel::C6 => self.regs.c2toc1sr.read().ch6f().bit_is_clear(),
+                IpccChannel::C1 => self.regs.c2toc1sr().read().ch1f().bit_is_clear(),
+                IpccChannel::C2 => self.regs.c2toc1sr().read().ch2f().bit_is_clear(),
+                IpccChannel::C3 => self.regs.c2toc1sr().read().ch3f().bit_is_clear(),
+                IpccChannel::C4 => self.regs.c2toc1sr().read().ch4f().bit_is_clear(),
+                IpccChannel::C5 => self.regs.c2toc1sr().read().ch5f().bit_is_clear(),
+                IpccChannel::C6 => self.regs.c2toc1sr().read().ch6f().bit_is_clear(),
             },
         }
     }
@@ -398,20 +398,20 @@ impl Ipcc {
     pub fn get_rx_channel(&self, core: Core, channel: IpccChannel) -> bool {
         match core {
             Core::C1 => match channel {
-                IpccChannel::C1 => self.regs.c1mr.read().ch1om().bit_is_clear(),
-                IpccChannel::C2 => self.regs.c1mr.read().ch2om().bit_is_clear(),
-                IpccChannel::C3 => self.regs.c1mr.read().ch3om().bit_is_clear(),
-                IpccChannel::C4 => self.regs.c1mr.read().ch4om().bit_is_clear(),
-                IpccChannel::C5 => self.regs.c1mr.read().ch5om().bit_is_clear(),
-                IpccChannel::C6 => self.regs.c1mr.read().ch6om().bit_is_clear(),
+                IpccChannel::C1 => self.regs.c1mr().read().ch1om().bit_is_clear(),
+                IpccChannel::C2 => self.regs.c1mr().read().ch2om().bit_is_clear(),
+                IpccChannel::C3 => self.regs.c1mr().read().ch3om().bit_is_clear(),
+                IpccChannel::C4 => self.regs.c1mr().read().ch4om().bit_is_clear(),
+                IpccChannel::C5 => self.regs.c1mr().read().ch5om().bit_is_clear(),
+                IpccChannel::C6 => self.regs.c1mr().read().ch6om().bit_is_clear(),
             },
             Core::C2 => match channel {
-                IpccChannel::C1 => self.regs.c2mr.read().ch1om().bit_is_clear(),
-                IpccChannel::C2 => self.regs.c2mr.read().ch2om().bit_is_clear(),
-                IpccChannel::C3 => self.regs.c2mr.read().ch3om().bit_is_clear(),
-                IpccChannel::C4 => self.regs.c2mr.read().ch4om().bit_is_clear(),
-                IpccChannel::C5 => self.regs.c2mr.read().ch5om().bit_is_clear(),
-                IpccChannel::C6 => self.regs.c2mr.read().ch6om().bit_is_clear(),
+                IpccChannel::C1 => self.regs.c2mr().read().ch1om().bit_is_clear(),
+                IpccChannel::C2 => self.regs.c2mr().read().ch2om().bit_is_clear(),
+                IpccChannel::C3 => self.regs.c2mr().read().ch3om().bit_is_clear(),
+                IpccChannel::C4 => self.regs.c2mr().read().ch4om().bit_is_clear(),
+                IpccChannel::C5 => self.regs.c2mr().read().ch5om().bit_is_clear(),
+                IpccChannel::C6 => self.regs.c2mr().read().ch6om().bit_is_clear(),
             },
         }
     }
@@ -419,27 +419,27 @@ impl Ipcc {
     pub fn get_tx_channel(&self, core: Core, channel: IpccChannel) -> bool {
         match core {
             Core::C1 => match channel {
-                IpccChannel::C1 => self.regs.c1mr.read().ch1fm().bit_is_clear(),
-                IpccChannel::C2 => self.regs.c1mr.read().ch2fm().bit_is_clear(),
-                IpccChannel::C3 => self.regs.c1mr.read().ch3fm().bit_is_clear(),
-                IpccChannel::C4 => self.regs.c1mr.read().ch4fm().bit_is_clear(),
-                IpccChannel::C5 => self.regs.c1mr.read().ch5fm().bit_is_clear(),
-                IpccChannel::C6 => self.regs.c1mr.read().ch6fm().bit_is_clear(),
+                IpccChannel::C1 => self.regs.c1mr().read().ch1fm().bit_is_clear(),
+                IpccChannel::C2 => self.regs.c1mr().read().ch2fm().bit_is_clear(),
+                IpccChannel::C3 => self.regs.c1mr().read().ch3fm().bit_is_clear(),
+                IpccChannel::C4 => self.regs.c1mr().read().ch4fm().bit_is_clear(),
+                IpccChannel::C5 => self.regs.c1mr().read().ch5fm().bit_is_clear(),
+                IpccChannel::C6 => self.regs.c1mr().read().ch6fm().bit_is_clear(),
             },
             Core::C2 => match channel {
-                IpccChannel::C1 => self.regs.c2mr.read().ch1fm().bit_is_clear(),
-                IpccChannel::C2 => self.regs.c2mr.read().ch2fm().bit_is_clear(),
-                IpccChannel::C3 => self.regs.c2mr.read().ch3fm().bit_is_clear(),
-                IpccChannel::C4 => self.regs.c2mr.read().ch4fm().bit_is_clear(),
-                IpccChannel::C5 => self.regs.c2mr.read().ch5fm().bit_is_clear(),
-                IpccChannel::C6 => self.regs.c2mr.read().ch6fm().bit_is_clear(),
+                IpccChannel::C1 => self.regs.c2mr().read().ch1fm().bit_is_clear(),
+                IpccChannel::C2 => self.regs.c2mr().read().ch2fm().bit_is_clear(),
+                IpccChannel::C3 => self.regs.c2mr().read().ch3fm().bit_is_clear(),
+                IpccChannel::C4 => self.regs.c2mr().read().ch4fm().bit_is_clear(),
+                IpccChannel::C5 => self.regs.c2mr().read().ch5fm().bit_is_clear(),
+                IpccChannel::C6 => self.regs.c2mr().read().ch6fm().bit_is_clear(),
             },
         }
     }
 
     pub fn set_rx_channel(&mut self, core: Core, channel: IpccChannel, enabled: bool) {
         match core {
-            Core::C1 => self.regs.c1mr.modify(|_, w| match channel {
+            Core::C1 => self.regs.c1mr().modify(|_, w| match channel {
                 IpccChannel::C1 => w.ch1om().bit(!enabled),
                 IpccChannel::C2 => w.ch2om().bit(!enabled),
                 IpccChannel::C3 => w.ch3om().bit(!enabled),
@@ -447,7 +447,7 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5om().bit(!enabled),
                 IpccChannel::C6 => w.ch6om().bit(!enabled),
             }),
-            Core::C2 => self.regs.c2mr.modify(|_, w| match channel {
+            Core::C2 => self.regs.c2mr().modify(|_, w| match channel {
                 IpccChannel::C1 => w.ch1om().bit(!enabled),
                 IpccChannel::C2 => w.ch2om().bit(!enabled),
                 IpccChannel::C3 => w.ch3om().bit(!enabled),
@@ -455,12 +455,12 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5om().bit(!enabled),
                 IpccChannel::C6 => w.ch6om().bit(!enabled),
             }),
-        }
+        };
     }
 
     pub fn set_tx_channel(&mut self, core: Core, channel: IpccChannel, enabled: bool) {
         match core {
-            Core::C1 => self.regs.c1mr.modify(|_, w| match channel {
+            Core::C1 => self.regs.c1mr().modify(|_, w| match channel {
                 IpccChannel::C1 => w.ch1fm().bit(!enabled),
                 IpccChannel::C2 => w.ch2fm().bit(!enabled),
                 IpccChannel::C3 => w.ch3fm().bit(!enabled),
@@ -468,7 +468,7 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5fm().bit(!enabled),
                 IpccChannel::C6 => w.ch6fm().bit(!enabled),
             }),
-            Core::C2 => self.regs.c2mr.modify(|_, w| match channel {
+            Core::C2 => self.regs.c2mr().modify(|_, w| match channel {
                 IpccChannel::C1 => w.ch1fm().bit(!enabled),
                 IpccChannel::C2 => w.ch2fm().bit(!enabled),
                 IpccChannel::C3 => w.ch3fm().bit(!enabled),
@@ -476,7 +476,7 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5fm().bit(!enabled),
                 IpccChannel::C6 => w.ch6fm().bit(!enabled),
             }),
-        }
+        };
     }
 
     /// Clears IPCC receive channel status.
@@ -498,7 +498,7 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5c().bit(true),
                 IpccChannel::C6 => w.ch6c().bit(true),
             }),
-        }
+        };
     }
 
     /// Sets IPCC receive channel status.
@@ -520,6 +520,6 @@ impl Ipcc {
                 IpccChannel::C5 => w.ch5s().bit(true),
                 IpccChannel::C6 => w.ch6s().bit(true),
             }),
-        }
+        };
     }
 }
