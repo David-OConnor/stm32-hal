@@ -365,14 +365,15 @@ macro_rules! set_exti {
                     // todo: Core 2 interrupts for wb. (?)
                         cfg_if! {
                             if #[cfg(all(feature = "h7", not(any(feature = "h747cm4", feature = "h747cm7"))))] {
-                                exti.cpuimr1.modify(|_, w| w.[<mr $num>]().bit(true));
+                                exti.cpuimr1().modify(|_, w| w.[<mr $num>]().bit(true));
                             } else if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
-                                exti.c1imr1.modify(|_, w| w.[<mr $num>]().bit(true));
+                                exti.c1imr1().modify(|_, w| w.[<mr $num>]().bit(true));
                             } else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
                                 exti.imr1().modify(|_, w| w.[<im $num>]().bit(true));
-                            } else {
-                                exti.imr1().modify(|_, w| w.[<mr $num>]().bit(true));
                             }
+                            // else {
+                            //     exti.imr1().modify(|_, w| w.[<mr $num>]().bit(true));
+                            // }
                         }
 
                         cfg_if! {
@@ -383,14 +384,16 @@ macro_rules! set_exti {
                             //     // todo: Missing in PAC, so we read+write. https://github.com/stm32-rs/stm32-rs/issues/570
                             //     let val_r =  $exti.rtsr1().read().bits();
                             //     $exti.rtsr1().write(|w| unsafe { w.bits(val_r | (1 << $num)) });
-                            //     let val_f =  $exti.ftsr1.read().bits();
-                            //     $exti.ftsr1.write(|w| unsafe { w.bits(val_f | (1 << $num)) });
+                            //     let val_f =  $exti.ftsr1().read().bits();
+                            //     $exti.ftsr1().write(|w| unsafe { w.bits(val_f | (1 << $num)) });
                             //     // todo: Core 2 interrupts.
                             } else {
                                 exti.rtsr1().modify(|_, w| w.[<tr $num>]().bit($rising));
                                 exti.ftsr1().modify(|_, w| w.[<tr $num>]().bit($falling));
                             }
                         }
+
+                        #[cfg(not(feature = "g0"))]
                         syscfg
                             .[<exticr $crnum>]()
                             .modify(|_, w| unsafe { w.[<exti $num>]().bits($val) });
@@ -439,7 +442,7 @@ macro_rules! set_exti_l5 {
                     $num => {
                         exti.imr1().modify(|_, w| w.[<im $num>]().bit(true));  // unmask
                         exti.rtsr1().modify(|_, w| w.[<rt $num>]().bit($rising));  // Rising trigger
-                        exti.ftsr1.modify(|_, w| w.[<ft $num>]().bit($falling));   // Falling trigger
+                        exti.ftsr1().modify(|_, w| w.[<ft $num>]().bit($falling));   // Falling trigger
 
                         #[cfg(feature = "l5")]
                         exti
@@ -458,30 +461,30 @@ macro_rules! set_exti_l5 {
     }
 }
 
-#[cfg(any(feature = "g0", feature = "c0"))]
-// For G0. See `set_exti!`. Todo? Reduce DRY.
-macro_rules! set_exti_g0 {
-    ($pin:expr, $rising:expr, $falling:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
-        let exti = unsafe { &(*pac::EXTI::ptr()) };
-
-        paste! {
-            match $pin {
-                $(
-                    $num => {
-                        exti.imr1().modify(|_, w| w.[<im $num>]().bit(true));  // unmask
-                        exti.rtsr1().modify(|_, w| w.[<tr $num>]().bit($rising));  // Rising trigger
-                        // This field name is probably a PAC error.
-                        exti.ftsr1.modify(|_, w| w.[<tr $num>]().bit($falling));   // Falling trigger
-                        exti
-                            .[<exticr $crnum>]
-                            .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
-                    }
-                )+
-                _ => panic!("GPIO pins must be 0 - 15."),
-            }
-        }
-    }
-}
+// #[cfg(any(feature = "g0", feature = "c0"))]
+// // For G0. See `set_exti!`. Todo? Reduce DRY.
+// macro_rules! set_exti_g0 {
+//     ($pin:expr, $rising:expr, $falling:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
+//         let exti = unsafe { &(*pac::EXTI::ptr()) };
+//
+//         paste! {
+//             match $pin {
+//                 $(
+//                     $num => {
+//                         exti.imr1().modify(|_, w| w.[<im $num>]().bit(true));  // unmask
+//                         exti.rtsr1().modify(|_, w| w.[<tr $num>]().bit($rising));  // Rising trigger
+//                         // This field name is probably a PAC error.
+//                         exti.ftsr1().modify(|_, w| w.[<tr $num>]().bit($falling));   // Falling trigger
+//                         exti
+//                             .[<exticr $crnum>]()
+//                             .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
+//                     }
+//                 )+
+//                 _ => panic!("GPIO pins must be 0 - 15."),
+//             }
+//         }
+//     }
+// }
 
 #[derive(Clone)]
 /// Represents a single GPIO pin. Allows configuration, and reading/setting state.
@@ -751,7 +754,7 @@ impl Pin {
                             {
                                 let pwr = unsafe { &(*pac::PWR::ptr()) };
                                 // RM0351: Setting this bit (IOSV) is mandatory to use PG[15:2].
-                                rcc.apb1enr1.modify(|_, w| w.pwren().bit(true));
+                                rcc.apb1enr1().modify(|_, w| w.pwren().bit(true));
                                 pwr.cr2().modify(|_, w| w.iosv().bit(true));
                             }
                         }
@@ -968,7 +971,7 @@ impl Pin {
 
         cfg_if! {
             if #[cfg(any(feature = "l5", feature = "g0", feature = "c0", feature = "wb", feature = "h5"))] {
-                set_alt!(self.regs(), self.pin, afsel, value, [(0, l), (1, l), (2, l),
+                set_alt!(self.regs(), self.pin, afrel, value, [(0, l), (1, l), (2, l),
                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                     (13, h), (14, h), (15, h)])
             } else if #[cfg(feature = "h7")] {
@@ -997,13 +1000,14 @@ impl Pin {
         };
 
         cfg_if! {
-            if #[cfg(any(feature = "g0", feature = "c0"))] {
-                set_exti_g0!(self.pin, rising, falling, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
-                    (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
-                    (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
-                    (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]
-                );
-            } else if #[cfg(any(feature = "l5", feature = "h5"))] {
+            // if #[cfg(any(feature = "g0", feature = "c0"))] {
+            //     set_exti_g0!(self.pin, rising, falling, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
+            //         (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
+            //         (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
+            //         (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]
+            //     );
+            // } else
+            if #[cfg(any(feature = "l5", feature = "h5"))] {
                 set_exti_l5!(self.pin, rising, falling, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
                     (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
                     (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
@@ -1176,7 +1180,7 @@ pub fn clear_exti_interrupt(line: u8) {
     unsafe {
         cfg_if! {
             if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
-                (*EXTI::ptr()).c1pr1.modify(|_, w| {
+                (*EXTI::ptr()).c1pr1().modify(|_, w| {
                     match line {
                         0 => w.pr0().bit(true),
                         1 => w.pr1().bit(true),
@@ -1198,7 +1202,7 @@ pub fn clear_exti_interrupt(line: u8) {
                     }
                 });
             } else if #[cfg(feature = "h7")] {
-                (*EXTI::ptr()).cpupr1.modify(|_, w| {
+                (*EXTI::ptr()).cpupr1().modify(|_, w| {
                     match line {
                         0 => w.pr0().bit(true),
                         1 => w.pr1().bit(true),
@@ -1220,7 +1224,7 @@ pub fn clear_exti_interrupt(line: u8) {
                     }
                 });
             } else if #[cfg(any(feature = "l5", feature = "g0", feature = "c0"))] {
-                (*EXTI::ptr()).rpr1.modify(|_, w| {
+                (*EXTI::ptr()).rpr1().modify(|_, w| {
                     match line {
                         0 => w.rpif0().bit(true),
                         1 => w.rpif1().bit(true),
@@ -1424,10 +1428,7 @@ pub unsafe fn write_dma(
 
     let periph_addr = &(*(regs(port))).bsrr() as *const _ as u32;
 
-    // #[cfg(feature = "h7")]
     let num_data = len as u32;
-    // #[cfg(not(feature = "h7"))]
-    // let num_data = len as u16;
 
     match dma_periph {
         dma::DmaPeriph::Dma1 => {

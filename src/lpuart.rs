@@ -396,10 +396,7 @@ where
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
-        #[cfg(feature = "h7")]
         let num_data = len as u32;
-        #[cfg(not(feature = "h7"))]
-        let num_data = len as u16;
 
         // "DMA mode can be enabled for transmission by setting DMAT bit in the USART_CR3
         // register. Data is loaded from a SRAM area configured using the DMA peripheral (refer to
@@ -489,10 +486,7 @@ where
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
-        // #[cfg(feature = "h7")]
         let num_data = len as u32;
-        // #[cfg(not(feature = "h7"))]
-        // let num_data = len as u16;
 
         // DMA mode can be enabled for reception by setting the DMAR bit in USART_CR3 register.
         self.regs.cr3().modify(|_, w| w.dmar().bit(true));

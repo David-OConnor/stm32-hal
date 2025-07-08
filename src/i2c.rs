@@ -10,9 +10,7 @@ use core::ops::Deref;
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "l552", feature = "h5")))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
-#[cfg(feature = "g0")]
-use crate::pac::DMA as DMA1;
-#[cfg(not(any(feature = "g0", feature = "h5")))]
+#[cfg(not(any(feature = "h5")))]
 use crate::pac::DMA1;
 use crate::{
     MAX_ITERS,
@@ -617,10 +615,10 @@ where
         // page 1169.
         // Note: If DMA is used for transmission, the TXIE bit does not need to be enabled
 
-        #[cfg(feature = "h7")]
+        // #[cfg(feature = "h7")]
         let num_data = len as u32;
-        #[cfg(not(feature = "h7"))]
-        let num_data = len as u16;
+        // #[cfg(not(feature = "h7"))]
+        // let num_data = len as u16;
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
@@ -698,10 +696,7 @@ where
         // SMBus Master receiver on page 1171.
         // Note: If DMA is used for reception, the RXIE bit does not need to be enabled
 
-        // #[cfg(feature = "h7")]
         let num_data = len as u32;
-        // #[cfg(not(feature = "h7"))]
-        // let num_data = len as u16;
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {

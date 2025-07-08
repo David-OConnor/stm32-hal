@@ -112,24 +112,18 @@ macro_rules! rcc_en_reset {
         }}
     };
     (ahb2, $periph:expr, $rcc:expr) => {
-        paste::paste! { cfg_if::cfg_if! {
-            if #[cfg(feature = "placeholder")] {
-            } else {
-                $rcc.ahb2enr().modify(|_, w| w.[<$periph en>]().bit(true));
-                $rcc.ahb2rstr().modify(|_, w| w.[<$periph rst>]().bit(true));
-                $rcc.ahb2rstr().modify(|_, w| w.[<$periph rst>]().clear_bit());
-            }
-        }}
+        paste::paste! {
+            $rcc.ahb2enr().modify(|_, w| w.[<$periph en>]().bit(true));
+            $rcc.ahb2rstr().modify(|_, w| w.[<$periph rst>]().bit(true));
+            $rcc.ahb2rstr().modify(|_, w| w.[<$periph rst>]().clear_bit());
+        }
     };
     (ahb3, $periph:expr, $rcc:expr) => {
-        paste::paste! { cfg_if::cfg_if! {
-            if #[cfg(feature = "placeholder")] {
-            } else {
-                $rcc.ahb3enr().modify(|_, w| w.[<$periph en>]().bit(true));
-                $rcc.ahb3rstr().modify(|_, w| w.[<$periph rst>]().bit(true));
-                $rcc.ahb3rstr().modify(|_, w| w.[<$periph rst>]().clear_bit());
-            }
-        }}
+        paste::paste! {
+            $rcc.ahb3enr().modify(|_, w| w.[<$periph en>]().bit(true));
+            $rcc.ahb3rstr().modify(|_, w| w.[<$periph rst>]().bit(true));
+            $rcc.ahb3rstr().modify(|_, w| w.[<$periph rst>]().clear_bit());
+        }
     };
 }
 
@@ -534,7 +528,7 @@ impl RccPeriph for pac::SPI3 {
         cfg_if! {
             // Note `sp3en` mixed with `spi3rst`; why we can't use the usual macro.
             if #[cfg(feature = "l5")] {
-                rcc.apb1enr1.modify(|_, w| w.sp3en().bit(true));
+                rcc.apb1enr1().modify(|_, w| w.sp3en().bit(true));
                 rcc.apb1rstr1.modify(|_, w| w.spi3rst().bit(true));
                 rcc.apb1rstr1.modify(|_, w| w.spi3rst().clear_bit());
             } else {
@@ -570,7 +564,7 @@ impl RccPeriph for pac::SPI4 {
         cfg_if! {
             // Note `sp4en` mixed with `spi4rst`; why we can't use the usual macro.
             if #[cfg(feature = "l5")] {
-                rcc.apb2enr1.modify(|_, w| w.sp4en().bit(true));
+                rcc.apb2enr1().modify(|_, w| w.sp4en().bit(true));
                 rcc.apb2rstr1.modify(|_, w| w.spi4rst().bit(true));
                 rcc.apb2rstr1.modify(|_, w| w.spi4rst().clear_bit());
             } else {
@@ -1069,7 +1063,7 @@ cfg_if! {
         impl RccPeriph for DAC1 {
             fn en_reset(rcc: &RegisterBlock) {
                 #[cfg(feature = "wl")]
-                rcc.apb1enr1.modify(|_, w| w.dac1en().bit(true));
+                rcc.apb1enr1().modify(|_, w| w.dac1en().bit(true));
                 #[cfg(not(feature = "wl"))]
                 rcc_en_reset!(apb1, dac1, rcc);
             }

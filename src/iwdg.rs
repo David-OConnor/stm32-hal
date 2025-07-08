@@ -28,10 +28,9 @@ pub fn setup(timeout: f32) {
         // 4. Write the IWDG reload register (IWDG_RLR).
         // A 12-bit value. Assumes a prescaler of 32.
         let ticks_per_s = IWDG_CLOCK / 32.;
-        let reload_val = (ticks_per_s * timeout) as u32;
+        let reload_val = (ticks_per_s * timeout) as u16;
 
-        // todo temp!
-        regs.rlr.write(|w| w.bits(reload_val));
+        regs.rlr().write(|w| w.bits(reload_val));
 
         // 5. Wait for the registers to be updated (IWDG_SR = 0x0000 0000).
         while regs.sr().read().bits() != 0 {}

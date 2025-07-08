@@ -1,3 +1,5 @@
+#![allow(unsafe_op_in_unsafe_fn)] // Suppresses a warning.
+
 //! This library provides high-level access to STM32 peripherals.
 //!
 //! **Current family support**: F3, F4, L4, L5, G0, G4, H7, and WB. U5 is planned once its SVD files and PAC
@@ -412,7 +414,8 @@ pub mod dma;
 #[cfg(all(feature = "h7", feature = "net"))]
 pub mod ethernet;
 
-#[cfg(not(feature = "h5"))] // todo: Come back to
+// todo: July 2025. Fix h735 flash, and put back. Mess of feature gate changes from 0.16 PAC.
+#[cfg(not(any(feature = "h5", feature = "h735")))] // todo: Come back to
 pub mod flash;
 
 // todo: PAC doesn't yet support these newer H7 MCUs that use FMAC.
@@ -499,13 +502,14 @@ pub mod usart;
 #[cfg(not(any(feature = "f", feature = "l", feature = "g0", feature = "wl")))]
 pub mod lpuart;
 
-#[cfg(any(
-    feature = "l4",
-    // feature = "g4",
-    feature = "g473", // todo: Not compiling on G431
-    feature = "h7"
-))]
-pub mod comp;
+// todo: Fix and put this back when ready. Broke after PAC 0.16 update.
+// #[cfg(any(
+//     feature = "l4",
+//     // feature = "g4",
+//     feature = "g473", // todo: Not compiling on G431
+//     feature = "h7"
+// ))]
+// pub mod comp;
 
 // See note at top of `usb` module for info on G0; not avail on modules the PAC has avail.
 cfg_if! {

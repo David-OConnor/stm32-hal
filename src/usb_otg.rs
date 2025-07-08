@@ -124,11 +124,11 @@ macro_rules! usb_peripheral {
                 // The f4 doesn't seem to have anything similar
 
                 // Enable USB peripheral
-                rcc.$clock_enable_reg.modify(|_, w| w.$en().bit(true));
+                rcc.$clock_enable_reg().modify(|_, w| w.$en().bit(true));
 
                 // Reset USB peripheral
-                rcc.$reset_reg.modify(|_, w| w.$rst().bit(true));
-                rcc.$reset_reg.modify(|_, w| w.$rst().clear_bit());
+                rcc.$reset_reg().modify(|_, w| w.$rst().bit(true));
+                rcc.$reset_reg().modify(|_, w| w.$rst().clear_bit());
             }
 
             fn ahb_frequency_hz(&self) -> u32 {
@@ -205,7 +205,7 @@ cfg_if! {
                 rcc.ahb1enr().modify(|_, w| w.usb1otgen().enabled());
 
                 // Enable ULPI Clock
-                rcc.ahb1enr().modify(|_, w| w.usb1ulpien().enabled());
+                rcc.ahb1enr().modify(|_, w| w.usb1otgulpien().enabled());
 
                 // Reset USB peripheral
                 rcc.ahb1rstr().modify(|_, w| w.usb1otgrst().bit(true));

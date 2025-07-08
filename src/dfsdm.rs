@@ -242,7 +242,7 @@ where
             } else if #[cfg(any(feature = "l4"))] {
                 let cfgr1 = &regs.chcfg0r1;
             } else {
-                let cfgr1 = &regs.ch0.cfgr1;
+                let cfgr1 = &regs.ch(0).cfgr1();
             }
         }
 
@@ -289,7 +289,7 @@ where
             } else if #[cfg(any(feature = "l4"))] {
                 let cfgr1 = &self.regs.chcfg0r1;
             } else {
-                let cfgr1 = &self.regs.ch0.cfgr1;
+                let cfgr1 = &self.regs.ch(0).cfgr1();
             }
         }
         cfgr1.modify(|_, w| w.dfsdmen().bit(true));
@@ -305,7 +305,7 @@ where
             } else if #[cfg(any(feature = "l4"))] {
                 let cfgr1 = &self.regs.chcfg0r1;
             } else {
-                let cfgr1 = &self.regs.ch0.cfgr1;
+                let cfgr1 = &self.regs.ch(0).cfgr1();
             }
         }
         cfgr1.modify(|_, w| w.dfsdmen().clear_bit());
@@ -376,11 +376,11 @@ where
                         let fcr = &self.regs.flt0fcr;
                         let cr1 = &self.regs.flt0cr1;
                     } else if #[cfg(any(feature = "l4"))] {
-                        let fcr = &self.regs.dfsdm0_fcr;
-                        let cr1 = &self.regs.dfsdm0_cr1;
+                        let fcr = &self.regs.dfsdm0_fcr();
+                        let cr1 = &self.regs.dfsdm0_cr1();
                     } else {
-                        let fcr = &self.regs.flt0.fcr;
-                        let cr1 = &self.regs.flt0.cr1;
+                        let fcr = &self.regs.flt(0).fcr();
+                        let cr1 = &self.regs.flt(0).cr1();
                     }
                 }
                 fcr.modify(|_, w| unsafe {
@@ -405,11 +405,11 @@ where
                         let fcr = &self.regs.flt1fcr;
                         let cr1 = &self.regs.flt1cr1;
                     } else if #[cfg(any(feature = "l4"))] {
-                        // let fcr = &self.regs.dfsdm1_fcr;
-                        // let cr1 = &self.regs.dfsdm1_cr1;
+                        // let fcr = &self.regs.dfsdm1_fcr();
+                        // let cr1 = &self.regs.dfsdm1_cr1();
                     } else {
-                        let fcr = &self.regs.flt1.fcr;
-                        let cr1 = &self.regs.flt1.cr1;
+                        let fcr = &self.regs.flt(1).fcr();
+                        let cr1 = &self.regs.flt(1).cr1();
                     }
                 }
 
@@ -435,8 +435,8 @@ where
                         let fcr = &self.regs.dfsdm2_fcr;
                         let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
-                        let fcr = &self.regs.flt2.fcr;
-                        let cr1 = &self.regs.flt2.cr1;
+                        let fcr = &self.regs.flt(2).fcr();
+                        let cr1 = &self.regs.flt(2).cr1();
                     }
                 }
 
@@ -462,8 +462,8 @@ where
                         let fcr = &self.regs.dfsdm3_fcr;
                         let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
-                        let fcr = &self.regs.flt3.fcr;
-                        let cr1 = &self.regs.flt3.cr1;
+                        let fcr = &self.regs.flt(3).fcr();
+                        let cr1 = &self.regs.flt(3).cr1();
                     }
                 }
                 fcr.modify(|_, w| unsafe {
@@ -499,8 +499,8 @@ where
                         let cfgr1 = &self.regs.chcfg0r1;
                         let cfgr2 = &self.regs.chcfg0r2;
                     } else {
-                        let cfgr1 = &self.regs.ch0.cfgr1;
-                        let cfgr2 = &self.regs.ch0.cfgr2;
+                        let cfgr1 = &self.regs.ch(0).cfgr1();
+                        let cfgr2 = &self.regs.ch(0).cfgr2();
                     }
                 }
 
@@ -522,8 +522,8 @@ where
                         let cfgr1 = &self.regs.chcfg1r1;
                         let cfgr2 = &self.regs.chcfg1r2;
                     } else {
-                        let cfgr1 = &self.regs.ch1.cfgr1;
-                        let cfgr2 = &self.regs.ch1.cfgr2;
+                        let cfgr1 = &self.regs.ch(1).cfgr1();
+                        let cfgr2 = &self.regs.ch(1).cfgr2();
                     }
                 }
 
@@ -545,8 +545,8 @@ where
                         let cfgr1 = &self.regs.chcfg3r1;
                         let cfgr2 = &self.regs.chcfg3r2;
                     } else {
-                        let cfgr1 = &self.regs.ch2.cfgr1;
-                        let cfgr2 = &self.regs.ch2.cfgr2;
+                        let cfgr1 = &self.regs.ch(2).cfgr1();
+                        let cfgr2 = &self.regs.ch(2).cfgr2();
                     }
                 }
 
@@ -568,8 +568,8 @@ where
                         let cfgr1 = &self.regs.chcfg3r1;
                         let cfgr2 = &self.regs.chcfg3r2;
                     } else {
-                        let cfgr1 = &self.regs.ch3.cfgr1;
-                        let cfgr2 = &self.regs.ch3.cfgr2;
+                        let cfgr1 = &self.regs.ch(3).cfgr1();
+                        let cfgr2 = &self.regs.ch(3).cfgr2();
                     }
                 }
 
@@ -591,8 +591,8 @@ where
                         let cfgr1 = &self.regs.chcfg4r1;
                         let cfgr2 = &self.regs.chcfg4r2;
                     } else {
-                        let cfgr1 = &self.regs.ch4.cfgr1;
-                        let cfgr2 = &self.regs.ch4.cfgr2;
+                        let cfgr1 = &self.regs.ch(4).cfgr1();
+                        let cfgr2 = &self.regs.ch(4).cfgr2();
                     }
                 }
 
@@ -614,8 +614,8 @@ where
                         let cfgr1 = &self.regs.chcfg5r1;
                         let cfgr2 = &self.regs.chcfg5r2;
                     } else {
-                        let cfgr1 = &self.regs.ch5.cfgr1;
-                        let cfgr2 = &self.regs.ch5.cfgr2;
+                        let cfgr1 = &self.regs.ch(5).cfgr1();
+                        let cfgr2 = &self.regs.ch(5).cfgr2();
                     }
                 }
 
@@ -637,8 +637,8 @@ where
                         let cfgr1 = &self.regs.chcfg6r1;
                         let cfgr2 = &self.regs.chcfg6r2;
                     } else {
-                        let cfgr1 = &self.regs.ch6.cfgr1;
-                        let cfgr2 = &self.regs.ch6.cfgr2;
+                        let cfgr1 = &self.regs.ch(6).cfgr1();
+                        let cfgr2 = &self.regs.ch(6).cfgr2();
                     }
                 }
 
@@ -660,8 +660,8 @@ where
                         let cfgr1 = &self.regs.chcfg7r1;
                         let cfgr2 = &self.regs.chcfg7r2;
                     } else {
-                        let cfgr1 = &self.regs.ch7.cfgr1;
-                        let cfgr2 = &self.regs.ch7.cfgr2;
+                        let cfgr1 = &self.regs.ch(7).cfgr1();
+                        let cfgr2 = &self.regs.ch(7).cfgr2();
                     }
                 }
 
@@ -690,10 +690,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm0_cr1;
                     } else {
-                        let cr1 = &self.regs.flt0.cr1;
+                        let cr1 = &self.regs.flt(0).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.dfen().clear_bit())
+                cr1.modify(|_, w| w.dfen().clear_bit());
             }
             #[cfg(feature = "l4x6")]
             Filter::F1 => (),
@@ -705,10 +705,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         // let cr1 = &self.regs.dfsdm1_cr1;
                     } else {
-                        let cr1 = &self.regs.flt1.cr1;
+                        let cr1 = &self.regs.flt(1).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.dfen().clear_bit())
+                cr1.modify(|_, w| w.dfen().clear_bit());
             }
             Filter::F2 => {
                 cfg_if! {
@@ -717,10 +717,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
-                        let cr1 = &self.regs.flt2.cr1;
+                        let cr1 = &self.regs.flt(2).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.dfen().clear_bit())
+                cr1.modify(|_, w| w.dfen().clear_bit());
             }
             Filter::F3 => {
                 cfg_if! {
@@ -729,10 +729,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
-                        let cr1 = &self.regs.flt3.cr1;
+                        let cr1 = &self.regs.flt(3).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.dfen().clear_bit())
+                cr1.modify(|_, w| w.dfen().clear_bit());
             }
         }
     }
@@ -752,11 +752,11 @@ where
                         let cfgr1 = &self.regs.ch0cfgr1;
                         let cfgr1b = &self.regs.ch7cfgr1;
                     } else if #[cfg(any(feature = "l4"))] {
-                        let cfgr1 = &self.regs.chcfg0r1;
-                        let cfgr1b = &self.regs.chcfg7r1;
+                        let cfgr1 = &self.regs.chcfg0r1();
+                        let cfgr1b = &self.regs.chcfg7r1();
                     } else {
-                        let cfgr1 = &self.regs.ch0.cfgr1;
-                        let cfgr1b = &self.regs.ch7.cfgr1;
+                        let cfgr1 = &self.regs.ch(0).cfgr1();
+                        let cfgr1b = &self.regs.ch(7).cfgr1();
                     }
                 }
 
@@ -787,8 +787,8 @@ where
                         let cfgr1 = &self.regs.chcfg1r1;
                         let cfgr1b = &self.regs.chcfg0r1;
                     } else {
-                        let cfgr1 = &self.regs.ch1.cfgr1;
-                        let cfgr1b = &self.regs.ch0.cfgr1;
+                        let cfgr1 = &self.regs.ch(1).cfgr1();
+                        let cfgr1b = &self.regs.ch(0).cfgr1();
                     }
                 }
 
@@ -811,8 +811,8 @@ where
                         let cfgr1 = &self.regs.chcfg2r1;
                         let cfgr1b = &self.regs.chcfg1r1;
                     } else {
-                        let cfgr1 = &self.regs.ch2.cfgr1;
-                        let cfgr1b = &self.regs.ch1.cfgr1;
+                        let cfgr1 = &self.regs.ch(2).cfgr1();
+                        let cfgr1b = &self.regs.ch(1).cfgr1();
                     }
                 }
 
@@ -835,8 +835,8 @@ where
                         let cfgr1 = &self.regs.chcfg3r1;
                         let cfgr1b = &self.regs.chcfg2r1;
                     } else {
-                        let cfgr1 = &self.regs.ch3.cfgr1;
-                        let cfgr1b = &self.regs.ch2.cfgr1;
+                        let cfgr1 = &self.regs.ch(3).cfgr1();
+                        let cfgr1b = &self.regs.ch(2).cfgr1();
                     }
                 }
 
@@ -872,10 +872,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm0_cr1;
                     } else {
-                        let cr1 = &self.regs.flt0.cr1;
+                        let cr1 = &self.regs.flt(0).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.rswstart().bit(true))
+                cr1.modify(|_, w| w.rswstart().bit(true));
             }
             #[cfg(feature = "l4x6")]
             Filter::F1 => (),
@@ -887,10 +887,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         // let cr1 = &regs.dfsdm1_cr1;
                     } else {
-                        let cr1 = &self.regs.flt1.cr1;
+                        let cr1 = &self.regs.flt(1).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.rswstart().bit(true))
+                cr1.modify(|_, w| w.rswstart().bit(true));
             }
             Filter::F2 => {
                 cfg_if! {
@@ -899,10 +899,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
-                        let cr1 = &self.regs.flt2.cr1;
+                        let cr1 = &self.regs.flt(2).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.rswstart().bit(true))
+                cr1.modify(|_, w| w.rswstart().bit(true));
             }
             Filter::F3 => {
                 cfg_if! {
@@ -911,10 +911,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
-                        let cr1 = &self.regs.flt3.cr1;
+                        let cr1 = &self.regs.flt(3).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.rswstart().bit(true))
+                cr1.modify(|_, w| w.rswstart().bit(true));
             }
         }
 
@@ -944,10 +944,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm0_cr1;
                     }else {
-                        let cr1 = &self.regs.flt0.cr1;
+                        let cr1 = &self.regs.flt(0).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.jswstart().bit(true))
+                cr1.modify(|_, w| w.jswstart().bit(true));
             }
             #[cfg(feature = "l4x6")]
             Filter::F1 => (),
@@ -959,10 +959,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         // let cr1 = &self.regs.dfsdm1_cr1;
                     } else {
-                        let cr1 = &self.regs.flt1.cr1;
+                        let cr1 = &self.regs.flt(1).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.jswstart().bit(true))
+                cr1.modify(|_, w| w.jswstart().bit(true));
             }
             Filter::F2 => {
                 cfg_if! {
@@ -971,10 +971,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
-                        let cr1 = &self.regs.flt2.cr1;
+                        let cr1 = &self.regs.flt(2).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.jswstart().bit(true))
+                cr1.modify(|_, w| w.jswstart().bit(true));
             }
             Filter::F3 => {
                 cfg_if! {
@@ -983,10 +983,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
-                        let cr1 = &self.regs.flt3.cr1;
+                        let cr1 = &self.regs.flt(3).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.jswstart().bit(true))
+                cr1.modify(|_, w| w.jswstart().bit(true));
             }
         }
 
@@ -1036,11 +1036,11 @@ where
             Filter::F0 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
-                        let rdatar = &self.regs.flt0rdatar;
+                        let rdatar = &self.regs.flt0rdatar();
                     } else if #[cfg(any(feature = "l4"))] {
-                        let rdatar = &self.regs.dfsdm0_rdatar;
+                        let rdatar = &self.regs.dfsdm0_rdatar();
                     } else {
-                        let rdatar = &self.regs.flt0.rdatar;
+                        let rdatar = &self.regs.flt(0).rdatar();
                     }
                 }
                 (rdatar.read().bits() as i32) >> 8
@@ -1051,11 +1051,11 @@ where
             Filter::F1 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
-                        let rdatar = &self.regs.flt1rdatar;
+                        let rdatar = &self.regs.flt1rdatar();
                     } else if #[cfg(any(feature = "l4"))] {
-                        // let rdatar = &self.regs.dfsdm1_rdatar;
+                        // let rdatar = &self.regs.dfsdm1_rdatar();
                     } else {
-                        let rdatar = &self.regs.flt1.rdatar;
+                        let rdatar = &self.regs.flt(1).rdatar();
                     }
                 }
                 (rdatar.read().bits() as i32) >> 8
@@ -1063,11 +1063,11 @@ where
             Filter::F2 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
-                        let rdatar = &self.regs.flt2rdatar;
+                        let rdatar = &self.regs.flt2rdatar();
                     } else if #[cfg(any(feature = "l4"))] {
-                        let rdatar = &self.regs.dfsdm2_rdatar;
+                        let rdatar = &self.regs.dfsdm2_rdatar();
                     } else {
-                        let rdatar = &self.regs.flt2.rdatar;
+                        let rdatar = &self.regs.flt(2).rdatar();
                     }
                 }
                 (rdatar.read().bits() as i32) >> 8
@@ -1075,11 +1075,11 @@ where
             Filter::F3 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
-                        let rdatar = &self.regs.flt3rdatar;
+                        let rdatar = &self.regs.flt3rdatar();
                     } else if #[cfg(any(feature = "l4"))] {
-                        let rdatar = &self.regs.dfsdm3_rdatar;
+                        let rdatar = &self.regs.dfsdm3_rdatar();
                     } else {
-                        let rdatar = &self.regs.flt3.rdatar;
+                        let rdatar = &self.regs.flt(3).rdatar();
                     }
                 }
                 (rdatar.read().bits() as i32) >> 8
@@ -1094,11 +1094,11 @@ where
             Filter::F0 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
-                        let jdatar = &self.regs.flt0jdatar;
+                        let jdatar = &self.regs.flt0jdatar();
                     } else if #[cfg(any(feature = "l4"))] {
-                        let jdatar = &self.regs.dfsdm0_jdatar;
+                        let jdatar = &self.regs.dfsdm0_jdatar();
                     } else {
-                        let jdatar = &self.regs.flt0.jdatar;
+                        let jdatar = &self.regs.flt(0).jdatar();
                     }
                 }
                 (jdatar.read().bits() as i32) >> 8
@@ -1109,11 +1109,11 @@ where
             Filter::F1 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
-                        let jdatar = &self.regs.flt1jdatar;
+                        let jdatar = &self.regs.flt1jdatar();
                     } else if #[cfg(any(feature = "l4"))] {
-                        // let jdatar = &self.regs.dfsdm1_jdatar;
+                        // let jdatar = &self.regs.dfsdm1_jdatar();
                     } else {
-                        let jdatar = &self.regs.flt1.jdatar;
+                        let jdatar = &self.regs.flt(1).jdatar();
                     }
                 }
                 (jdatar.read().bits() as i32) >> 8
@@ -1121,11 +1121,11 @@ where
             Filter::F2 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
-                        let jdatar = &self.regs.flt2jdatar;
+                        let jdatar = &self.regs.flt2jdatar();
                     } else if #[cfg(any(feature = "l4"))] {
-                        let jdatar = &self.regs.dfsdm2_jdatar;
+                        let jdatar = &self.regs.dfsdm2_jdatar();
                     } else {
-                        let jdatar = &self.regs.flt2.jdatar;
+                        let jdatar = &self.regs.flt(2).jdatar();
                     }
                 }
                 (jdatar.read().bits() as i32) >> 8
@@ -1133,11 +1133,11 @@ where
             Filter::F3 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
-                        let jdatar = &self.regs.flt3jdatar;
+                        let jdatar = &self.regs.flt3jdatar();
                     } else if #[cfg(any(feature = "l4"))] {
-                        let jdatar = &self.regs.dfsdm3_jdatar;
+                        let jdatar = &self.regs.dfsdm3_jdatar();
                     } else {
-                        let jdatar = &self.regs.flt3.jdatar;
+                        let jdatar = &self.regs.flt(3).jdatar();
                     }
                 }
                 (jdatar.read().bits() as i32) >> 8
@@ -1211,10 +1211,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm0_cr1;
                     } else {
-                        let cr1 = &self.regs.flt0.cr1;
+                        let cr1 = &self.regs.flt(0).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.rdmaen().bit(true))
+                cr1.modify(|_, w| w.rdmaen().bit(true));
             }
             #[cfg(feature = "l4x6")]
             Filter::F1 => (),
@@ -1226,10 +1226,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         // let cr1 = &self.regs.dfsdm1_cr1;
                     } else {
-                        let cr1 = &self.regs.flt1.cr1;
+                        let cr1 = &self.regs.flt(1).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.rdmaen().bit(true))
+                cr1.modify(|_, w| w.rdmaen().bit(true));
             }
             Filter::F2 => {
                 cfg_if! {
@@ -1238,10 +1238,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm2_cr1;
                     } else {
-                        let cr1 = &self.regs.flt2.cr1;
+                        let cr1 = &self.regs.flt(2).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.rdmaen().bit(true))
+                cr1.modify(|_, w| w.rdmaen().bit(true));
             }
 
             Filter::F3 => {
@@ -1251,10 +1251,10 @@ where
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm3_cr1;
                     } else {
-                        let cr1 = &self.regs.flt3.cr1;
+                        let cr1 = &self.regs.flt(3).cr1();
                     }
                 }
-                cr1.modify(|_, w| w.rdmaen().bit(true))
+                cr1.modify(|_, w| w.rdmaen().bit(true));
             }
         }
 
@@ -1262,11 +1262,11 @@ where
             Filter::F0 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
-                        let rdatar = &self.regs.flt0rdatar;
+                        let rdatar = &self.regs.flt0rdatar();
                     } else if #[cfg(any(feature = "l4"))] {
-                        let rdatar = &self.regs.dfsdm0_rdatar;
+                        let rdatar = &self.regs.dfsdm0_rdatar();
                     } else {
-                        let rdatar = &self.regs.flt0.rdatar;
+                        let rdatar = &self.regs.flt(0).rdatar();
                     }
                 }
                 &rdatar as *const _ as u32
@@ -1277,11 +1277,11 @@ where
             Filter::F1 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
-                        let rdatar = &self.regs.flt1rdatar;
+                        let rdatar = &self.regs.flt1rdatar();
                     } else if #[cfg(any(feature = "l4"))] {
-                        // let rdatar = &self.regs.dfsdm1_rdatar;
+                        // let rdatar = &self.regs.dfsdm1_rdatar();
                     } else {
-                        let rdatar = &self.regs.flt1.rdatar;
+                        let rdatar = &self.regs.flt(1).rdatar();
                     }
                 }
                 &rdatar as *const _ as u32
@@ -1290,11 +1290,11 @@ where
             Filter::F2 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
-                        let rdatar = &self.regs.flt2rdatar;
+                        let rdatar = &self.regs.flt2rdatar();
                     } else if #[cfg(any(feature = "l4"))] {
-                        let rdatar = &self.regs.dfsdm2_rdatar;
+                        let rdatar = &self.regs.dfsdm2_rdatar();
                     } else {
-                        let rdatar = &self.regs.flt2.rdatar;
+                        let rdatar = &self.regs.flt(2).rdatar();
                     }
                 }
                 &rdatar as *const _ as u32
@@ -1303,11 +1303,11 @@ where
             Filter::F3 => {
                 cfg_if! {
                     if #[cfg(any(feature = "l5"))] {
-                        let rdatar = &self.regs.flt3rdatar;
+                        let rdatar = &self.regs.flt3rdatar();
                     } else if #[cfg(any(feature = "l4"))] {
-                        let rdatar = &self.regs.dfsdm3_rdatar;
+                        let rdatar = &self.regs.dfsdm3_rdatar();
                     } else {
-                        let rdatar = &self.regs.flt3.rdatar;
+                        let rdatar = &self.regs.flt(3).rdatar();
                     }
                 }
                 &rdatar as *const _ as u32
@@ -1320,10 +1320,7 @@ where
         // todo: Do we want this? If so, where?
         self.start_conversion(filter);
 
-        #[cfg(feature = "h7")]
         let len = len as u32;
-        #[cfg(not(feature = "h7"))]
-        let len = len as u16;
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
@@ -1366,9 +1363,9 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cr2 = &self.regs.flt0cr2;
                     } else if #[cfg(any(feature = "l4"))] {
-                        let cr2 = &self.regs.dfsdm0_cr2;
+                        let cr2 = &self.regs.dfsdm0_cr2();
                     } else {
-                        let cr2 = &self.regs.flt0.cr2;
+                        let cr2 = &self.regs.flt(0).cr2();
                     }
                 }
 
@@ -1390,9 +1387,9 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cr2 = &self.regs.flt1cr2;
                     } else if #[cfg(any(feature = "l4"))] {
-                        // let cr2 = &self.regs.dfsdm1_cr2;
+                        // let cr2 = &self.regs.dfsdm1_cr2();
                     } else {
-                        let cr2 = &self.regs.flt1.cr2;
+                        let cr2 = &self.regs.flt(1).cr2();
                     }
                 }
                 cr2.modify(|_, w| match interrupt_type {
@@ -1410,9 +1407,9 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cr2 = &self.regs.flt1cr2;
                     } else if #[cfg(any(feature = "l4"))] {
-                        let cr2 = &self.regs.dfsdm2_cr2;
+                        let cr2 = &self.regs.dfsdm2_cr2();
                     } else {
-                        let cr2 = &self.regs.flt2.cr2;
+                        let cr2 = &self.regs.flt(2).cr2();
                     }
                 }
 
@@ -1431,9 +1428,9 @@ where
                     if #[cfg(any(feature = "l5"))] {
                         let cr2 = &self.regs.flt3cr2;
                     } else if #[cfg(any(feature = "l4"))] {
-                        let cr2 = &self.regs.dfsdm3_cr2;
+                        let cr2 = &self.regs.dfsdm3_cr2();
                     } else {
-                        let cr2 = &self.regs.flt3.cr2;
+                        let cr2 = &self.regs.flt(3).cr2();
                     }
                 }
 

@@ -138,34 +138,34 @@ impl Rtc {
                 // 1. Enable the power interface clock by setting the PWREN bits in the Section 6.4.18:
                 // APB1 peripheral clock enable register 1 (RCC_APB1ENR1)
                 #[cfg(not(any(feature = "wb", feature = "wl")))]
-                rcc.apb1enr1.modify(|_, w| {
+                rcc.apb1enr1().modify(|_, w| {
                     w.pwren().bit(true);
                     w.rtcapben().bit(true)
                 });
                 #[cfg(any(feature = "wb", feature = "wl"))]
-                rcc.apb1enr1.modify(|_, w| w.rtcapben().bit(true));
+                rcc.apb1enr1().modify(|_, w| w.rtcapben().bit(true));
 
-                rcc.apb1smenr1.modify(|_, w| w.rtcapbsmen().bit(true));  // In sleep and stop modes.
+                rcc.apb1smenr1().modify(|_, w| w.rtcapbsmen().bit(true));  // In sleep and stop modes.
                 pwr.cr1().read(); // Read to allow the pwr clock to enable
                 // 2. Set the DBP bit in the Power control register 1 (PWR_CR1) to enable access to the
                 // backup domain
                 pwr.cr1().modify( | _, w| w.dbp().bit(true)); // Unlock the backup domain
                 while pwr.cr1().read().dbp().bit_is_clear() {}
             } else if #[cfg(any(feature = "g0"))] {
-                rcc.apbenr1.modify(|_, w| {
+                rcc.apbenr1().modify(|_, w| {
                     w.pwren().bit(true);
                     w.rtcapben().bit(true)
                 });
-                rcc.apbsmenr1.modify(|_, w| w.rtcapbsmen().bit(true));  // In sleep and stop modes.
+                rcc.apbsmenr1().modify(|_, w| w.rtcapbsmen().bit(true));  // In sleep and stop modes.
                 pwr.cr1().read();
                 pwr.cr1().modify( | _, w| w.dbp().bit(true));
                 while pwr.cr1().read().dbp().bit_is_clear() {}
             } else if #[cfg(feature = "h5")] {
                 rcc.apb3enr().modify(|_, w| w.rtcapben().bit(true));
                 rcc.apb3lpenr().modify(|_, w| w.rtcapblpen().bit(true));  // In sleep and stop modes.
-                pwr.dbpcr.read(); // read to allow the pwr clock to enable // todo??
-                pwr.dbpcr.modify( | _, w| w.dbp().bit(true));
-                while pwr.dbpcr.read().dbp().bit_is_clear() {}
+                pwr.dbpcr().read(); // read to allow the pwr clock to enable // todo??
+                pwr.dbpcr().modify( | _, w| w.dbp().bit(true));
+                while pwr.dbpcr().read().dbp().bit_is_clear() {}
             } else { // eg h7
                 rcc.apb4enr().modify(|_, w| w.rtcapben().bit(true));
                 rcc.apb4lpenr().modify(|_, w| w.rtcapblpen().bit(true));  // In sleep and stop modes.
@@ -241,12 +241,16 @@ impl Rtc {
 
     /// Sets calendar clock to 24 hr format
     pub fn set_24h_fmt(&mut self) {
-        self.edit_regs(true, |regs| regs.cr().modify(|_, w| w.fmt().clear_bit()));
+        self.edit_regs(true, |regs| {
+            regs.cr().modify(|_, w| w.fmt().clear_bit());
+        });
     }
 
     /// Sets calendar clock to 12 hr format
     pub fn set_12h_fmt(&mut self) {
-        self.edit_regs(true, |regs| regs.cr().modify(|_, w| w.fmt().bit(true)));
+        self.edit_regs(true, |regs| {
+            regs.cr().modify(|_, w| w.fmt().bit(true));
+        });
     }
 
     /// Reads current hour format selection
@@ -260,7 +264,7 @@ impl Rtc {
     // note: STM3241x and 42x have diff addresses, and are PAC incompatible!
     //     exti.imr1().modify(|_, w| w.mr18().unmasked());
     //     exti.rtsr1().modify(|_, w| w.tr18().bit(true));
-    //     exti.ftsr1.modify(|_, w| w.tr18().clear_bit());
+    //     exti.ftsr1().modify(|_, w| w.tr18().clear_bit());
     //
     //     self.edit_regs(false, |regs| {
     //         regs.cr().modify(|_, w| w.alrae().clear_bit());
@@ -398,7 +402,7 @@ impl Rtc {
             if #[cfg(any(feature = "f3", feature = "l4"))] {
                 exti.imr1().modify(|_, w| w.mr20().unmasked());
                 exti.rtsr1().modify(|_, w| w.tr20().bit(true));
-                exti.ftsr1.modify(|_, w| w.tr20().clear_bit());
+                exti.ftsr1().modify(|_, w| w.tr20().clear_bit());
             } else if #[cfg(feature = "f4")] {
                 exti.imr.modify(|_, w| w.mr20().unmasked());
                 exti.rtsr.modify(|_, w| w.tr20().bit(true));
@@ -406,20 +410,20 @@ impl Rtc {
             } else if #[cfg(feature = "g4")]{
                 exti.imr1().modify(|_, w| w.im20().unmasked());
                 exti.rtsr1().modify(|_, w| w.rt20().bit(true));
-                exti.ftsr1.modify(|_, w| w.ft20().clear_bit());
+                exti.ftsr1().modify(|_, w| w.ft20().clear_bit());
             } else if #[cfg(any(feature = "l5", feature = "g0", feature = "wb", feature = "wl", feature = "h5"))] {
                 // exti.imr1().modify(|_, w| w.mr20().unmasked());
                 // exti.rtsr1().modify(|_, w| w.rt20().bit(true));
-                // exti.ftsr1.modify(|_, w| w.ft20().clear_bit());
+                // exti.ftsr1().modify(|_, w| w.ft20().clear_bit());
 
            } else if #[cfg(any(feature = "h747cm4", feature = "h747cm7"))] {
-                exti.c1imr1.modify(|_, w| w.mr20().unmasked());
+                exti.c1imr1().modify(|_, w| w.mr20().unmasked());
                 exti.rtsr1().modify(|_, w| w.tr20().bit(true));
-                exti.ftsr1.modify(|_, w| w.tr20().clear_bit());
+                exti.ftsr1().modify(|_, w| w.tr20().clear_bit());
            } else { // H7
-                exti.cpuimr1.modify(|_, w| w.mr20().unmasked());
+                exti.cpuimr1().modify(|_, w| w.mr20().unmasked());
                 exti.rtsr1().modify(|_, w| w.tr20().bit(true));
-                exti.ftsr1.modify(|_, w| w.tr20().clear_bit());
+                exti.ftsr1().modify(|_, w| w.tr20().clear_bit());
             }
         }
 
@@ -614,7 +618,7 @@ impl Rtc {
                 w.st().bits(st);
                 w.su().bits(su);
                 w.pm().clear_bit()
-            })
+            });
         });
 
         Ok(())
@@ -736,7 +740,7 @@ impl Rtc {
                 w.mu().bits(mu);
                 w.yt().bits(yt);
                 w.yu().bits(yu)
-            })
+            });
         });
 
         Ok(())
@@ -765,8 +769,8 @@ impl Rtc {
                 w.mt().bit(mt > 0);
                 w.mu().bits(mu);
                 w.yt().bits(yt);
-                w.yu().bits(yu);
-            })
+                w.yu().bits(yu)
+            });
         });
 
         self.edit_regs(true, |regs| {
@@ -777,8 +781,8 @@ impl Rtc {
                 w.mnu().bits(mnu);
                 w.st().bits(st);
                 w.su().bits(su);
-                w.pm().clear_bit();
-            })
+                w.pm().clear_bit()
+            });
         });
 
         Ok(())

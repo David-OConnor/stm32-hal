@@ -54,11 +54,12 @@ pub enum DacMode {
 use cfg_if::cfg_if;
 
 #[derive(Clone, Copy)]
+#[repr(u8)]
 /// Select the channel to output to. Most MCUs only use 2 channels.
 pub enum DacChannel {
-    C1,
+    C1 = 1,
     #[cfg(not(feature = "wl"))] // WL only has one channel.
-    C2,
+    C2 = 2,
 }
 
 #[derive(Clone, Copy)]
@@ -319,24 +320,13 @@ where
         let mut trim = 0;
 
         loop {
-            match channel {
-                DacChannel::C1 => self
-                    .regs
-                    .ccr
-                    .modify(|_, w| unsafe { w.otrim1().bits(trim) }),
-                #[cfg(not(feature = "wl"))]
-                DacChannel::C2 => self
-                    .regs
-                    .ccr
-                    .modify(|_, w| unsafe { w.otrim2().bits(trim) }),
-            }
+            self.regs
+                .ccr()
+                .modify(|_, w| unsafe { w.otrim(channel as u8).bits(trim) });
+
             delay.delay_us(64);
 
-            let cal_flag = match channel {
-                DacChannel::C1 => self.regs.sr().read().cal_flag1().bit_is_set(),
-                #[cfg(not(feature = "wl"))]
-                DacChannel::C2 => self.regs.sr().read().cal_flag2().bit_is_set(),
-            };
+            let cal_flag = self.regs.sr().read().cal_flag(channel as u8).bit_is_set();
 
             if cal_flag {
                 break;
@@ -349,22 +339,18 @@ where
     pub fn enable(&mut self, channel: DacChannel) {
         let cr = &self.regs.cr();
 
-        cr.modify(|_, w| match channel {
-            DacChannel::C1 => w.en1().bit(true),
-            #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => w.en2().bit(true),
-        });
+        cr.modify(|_, w| w.en(channel as u8).bit(true));
     }
 
     /// Disable the DAC, for a specific channel.
     pub fn disable(&mut self, channel: DacChannel) {
         let cr = &self.regs.cr();
 
-        cr.modify(|_, w| match channel {
-            DacChannel::C1 => w.en1().clear_bit(),
-            #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => w.en2().clear_bit(),
-        });
+        // Doesn't use the newer API.
+        match channel {
+            DacChannel::C1 => cr.modify(|_, w| w.en1().clear_bit()),
+            DacChannel::C2 => cr.modify(|_, w| w.en2().clear_bit()),
+        };
     }
 
     /// Set the DAC output word.
@@ -388,34 +374,19 @@ where
         // todo let you write u16 directly instead of casting as u32.
         let val = val as u32;
 
-        #[cfg(feature = "g4")]
-        match channel {
-            DacChannel::C1 => match self.cfg.bits {
-                DacBits::EightR => self.regs.dhr8r().modify(|_, w| unsafe { w.bits(val) }),
-                DacBits::TwelveL => self.regs.dhr12l().modify(|_, w| unsafe { w.bits(val) }),
-                DacBits::TwelveR => self.regs.dhr12r().modify(|_, w| unsafe { w.bits(val) }),
-            },
-            #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => match self.cfg.bits {
-                DacBits::EightR => self.regs.dhr8r2().modify(|_, w| unsafe { w.bits(val) }),
-                DacBits::TwelveL => self.regs.dhr12l2().modify(|_, w| unsafe { w.bits(val) }),
-                DacBits::TwelveR => self.regs.dhr12r2().modify(|_, w| unsafe { w.bits(val) }),
-            },
-        };
-
-        #[cfg(not(feature = "g4"))]
-        match channel {
-            DacChannel::C1 => match self.cfg.bits {
-                DacBits::EightR => self.regs.dhr8r1().modify(|_, w| unsafe { w.bits(val) }),
-                DacBits::TwelveL => self.regs.dhr12l1().modify(|_, w| unsafe { w.bits(val) }),
-                DacBits::TwelveR => self.regs.dhr12r1().modify(|_, w| unsafe { w.bits(val) }),
-            },
-            #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => match self.cfg.bits {
-                DacBits::EightR => self.regs.dhr8r2().modify(|_, w| unsafe { w.bits(val) }),
-                DacBits::TwelveL => self.regs.dhr12l2().modify(|_, w| unsafe { w.bits(val) }),
-                DacBits::TwelveR => self.regs.dhr12r2().modify(|_, w| unsafe { w.bits(val) }),
-            },
+        match self.cfg.bits {
+            DacBits::EightR => self
+                .regs
+                .dhr8r(channel as usize)
+                .modify(|_, w| unsafe { w.bits(val) }),
+            DacBits::TwelveL => self
+                .regs
+                .dhr12l(channel as usize)
+                .modify(|_, w| unsafe { w.bits(val) }),
+            DacBits::TwelveR => self
+                .regs
+                .dhr12r(channel as usize)
+                .modify(|_, w| unsafe { w.bits(val) }),
         };
     }
 
@@ -507,40 +478,13 @@ where
         // For each DAC channelx, an interrupt is also generated if its corresponding DMAUDRIEx bit
         // in the CR register is enabled.
 
-        #[cfg(feature = "g4")]
-        let periph_addr = match channel {
-            DacChannel::C1 => match &self.cfg.bits {
-                DacBits::EightR => &self.regs.dhr8r(1) as *const _ as u32,
-                DacBits::TwelveL => &self.regs.dhr12l(1) as *const _ as u32,
-                DacBits::TwelveR => &self.regs.dhr12r(1) as *const _ as u32,
-            },
-            #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => match &self.cfg.bits {
-                DacBits::EightR => &self.regs.dhr8r2() as *const _ as u32,
-                DacBits::TwelveL => &self.regs.dhr12l2() as *const _ as u32,
-                DacBits::TwelveR => &self.regs.dhr12r2() as *const _ as u32,
-            },
+        let periph_addr = match &self.cfg.bits {
+            DacBits::EightR => &self.regs.dhr8r(channel as usize) as *const _ as u32,
+            DacBits::TwelveL => &self.regs.dhr12l(channel as usize) as *const _ as u32,
+            DacBits::TwelveR => &self.regs.dhr12r(channel as usize) as *const _ as u32,
         };
 
-        #[cfg(not(feature = "g4"))]
-        let periph_addr = match channel {
-            DacChannel::C1 => match &self.cfg.bits {
-                DacBits::EightR => &self.regs.dhr8r() as *const _ as u32,
-                DacBits::TwelveL => &self.regs.dhr12l() as *const _ as u32,
-                DacBits::TwelveR => &self.regs.dhr12r() as *const _ as u32,
-            },
-            #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => match &self.cfg.bits {
-                DacBits::EightR => &self.regs.dhr8r2() as *const _ as u32,
-                DacBits::TwelveL => &self.regs.dhr12l2() as *const _ as u32,
-                DacBits::TwelveR => &self.regs.dhr12r2() as *const _ as u32,
-            },
-        };
-
-        // #[cfg(feature = "h7")]
         let len = len as u32;
-        // #[cfg(not(feature = "h7"))]
-        // let len = len as u16;
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
@@ -598,21 +542,17 @@ where
     pub fn set_trigger(&mut self, channel: DacChannel, trigger: Trigger) {
         let cr = &self.regs.cr();
 
+        // Note: tsel1 didn't update with the new approach, so repetition here.
         match channel {
-            DacChannel::C1 => {
-                cr.modify(|_, w| unsafe {
-                    w.ten1().bit(true);
-                    w.tsel1().bits(trigger as u8)
-                });
-            }
-            #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => {
-                cr.modify(|_, w| unsafe {
-                    w.ten2().bit(true);
-                    w.tsel2().bits(trigger as u8)
-                });
-            }
-        }
+            DacChannel::C1 => cr.modify(|_, w| unsafe {
+                w.ten(channel as u8).bit(true);
+                w.tsel1().bits(trigger as u8)
+            }),
+            DacChannel::C2 => cr.modify(|_, w| unsafe {
+                w.ten(channel as u8).bit(true);
+                w.tsel2().bits(trigger as u8)
+            }),
+        };
     }
 
     #[cfg(not(any(feature = "l5", feature = "wl")))] // See note on `set_trigger`.
@@ -622,21 +562,11 @@ where
         let cr = &self.regs.cr();
 
         // todo: This may not be correct.
-        match channel {
-            DacChannel::C1 => {
-                cr.modify(|_, w| unsafe {
-                    w.mamp1().bits(0b01);
-                    w.wave1().bits(0b01)
-                });
-            }
-            #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => {
-                cr.modify(|_, w| unsafe {
-                    w.wave2().bits(0b01);
-                    w.mamp2().bits(0b01)
-                });
-            }
-        }
+        cr.modify(|_, w| unsafe {
+            w.mamp(channel as u8).bits(0b01);
+            w.wave(channel as u8).bits(0b01)
+        });
+
         self.set_trigger(channel, trigger);
         self.write(channel, data);
     }
@@ -647,72 +577,39 @@ where
     pub fn trigger_triangle(&mut self, channel: DacChannel, trigger: Trigger, data: u16) {
         let cr = &self.regs.cr();
 
-        match channel {
-            DacChannel::C1 => {
-                cr.modify(|_, w| unsafe {
-                    w.wave1().bits(0b10);
-                    w.mamp1().bits(0b10)
-                });
-            }
-            #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => {
-                cr.modify(|_, w| unsafe {
-                    w.wave2().bits(0b10);
-                    w.mamp2().bits(0b10)
-                });
-            }
-        }
+        cr.modify(|_, w| unsafe {
+            w.wave(channel as u8).bits(0b10);
+            w.mamp(channel as u8).bits(0b10)
+        });
+
         self.set_trigger(channel, trigger);
         self.write(channel, data);
     }
 
-    // #[cfg(any(feature = "g4"))]
-    pub fn generate_sawtooth(&self, channel: DacChannel, config: SawtoothConfig) {
-        let cr = &self.regs.cr();
-
-        // todo: Once this compiles (July 2025), reduce the repetition.
-        match channel {
-            DacChannel::C1 => {
-                self.regs.str1().modify(|_, w| {
-                    w.strstdata(1).variant(config.initial);
-                    w.stincdata(1).variant(config.increment);
-                    w.stdir(1).variant(config.direction as u8 == 1)
-                });
-
-                self.regs.stmodr().modify(|_, w| {
-                    w.stinctrigsel(1).variant(config.increment_trigger as u8);
-                    w.strsttrigsel(1).variant(config.reset_trigger as u8)
-                });
-
-                cr.modify(|_, w| w.wave1().variant(WaveGeneration::Sawtooth as u8));
-            }
-
-            DacChannel::C2 => {
-                self.regs.str(2).modify(|_, w| {
-                    w.strstdata(2).variant(config.initial);
-                    w.stincdata(2).variant(config.increment);
-                    w.stdir(2).variant(config.direction as u8 == 1)
-                });
-
-                self.regs.stmodr().modify(|_, w| {
-                    w.stinctrigsel(2).variant(config.increment_trigger as u8);
-                    w.strsttrigsel(2).variant(config.reset_trigger as u8)
-                });
-
-                cr.modify(|_, w| w.wave2().variant(WaveGeneration::Sawtooth as u8));
-            }
-        }
-    }
+    // todo: Put back. PAC 0.16 API change. (July 2025)
+    // // #[cfg(any(feature = "g4"))]
+    // pub fn generate_sawtooth(&self, channel: DacChannel, config: SawtoothConfig) {
+    //     let cr = &self.regs.cr();
+    //
+    //     self.regs.str1().modify(|_, w| {
+    //         w.strstdata(channel as u8).variant(config.initial);
+    //         w.stincdata(channel as u8).variant(config.increment);
+    //         w.stdir(channel as u8).variant(config.direction as u8 == 1)
+    //     });
+    //
+    //     self.regs.stmodr().modify(|_, w| {
+    //         w.stinctrigsel(channel as u8).variant(config.increment_trigger as u8);
+    //         w.strsttrigsel(channel as u8).variant(config.reset_trigger as u8)
+    //     });
+    //
+    //     cr.modify(|_, w| w.wave(channel as u8).variant(WaveGeneration::Sawtooth as u8));
+    // }
 
     /// Enable the DMA Underrun interrupt - the only interrupt available.
     pub fn enable_interrupt(&mut self, channel: DacChannel) {
         let cr = &self.regs.cr();
 
-        cr.modify(|_, w| match channel {
-            DacChannel::C1 => w.dmaudrie1().bit(true),
-            #[cfg(not(feature = "wl"))]
-            DacChannel::C2 => w.dmaudrie2().bit(true),
-        });
+        cr.modify(|_, w| w.dmaudrie(channel as u8).bit(true));
     }
 
     #[cfg(not(feature = "g4"))] // todo: PAC ommission? SR missing on G4? In RM. (may not affect all G4 variants)

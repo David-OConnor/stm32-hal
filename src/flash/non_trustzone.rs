@@ -7,7 +7,7 @@ use cfg_if::cfg_if;
 
 use super::{Flash, page_to_address};
 use crate::pac::FLASH;
-#[cfg(feature = "h7")]
+#[cfg(all(feature = "h7", not(feature = "h735")))]
 use crate::pac::flash::BANK;
 
 const FLASH_KEY1: u32 = 0x4567_0123;
@@ -49,7 +49,7 @@ pub enum Error {
 
 // todo: Bank 2 support on H7 and others.
 
-#[cfg(not(feature = "h7"))]
+#[cfg(any(feature = "h735", not(feature = "h7")))]
 /// Check and clear all non-secure error programming flags due to a previous
 /// programming. If not, PGSERR is set.
 fn clear_error_flags(regs: &FLASH) {
@@ -83,31 +83,44 @@ fn clear_error_flags(regs: &FLASH) {
                 regs.sr().modify(|_, w| w.operr().bit(true));
             }
         } else {
+            #[cfg(not(feature = "h735"))]
             if sr.optverr().bit_is_set() {
                 regs.sr().write(|w| w.optverr().bit(true));
             }
+            #[cfg(not(feature = "h735"))]
             if sr.rderr().bit_is_set() {
+                regs.sr().write(|w| w.rderr().bit(true));
+            }
+            #[cfg(feature = "h735")]
+            if sr.rdperr().bit_is_set() {
                 regs.sr().write(|w| w.rderr().bit(true));
             }
             if sr.fasterr().bit_is_set() {
                 regs.sr().write(|w| w.fasterr().bit(true));
             }
-            #[cfg(not(feature = "wl"))]
+            #[cfg(not(any(feature = "wl", feature = "l4", feature = "g4")))]
+            if sr.misserr().bit_is_set() {
+                regs.sr().write(|w| w.misserr().bit(true));
+            }
+            #[cfg(any(feature = "l4", feature = "g4"))]
             if sr.miserr().bit_is_set() {
                 regs.sr().write(|w| w.miserr().bit(true));
             }
             if sr.pgserr().bit_is_set() {
                 regs.sr().write(|w| w.pgserr().bit(true));
             }
+            #[cfg(not(feature = "h735"))]
             if sr.sizerr().bit_is_set() {
                 regs.sr().write(|w| w.sizerr().bit(true));
             }
+            #[cfg(not(feature = "h735"))]
             if sr.pgaerr().bit_is_set() {
                 regs.sr().write(|w| w.pgaerr().bit(true));
             }
             if sr.wrperr().bit_is_set() {
                 regs.sr().write(|w| w.wrperr().bit(true));
             }
+            #[cfg(not(feature = "h735"))]
             if sr.progerr().bit_is_set() {
                 regs.sr().write(|w| w.progerr().bit(true));
             }
@@ -119,7 +132,7 @@ fn clear_error_flags(regs: &FLASH) {
     }
 }
 
-#[cfg(feature = "h7")]
+#[cfg(all(feature = "h7", not(feature = "h735")))]
 /// Check and clear all non-secure error programming flags due to a previous
 /// programming. If not, PGSERR is set.
 fn clear_error_flags(regs: &BANK) {
@@ -128,11 +141,6 @@ fn clear_error_flags(regs: &BANK) {
     if sr.dbeccerr().bit_is_set() {
         regs.ccr().write(|w| w.clr_dbeccerr().bit(true));
     }
-    #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
-    if sr.sneccerr1().bit_is_set() {
-        regs.ccr().write(|w| w.clr_sneccerr().bit(true));
-    }
-    #[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
     if sr.sneccerr().bit_is_set() {
         regs.ccr().write(|w| w.clr_sneccerr().bit(true));
     }
@@ -168,8 +176,10 @@ impl Flash {
     pub fn unlock(&mut self) -> Result<(), Error> {
         #[cfg(not(feature = "h7"))]
         let regs = &self.regs;
-        #[cfg(feature = "h7")]
+        #[cfg(all(feature = "h7", not(feature = "h735")))]
         let regs = self.regs.bank1();
+        #[cfg(feature = "h735")]
+        let regs = &self.regs;
 
         if regs.cr().read().lock().bit_is_clear() {
             return Ok(());
@@ -217,14 +227,16 @@ impl Flash {
 
         #[cfg(not(feature = "h7"))]
         let regs = &self.regs;
-        #[cfg(feature = "h7")]
-        let regs = &self.regs.bank1();
+        #[cfg(all(feature = "h7", not(feature = "h735")))]
+        let regs = self.regs.bank1();
+        #[cfg(feature = "h735")]
+        let regs = &self.regs;
 
         while regs.sr().read().bsy().bit_is_set() {}
         regs.cr().modify(|_, w| w.lock().bit(true));
     }
 
-    #[cfg(not(feature = "h7"))]
+    #[cfg(any(feature = "h735", not(feature = "h7")))]
     #[allow(unused_variables)] // bank arg on single-bank MCUs.
     /// Erase an entire page. See L4 Reference manual, section 3.3.5.
     /// For why this is required, reference L4 RM, section 3.3.7:
@@ -256,7 +268,7 @@ impl Flash {
 
                 // Program the FLASH_CR register
                 // regs.ar.modify(|_, w| w.far().bits(page as u8));
-                regs.ar.write(|w| unsafe { w.bits(page as u32) }); // todo: Is this right?
+                regs.ar().write(|w| unsafe { w.bits(page as u32) }); // todo: Is this right?
             } else if #[cfg(feature = "f4")] {
                 // Set the SER bit and select the sector out of the 12 sectors (for STM32F405xx/07xx and
                 // STM32F415xx/17xx) and out of 24 (for STM32F42xxx and STM32F43xxx) in the main
@@ -284,9 +296,14 @@ impl Flash {
                         w.per().bit(true)
                     });
                 }
-            } else {
+            } else if #[cfg(any(feature = "l4", feature = "g4"))] {
                  regs.cr().modify(|_, w| unsafe {
                     w.pnb().bits(page as u8);
+                    w.per().bit(true)
+                });
+            } else {
+                 regs.cr().modify(|_, w| unsafe {
+                    w.pnb().bits(page as u16);
                     w.per().bit(true)
                 });
             }
@@ -322,7 +339,7 @@ impl Flash {
         Ok(())
     }
 
-    #[cfg(feature = "h7")]
+    #[cfg(all(eature = "h7", not(feature = "h735")))]
     /// Erase a 128kb sector. See H743 RM, section 4.3.10: FLASH erase operations; subsection
     /// Flash sector erase sequence. Note that this is similar to the procedure for other
     /// families, but has a different name "sector" vice "page", and the RM instructions
@@ -374,13 +391,15 @@ impl Flash {
 
         #[cfg(not(feature = "h7"))]
         let regs = &self.regs;
-        #[cfg(feature = "h7")]
+        #[cfg(all(feature = "h7", not(feature = "h735")))]
         let regs = &match bank {
             Bank::B1 => self.regs.bank1(),
             // todo: PAC bank 2 error
             #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
             Bank::B2 => self.regs.bank2(),
         };
+        #[cfg(feature = "h735")]
+        let regs = &self.regs;
 
         // To perform a bank Mass Erase, follow the procedure below:
         // RM0351 Rev 7 105/1903
@@ -402,8 +421,10 @@ impl Flash {
         // 3. Set the MER1 bit or/and MER2 (depending on the bank) in the Flash control register
         // (FLASH_CR). Both banks can be selected in the same operation.
         cfg_if! {
-            if #[cfg(any(feature = "f3", feature = "f4", feature = "g0", feature = "wb", feature = "wl"))] {
+            if #[cfg(any(feature = "f3"))] {
                 regs.cr().modify(|_, w| w.mer().bit(true));
+            } else if #[cfg(any(feature = "f4", feature = "g0", feature = "wb", feature = "wl"))] {
+                regs.cr().modify(|_, w| w.mer1().bit(true));
             } else if #[cfg(feature = "h7")] {
                 // 3. Set the BER1/2 bit in the FLASH_CR1/2 register corresponding to the targeted bank.
                 regs.cr().modify(|_, w| w.ber().bit(true));
@@ -444,8 +465,10 @@ impl Flash {
                 regs.cr().modify(|_, w| w.ber().clear_bit());
             } else if #[cfg(any(feature = "l4", feature = "g4"))] {
                 regs.cr().modify(|_, w| w.mer1().clear_bit());
-            } else {
+            } else if #[cfg(feature = "f3")] {
                 regs.cr().modify(|_, w| w.mer().clear_bit());
+            } else {
+                regs.cr().modify(|_, w| w.mer1().clear_bit());
             }
         }
 

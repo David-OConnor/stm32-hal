@@ -18,7 +18,7 @@ pub mod usb {
     pub fn enable_usb_pwr() {
         // Enable PWR peripheral
         let rcc = unsafe { &(*RCC::ptr()) };
-        rcc.apb1enr1.modify(|_, w| w.pwren().bit(true));
+        rcc.apb1enr1().modify(|_, w| w.pwren().bit(true));
 
         // Enable VddUSB
         let pwr = unsafe { &*PWR::ptr() };

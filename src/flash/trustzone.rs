@@ -78,25 +78,25 @@ fn clear_error_flags(regs: &FLASH, security: Security) {
             }
         }
         Security::Secure => {
-            let sr = regs.secsr.read();
+            let sr = regs.secsr().read();
 
             if sr.secpgserr().bit_is_set() {
-                regs.secsr.write(|w| w.secpgserr().bit(true));
+                regs.secsr().write(|w| w.secpgserr().bit(true));
             }
             if sr.secsizerr().bit_is_set() {
-                regs.secsr.write(|w| w.secsizerr().bit(true));
+                regs.secsr().write(|w| w.secsizerr().bit(true));
             }
             if sr.secpgaerr().bit_is_set() {
-                regs.secsr.write(|w| w.secpgaerr().bit(true));
+                regs.secsr().write(|w| w.secpgaerr().bit(true));
             }
             if sr.secwrperr().bit_is_set() {
-                regs.secsr.write(|w| w.secwrperr().bit(true));
+                regs.secsr().write(|w| w.secwrperr().bit(true));
             }
             if sr.secprogerr().bit_is_set() {
-                regs.secsr.write(|w| w.secprogerr().bit(true));
+                regs.secsr().write(|w| w.secprogerr().bit(true));
             }
             if sr.secoperr().bit_is_set() {
-                regs.secsr.write(|w| w.secoperr().bit(true));
+                regs.secsr().write(|w| w.secoperr().bit(true));
             }
         }
     }
@@ -107,28 +107,28 @@ impl Flash {
     pub fn unlock(&mut self, security: Security) -> Result<(), Error> {
         match security {
             Security::NonSecure => {
-                if self.regs.nscr.read().nslock().bit_is_clear() {
+                if self.regs.nscr().read().nslock().bit_is_clear() {
                     return Ok(());
                 }
 
                 self.regs.nskeyr().write(|w| unsafe { w.bits(FLASH_KEY1) });
                 self.regs.nskeyr().write(|w| unsafe { w.bits(FLASH_KEY2) });
 
-                if self.regs.nscr.read().nslock().bit_is_clear() {
+                if self.regs.nscr().read().nslock().bit_is_clear() {
                     Ok(())
                 } else {
                     Err(Error::Failure)
                 }
             }
             Security::Secure => {
-                if self.regs.seccr.read().seclock().bit_is_clear() {
+                if self.regs.seccr().read().seclock().bit_is_clear() {
                     return Ok(());
                 }
 
                 self.regs.seckeyr().write(|w| unsafe { w.bits(FLASH_KEY1) });
                 self.regs.seckeyr().write(|w| unsafe { w.bits(FLASH_KEY2) });
 
-                if self.regs.seccr.read().seclock().bit_is_clear() {
+                if self.regs.seccr().read().seclock().bit_is_clear() {
                     Ok(())
                 } else {
                     Err(Error::Failure)
@@ -142,11 +142,11 @@ impl Flash {
         match security {
             Security::NonSecure => {
                 while self.regs.nssr.read().nsbsy().bit_is_set() {}
-                self.regs.nscr.modify(|_, w| w.nslock().bit(true));
+                self.regs.nscr().modify(|_, w| w.nslock().bit(true));
             }
             Security::Secure => {
-                while self.regs.secsr.read().secbsy().bit_is_set() {}
-                self.regs.seccr.modify(|_, w| w.seclock().bit(true));
+                while self.regs.secsr().read().secbsy().bit_is_set() {}
+                self.regs.seccr().modify(|_, w| w.seclock().bit(true));
             }
         };
     }
@@ -175,31 +175,31 @@ impl Flash {
 
                 // 3. In dual-bank mode (DBANK option bit is set), set the NSPER bit and select the
                 // non-secure page to erase (NSPNB) with the associated bank (NSBKER) in the
-                // FLASH_NSCR. In single-bank mode (DBANK option bit is reset), set the NSPER bit
+                // FLASH_NScr(). In single-bank mode (DBANK option bit is reset), set the NSPER bit
                 // and select the page to erase (NSPNB). The NSBKER bit in the FLASH_NSCR must be
                 // kept cleared.
                 if self.dual_bank == DualBank::Dual {
-                    self.regs.nscr.modify(|_, w| unsafe {
+                    self.regs.nscr().modify(|_, w| unsafe {
                         w.nsbker().bit(bank as u8 != 0);
                         w.nspnb().bits(page as u8);
                         w.nsper().bit(true)
                     });
                 } else {
-                    self.regs.nscr.modify(|_, w| unsafe {
+                    self.regs.nscr().modify(|_, w| unsafe {
                         w.nspnb().bits(page as u8);
                         w.nsper().bit(true)
                     });
                 }
 
                 // 4. Set the NSSTRT bit in the FLASH_NSCR register.
-                self.regs.nscr.modify(|_, w| w.nsstrt().bit(true));
+                self.regs.nscr().modify(|_, w| w.nsstrt().bit(true));
 
                 // 5. Wait for the NSBSY bit to be cleared in the FLASH_SR register.
                 while self.regs.nssr.read().nsbsy().bit_is_set() {}
-                self.regs.nscr.modify(|_, w| w.nsper().clear_bit());
+                self.regs.nscr().modify(|_, w| w.nsper().clear_bit());
             }
             Security::Secure => {
-                let sr = self.regs.secsr.read();
+                let sr = self.regs.secsr().read();
                 if sr.secbsy().bit_is_set() {
                     self.lock(security);
                     return Err(Error::Busy);
@@ -208,22 +208,22 @@ impl Flash {
                 clear_error_flags(&self.regs, security);
 
                 if self.dual_bank == DualBank::Dual {
-                    self.regs.seccr.modify(|_, w| unsafe {
+                    self.regs.seccr().modify(|_, w| unsafe {
                         w.secbker().bit(bank as u8 != 0);
                         w.secpnb().bits(page as u8);
                         w.secper().bit(true)
                     });
                 } else {
-                    self.regs.seccr.modify(|_, w| unsafe {
+                    self.regs.seccr().modify(|_, w| unsafe {
                         w.secpnb().bits(page as u8);
                         w.secper().bit(true)
                     });
                 }
 
-                self.regs.seccr.modify(|_, w| w.secstrt().bit(true));
+                self.regs.seccr().modify(|_, w| w.secstrt().bit(true));
 
-                while self.regs.secsr.read().secbsy().bit_is_set() {}
-                self.regs.nscr.modify(|_, w| w.nsper().clear_bit());
+                while self.regs.secsr().read().secbsy().bit_is_set() {}
+                self.regs.nscr().modify(|_, w| w.nsper().clear_bit());
             }
         }
 
@@ -256,12 +256,12 @@ impl Flash {
                 // register. Both banks can be selected in the same operation, in that case it corresponds
                 // to a mass erase.
                 match bank {
-                    Bank::B1 => self.regs.nscr.modify(|_, w| w.nsmer1().bit(true)),
-                    Bank::B2 => self.regs.nscr.modify(|_, w| w.nsmer2().clear_bit()),
+                    Bank::B1 => self.regs.nscr().modify(|_, w| w.nsmer1().bit(true)),
+                    Bank::B2 => self.regs.nscr().modify(|_, w| w.nsmer2().clear_bit()),
                 }
 
                 // 4. Set the NSSTRT bit in the FLASH_NSCR register.
-                self.regs.nscr.modify(|_, w| w.nsstrt().bit(true));
+                self.regs.nscr().modify(|_, w| w.nsstrt().bit(true));
 
                 // 5. Wait for the NSBSY bit to be cleared in the FLASH_NSSR register.
                 while self.regs.nssr.read().nsbsy().bit_is_set() {}
@@ -269,12 +269,12 @@ impl Flash {
                 // 6. The NSMER1 or NSMER2 bits can be cleared if no more non-secure bank erase is
                 // requested.
                 match bank {
-                    Bank::B1 => self.regs.nscr.modify(|_, w| w.nsmer1().clear_bit()),
-                    Bank::B2 => self.regs.nscr.modify(|_, w| w.nsmer2().clear_bit()),
+                    Bank::B1 => self.regs.nscr().modify(|_, w| w.nsmer1().clear_bit()),
+                    Bank::B2 => self.regs.nscr().modify(|_, w| w.nsmer2().clear_bit()),
                 }
             }
             Security::Secure => {
-                let sr = self.regs.secsr.read();
+                let sr = self.regs.secsr().read();
                 if sr.secbsy().bit_is_set() {
                     self.lock(security);
                     return Err(Error::Busy);
@@ -283,17 +283,17 @@ impl Flash {
                 clear_error_flags(&self.regs, security);
 
                 match bank {
-                    Bank::B1 => self.regs.seccr.modify(|_, w| w.secmer1().bit(true)),
-                    Bank::B2 => self.regs.seccr.modify(|_, w| w.secmer2().clear_bit()),
+                    Bank::B1 => self.regs.seccr().modify(|_, w| w.secmer1().bit(true)),
+                    Bank::B2 => self.regs.seccr().modify(|_, w| w.secmer2().clear_bit()),
                 }
 
-                self.regs.seccr.modify(|_, w| w.secstrt().bit(true));
+                self.regs.seccr().modify(|_, w| w.secstrt().bit(true));
 
-                while self.regs.secsr.read().secbsy().bit_is_set() {}
+                while self.regs.secsr().read().secbsy().bit_is_set() {}
 
                 match bank {
-                    Bank::B1 => self.regs.seccr.modify(|_, w| w.secmer1().clear_bit()),
-                    Bank::B2 => self.regs.seccr.modify(|_, w| w.secmer2().clear_bit()),
+                    Bank::B1 => self.regs.seccr().modify(|_, w| w.secmer1().clear_bit()),
+                    Bank::B2 => self.regs.seccr().modify(|_, w| w.secmer2().clear_bit()),
                 }
             }
         }
@@ -331,7 +331,7 @@ impl Flash {
                 clear_error_flags(&self.regs, security);
 
                 // 3. Set the NSPG bit in tFLASH_NSCR register
-                self.regs.nscr.modify(|_, w| w.nspg().bit(true));
+                self.regs.nscr().modify(|_, w| w.nspg().bit(true));
 
                 // todo: You have 3x DRY here re teh writing. Put that in  a fn?
                 // 4. Perform the data write operation at the desired memory address, inside main memory
@@ -372,11 +372,11 @@ impl Flash {
 
                 // 7. Clear the NSPG bit in the FLASH_CR register if there no more programming request
                 // anymore.
-                self.regs.nscr.modify(|_, w| w.nspg().clear_bit());
+                self.regs.nscr().modify(|_, w| w.nspg().clear_bit());
             }
             Security::Secure => {
                 // Process here is monstly the same, but sub in sec registers and fields.
-                let sr = self.regs.secsr.read();
+                let sr = self.regs.secsr().read();
                 if sr.secbsy().bit_is_set() {
                     self.lock(security);
                     return Err(Error::Busy);
@@ -384,7 +384,7 @@ impl Flash {
 
                 clear_error_flags(&self.regs, security);
 
-                self.regs.seccr.modify(|_, w| w.secpg().bit(true));
+                self.regs.seccr().modify(|_, w| w.secpg().bit(true));
 
                 let mut address = page_to_address(self.dual_bank, bank, page) as *mut u32;
 
@@ -418,14 +418,14 @@ impl Flash {
                         address = address.add(1);
                     }
 
-                    while self.regs.secsr.read().secbsy().bit_is_set() {}
+                    while self.regs.secsr().read().secbsy().bit_is_set() {}
 
-                    if self.regs.secsr.read().seceop().bit_is_set() {
-                        self.regs.secsr.modify(|_, w| w.seceop().bit(true)); // clear
+                    if self.regs.secsr().read().seceop().bit_is_set() {
+                        self.regs.secsr().modify(|_, w| w.seceop().bit(true)); // clear
                     }
                 }
 
-                self.regs.seccr.modify(|_, w| w.secpg().clear_bit());
+                self.regs.seccr().modify(|_, w| w.secpg().clear_bit());
             }
         }
 

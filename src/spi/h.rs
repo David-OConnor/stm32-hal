@@ -108,10 +108,10 @@ where
         // [St forum thread on how to set up SPI in master mode avoiding mode faults:
         // https://community.st.com/s/question/0D50X0000AFrHS6SQN/stm32h7-what-is-the-proper-
         // way-to-make-spi-work-in-master-mode
-        regs.cr1
+        regs.cr1()
             .modify(|_, w| w.ssi().bit(cfg.slave_select == SlaveSelect::Software));
 
-        regs.cfg1.modify(|_, w| {
+        regs.cfg1().modify(|_, w| unsafe {
             w.mbr().bits(baud_rate as u8);
             w.dsize().bits(cfg.data_size as u8);
             w.crcen().clear_bit()
@@ -121,7 +121,7 @@ where
         // consecutive data frames in master mode. In clock cycles; 0 - 15. (hardware CS)
         let inter_word_delay = 0;
 
-        regs.cfg2.modify(|_, w| {
+        regs.cfg2().modify(|_, w| unsafe {
             w.cpol().bit(cfg.mode.polarity as u8 != 0);
             w.cpha().bit(cfg.mode.phase as u8 != 0);
             w.master().bit(true);
@@ -135,7 +135,7 @@ where
         // 3. Write to the SPI_CR2 register to select length of the transfer, if it is not known TSIZE
         // has to be programmed to zero.
         // Resetting this here; will be set to the appropriate value at each transaction.
-        regs.cr2().modify(|_, w| w.tsize().bits(0));
+        regs.cr2().modify(unsafe { |_, w| w.tsize().bits(0) });
 
         // 4. Write to SPI_CRCPOLY and into TCRCINI, RCRCINI and CRC33_17 bits at
         // SPI2S_CR1 register to configure the CRC polynomial and CRC calculation if needed.
@@ -156,7 +156,7 @@ where
         self.regs.cr1().modify(|_, w| w.spe().clear_bit());
 
         self.regs
-            .cfg1
+            .cfg1()
             .modify(|_, w| unsafe { w.mbr().bits(baud_rate as u8) });
 
         self.regs.cr1().modify(|_, w| w.spe().bit(true));
@@ -203,9 +203,9 @@ where
         }
 
         // NOTE(write_volatile/read_volatile) write/read only 1 word
+        #[allow(invalid_reference_casting)]
         unsafe {
-            let txdr = &self.regs.txdr() as *const _ as *const UnsafeCell<u8>;
-            ptr::write_volatile(UnsafeCell::raw_get(txdr), word);
+            ptr::write_volatile(&self.regs.txdr() as *const _ as *mut u8, word);
             return Ok(ptr::read_volatile(
                 &self.regs.rxdr() as *const _ as *const u8
             ));
@@ -266,7 +266,7 @@ where
         // Fill the first half of the write FIFO
         let len = words.len();
         for i in 0..core::cmp::min(FIFO_LEN, len) {
-            self.send(words[i]);
+            self.send(words[i]).ok();
         }
 
         for i in FIFO_LEN..len + FIFO_LEN {
@@ -288,10 +288,12 @@ where
         check_errors!(self.regs.sr().read());
 
         // NOTE(write_volatile) see note above
+        #[allow(invalid_reference_casting)]
         unsafe {
             let txdr = &self.regs.txdr() as *const _ as *const UnsafeCell<u8>;
-            ptr::write_volatile(UnsafeCell::raw_get(txdr), word)
+            ptr::write_volatile(&self.regs.txdr() as *const _ as *mut u8, word)
         }
+
         // write CSTART to start a transaction in
         // master mode
         self.regs.cr1().modify(|_, w| w.cstart().started());
@@ -311,7 +313,7 @@ where
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         self.regs.cr1().modify(|_, w| w.spe().clear_bit());
-        self.regs.cfg1.modify(|_, w| w.rxdmaen().bit(true));
+        self.regs.cfg1().modify(|_, w| w.rxdmaen().bit(true));
 
         let periph_addr = &self.regs.rxdr() as *const _ as u32;
         let num_data = len as u32;
@@ -414,7 +416,7 @@ where
         }
 
         // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
-        self.regs.cfg1.modify(|_, w| w.txdmaen().bit(true));
+        self.regs.cfg1().modify(|_, w| w.txdmaen().bit(true));
 
         // 4. Enable the SPI by setting the SPE bit.
         self.regs.cr1().modify(|_, w| w.spe().bit(true));
@@ -449,7 +451,7 @@ where
 
         // Be careful - order of enabling Rx and Tx may matter, along with other things like when we
         // enable the channels, and the SPI periph.
-        self.regs.cfg1.modify(|_, w| w.rxdmaen().bit(true));
+        self.regs.cfg1().modify(|_, w| w.rxdmaen().bit(true));
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
@@ -507,7 +509,7 @@ where
             }
         }
 
-        self.regs.cfg1.modify(|_, w| w.txdmaen().bit(true));
+        self.regs.cfg1().modify(|_, w| w.txdmaen().bit(true));
 
         self.regs.cr1().modify(|_, w| w.spe().bit(true));
         self.regs.cr1().modify(|_, w| w.cstart().bit(true)); // Must be separate from SPE enable.
@@ -533,7 +535,7 @@ where
 
     /// Clear an interrupt.
     pub fn clear_interrupt(&mut self, interrupt_type: SpiInterrupt) {
-        self.regs.ifcr.write(|w| match interrupt_type {
+        self.regs.ifcr().write(|w| match interrupt_type {
             SpiInterrupt::NumberOfTransactionsReload => w.tserfc().bit(true),
             SpiInterrupt::ModeFault => w.modfc().bit(true),
             SpiInterrupt::Tifre => w.tifrec().bit(true),

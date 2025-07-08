@@ -148,37 +148,37 @@ where
     pub fn check_and_clear_error_flags(&self) -> Result<i2c1::sr1::R, Error> {
         // Note that flags should only be cleared once they have been registered. If flags are
         // cleared otherwise, there may be an inherent race condition and flags may be missed.
-        let sr1 = self.regs.sr1.read();
+        let sr1 = self.regs.sr1().read();
 
-        if sr1.timeout().bit_is_set() {
-            self.regs.sr1.modify(|_, w| w.timeout().clear_bit());
+        if sr1().timeout().bit_is_set() {
+            self.regs.sr1().modify(|_, w| w.timeout().clear_bit());
             return Err(Error::TIMEOUT);
         }
 
-        if sr1.pecerr().bit_is_set() {
-            self.regs.sr1.modify(|_, w| w.pecerr().clear_bit());
+        if sr1().pecerr().bit_is_set() {
+            self.regs.sr1().modify(|_, w| w.pecerr().clear_bit());
             return Err(Error::CRC);
         }
 
-        if sr1.ovr().bit_is_set() {
-            self.regs.sr1.modify(|_, w| w.ovr().clear_bit());
+        if sr1().ovr().bit_is_set() {
+            self.regs.sr1().modify(|_, w| w.ovr().clear_bit());
             return Err(Error::OVERRUN);
         }
 
-        if sr1.af().bit_is_set() {
-            self.regs.sr1.modify(|_, w| w.af().clear_bit());
+        if sr1().af().bit_is_set() {
+            self.regs.sr1().modify(|_, w| w.af().clear_bit());
             return Err(Error::NACK);
         }
 
-        if sr1.arlo().bit_is_set() {
-            self.regs.sr1.modify(|_, w| w.arlo().clear_bit());
+        if sr1().arlo().bit_is_set() {
+            self.regs.sr1().modify(|_, w| w.arlo().clear_bit());
             return Err(Error::ARBITRATION);
         }
 
         // The errata indicates that BERR may be incorrectly detected. It recommends ignoring and
         // clearing the BERR bit instead.
-        if sr1.berr().bit_is_set() {
-            self.regs.sr1.modify(|_, w| w.berr().clear_bit());
+        if sr1().berr().bit_is_set() {
+            self.regs.sr1().modify(|_, w| w.berr().clear_bit());
         }
 
         Ok(sr1)
@@ -195,8 +195,8 @@ where
         while {
             self.check_and_clear_error_flags()?;
 
-            let sr2 = self.regs.sr2.read();
-            sr2.msl().bit_is_clear() && sr2.busy().bit_is_clear()
+            let sr2 = self.regs.sr2().read();
+            sr2().msl().bit_is_clear() && sr2().busy().bit_is_clear()
         } {}
 
         // Set up current address, we're trying to talk to
@@ -210,11 +210,11 @@ where
             let sr1 = self.check_and_clear_error_flags()?;
 
             // Wait for the address to be acknowledged
-            sr1.addr().bit_is_clear()
+            sr1().addr().bit_is_clear()
         } {}
 
         // Clear condition by reading SR2
-        self.regs.sr2.read();
+        self.regs.sr2().read();
 
         // Send bytes
         for c in bytes {
@@ -249,7 +249,7 @@ where
             // Check for any potential error conditions.
             self.check_and_clear_error_flags()?;
 
-            self.regs.sr1.read().rx_ne().bit_is_clear()
+            self.regs.sr1().read().rx_ne().bit_is_clear()
         } {}
 
         let value = self.regs.dr().read().bits() as u8;
@@ -314,12 +314,12 @@ where
                             .modify(|_, w| w.start().bit(true).ack().bit(true));
 
                         // Wait until START condition was generated
-                        while self.regs.sr1.read().sb().bit_is_clear() {}
+                        while self.regs.sr1().read().sb().bit_is_clear() {}
 
                         // Also wait until signalled we're master and everything is waiting for us
                         while {
-                            let sr2 = self.regs.sr2.read();
-                            sr2.msl().bit_is_clear() && sr2.busy().bit_is_clear()
+                            let sr2 = self.regs.sr2().read();
+                            sr2().msl().bit_is_clear() && sr2().busy().bit_is_clear()
                         } {}
 
                         // Set up current address, we're trying to talk to
@@ -330,11 +330,11 @@ where
                         // Wait until address was sent
                         while {
                             self.check_and_clear_error_flags()?;
-                            self.regs.sr1.read().addr().bit_is_clear()
+                            self.regs.sr1().read().addr().bit_is_clear()
                         } {}
 
                         // Clear condition by reading SR2
-                        self.regs.sr2.read();
+                        self.regs.sr2().read();
 
                         // Receive bytes into buffer
                         for c in buffer {

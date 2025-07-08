@@ -16,22 +16,15 @@ cfg_if::cfg_if! {
 
 use cfg_if::cfg_if;
 
-use crate::{pac, util::RccPeriph};
-
-cfg_if! {
-    if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
-        use crate::pac::dma as dma_p;
-        use crate::pac::DMA as DMA1;
-    } else {
-        use crate::pac::dma1 as dma_p;
-        use crate::pac::DMA1;
-    }
-}
-
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552")))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel}; // todo temp
+use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+use crate::{
+    pac,
+    pac::{DMA1, dma1 as dma_p},
+    util::RccPeriph,
+}; // todo temp
 
 #[macro_export]
 macro_rules! check_errors {
@@ -280,7 +273,7 @@ where
         });
 
         #[cfg(feature = "h7")]
-        self.regs.cfg1.modify(|_, w| {
+        self.regs.cfg1().modify(|_, w| {
             w.txdmaen().clear_bit();
             w.rxdmaen().clear_bit()
         });
@@ -307,6 +300,7 @@ where
 
     /// Print the (raw) contents of the status register.
     pub fn read_status(&self) -> u32 {
-        unsafe { self.regs.sr().read().bits() }
+        // todo july 2025? into
+        unsafe { self.regs.sr().read().bits().into() }
     }
 }
