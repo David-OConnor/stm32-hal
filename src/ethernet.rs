@@ -64,7 +64,7 @@ where
 
         // 1. Provide a software reset to reset all MAC internal registers and logic (bit 0 of DMA
         // mode register (ETH_DMAMR)).
-        self.regs_dma.dmamr.write(|w| w.swr().set_bit());
+        self.regs_dma.dmamr.write(|w| w.swr().bit(true));
 
         // 2. Wait for the completion of the reset process (poll bit 0 of the DMA mode register
         // (ETH_DMAMR), which is cleared when the reset operation is completed).

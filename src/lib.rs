@@ -472,7 +472,7 @@ pub mod qspi;
 )))]
 pub mod rng;
 
-#[cfg(not(feature = "c0"))] // todo 
+#[cfg(not(feature = "c0"))] // todo
 pub mod rtc;
 
 #[cfg(not(any(
@@ -554,18 +554,18 @@ pub fn debug_workaround() {
 
     cfg_if! {
         if #[cfg(all(feature = "h7", not(any(feature = "h747cm4", feature = "h747cm7"))))] {
-            dbgmcu.cr.modify(|_, w| w.dbgsleep_d1().set_bit());
-            dbgmcu.cr.modify(|_, w| w.dbgstop_d1().set_bit());
-            dbgmcu.cr.modify(|_, w| w.dbgstby_d1().set_bit());
+            dbgmcu.cr().modify(|_, w| w.dbgsleep_d1().bit(true));
+            dbgmcu.cr().modify(|_, w| w.dbgstop_d1().bit(true));
+            dbgmcu.cr().modify(|_, w| w.dbgstby_d1().bit(true));
         } else if #[cfg(feature = "h7")] {
-            dbgmcu.cr.modify(|_, w| w.dbgslpd1().set_bit());
-            dbgmcu.cr.modify(|_, w| w.dbgstpd1().set_bit());
-            dbgmcu.cr.modify(|_, w| w.dbgstbd1().set_bit());
+            dbgmcu.cr().modify(|_, w| w.dbgslpd1().bit(true));
+            dbgmcu.cr().modify(|_, w| w.dbgstpd1().bit(true));
+            dbgmcu.cr().modify(|_, w| w.dbgstbd1().bit(true));
         } else {
             #[cfg(not(any(feature = "l5", feature = "h5")))]
-            dbgmcu.cr.modify(|_, w| w.dbg_sleep().set_bit());
-            dbgmcu.cr.modify(|_, w| w.dbg_stop().set_bit());
-            dbgmcu.cr.modify(|_, w| w.dbg_standby().set_bit());
+            dbgmcu.cr().modify(|_, w| w.dbg_sleep().bit(true));
+            dbgmcu.cr().modify(|_, w| w.dbg_stop().bit(true));
+            dbgmcu.cr().modify(|_, w| w.dbg_standby().bit(true));
         }
     }
 
@@ -576,11 +576,11 @@ pub fn debug_workaround() {
 
     cfg_if! {
         if #[cfg(feature = "f3")] {
-            rcc.ahbenr.modify(|_, w| w.dma1en().set_bit());
+            rcc.ahbenr.modify(|_, w| w.dma1en().bit(true));
         } else if #[cfg(feature = "h5")] {
-            rcc.ahb1enr.modify(|_, w| w.gpdma1en().set_bit());
+            rcc.ahb1enr().modify(|_, w| w.gpdma1en().bit(true));
         } else {
-            rcc.ahb1enr.modify(|_, w| w.dma1en().set_bit());
+            rcc.ahb1enr().modify(|_, w| w.dma1en().bit(true));
         }
     }
 }

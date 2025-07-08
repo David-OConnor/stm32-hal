@@ -292,7 +292,7 @@ where
                 let cfgr1 = &self.regs.ch0.cfgr1;
             }
         }
-        cfgr1.modify(|_, w| w.dfsdmen().set_bit());
+        cfgr1.modify(|_, w| w.dfsdmen().bit(true));
     }
 
     /// Disables the DFSDM peripheral.
@@ -393,7 +393,7 @@ where
                     w.fast()
                         .bit(self.config.continuous == Continuous::ContinuousFastMode);
                     w.rch().bits(channel as u8);
-                    w.dfen().set_bit()
+                    w.dfen().bit(true)
                 });
             }
             #[cfg(feature = "l4x6")]
@@ -423,7 +423,7 @@ where
                     w.fast()
                         .bit(self.config.continuous == Continuous::ContinuousFastMode);
                     w.rch().bits(channel as u8);
-                    w.dfen().set_bit()
+                    w.dfen().bit(true)
                 });
             }
             Filter::F2 => {
@@ -450,7 +450,7 @@ where
                     w.fast()
                         .bit(self.config.continuous == Continuous::ContinuousFastMode);
                     w.rch().bits(channel as u8);
-                    w.dfen().set_bit()
+                    w.dfen().bit(true)
                 });
             }
             Filter::F3 => {
@@ -476,7 +476,7 @@ where
                     w.fast()
                         .bit(self.config.continuous == Continuous::ContinuousFastMode);
                     w.rch().bits(channel as u8);
-                    w.dfen().set_bit()
+                    w.dfen().bit(true)
                 });
             }
         }
@@ -510,7 +510,7 @@ where
                 });
                 cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
-                    w.chen().set_bit()
+                    w.chen().bit(true)
                 });
             },
             DfsdmChannel::C1 => unsafe {
@@ -533,7 +533,7 @@ where
                 });
                 cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
-                    w.chen().set_bit()
+                    w.chen().bit(true)
                 });
             },
             DfsdmChannel::C2 => unsafe {
@@ -556,7 +556,7 @@ where
                 });
                 cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
-                    w.chen().set_bit()
+                    w.chen().bit(true)
                 });
             },
             DfsdmChannel::C3 => unsafe {
@@ -579,7 +579,7 @@ where
                 });
                 cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
-                    w.chen().set_bit()
+                    w.chen().bit(true)
                 });
             },
             DfsdmChannel::C4 => unsafe {
@@ -602,7 +602,7 @@ where
                 });
                 cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
-                    w.chen().set_bit()
+                    w.chen().bit(true)
                 });
             },
             DfsdmChannel::C5 => unsafe {
@@ -625,7 +625,7 @@ where
                 });
                 cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
-                    w.chen().set_bit()
+                    w.chen().bit(true)
                 });
             },
             DfsdmChannel::C6 => unsafe {
@@ -648,7 +648,7 @@ where
                 });
                 cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
-                    w.chen().set_bit()
+                    w.chen().bit(true)
                 });
             },
             DfsdmChannel::C7 => unsafe {
@@ -671,7 +671,7 @@ where
                 });
                 cfgr1.modify(|_, w| {
                     w.spicksel().bits(self.config.spi_clock as u8);
-                    w.chen().set_bit()
+                    w.chen().bit(true)
                 });
             },
         }
@@ -772,7 +772,7 @@ where
                 cfgr1b.modify(|_, w| unsafe {
                     // • Channel (y-1) (modulo 8) will be configured: CHINSEL = 1 (input from the following
                     // channel ((y-1)+1) pins: DATINy, CKINy).
-                    w.chinsel().set_bit();
+                    w.chinsel().bit(true);
                     // • Channel (y-1): SITP[1:0] = 1 (falling edge to strobe data) => right audio channel on
                     // channel y-1.
                     w.sitp().bits(1)
@@ -798,7 +798,7 @@ where
                 });
 
                 cfgr1b.modify(|_, w| unsafe {
-                    w.chinsel().set_bit();
+                    w.chinsel().bit(true);
                     w.sitp().bits(1)
                 });
             }
@@ -822,7 +822,7 @@ where
                 });
 
                 cfgr1b.modify(|_, w| unsafe {
-                    w.chinsel().set_bit();
+                    w.chinsel().bit(true);
                     w.sitp().bits(1)
                 });
             }
@@ -846,7 +846,7 @@ where
                 });
 
                 cfgr1b.modify(|_, w| unsafe {
-                    w.chinsel().set_bit();
+                    w.chinsel().bit(true);
                     w.sitp().bits(1)
                 });
             }
@@ -875,7 +875,7 @@ where
                         let cr1 = &self.regs.flt0.cr1;
                     }
                 }
-                cr1.modify(|_, w| w.rswstart().set_bit())
+                cr1.modify(|_, w| w.rswstart().bit(true))
             }
             #[cfg(feature = "l4x6")]
             Filter::F1 => (),
@@ -890,7 +890,7 @@ where
                         let cr1 = &self.regs.flt1.cr1;
                     }
                 }
-                cr1.modify(|_, w| w.rswstart().set_bit())
+                cr1.modify(|_, w| w.rswstart().bit(true))
             }
             Filter::F2 => {
                 cfg_if! {
@@ -902,7 +902,7 @@ where
                         let cr1 = &self.regs.flt2.cr1;
                     }
                 }
-                cr1.modify(|_, w| w.rswstart().set_bit())
+                cr1.modify(|_, w| w.rswstart().bit(true))
             }
             Filter::F3 => {
                 cfg_if! {
@@ -914,7 +914,7 @@ where
                         let cr1 = &self.regs.flt3.cr1;
                     }
                 }
-                cr1.modify(|_, w| w.rswstart().set_bit())
+                cr1.modify(|_, w| w.rswstart().bit(true))
             }
         }
 
@@ -947,7 +947,7 @@ where
                         let cr1 = &self.regs.flt0.cr1;
                     }
                 }
-                cr1.modify(|_, w| w.jswstart().set_bit())
+                cr1.modify(|_, w| w.jswstart().bit(true))
             }
             #[cfg(feature = "l4x6")]
             Filter::F1 => (),
@@ -962,7 +962,7 @@ where
                         let cr1 = &self.regs.flt1.cr1;
                     }
                 }
-                cr1.modify(|_, w| w.jswstart().set_bit())
+                cr1.modify(|_, w| w.jswstart().bit(true))
             }
             Filter::F2 => {
                 cfg_if! {
@@ -974,7 +974,7 @@ where
                         let cr1 = &self.regs.flt2.cr1;
                     }
                 }
-                cr1.modify(|_, w| w.jswstart().set_bit())
+                cr1.modify(|_, w| w.jswstart().bit(true))
             }
             Filter::F3 => {
                 cfg_if! {
@@ -986,7 +986,7 @@ where
                         let cr1 = &self.regs.flt3.cr1;
                     }
                 }
-                cr1.modify(|_, w| w.jswstart().set_bit())
+                cr1.modify(|_, w| w.jswstart().bit(true))
             }
         }
 
@@ -1214,7 +1214,7 @@ where
                         let cr1 = &self.regs.flt0.cr1;
                     }
                 }
-                cr1.modify(|_, w| w.rdmaen().set_bit())
+                cr1.modify(|_, w| w.rdmaen().bit(true))
             }
             #[cfg(feature = "l4x6")]
             Filter::F1 => (),
@@ -1229,7 +1229,7 @@ where
                         let cr1 = &self.regs.flt1.cr1;
                     }
                 }
-                cr1.modify(|_, w| w.rdmaen().set_bit())
+                cr1.modify(|_, w| w.rdmaen().bit(true))
             }
             Filter::F2 => {
                 cfg_if! {
@@ -1241,7 +1241,7 @@ where
                         let cr1 = &self.regs.flt2.cr1;
                     }
                 }
-                cr1.modify(|_, w| w.rdmaen().set_bit())
+                cr1.modify(|_, w| w.rdmaen().bit(true))
             }
 
             Filter::F3 => {
@@ -1254,7 +1254,7 @@ where
                         let cr1 = &self.regs.flt3.cr1;
                     }
                 }
-                cr1.modify(|_, w| w.rdmaen().set_bit())
+                cr1.modify(|_, w| w.rdmaen().bit(true))
             }
         }
 
@@ -1373,13 +1373,13 @@ where
                 }
 
                 cr2.modify(|_, w| match interrupt_type {
-                    DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),
-                    DfsdmInterrupt::EndOfConversion => w.reocie().set_bit(),
-                    DfsdmInterrupt::DataOverrunInjected => w.jovrie().set_bit(),
-                    DfsdmInterrupt::DataOverrun => w.rovrie().set_bit(),
-                    DfsdmInterrupt::AnalogWatchdog => w.awdie().set_bit(),
-                    DfsdmInterrupt::ShortCircuit => w.scdie().set_bit(),
-                    DfsdmInterrupt::ChannelClockAbsense => w.ckabie().set_bit(),
+                    DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().bit(true),
+                    DfsdmInterrupt::EndOfConversion => w.reocie().bit(true),
+                    DfsdmInterrupt::DataOverrunInjected => w.jovrie().bit(true),
+                    DfsdmInterrupt::DataOverrun => w.rovrie().bit(true),
+                    DfsdmInterrupt::AnalogWatchdog => w.awdie().bit(true),
+                    DfsdmInterrupt::ShortCircuit => w.scdie().bit(true),
+                    DfsdmInterrupt::ChannelClockAbsense => w.ckabie().bit(true),
                 });
             }
             #[cfg(feature = "l4x6")]
@@ -1396,13 +1396,13 @@ where
                     }
                 }
                 cr2.modify(|_, w| match interrupt_type {
-                    DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),
-                    DfsdmInterrupt::EndOfConversion => w.reocie().set_bit(),
-                    DfsdmInterrupt::DataOverrunInjected => w.jovrie().set_bit(),
-                    DfsdmInterrupt::DataOverrun => w.rovrie().set_bit(),
-                    DfsdmInterrupt::AnalogWatchdog => w.awdie().set_bit(),
-                    DfsdmInterrupt::ShortCircuit => w.scdie().set_bit(),
-                    DfsdmInterrupt::ChannelClockAbsense => w.ckabie().set_bit(),
+                    DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().bit(true),
+                    DfsdmInterrupt::EndOfConversion => w.reocie().bit(true),
+                    DfsdmInterrupt::DataOverrunInjected => w.jovrie().bit(true),
+                    DfsdmInterrupt::DataOverrun => w.rovrie().bit(true),
+                    DfsdmInterrupt::AnalogWatchdog => w.awdie().bit(true),
+                    DfsdmInterrupt::ShortCircuit => w.scdie().bit(true),
+                    DfsdmInterrupt::ChannelClockAbsense => w.ckabie().bit(true),
                 });
             }
             Filter::F2 => {
@@ -1417,13 +1417,13 @@ where
                 }
 
                 cr2.modify(|_, w| match interrupt_type {
-                    DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),
-                    DfsdmInterrupt::EndOfConversion => w.reocie().set_bit(),
-                    DfsdmInterrupt::DataOverrunInjected => w.jovrie().set_bit(),
-                    DfsdmInterrupt::DataOverrun => w.rovrie().set_bit(),
-                    DfsdmInterrupt::AnalogWatchdog => w.awdie().set_bit(),
-                    DfsdmInterrupt::ShortCircuit => w.scdie().set_bit(),
-                    DfsdmInterrupt::ChannelClockAbsense => w.ckabie().set_bit(),
+                    DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().bit(true),
+                    DfsdmInterrupt::EndOfConversion => w.reocie().bit(true),
+                    DfsdmInterrupt::DataOverrunInjected => w.jovrie().bit(true),
+                    DfsdmInterrupt::DataOverrun => w.rovrie().bit(true),
+                    DfsdmInterrupt::AnalogWatchdog => w.awdie().bit(true),
+                    DfsdmInterrupt::ShortCircuit => w.scdie().bit(true),
+                    DfsdmInterrupt::ChannelClockAbsense => w.ckabie().bit(true),
                 });
             }
             Filter::F3 => {
@@ -1438,13 +1438,13 @@ where
                 }
 
                 cr2.modify(|_, w| match interrupt_type {
-                    DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().set_bit(),
-                    DfsdmInterrupt::EndOfConversion => w.reocie().set_bit(),
-                    DfsdmInterrupt::DataOverrunInjected => w.jovrie().set_bit(),
-                    DfsdmInterrupt::DataOverrun => w.rovrie().set_bit(),
-                    DfsdmInterrupt::AnalogWatchdog => w.awdie().set_bit(),
-                    DfsdmInterrupt::ShortCircuit => w.scdie().set_bit(),
-                    DfsdmInterrupt::ChannelClockAbsense => w.ckabie().set_bit(),
+                    DfsdmInterrupt::EndOfInjectedConversion => w.jeocie().bit(true),
+                    DfsdmInterrupt::EndOfConversion => w.reocie().bit(true),
+                    DfsdmInterrupt::DataOverrunInjected => w.jovrie().bit(true),
+                    DfsdmInterrupt::DataOverrun => w.rovrie().bit(true),
+                    DfsdmInterrupt::AnalogWatchdog => w.awdie().bit(true),
+                    DfsdmInterrupt::ShortCircuit => w.scdie().bit(true),
+                    DfsdmInterrupt::ChannelClockAbsense => w.ckabie().bit(true),
                 });
             }
         }
@@ -1463,45 +1463,45 @@ where
         //          self.regs.flt0icr.write(|w| match interrupt_type {
         //              DfsdmInterrupt::EndOfInjectedConversion => (),
         //              DfsdmInterrupt::EndOfConversion => (),
-        //              DfsdmInterrupt::DataOverrunInjected => w.clrjovrf.set_bit(),
-        //              DfsdmInterrupt::DataOverrun => w.clrrovrf().set_bit(),
+        //              DfsdmInterrupt::DataOverrunInjected => w.clrjovrf.bit(true),
+        //              DfsdmInterrupt::DataOverrun => w.clrrovrf().bit(true),
         //              // todo: Possibly clrawltf bit for low ADW clear!
-        //              DfsdmInterrupt::AnalogWatchdog => w.clrawhtf().set_bit(),
-        //              DfsdmInterrupt::ShortCircuit => w.clrscdf().set_bit(),
-        //              DfsdmInterrupt::ChannelClockAbsense => w.clrckabf().set_bit(),
+        //              DfsdmInterrupt::AnalogWatchdog => w.clrawhtf().bit(true),
+        //              DfsdmInterrupt::ShortCircuit => w.clrscdf().bit(true),
+        //              DfsdmInterrupt::ChannelClockAbsense => w.clrckabf().bit(true),
         //          });
         //      }
         //      DfsdmChannel::F1 => {
         //          self.regs.flt1icr.write(|w| match interrupt_type {
         //              DfsdmInterrupt::EndOfInjectedConversion => (),
         //              DfsdmInterrupt::EndOfConversion => (),
-        //              DfsdmInterrupt::DataOverrunInjected => w.clrjovrf().set_bit(),
-        //              DfsdmInterrupt::DataOverrun => w.clrrovrf().set_bit(),
-        //              DfsdmInterrupt::AnalogWatchdog => w.clrawhtf().set_bit(),
-        //              DfsdmInterrupt::ShortCircuit => w.clrscdf().set_bit(),
-        //              DfsdmInterrupt::ChannelClockAbsense => w.clrckabf().set_bit(),
+        //              DfsdmInterrupt::DataOverrunInjected => w.clrjovrf().bit(true),
+        //              DfsdmInterrupt::DataOverrun => w.clrrovrf().bit(true),
+        //              DfsdmInterrupt::AnalogWatchdog => w.clrawhtf().bit(true),
+        //              DfsdmInterrupt::ShortCircuit => w.clrscdf().bit(true),
+        //              DfsdmInterrupt::ChannelClockAbsense => w.clrckabf().bit(true),
         //          });
         //      }
         //      DfsdmChannel::F2 => {
         //          self.regs.flt2icr.write(|w| match interrupt_type {
         //              DfsdmInterrupt::EndOfInjectedConversion => (),
         //              DfsdmInterrupt::EndOfConversion => (),
-        //              DfsdmInterrupt::DataOverrunInjected => w.clrjovrf().set_bit(),
-        //              DfsdmInterrupt::DataOverrun => w.clrrovrf().set_bit(),
-        //              DfsdmInterrupt::AnalogWatchdog => w.clrawhtf().set_bit(),
-        //              DfsdmInterrupt::ShortCircuit => w.clrscdf().set_bit(),
-        //              DfsdmInterrupt::ChannelClockAbsense => w.clrckabf().set_bit(),
+        //              DfsdmInterrupt::DataOverrunInjected => w.clrjovrf().bit(true),
+        //              DfsdmInterrupt::DataOverrun => w.clrrovrf().bit(true),
+        //              DfsdmInterrupt::AnalogWatchdog => w.clrawhtf().bit(true),
+        //              DfsdmInterrupt::ShortCircuit => w.clrscdf().bit(true),
+        //              DfsdmInterrupt::ChannelClockAbsense => w.clrckabf().bit(true),
         //          });
         //      }
         //      DfsdmChannel::F3 => {
         //          self.regs.flt3icr.write(|w| match interrupt_type {
         //              DfsdmInterrupt::EndOfInjectedConversion => (),
         //              DfsdmInterrupt::EndOfConversion => (),
-        //              DfsdmInterrupt::DataOverrunInjected => w.clrjovrf().set_bit(),
-        //              DfsdmInterrupt::DataOverrun => w.clrrovrf().set_bit(),
-        //              DfsdmInterrupt::AnalogWatchdog => w.clrawhtf().set_bit(),
-        //              DfsdmInterrupt::ShortCircuit => w.clrscdf().set_bit(),
-        //              DfsdmInterrupt::ChannelClockAbsense => w.clrckabf().set_bit(),
+        //              DfsdmInterrupt::DataOverrunInjected => w.clrjovrf().bit(true),
+        //              DfsdmInterrupt::DataOverrun => w.clrrovrf().bit(true),
+        //              DfsdmInterrupt::AnalogWatchdog => w.clrawhtf().bit(true),
+        //              DfsdmInterrupt::ShortCircuit => w.clrscdf().bit(true),
+        //              DfsdmInterrupt::ChannelClockAbsense => w.clrckabf().bit(true),
         //          });
         //      }
         //  }

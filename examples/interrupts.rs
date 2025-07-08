@@ -100,7 +100,7 @@ fn EXTI0() {
         if bouncing.get() {
             return;
         }
-        unsafe { (*pac::TIM15::ptr()).cr1.modify(|_, w| w.cen().set_bit()) }
+        unsafe { (*pac::TIM15::ptr()).cr1().modify(|_, w| w.cen().bit(true)) }
         bouncing.set(true);
 
         // Update our global sensor reading. This section dmeonstrates boilerplate
@@ -125,17 +125,17 @@ fn RTC_WKUP() {
             // Clear the wakeup timer flag, after disabling write protections.
             (*pac::RTC::ptr()).wpr.write(|w| w.bits(0xCA));
             (*pac::RTC::ptr()).wpr.write(|w| w.bits(0x53));
-            (*pac::RTC::ptr()).cr.modify(|_, w| w.wute().clear_bit());
+            (*pac::RTC::ptr()).cr().modify(|_, w| w.wute().clear_bit());
 
-            (*pac::RTC::ptr()).isr.modify(|_, w| w.wutf().clear_bit());
+            (*pac::RTC::ptr()).isr().modify(|_, w| w.wutf().clear_bit());
 
-            (*pac::RTC::ptr()).cr.modify(|_, w| w.wute().set_bit());
+            (*pac::RTC::ptr()).cr().modify(|_, w| w.wute().bit(true));
             (*pac::RTC::ptr()).wpr.write(|w| w.bits(0xFF));
         }
 
         // A cleaner alternative to the above, if you have the RTC set up in a global Mutex:
         //  unsafe {
-        //      (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr20().set_bit());
+        //      (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr20().bit(true));
         //  }
         //  access_global!(RTC, rtc, cs);
         //  rtc.clear_wakeup_flag();
@@ -161,7 +161,11 @@ fn TIM15() {
         BOUNCING.borrow(cs).set(false);
 
         // Disable the timer until next time you press a button.
-        unsafe { (*pac::TIM15::ptr()).cr1.modify(|_, w| w.cen().clear_bit()) }
+        unsafe {
+            (*pac::TIM15::ptr())
+                .cr1()
+                .modify(|_, w| w.cen().clear_bit())
+        }
     });
 }
 

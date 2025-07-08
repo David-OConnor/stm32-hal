@@ -103,12 +103,12 @@ unsafe impl UsbPeripheral for Peripheral {
                     }
                 }
             } else if #[cfg(feature = "l5")] {
-                rcc.apb1enr2.modify(|_, w| w.usbfsen().set_bit());
-                rcc.apb1rstr2.modify(|_, w| w.usbfsrst().set_bit());
+                rcc.apb1enr2.modify(|_, w| w.usbfsen().bit(true));
+                rcc.apb1rstr2.modify(|_, w| w.usbfsrst().bit(true));
                 rcc.apb1rstr2.modify(|_ , w| w.usbfsrst().clear_bit());
             } else if #[cfg(feature = "wb")] {
-                rcc.apb1enr1.modify(|_, w| w.usben().set_bit());
-                rcc.apb1rstr1.modify(|_, w| w.usbfsrst().set_bit());
+                rcc.apb1enr1.modify(|_, w| w.usben().bit(true));
+                rcc.apb1rstr1.modify(|_, w| w.usbfsrst().bit(true));
                 rcc.apb1rstr1.modify(|_ , w| w.usbfsrst().clear_bit());
             } else { // G0, G4
                 rcc_en_reset!(apb1, usb, rcc);
@@ -134,7 +134,7 @@ pub type UsbBusType = UsbBus<Peripheral>;
 pub fn enable_usb_pwr() {
     // Enable VddUSB
     let pwr = unsafe { &*pac::PWR::ptr() };
-    pwr.cr2.modify(|_, w| w.usv().set_bit());
+    pwr.cr2().modify(|_, w| w.usv().bit(true));
 }
 
 // todo: We need to sort out the SerialPort traits to makme this work. Non-trivial.

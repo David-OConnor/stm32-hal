@@ -124,18 +124,18 @@ where
         regs.cfg2.modify(|_, w| {
             w.cpol().bit(cfg.mode.polarity as u8 != 0);
             w.cpha().bit(cfg.mode.phase as u8 != 0);
-            w.master().set_bit();
+            w.master().bit(true);
             w.ssm().bit(cfg.slave_select == SlaveSelect::Software);
             w.ssoe().bit(cfg.slave_select != SlaveSelect::Software);
             w.midi().bits(inter_word_delay);
-            w.master().set_bit();
+            w.master().bit(true);
             w.comm().bits(0b00) // Full-duplex mode
         });
 
         // 3. Write to the SPI_CR2 register to select length of the transfer, if it is not known TSIZE
         // has to be programmed to zero.
         // Resetting this here; will be set to the appropriate value at each transaction.
-        regs.cr2.modify(|_, w| w.tsize().bits(0));
+        regs.cr2().modify(|_, w| w.tsize().bits(0));
 
         // 4. Write to SPI_CRCPOLY and into TCRCINI, RCRCINI and CRC33_17 bits at
         // SPI2S_CR1 register to configure the CRC polynomial and CRC calculation if needed.
@@ -146,20 +146,20 @@ where
         // 6. Program the IOLOCK bit in the SPI_CFG1 register if the configuration protection is
         // required (for safety).
 
-        regs.cr1.modify(|_, w| w.spe().set_bit());
+        regs.cr1().modify(|_, w| w.spe().bit(true));
 
         Self { regs, cfg }
     }
 
     /// Change the SPI baud rate.
     pub fn reclock(&mut self, baud_rate: BaudRate) {
-        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+        self.regs.cr1().modify(|_, w| w.spe().clear_bit());
 
         self.regs
             .cfg1
             .modify(|_, w| unsafe { w.mbr().bits(baud_rate as u8) });
 
-        self.regs.cr1.modify(|_, w| w.spe().set_bit());
+        self.regs.cr1().modify(|_, w| w.spe().bit(true));
     }
 
     /// L44 RM, section 40.4.9: "Procedure for disabling the SPI"
@@ -173,14 +173,16 @@ where
         // When CRC is used, it is sent automatically after the last data in the block is processed.
         // TXC/EOT is set when CRC frame is completed in this case. When a transmission is
         // suspended the software has to wait till CSTART bit is cleared.
-        while self.regs.sr.read().txc().bit_is_clear() {}
-        while self.regs.sr.read().eot().bit_is_clear() {}
+        while self.regs.sr().read().txc().bit_is_clear() {}
+        while self.regs.sr().read().eot().bit_is_clear() {}
         // 2. Read all RxFIFO data (until RXWNE=0 and RXPLVL=00)
-        while self.regs.sr.read().rxwne().bit_is_set() || self.regs.sr.read().rxplvl().bits() != 0 {
-            unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) };
+        while self.regs.sr().read().rxwne().bit_is_set()
+            || self.regs.sr().read().rxplvl().bits() != 0
+        {
+            unsafe { ptr::read_volatile(&self.regs.rxdr() as *const _ as *const u8) };
         }
         // 3. Disable the SPI (SPE=0).
-        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+        self.regs.cr1().modify(|_, w| w.spe().clear_bit());
     }
 
     // todo: Temp C+P from h7xx hal while troubleshooting.
@@ -189,11 +191,11 @@ where
     /// * Assumes the transaction has started (CSTART handled externally)
     /// * Assumes at least one word has already been written to the Tx FIFO
     fn exchange(&mut self, word: u8) -> Result<u8, SpiError> {
-        let status = self.regs.sr.read();
+        let status = self.regs.sr().read();
         check_errors!(status);
 
         let mut i = 0;
-        while !self.regs.sr.read().dxp().is_available() {
+        while !self.regs.sr().read().dxp().is_available() {
             i += 1;
             if i >= MAX_ITERS {
                 return Err(SpiError::Hardware);
@@ -202,9 +204,9 @@ where
 
         // NOTE(write_volatile/read_volatile) write/read only 1 word
         unsafe {
-            let txdr = &self.regs.txdr as *const _ as *const UnsafeCell<u8>;
+            let txdr = &self.regs.txdr() as *const _ as *const UnsafeCell<u8>;
             ptr::write_volatile(UnsafeCell::raw_get(txdr), word);
-            return Ok(ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8));
+            return Ok(ptr::read_volatile(&self.regs.rxdr() as *const _ as *const u8));
         }
     }
     /// Read a single byte if available, or block until it's available.
@@ -212,10 +214,10 @@ where
     /// Assumes the transaction has started (CSTART handled externally)
     /// Assumes at least one word has already been written to the Tx FIFO
     pub fn read(&mut self) -> Result<u8, SpiError> {
-        check_errors!(self.regs.sr.read());
+        check_errors!(self.regs.sr().read());
 
         let mut i = 0;
-        while !self.regs.sr.read().rxp().is_not_empty() {
+        while !self.regs.sr().read().rxp().is_not_empty() {
             i += 1;
             if i >= MAX_ITERS {
                 return Err(SpiError::Hardware);
@@ -223,7 +225,7 @@ where
         }
 
         // NOTE(read_volatile) read only 1 word
-        return Ok(unsafe { ptr::read_volatile(&self.regs.rxdr as *const _ as *const u8) });
+        return Ok(unsafe { ptr::read_volatile(&self.regs.rxdr() as *const _ as *const u8) });
     }
 
     /// Write multiple bytes on the SPI line, blocking until complete.
@@ -281,16 +283,16 @@ where
     }
 
     fn send(&mut self, word: u8) -> Result<(), SpiError> {
-        check_errors!(self.regs.sr.read());
+        check_errors!(self.regs.sr().read());
 
         // NOTE(write_volatile) see note above
         unsafe {
-            let txdr = &self.regs.txdr as *const _ as *const UnsafeCell<u8>;
+            let txdr = &self.regs.txdr() as *const _ as *const UnsafeCell<u8>;
             ptr::write_volatile(UnsafeCell::raw_get(txdr), word)
         }
         // write CSTART to start a transaction in
         // master mode
-        self.regs.cr1.modify(|_, w| w.cstart().started());
+        self.regs.cr1().modify(|_, w| w.cstart().started());
 
         return Ok(());
     }
@@ -306,10 +308,10 @@ where
         // todo: Accept u16 and u32 words too.
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
-        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
-        self.regs.cfg1.modify(|_, w| w.rxdmaen().set_bit());
+        self.regs.cr1().modify(|_, w| w.spe().clear_bit());
+        self.regs.cfg1.modify(|_, w| w.rxdmaen().bit(true));
 
-        let periph_addr = &self.regs.rxdr as *const _ as u32;
+        let periph_addr = &self.regs.rxdr() as *const _ as u32;
         let num_data = len as u32;
 
         match dma_periph {
@@ -344,8 +346,8 @@ where
             }
         }
 
-        self.regs.cr1.modify(|_, w| w.spe().set_bit());
-        self.regs.cr1.modify(|_, w| w.cstart().set_bit()); // Must be separate from SPE enable.
+        self.regs.cr1().modify(|_, w| w.spe().bit(true));
+        self.regs.cr1().modify(|_, w| w.cstart().bit(true)); // Must be separate from SPE enable.
     }
 
     pub unsafe fn write_dma(
@@ -358,7 +360,7 @@ where
         // Static write and read buffers?
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
-        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+        self.regs.cr1().modify(|_, w| w.spe().clear_bit());
 
         // todo: Accept u16 words too.
 
@@ -375,7 +377,7 @@ where
         // (N/A)
 
         // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
-        let periph_addr = &self.regs.txdr as *const _ as u32;
+        let periph_addr = &self.regs.txdr() as *const _ as u32;
         let num_data = len as u32;
 
         match dma_periph {
@@ -410,11 +412,11 @@ where
         }
 
         // 3. Enable DMA Tx buffer in the TXDMAEN bit in the SPI_CR2 register, if DMA Tx is used.
-        self.regs.cfg1.modify(|_, w| w.txdmaen().set_bit());
+        self.regs.cfg1.modify(|_, w| w.txdmaen().bit(true));
 
         // 4. Enable the SPI by setting the SPE bit.
-        self.regs.cr1.modify(|_, w| w.spe().set_bit());
-        self.regs.cr1.modify(|_, w| w.cstart().set_bit()); // Must be separate from SPE enable.
+        self.regs.cr1().modify(|_, w| w.spe().bit(true));
+        self.regs.cr1().modify(|_, w| w.cstart().bit(true)); // Must be separate from SPE enable.
     }
 
     /// Transfer data from DMA; this is the basic reading API, using both write and read transfers:
@@ -433,19 +435,19 @@ where
         let (ptr_write, len_write) = (buf_write.as_ptr(), buf_write.len());
         let (ptr_read, len_read) = (buf_read.as_mut_ptr(), buf_read.len());
 
-        self.regs.cr1.modify(|_, w| w.spe().clear_bit());
+        self.regs.cr1().modify(|_, w| w.spe().clear_bit());
 
         // todo: DRY here, with `write_dma`, and `read_dma`.
 
-        let periph_addr_write = &self.regs.txdr as *const _ as u32;
-        let periph_addr_read = &self.regs.rxdr as *const _ as u32;
+        let periph_addr_write = &self.regs.txdr() as *const _ as u32;
+        let periph_addr_read = &self.regs.rxdr() as *const _ as u32;
 
         let num_data_write = len_write as u32;
         let num_data_read = len_read as u32;
 
         // Be careful - order of enabling Rx and Tx may matter, along with other things like when we
         // enable the channels, and the SPI periph.
-        self.regs.cfg1.modify(|_, w| w.rxdmaen().set_bit());
+        self.regs.cfg1.modify(|_, w| w.rxdmaen().bit(true));
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {
@@ -503,45 +505,45 @@ where
             }
         }
 
-        self.regs.cfg1.modify(|_, w| w.txdmaen().set_bit());
+        self.regs.cfg1.modify(|_, w| w.txdmaen().bit(true));
 
-        self.regs.cr1.modify(|_, w| w.spe().set_bit());
-        self.regs.cr1.modify(|_, w| w.cstart().set_bit()); // Must be separate from SPE enable.
+        self.regs.cr1().modify(|_, w| w.spe().bit(true));
+        self.regs.cr1().modify(|_, w| w.cstart().bit(true)); // Must be separate from SPE enable.
     }
 
     /// Enable an interrupt.
     pub fn enable_interrupt(&mut self, interrupt_type: SpiInterrupt) {
-        self.regs.ier.modify(|_, w| match interrupt_type {
-            SpiInterrupt::NumberOfTransactionsReload => w.tserfie().set_bit(),
-            SpiInterrupt::ModeFault => w.modfie().set_bit(),
-            SpiInterrupt::Tifre => w.tifreie().set_bit(),
-            SpiInterrupt::CrcError => w.crceie().set_bit(),
-            SpiInterrupt::Overrun => w.ovrie().set_bit(),
-            SpiInterrupt::Underrun => w.udrie().set_bit(),
-            SpiInterrupt::Txtfie => w.txtfie().set_bit(),
-            SpiInterrupt::EotSuspTxc => w.eotie().set_bit(),
-            // SpiInterrupt::Dxp => w.dxpie().set_bit(),
-            // SpiInterrupt::Txp => w.txpie().set_bit(),
-            // SpiInterrupt::Rxp => w.rxpie().set_bit(),
-            _ => w.eotie().set_bit(), // todo: PAC ommission?
+        self.regs.ier().modify(|_, w| match interrupt_type {
+            SpiInterrupt::NumberOfTransactionsReload => w.tserfie().bit(true),
+            SpiInterrupt::ModeFault => w.modfie().bit(true),
+            SpiInterrupt::Tifre => w.tifreie().bit(true),
+            SpiInterrupt::CrcError => w.crceie().bit(true),
+            SpiInterrupt::Overrun => w.ovrie().bit(true),
+            SpiInterrupt::Underrun => w.udrie().bit(true),
+            SpiInterrupt::Txtfie => w.txtfie().bit(true),
+            SpiInterrupt::EotSuspTxc => w.eotie().bit(true),
+            // SpiInterrupt::Dxp => w.dxpie().bit(true),
+            // SpiInterrupt::Txp => w.txpie().bit(true),
+            // SpiInterrupt::Rxp => w.rxpie().bit(true),
+            _ => w.eotie().bit(true), // todo: PAC ommission?
         });
     }
 
     /// Clear an interrupt.
     pub fn clear_interrupt(&mut self, interrupt_type: SpiInterrupt) {
         self.regs.ifcr.write(|w| match interrupt_type {
-            SpiInterrupt::NumberOfTransactionsReload => w.tserfc().set_bit(),
-            SpiInterrupt::ModeFault => w.modfc().set_bit(),
-            SpiInterrupt::Tifre => w.tifrec().set_bit(),
-            SpiInterrupt::CrcError => w.crcec().set_bit(),
-            SpiInterrupt::Overrun => w.ovrc().set_bit(),
-            SpiInterrupt::Underrun => w.udrc().set_bit(),
-            SpiInterrupt::Txtfie => w.txtfc().set_bit(),
-            SpiInterrupt::EotSuspTxc => w.eotc().set_bit(),
-            // SpiInterrupt::Dxp => w.dxpc().set_bit(),
-            // SpiInterrupt::Txp => w.txpc().set_bit(),
-            // SpiInterrupt::Rxp => w.rxpc().set_bit(),
-            _ => w.eotc().set_bit(), // todo: PAC ommission?
+            SpiInterrupt::NumberOfTransactionsReload => w.tserfc().bit(true),
+            SpiInterrupt::ModeFault => w.modfc().bit(true),
+            SpiInterrupt::Tifre => w.tifrec().bit(true),
+            SpiInterrupt::CrcError => w.crcec().bit(true),
+            SpiInterrupt::Overrun => w.ovrc().bit(true),
+            SpiInterrupt::Underrun => w.udrc().bit(true),
+            SpiInterrupt::Txtfie => w.txtfc().bit(true),
+            SpiInterrupt::EotSuspTxc => w.eotc().bit(true),
+            // SpiInterrupt::Dxp => w.dxpc().bit(true),
+            // SpiInterrupt::Txp => w.txpc().bit(true),
+            // SpiInterrupt::Rxp => w.rxpc().bit(true),
+            _ => w.eotc().bit(true), // todo: PAC ommission?
         });
     }
 }

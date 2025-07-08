@@ -32,7 +32,7 @@ impl Rng {
             }
         }
 
-        regs.cr.modify(|_, w| w.rngen().set_bit());
+        regs.cr().modify(|_, w| w.rngen().bit(true));
 
         Self { regs }
     }
@@ -45,12 +45,12 @@ impl Rng {
         // event).
         // todo: CHeck for 0? Check for DREDY?
 
-        self.regs.dr.read().bits() as i32
+        self.regs.dr().read().bits() as i32
     }
 
     /// Return true if a reading is available.
     pub fn reading_ready(&mut self) -> bool {
-        self.regs.sr.read().drdy().bit_is_set()
+        self.regs.sr().read().drdy().bit_is_set()
     }
 
     /// Enable an interrupt. An interrupt isgenerated when a random number is ready or when an error
@@ -58,7 +58,7 @@ impl Rng {
     /// to 0 in the RNG_SR register. A random number is ready. The DRDY bit must be set to 1 in the
     /// RNG_SR register.
     pub fn enable_interrupt(&mut self) {
-        self.regs.cr.modify(|_, w| w.ie().set_bit());
+        self.regs.cr().modify(|_, w| w.ie().bit(true));
     }
 }
 
@@ -66,11 +66,11 @@ impl Rng {
 /// to enable it and its peripheral clock.
 pub fn read() -> i32 {
     let regs = unsafe { &(*RNG::ptr()) };
-    regs.dr.read().bits() as i32
+    regs.dr().read().bits() as i32
 }
 
 /// Return true if a reading is available.
 pub fn reading_ready() -> bool {
     let regs = unsafe { &(*RNG::ptr()) };
-    regs.sr.read().drdy().bit_is_set()
+    regs.sr().read().drdy().bit_is_set()
 }

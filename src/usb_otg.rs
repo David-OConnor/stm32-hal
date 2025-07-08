@@ -117,17 +117,17 @@ macro_rules! usb_peripheral {
 
                 // USB Regulator in BYPASS mode
                 #[cfg(feature = "h7")]
-                // pwr.cr3.modify(|_, w| w.usbregen().set_bit()); // todo ?
-                pwr.cr3.modify(|_, w| w.usb33den().set_bit());
+                // pwr.cr3().modify(|_, w| w.usbregen().bit(true)); // todo ?
+                pwr.cr3().modify(|_, w| w.usb33den().bit(true));
                 #[cfg(feature = "l4x6")] // this was present in the usb module
-                pwr.cr2.modify(|_, w| w.usv().set_bit());
+                pwr.cr2().modify(|_, w| w.usv().bit(true));
                 // The f4 doesn't seem to have anything similar
 
                 // Enable USB peripheral
-                rcc.$clock_enable_reg.modify(|_, w| w.$en().set_bit());
+                rcc.$clock_enable_reg.modify(|_, w| w.$en().bit(true));
 
                 // Reset USB peripheral
-                rcc.$reset_reg.modify(|_, w| w.$rst().set_bit());
+                rcc.$reset_reg.modify(|_, w| w.$rst().bit(true));
                 rcc.$reset_reg.modify(|_, w| w.$rst().clear_bit());
             }
 
@@ -208,7 +208,7 @@ cfg_if! {
                 rcc.ahb1enr.modify(|_, w| w.usb1ulpien().enabled());
 
                 // Reset USB peripheral
-                rcc.ahb1rstr.modify(|_, w| w.usb1otgrst().set_bit());
+                rcc.ahb1rstr.modify(|_, w| w.usb1otgrst().bit(true));
                 rcc.ahb1rstr.modify(|_, w| w.usb1otgrst().clear_bit());
             }
 

@@ -80,7 +80,7 @@ fn RTC_WKUP() {
     with(|cs| {
         // Reset pending bit for interrupt line
         unsafe {
-            (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr20().set_bit());
+            (*pac::EXTI::ptr()).pr1.modify(|_, w| w.pr20().bit(true));
         }
         access_global!(RTC, rtc, cs);
         rtc.clear_wakeup_flag();

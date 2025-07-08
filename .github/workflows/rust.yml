@@ -28,6 +28,9 @@ jobs:
 #          - g0b0
 #          - g0b1
 #          - g0c1
+          - g011
+          - c031
+          - c071
 
     steps:
       - uses: actions/checkout@v2

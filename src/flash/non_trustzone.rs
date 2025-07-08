@@ -53,66 +53,66 @@ pub enum Error {
 /// Check and clear all non-secure error programming flags due to a previous
 /// programming. If not, PGSERR is set.
 fn clear_error_flags(regs: &FLASH) {
-    let sr = regs.sr.read();
+    let sr = regs.sr().read();
 
     cfg_if! {
         if #[cfg(any(feature = "f3"))] {
             if sr.wrprterr().bit_is_set() {
-                regs.sr.modify(|_, w| w.wrprterr().set_bit());
+                regs.sr().modify(|_, w| w.wrprterr().bit(true));
             }
             if sr.pgerr().bit_is_set() {
-                regs.sr.modify(|_, w| w.pgerr().set_bit());
+                regs.sr().modify(|_, w| w.pgerr().bit(true));
             }
         } else if #[cfg(any(feature = "f4"))] {
             // if sr.rderr().bit_is_set() {
-            //     regs.sr.modify(|_, w| w.rderr().set_bit());
+            //     regs.sr().modify(|_, w| w.rderr().bit(true));
             // }
             if sr.pgserr().bit_is_set() {
-                regs.sr.modify(|_, w| w.pgserr().set_bit());
+                regs.sr().modify(|_, w| w.pgserr().bit(true));
             }
             if sr.pgperr().bit_is_set() {
-                regs.sr.modify(|_, w| w.pgperr().set_bit());
+                regs.sr().modify(|_, w| w.pgperr().bit(true));
             }
             if sr.pgaerr().bit_is_set() {
-                regs.sr.modify(|_, w| w.pgaerr().set_bit());
+                regs.sr().modify(|_, w| w.pgaerr().bit(true));
             }
             if sr.wrperr().bit_is_set() {
-                regs.sr.modify(|_, w| w.wrperr().set_bit());
+                regs.sr().modify(|_, w| w.wrperr().bit(true));
             }
             if sr.operr().bit_is_set() {
-                regs.sr.modify(|_, w| w.operr().set_bit());
+                regs.sr().modify(|_, w| w.operr().bit(true));
             }
         } else {
             if sr.optverr().bit_is_set() {
-                regs.sr.write(|w| w.optverr().set_bit());
+                regs.sr().write(|w| w.optverr().bit(true));
             }
             if sr.rderr().bit_is_set() {
-                regs.sr.write(|w| w.rderr().set_bit());
+                regs.sr().write(|w| w.rderr().bit(true));
             }
             if sr.fasterr().bit_is_set() {
-                regs.sr.write(|w| w.fasterr().set_bit());
+                regs.sr().write(|w| w.fasterr().bit(true));
             }
             #[cfg(not(feature = "wl"))]
             if sr.miserr().bit_is_set() {
-                regs.sr.write(|w| w.miserr().set_bit());
+                regs.sr().write(|w| w.miserr().bit(true));
             }
             if sr.pgserr().bit_is_set() {
-                regs.sr.write(|w| w.pgserr().set_bit());
+                regs.sr().write(|w| w.pgserr().bit(true));
             }
             if sr.sizerr().bit_is_set() {
-                regs.sr.write(|w| w.sizerr().set_bit());
+                regs.sr().write(|w| w.sizerr().bit(true));
             }
             if sr.pgaerr().bit_is_set() {
-                regs.sr.write(|w| w.pgaerr().set_bit());
+                regs.sr().write(|w| w.pgaerr().bit(true));
             }
             if sr.wrperr().bit_is_set() {
-                regs.sr.write(|w| w.wrperr().set_bit());
+                regs.sr().write(|w| w.wrperr().bit(true));
             }
             if sr.progerr().bit_is_set() {
-                regs.sr.write(|w| w.progerr().set_bit());
+                regs.sr().write(|w| w.progerr().bit(true));
             }
             if sr.operr().bit_is_set() {
-                regs.sr.write(|w| w.operr().set_bit());
+                regs.sr().write(|w| w.operr().bit(true));
             }
 
         }
@@ -123,39 +123,39 @@ fn clear_error_flags(regs: &FLASH) {
 /// Check and clear all non-secure error programming flags due to a previous
 /// programming. If not, PGSERR is set.
 fn clear_error_flags(regs: &BANK) {
-    let sr = regs.sr.read();
+    let sr = regs.sr().read();
 
     if sr.dbeccerr().bit_is_set() {
-        regs.ccr.write(|w| w.clr_dbeccerr().set_bit());
+        regs.ccr().write(|w| w.clr_dbeccerr().bit(true));
     }
     #[cfg(not(any(feature = "h747cm4", feature = "h747cm7")))]
     if sr.sneccerr1().bit_is_set() {
-        regs.ccr.write(|w| w.clr_sneccerr().set_bit());
+        regs.ccr().write(|w| w.clr_sneccerr().bit(true));
     }
     #[cfg(any(feature = "h747cm4", feature = "h747cm7"))]
     if sr.sneccerr().bit_is_set() {
-        regs.ccr.write(|w| w.clr_sneccerr().set_bit());
+        regs.ccr().write(|w| w.clr_sneccerr().bit(true));
     }
     if sr.rdserr().bit_is_set() {
-        regs.ccr.write(|w| w.clr_rdserr().set_bit());
+        regs.ccr().write(|w| w.clr_rdserr().bit(true));
     }
     if sr.rdperr().bit_is_set() {
-        regs.ccr.write(|w| w.clr_rdperr().set_bit());
+        regs.ccr().write(|w| w.clr_rdperr().bit(true));
     }
     if sr.operr().bit_is_set() {
-        regs.ccr.write(|w| w.clr_operr().set_bit());
+        regs.ccr().write(|w| w.clr_operr().bit(true));
     }
     if sr.incerr().bit_is_set() {
-        regs.ccr.write(|w| w.clr_incerr().set_bit());
+        regs.ccr().write(|w| w.clr_incerr().bit(true));
     }
     if sr.strberr().bit_is_set() {
-        regs.ccr.write(|w| w.clr_strberr().set_bit());
+        regs.ccr().write(|w| w.clr_strberr().bit(true));
     }
     if sr.pgserr().bit_is_set() {
-        regs.ccr.write(|w| w.clr_pgserr().set_bit());
+        regs.ccr().write(|w| w.clr_pgserr().bit(true));
     }
     if sr.wrperr().bit_is_set() {
-        regs.ccr.write(|w| w.clr_wrperr().set_bit());
+        regs.ccr().write(|w| w.clr_wrperr().bit(true));
     }
 }
 
@@ -171,7 +171,7 @@ impl Flash {
         #[cfg(feature = "h7")]
         let regs = self.regs.bank1();
 
-        if regs.cr.read().lock().bit_is_clear() {
+        if regs.cr().read().lock().bit_is_clear() {
             return Ok(());
         }
 
@@ -181,7 +181,7 @@ impl Flash {
         regs.keyr.write(|w| unsafe { w.bits(FLASH_KEY1) });
         regs.keyr.write(|w| unsafe { w.bits(FLASH_KEY2) });
 
-        if regs.cr.read().lock().bit_is_clear() {
+        if regs.cr().read().lock().bit_is_clear() {
             Ok(())
         } else {
             Err(Error::Failure)
@@ -195,14 +195,14 @@ impl Flash {
     //     #[cfg(feature = "h7")]
     //     let regs = self.regs.bank1();
     //
-    //     if regs.cr.read().lock().bit_is_clear() {
+    //     if regs.cr().read().lock().bit_is_clear() {
     //         return Ok(());
     //     }
     //
     //     regs.optkeyr.write(|w| unsafe { w.bits(FLASH_OPT_KEY1) });
     //     regs.optkeyr.write(|w| unsafe { w.bits(FLASH_OPT_KEY2) });
     //
-    //     if regs.cr.read().lock().bit_is_clear() {
+    //     if regs.cr().read().lock().bit_is_clear() {
     //         Ok(())
     //     } else {
     //         Err(Error::Failure)
@@ -220,8 +220,8 @@ impl Flash {
         #[cfg(feature = "h7")]
         let regs = &self.regs.bank1();
 
-        while regs.sr.read().bsy().bit_is_set() {}
-        regs.cr.modify(|_, w| w.lock().set_bit());
+        while regs.sr().read().bsy().bit_is_set() {}
+        regs.cr().modify(|_, w| w.lock().bit(true));
     }
 
     #[cfg(not(feature = "h7"))]
@@ -237,7 +237,7 @@ impl Flash {
 
         // 1. Check that no Flash memory operation is ongoing by checking the BSY bit in the Flash
         // status register (FLASH_SR).
-        if regs.sr.read().bsy().bit_is_set() {
+        if regs.sr().read().bsy().bit_is_set() {
             self.lock();
             return Err(Error::Busy);
         }
@@ -252,7 +252,7 @@ impl Flash {
             if #[cfg(feature = "f3")] {
                 // F3 RM: "Erase procedure"
                 // Set the PER bit in the FLASH_CR register
-                regs.cr.modify(|_, w| w.per().set_bit());
+                regs.cr().modify(|_, w| w.per().bit(true));
 
                 // Program the FLASH_CR register
                 // regs.ar.modify(|_, w| w.far().bits(page as u8));
@@ -261,8 +261,8 @@ impl Flash {
                 // Set the SER bit and select the sector out of the 12 sectors (for STM32F405xx/07xx and
                 // STM32F415xx/17xx) and out of 24 (for STM32F42xxx and STM32F43xxx) in the main
                 // memory block you wish to erase (SNB) in the FLASH_CR register
-                regs.cr.modify(|_, w| unsafe {
-                    w.ser().set_bit();
+                regs.cr().modify(|_, w| unsafe {
+                    w.ser().bit(true);
                     w.snb().bits(page as u8) // todo: Probably not right?
                 });
             } else if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
@@ -273,21 +273,21 @@ impl Flash {
                 // select the page to erase (PNB). The BKER bit in the Flash control register
                 // (FLASH_CR) must be kept cleared)
                 if self.dual_bank == DualBank::Dual {
-                     regs.cr.modify(|_, w| unsafe {
+                     regs.cr().modify(|_, w| unsafe {
                         // w.bker().bits(bank as u8); // todo: PAC error
                         w.pnb().bits(page as u8);
-                        w.per().set_bit()
+                        w.per().bit(true)
                     });
                 } else {
-                     regs.cr.modify(|_, w| unsafe {
+                     regs.cr().modify(|_, w| unsafe {
                         w.pnb().bits(page as u8);
-                        w.per().set_bit()
+                        w.per().bit(true)
                     });
                 }
             } else {
-                 regs.cr.modify(|_, w| unsafe {
+                 regs.cr().modify(|_, w| unsafe {
                     w.pnb().bits(page as u8);
-                    w.per().set_bit()
+                    w.per().bit(true)
                 });
             }
         }
@@ -295,27 +295,27 @@ impl Flash {
         // 4. Set the STRT bit in the FLASH_CR register.
         cfg_if! {
             if #[cfg(not(any(feature = "l4", feature = "h7")))] {
-                regs.cr.modify(|_, w| w.strt().set_bit());
+                regs.cr().modify(|_, w| w.strt().bit(true));
             } else {
-                regs.cr.modify(|_, w| w.start().set_bit());
+                regs.cr().modify(|_, w| w.start().bit(true));
             }
         }
 
         // 5. Wait for the BSY bit to be cleared in the FLASH_SR register.
-        while regs.sr.read().bsy().bit_is_set() {}
+        while regs.sr().read().bsy().bit_is_set() {}
 
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "f4"))] {
                 // Check the EOP flag in the FLASH_SR register (it is set when the erase operation has
                 // succeeded), and then clear it by software.
-                while regs.sr.read().eop().bit_is_clear() {}
-                regs.sr.modify(|_, w| w.eop().set_bit());
+                while regs.sr().read().eop().bit_is_clear() {}
+                regs.sr().modify(|_, w| w.eop().bit(true));
             }
         }
         #[cfg(not(feature = "f4"))]
-        regs.cr.modify(|_, w| w.per().clear_bit());
+        regs.cr().modify(|_, w| w.per().clear_bit());
         #[cfg(feature = "f4")]
-        regs.cr.modify(|_, w| w.ser().clear_bit());
+        regs.cr().modify(|_, w| w.ser().clear_bit());
 
         self.lock();
 
@@ -349,16 +349,16 @@ impl Flash {
         // 3. Set the SER1/2 bit and SNB1/2 bitfield in the corresponding FLASH_CR1/2 register.
         // SER1/2 indicates a sector erase operation, while SNB1/2 contains the target sector
         // number.
-        regs.cr.modify(|_, w| unsafe {
-            w.ser().set_bit();
+        regs.cr().modify(|_, w| unsafe {
+            w.ser().bit(true);
             w.snb().bits(sector as u8) // todo: Probably not right?
         });
 
         // 4. Set the START1/2 bit in the FLASH_CR1/2 register.
-        regs.cr.modify(|_, w| w.start().set_bit());
+        regs.cr().modify(|_, w| w.start().bit(true));
 
         // 5. Wait for the QW1/2 bit to be cleared in the corresponding FLASH_SR1/2 register.
-        while regs.sr.read().qw().bit_is_set() {}
+        while regs.sr().read().qw().bit_is_set() {}
 
         self.lock();
 
@@ -389,7 +389,7 @@ impl Flash {
         // FLASH_SR register.
         // (H7): 1. Check and clear (optional) all the error flags due to previous programming/erase
         // operation. Refer to Section 4.7: FLASH error management for details.
-        let sr = regs.sr.read();
+        let sr = regs.sr().read();
         if sr.bsy().bit_is_set() {
             self.lock();
             return Err(Error::Busy);
@@ -403,19 +403,19 @@ impl Flash {
         // (FLASH_CR). Both banks can be selected in the same operation.
         cfg_if! {
             if #[cfg(any(feature = "f3", feature = "f4", feature = "g0", feature = "wb", feature = "wl"))] {
-                regs.cr.modify(|_, w| w.mer().set_bit());
+                regs.cr().modify(|_, w| w.mer().bit(true));
             } else if #[cfg(feature = "h7")] {
                 // 3. Set the BER1/2 bit in the FLASH_CR1/2 register corresponding to the targeted bank.
-                regs.cr.modify(|_, w| w.ber().set_bit());
+                regs.cr().modify(|_, w| w.ber().bit(true));
             } else { // L4, G4
                 match bank {
                     Bank::B1 => {
-                        regs.cr.modify(|_, w| w.mer1().set_bit());
+                        regs.cr().modify(|_, w| w.mer1().bit(true));
                     }
                     Bank::B2 => {
                         // todo: Other families that have dual bank too!
                         // #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))]
-                        // regs.cr.modify(|_, w| w.mer2().set_bit()); // todo PAC error
+                        // regs.cr().modify(|_, w| w.mer2().bit(true)); // todo PAC error
                     }
                 }
             }
@@ -426,26 +426,26 @@ impl Flash {
              if #[cfg(feature = "h7")] {
                 // 4. Set the START bit in the FLASH_CR1/2 register to start the bank erase operation. Then
                 // wait until the QW1/2 bit is cleared in the corresponding FLASH_SR1/2 register.
-                regs.cr.modify(|_, w| w.start().set_bit());
-                while regs.sr.read().qw().bit_is_set() {}
+                regs.cr().modify(|_, w| w.start().bit(true));
+                while regs.sr().read().qw().bit_is_set() {}
             } else if #[cfg(feature = "l4")] {
-                regs.cr.modify( | _, w | w.start().set_bit());
+                regs.cr().modify( | _, w | w.start().bit(true));
             } else {
-                regs.cr.modify(|_, w| w.strt().set_bit());
+                regs.cr().modify(|_, w| w.strt().bit(true));
             }
         }
 
         // 5. Wait for the BSY bit to be cleared in the FLASH_SR register.
-        while regs.sr.read().bsy().bit_is_set() {}
+        while regs.sr().read().bsy().bit_is_set() {}
 
         // (Some RMs describe this procedure, to clear mer, with ambiguity of if it's required)
         cfg_if! {
             if #[cfg(feature = "h7")] {
-                regs.cr.modify(|_, w| w.ber().clear_bit());
+                regs.cr().modify(|_, w| w.ber().clear_bit());
             } else if #[cfg(any(feature = "l4", feature = "g4"))] {
-                regs.cr.modify(|_, w| w.mer1().clear_bit());
+                regs.cr().modify(|_, w| w.mer1().clear_bit());
             } else {
-                regs.cr.modify(|_, w| w.mer().clear_bit());
+                regs.cr().modify(|_, w| w.mer().clear_bit());
             }
         }
 
@@ -470,7 +470,7 @@ impl Flash {
         // The Flash memory programming sequence in standard mode is as follows:
         // 1. Check that no Flash main memory operation is ongoing by checking the BSY bit in the
         // Flash status register (FLASH_SR).
-        let sr = regs.sr.read();
+        let sr = regs.sr().read();
         if sr.bsy().bit_is_set() {
             self.lock();
             return Err(Error::Busy);
@@ -481,7 +481,7 @@ impl Flash {
         clear_error_flags(regs);
 
         // 3. Set the PG bit in the Flash control register (FLASH_CR).
-        regs.cr.modify(|_, w| w.pg().set_bit());
+        regs.cr().modify(|_, w| w.pg().bit(true));
 
         // 4. Perform the data write operation at the desired memory address, inside main memory
         // block or OTP area. Only double word can be programmed.
@@ -531,18 +531,18 @@ impl Flash {
                 address = address.add(1);
             }
             // 5. Wait until the BSY bit is cleared in the FLASH_SR register.
-            while regs.sr.read().bsy().bit_is_set() {}
+            while regs.sr().read().bsy().bit_is_set() {}
 
             // 6. Check that EOP flag is set in the FLASH_SR register (meaning that the programming
             // operation has succeed), and clear it by software.
-            if regs.sr.read().eop().bit_is_set() {
-                regs.sr.modify(|_, w| w.eop().set_bit()); // Clear
+            if regs.sr().read().eop().bit_is_set() {
+                regs.sr().modify(|_, w| w.eop().bit(true)); // Clear
             }
         }
 
         // 7. Clear the PG bit in the FLASH_CR register if there no more programming request
         // anymore.
-        regs.cr.modify(|_, w| w.pg().clear_bit());
+        regs.cr().modify(|_, w| w.pg().clear_bit());
 
         self.lock();
 
@@ -561,7 +561,7 @@ impl Flash {
         let regs = &self.regs.bank1(); // todo: Bank 2 support.
 
         // 2. Enable write operations by setting the PG1/2 bit in the FLASH_CR1/2 register.
-        regs.cr.modify(|_, w| w.pg().set_bit());
+        regs.cr().modify(|_, w| w.pg().bit(true));
 
         // 3. Check the protection of the targeted memory area. (todo?)
 
@@ -588,7 +588,7 @@ impl Flash {
             }
 
             // 5. Check that QW has been raised and wait until it is reset to 0.
-            while regs.sr.read().qw().bit_is_set() {}
+            while regs.sr().read().qw().bit_is_set() {}
         }
 
         self.lock();

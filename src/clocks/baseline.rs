@@ -655,7 +655,7 @@ impl Clocks {
         // The sequence to switch from Range1 normal mode to Range1 boost mode is:
         // 1. The system clock must be divided by 2 using the AHB prescaler before switching to a
         // higher system frequency.
-        rcc.cfgr.modify(|_, w| unsafe { w.hpre().bits(HclkPrescaler::Div2 as u8) });
+        rcc.cfgr().modify(|_, w| unsafe { w.hpre().bits(HclkPrescaler::Div2 as u8) });
         // 2. Clear the R1MODE bit is in the PWR_CR5 register.
         let pwr = unsafe { &(*pac::PWR::ptr()) };
         pwr.cr5.modify(|_, w| w.r1mode().clear_bit());
@@ -763,8 +763,8 @@ impl Clocks {
         #[cfg(not(feature = "l5"))]
         flash.acr.modify(|_, w| unsafe {
             #[cfg(not(feature = "g0"))]
-            w.dcrst().set_bit();
-            w.icrst().set_bit()
+            w.dcrst().bit(true);
+            w.icrst().bit(true)
         });
 
         // Note: At least on G4, Dcache and ICache are enabled by default in hardware. Although Prefetch isn't.
@@ -773,14 +773,14 @@ impl Clocks {
             // G0: Instruction cache, but no data cache.
             w.latency().bits(wait_state as u8);
             #[cfg(not(feature = "g0"))]
-            w.dcen().set_bit();
-            w.icen().set_bit();
+            w.dcen().bit(true);
+            w.icen().bit(true);
             // Prefetch on the ICode bus can be used to read the next sequential instruction line from the
             // Flash memory while the current instruction line is being requested by the CPU
             // Prefetch is enabled by setting the PRFTEN bit in the Flash access control register
             // (FLASH_ACR). This feature is useful if at least one wait state is needed to access the Flash
             // memory
-            w.prften().set_bit()
+            w.prften().bit(true)
         });
 
         #[cfg(feature = "l5")]
@@ -789,7 +789,7 @@ impl Clocks {
             .modify(|_, w| unsafe { w.latency().bits(wait_state as u8) });
 
         #[cfg(feature = "l5")] // todo: u5 too.
-        icache.icache_cr.modify(|_, w| w.en().set_bit());
+        icache.icache_cr.modify(|_, w| w.en().bit(true));
 
         // Reference Manual, 6.2.5:
         // The device embeds 3 PLLs: PLL, PLLSAI1, PLLSAI2. Each PLL provides up to three
@@ -825,41 +825,41 @@ impl Clocks {
             InputSrc::Msi(range) => {
                 // MSI initializes to the default clock source. Turn it off before
                 // Adjusting its speed etc.
-                rcc.cr.modify(|_, w| w.msion().clear_bit());
+                rcc.cr().modify(|_, w| w.msion().clear_bit());
 
                 i = 0;
-                while rcc.cr.read().msirdy().bit_is_set() {
+                while rcc.cr().read().msirdy().bit_is_set() {
                     wait_hang!(i);
                 }
 
-                rcc.cr.modify(|_, w| unsafe {
+                rcc.cr().modify(|_, w| unsafe {
                     w.msirange().bits(range as u8);
                     #[cfg(not(any(feature = "wb", feature = "wl")))]
-                    w.msirgsel().set_bit();
-                    w.msion().set_bit()
+                    w.msirgsel().bit(true);
+                    w.msion().bit(true)
                 });
                 // Wait for the MSI to be ready.
 
                 i = 0;
-                while rcc.cr.read().msirdy().bit_is_clear() {
+                while rcc.cr().read().msirdy().bit_is_clear() {
                     wait_hang!(i);
                 }
                 // todo: If LSE is enabled, calibrate MSI.
             }
             InputSrc::Hse(_) => {
-                rcc.cr.modify(|_, w| w.hseon().set_bit());
+                rcc.cr().modify(|_, w| w.hseon().bit(true));
                 // Wait for the HSE to be ready.
 
                 i = 0;
-                while rcc.cr.read().hserdy().bit_is_clear() {
+                while rcc.cr().read().hserdy().bit_is_clear() {
                     wait_hang!(i);
                 }
             }
             InputSrc::Hsi => {
-                rcc.cr.modify(|_, w| w.hsion().set_bit());
+                rcc.cr().modify(|_, w| w.hsion().bit(true));
 
                 i = 0;
-                while rcc.cr.read().hsirdy().bit_is_clear() {
+                while rcc.cr().read().hsirdy().bit_is_clear() {
                     wait_hang!(i);
                 }
             }
@@ -868,31 +868,31 @@ impl Clocks {
                 match pll_src {
                     #[cfg(not(any(feature = "g0", feature = "g4")))]
                     PllSrc::Msi(range) => {
-                        rcc.cr.modify(|_, w| unsafe {
+                        rcc.cr().modify(|_, w| unsafe {
                             w.msirange().bits(range as u8);
                             #[cfg(not(any(feature = "wb", feature = "wl")))]
-                            w.msirgsel().set_bit();
-                            w.msion().set_bit()
+                            w.msirgsel().bit(true);
+                            w.msion().bit(true)
                         });
 
                         i = 0;
-                        while rcc.cr.read().msirdy().bit_is_clear() {
+                        while rcc.cr().read().msirdy().bit_is_clear() {
                             wait_hang!(i);
                         }
                     }
                     PllSrc::Hse(_) => {
-                        rcc.cr.modify(|_, w| w.hseon().set_bit());
+                        rcc.cr().modify(|_, w| w.hseon().bit(true));
 
                         i = 0;
-                        while rcc.cr.read().hserdy().bit_is_clear() {
+                        while rcc.cr().read().hserdy().bit_is_clear() {
                             wait_hang!(i);
                         }
                     }
                     PllSrc::Hsi => {
-                        rcc.cr.modify(|_, w| w.hsion().set_bit());
+                        rcc.cr().modify(|_, w| w.hsion().bit(true));
 
                         i = 0;
-                        while rcc.cr.read().hsirdy().bit_is_clear() {
+                        while rcc.cr().read().hsirdy().bit_is_clear() {
                             wait_hang!(i);
                         }
                     }
@@ -901,7 +901,7 @@ impl Clocks {
             }
             #[cfg(feature = "g0")]
             InputSrc::Lsi => {
-                rcc.csr.modify(|_, w| w.lsion().set_bit());
+                rcc.csr.modify(|_, w| w.lsion().bit(true));
 
                 i = 0;
                 while rcc.csr.read().lsirdy().bit_is_clear() {
@@ -910,7 +910,7 @@ impl Clocks {
             }
             #[cfg(feature = "g0")]
             InputSrc::Lse => {
-                rcc.bdcr.modify(|_, w| w.lseon().set_bit());
+                rcc.bdcr.modify(|_, w| w.lseon().bit(true));
 
                 i = 0;
                 while rcc.bdcr.read().lserdy().bit_is_clear() {
@@ -919,7 +919,7 @@ impl Clocks {
             }
         }
 
-        rcc.cr.modify(|_, w| {
+        rcc.cr().modify(|_, w| {
             // Enable bypass mode on HSE, since we're using a ceramic oscillator.
             #[cfg(feature = "wl")]
             return w.hsebyppwr().bit(self.hse_bypass);
@@ -927,7 +927,7 @@ impl Clocks {
             w.hsebyp().bit(self.hse_bypass)
         });
 
-        rcc.cfgr.modify(|_, w| unsafe {
+        rcc.cfgr().modify(|_, w| unsafe {
             w.sw().bits(self.input_src.bits());
             w.hpre().bits(self.hclk_prescaler as u8);
             #[cfg(not(feature = "g0"))]
@@ -951,17 +951,17 @@ impl Clocks {
         rcc.extcfgr
             .modify(|_, w| unsafe { w.shdhpre().bits(self.hclk3_prescaler as u8) });
 
-        rcc.cr.modify(|_, w| w.csson().bit(self.security_system));
+        rcc.cr().modify(|_, w| w.csson().bit(self.security_system));
 
         // Note that with this code setup, PLLSAI won't work properly unless using
         // the input source is PLL.
         if let InputSrc::Pll(pll_src) = self.input_src {
             // Turn off the PLL: Required for modifying some of the settings below.
-            rcc.cr.modify(|_, w| w.pllon().clear_bit());
+            rcc.cr().modify(|_, w| w.pllon().clear_bit());
             // Wait for the PLL to no longer be ready before executing certain writes.
 
             let mut i = 0;
-            while rcc.cr.read().pllrdy().bit_is_set() {
+            while rcc.cr().read().pllrdy().bit_is_set() {
                 wait_hang!(i);
             }
 
@@ -1004,15 +1004,15 @@ impl Clocks {
                 if #[cfg(feature = "g0")] {
                     // Set Pen, Qen, and Ren after we enable the PLL.
                     rcc.pllsyscfgr.modify(|_, w| {
-                        w.pllpen().set_bit();
-                        w.pllqen().set_bit();
-                        w.pllren().set_bit()
+                        w.pllpen().bit(true);
+                        w.pllqen().bit(true);
+                        w.pllren().bit(true)
                     });
                 } else {
                     rcc.pllcfgr.modify(|_, w| {
-                        w.pllpen().set_bit();
-                        w.pllqen().set_bit();
-                        w.pllren().set_bit()
+                        w.pllpen().bit(true);
+                        w.pllqen().bit(true);
+                        w.pllren().bit(true)
                     });
                 }
             }
@@ -1058,24 +1058,24 @@ impl Clocks {
                 }
             }
 
-            rcc.cr.modify(|_, w| w.pllon().set_bit());
+            rcc.cr().modify(|_, w| w.pllon().bit(true));
             i = 0;
-            while rcc.cr.read().pllrdy().bit_is_clear() {
+            while rcc.cr().read().pllrdy().bit_is_clear() {
                 wait_hang!(i);
             }
 
             cfg_if! {
                 if #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))] {
                     if self.pllsai1.enabled {
-                        rcc.cr.modify(|_, w| w.pllsai1on().set_bit());
+                        rcc.cr().modify(|_, w| w.pllsai1on().bit(true));
                         i = 0;
-                        while rcc.cr.read().pllsai1rdy().bit_is_clear() {wait_hang!(i);}
+                        while rcc.cr().read().pllsai1rdy().bit_is_clear() {wait_hang!(i);}
                     }
                     #[cfg(any(feature = "l4x5", feature = "l4x6",))]
                     if self.pllsai2.enabled {
-                        rcc.cr.modify(|_, w| w.pllsai2on().set_bit());
+                        rcc.cr().modify(|_, w| w.pllsai2on().bit(true));
                         i = 0;
-                        while rcc.cr.read().pllsai2rdy().bit_is_clear() {wait_hang!(i);}
+                        while rcc.cr().read().pllsai2rdy().bit_is_clear() {wait_hang!(i);}
                     }
                 }
             }
@@ -1085,7 +1085,7 @@ impl Clocks {
         // Only valid for some devices (On at least L4, and G4.)
         #[cfg(not(any(feature = "g0", feature = "wl")))]
         if self.hsi48_on {
-            rcc.crrcr.modify(|_, w| w.hsi48on().set_bit());
+            rcc.crrcr.modify(|_, w| w.hsi48on().bit(true));
             i = 0;
             while rcc.crrcr.read().hsi48rdy().bit_is_clear() {
                 wait_hang!(i);
@@ -1132,12 +1132,12 @@ impl Clocks {
                         match pll_src {
                         PllSrc::Msi(_) => (),
                             _ => {
-                                rcc.cr.modify(|_, w| w.msion().clear_bit());
+                                rcc.cr().modify(|_, w| w.msion().clear_bit());
                             }
                         }
                     }
                     _ => {
-                        rcc.cr.modify(|_, w| w.msion().clear_bit());
+                        rcc.cr().modify(|_, w| w.msion().clear_bit());
                    }
                 }
 
@@ -1148,12 +1148,12 @@ impl Clocks {
                         match pll_src {
                         PllSrc::Hsi => (),
                             _ => {
-                                rcc.cr.modify(|_, w| w.hsion().clear_bit());
+                                rcc.cr().modify(|_, w| w.hsion().clear_bit());
                             }
                         }
                     }
                     _ => {
-                        rcc.cr.modify(|_, w| w.hsion().clear_bit());
+                        rcc.cr().modify(|_, w| w.hsion().clear_bit());
                    }
                 }
             }
@@ -1186,9 +1186,9 @@ impl Clocks {
 
         match self.input_src {
             InputSrc::Hse(_) => {
-                rcc.cr.modify(|_, w| w.hseon().set_bit());
+                rcc.cr().modify(|_, w| w.hseon().bit(true));
                 let mut i = 0;
-                while rcc.cr.read().hserdy().bit_is_clear() {
+                while rcc.cr().read().hserdy().bit_is_clear() {
                     wait_hang!(i);
                 }
 
@@ -1199,9 +1199,9 @@ impl Clocks {
                 // todo: DRY with above.
                 match pll_src {
                     PllSrc::Hse(_) => {
-                        rcc.cr.modify(|_, w| w.hseon().set_bit());
+                        rcc.cr().modify(|_, w| w.hseon().bit(true));
                         let mut i = 0;
-                        while rcc.cr.read().hserdy().bit_is_clear() {
+                        while rcc.cr().read().hserdy().bit_is_clear() {
                             wait_hang!(i);
                         }
                     }
@@ -1209,9 +1209,9 @@ impl Clocks {
                         #[cfg(any(feature = "l4", feature = "l5"))]
                         // Generally reverts to MSI (see note below)
                         if let StopWuck::Msi = self.stop_wuck {
-                            rcc.cr.modify(|_, w| w.hsion().set_bit());
+                            rcc.cr().modify(|_, w| w.hsion().bit(true));
                             let mut i = 0;
-                            while rcc.cr.read().hsirdy().bit_is_clear() {
+                            while rcc.cr().read().hsirdy().bit_is_clear() {
                                 wait_hang!(i);
                             }
                         }
@@ -1221,18 +1221,18 @@ impl Clocks {
                     PllSrc::Msi(range) => {
                         // Range initializes to 4Mhz, so set that as well.
                         #[cfg(not(feature = "wb"))]
-                        rcc.cr.modify(|_, w| unsafe {
+                        rcc.cr().modify(|_, w| unsafe {
                             w.msirange().bits(range as u8);
-                            w.msirgsel().set_bit()
+                            w.msirgsel().bit(true)
                         });
                         #[cfg(feature = "wb")]
                         rcc.cr
                             .modify(|_, w| unsafe { w.msirange().bits(range as u8) });
 
                         if let StopWuck::Hsi = self.stop_wuck {
-                            rcc.cr.modify(|_, w| w.msion().set_bit());
+                            rcc.cr().modify(|_, w| w.msion().bit(true));
                             let mut i = 0;
-                            while rcc.cr.read().msirdy().bit_is_clear() {
+                            while rcc.cr().read().msirdy().bit_is_clear() {
                                 wait_hang!(i);
                             }
                         }
@@ -1240,18 +1240,18 @@ impl Clocks {
                     PllSrc::None => (),
                 }
 
-                rcc.cr.modify(|_, w| w.pllon().clear_bit());
+                rcc.cr().modify(|_, w| w.pllon().clear_bit());
                 let mut i = 0;
-                while rcc.cr.read().pllrdy().bit_is_set() {
+                while rcc.cr().read().pllrdy().bit_is_set() {
                     wait_hang!(i);
                 }
 
                 rcc.cfgr
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
 
-                rcc.cr.modify(|_, w| w.pllon().set_bit());
+                rcc.cr().modify(|_, w| w.pllon().bit(true));
                 let mut i = 0;
-                while rcc.cr.read().pllrdy().bit_is_clear() {
+                while rcc.cr().read().pllrdy().bit_is_clear() {
                     wait_hang!(i);
                 }
             }
@@ -1268,9 +1268,9 @@ impl Clocks {
                     // For G, we already are using HSI, so need to take action either.
                     #[cfg(not(any(feature = "g0", feature = "g4")))]
                     if let StopWuck::Msi = self.stop_wuck {
-                        rcc.cr.modify(|_, w| w.hsion().set_bit());
+                        rcc.cr().modify(|_, w| w.hsion().bit(true));
                         let mut i = 0;
-                        while rcc.cr.read().hsirdy().bit_is_clear() {
+                        while rcc.cr().read().hsirdy().bit_is_clear() {
                             wait_hang!(i);
                         }
 
@@ -1283,18 +1283,18 @@ impl Clocks {
             InputSrc::Msi(range) => {
                 // Range initializes to 4Mhz, so set that as well.
                 #[cfg(not(feature = "wb"))]
-                rcc.cr.modify(|_, w| unsafe {
+                rcc.cr().modify(|_, w| unsafe {
                     w.msirange().bits(range as u8);
-                    w.msirgsel().set_bit()
+                    w.msirgsel().bit(true)
                 });
                 #[cfg(feature = "wb")]
                 rcc.cr
                     .modify(|_, w| unsafe { w.msirange().bits(range as u8) });
 
                 if let StopWuck::Hsi = self.stop_wuck {
-                    rcc.cr.modify(|_, w| w.msion().set_bit());
+                    rcc.cr().modify(|_, w| w.msion().bit(true));
                     let mut i = 0;
-                    while rcc.cr.read().msirdy().bit_is_clear() {
+                    while rcc.cr().read().msirdy().bit_is_clear() {
                         wait_hang!(i);
                     }
 
@@ -1304,7 +1304,7 @@ impl Clocks {
             }
             #[cfg(feature = "g0")]
             InputSrc::Lsi => {
-                rcc.csr.modify(|_, w| w.lsion().set_bit());
+                rcc.csr.modify(|_, w| w.lsion().bit(true));
                 let mut i = 0;
                 while rcc.csr.read().lsirdy().bit_is_clear() {
                     wait_hang!(i);
@@ -1314,7 +1314,7 @@ impl Clocks {
             }
             #[cfg(feature = "g0")]
             InputSrc::Lse => {
-                rcc.bdcr.modify(|_, w| w.lseon().set_bit());
+                rcc.bdcr.modify(|_, w| w.lseon().bit(true));
                 let mut i = 0;
                 while rcc.bdcr.read().lserdy().bit_is_clear() {
                     wait_hang!(i);
@@ -1343,10 +1343,10 @@ impl Clocks {
         // RM: "`"Warning: MSIRANGE can be modified when MSI is OFF (MSION=0) or when MSI is ready (MSIRDY=1).
         // MSIRANGE must NOT be modified when MSI is ON and NOT ready (MSION=1 and MSIRDY=0)"
         // So, we can change MSI range while it's running.
-        while rcc.cr.read().msirdy().bit_is_clear() {}
+        while rcc.cr().read().msirdy().bit_is_clear() {}
 
         rcc.cr
-            .modify(|_, w| unsafe { w.msirange().bits(range as u8).msirgsel().set_bit() });
+            .modify(|_, w| unsafe { w.msirange().bits(range as u8).msirgsel().bit(true) });
 
         // Update our config to reflect the new speed.
         self.input_src = InputSrc::Msi(range);
@@ -1376,8 +1376,8 @@ impl Clocks {
             }
         }
 
-        rcc.cr.modify(|_, w| w.msion().clear_bit());
-        while rcc.cr.read().msirdy().bit_is_set() {}
+        rcc.cr().modify(|_, w| w.msion().clear_bit());
+        while rcc.cr().read().msirdy().bit_is_set() {}
 
         // L44 RM, section 6.2.3: When a 32.768 kHz external oscillator is present in the application, it is possible to configure
         // the MSI in a PLL-mode by setting the MSIPLLEN bit in the Clock control register (RCC_CR).
@@ -1385,18 +1385,18 @@ impl Clocks {
         // This mode is available for all MSI frequency ranges. At 48 MHz, the MSI in PLL-mode can
         // be used for the USB FS device, saving the need of an external high-speed crystal.
         // MSIPLLEN must be enabled after LSE is enabled
-        rcc.cr.modify(|_, w| unsafe {
+        rcc.cr().modify(|_, w| unsafe {
             w.msirange()
                 .bits(MsiRange::R48M as u8)
                 .msirgsel()
-                .set_bit()
+                .bit(true)
                 .msipllen()
-                .set_bit()
+                .bit(true)
                 .msion()
-                .set_bit()
+                .bit(true)
         });
 
-        while rcc.cr.read().msirdy().bit_is_clear() {}
+        while rcc.cr().read().msirdy().bit_is_clear() {}
     }
 
     /// Get the sysclock frequency, in hz.
@@ -1435,7 +1435,7 @@ impl Clocks {
     ///```
     pub fn pll_is_enabled(&self) -> bool {
         let rcc = unsafe { &(*RCC::ptr()) };
-        rcc.cr.read().pllon().bit_is_set()
+        rcc.cr().read().pllon().bit_is_set()
     }
 
     /// Get the HCLK frequency, in hz
@@ -1698,18 +1698,18 @@ pub fn enable_crs(sync_src: CrsSyncSrc) {
     let val = rcc.apb1enr1.read().bits();
     rcc.apb1enr1.write(|w| unsafe { w.bits(val | (1 << 24)) });
     } else {
-    rcc.apb1enr1.modify(|_, w| w.crsen().set_bit());
+    rcc.apb1enr1.modify(|_, w| w.crsen().bit(true));
     }
     }
 
     crs.cfgr
         .modify(|_, w| unsafe { w.syncsrc().bits(sync_src as u8) });
 
-    crs.cr.modify(|_, w| {
+    crs.cr().modify(|_, w| {
         // Set autotrim enabled.
-        w.autotrimen().set_bit();
+        w.autotrimen().bit(true);
         // Enable CRS
-        w.cen().set_bit()
+        w.cen().bit(true)
     });
 
     // "The internal 48 MHz RC oscillator is mainly dedicated to provide a high precision clock to
