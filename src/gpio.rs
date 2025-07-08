@@ -29,7 +29,7 @@ use crate::util::rcc_en_reset;
 // use core::ops::Deref;
 
 cfg_if! {
-    if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
+    if #[cfg(all(feature = "g0", feature = "c0", not(any(feature = "g0b1", feature = "g0c1"))))] {
         use crate::pac::DMA as DMA1;
     } else if #[cfg(any(feature = "f4", feature = "h5"))] {} else {
         use crate::pac::DMA1;
@@ -141,6 +141,7 @@ pub enum Port {
         feature = "f3x4",
         feature = "f410",
         feature = "g0",
+        feature = "c0",
         feature = "wb",
         feature = "wl"
     )))]
@@ -169,6 +170,7 @@ pub enum Port {
         feature = "l412",
         feature = "l4x3",
         feature = "g0",
+        feature = "c0",
         feature = "wb",
         feature = "wl"
     )))]
@@ -183,6 +185,7 @@ pub enum Port {
         feature = "l412",
         feature = "l4x3",
         feature = "g0",
+        feature = "c0",
         feature = "g4",
         feature = "wb",
         feature = "wl"
@@ -207,6 +210,7 @@ impl Port {
                 feature = "f3x4",
                 feature = "f410",
                 feature = "g0",
+                feature = "c0",
                 feature = "wb",
                 feature = "wl"
             )))]
@@ -235,7 +239,7 @@ impl Port {
                 feature = "l412",
                 feature = "l4x3",
                 feature = "g0",
-                // feature = "g4",
+                feature = "c0",
                 feature = "wb",
                 feature = "wl"
             )))]
@@ -250,6 +254,7 @@ impl Port {
                 feature = "l412",
                 feature = "l4x3",
                 feature = "g0",
+                feature = "c0",
                 feature = "g4",
                 feature = "wb",
                 feature = "wl"
@@ -299,9 +304,9 @@ macro_rules! set_alt {
                             (*$regs).moder.modify(|_, w| w.[<mode $num>]().bits(PinMode::Alt(0).val()));
                             #[cfg(not(feature = "h5"))]
                             (*$regs).moder.modify(|_, w| w.[<moder $num>]().bits(PinMode::Alt(0).val()));
-                            #[cfg(any(feature = "l5", feature = "g0", feature = "h5", feature = "h7", feature = "wb"))]
+                            #[cfg(any(feature = "l5", feature = "g0",feature = "c0", feature = "h5", feature = "h7", feature = "wb"))]
                             (*$regs).[<afr $lh>].modify(|_, w| w.[<$field_af $num>]().bits($val));
-                            #[cfg(not(any(feature = "l5", feature = "g0", feature = "h5", feature = "h7", feature = "wb")))]
+                            #[cfg(not(any(feature = "l5", feature = "g0", feature = "c0", feature = "h5", feature = "h7", feature = "wb")))]
                             (*$regs).[<afr $lh>].modify(|_, w| w.[<$field_af $lh $num>]().bits($val));
                         }
                     )+
@@ -453,7 +458,7 @@ macro_rules! set_exti_l5 {
     }
 }
 
-#[cfg(feature = "g0")]
+#[cfg(any(feature = "g0", feature = "c0"))]
 // For G0. See `set_exti!`. Todo? Reduce DRY.
 macro_rules! set_exti_g0 {
     ($pin:expr, $rising:expr, $falling:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
@@ -520,7 +525,7 @@ impl Pin {
                         if rcc.ahb1enr.read().gpioaen().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpioa, rcc);
                         }
-                    } else if #[cfg(feature = "g0")] {
+                    } else if #[cfg(any(feature = "g0", feature = "c0"))] {
                         if rcc.iopenr.read().iopaen().bit_is_clear() {
                             rcc.iopenr.modify(|_, w| w.iopaen().set_bit());
                             rcc.ioprstr.modify(|_, w| w.ioparst().set_bit());
@@ -549,7 +554,7 @@ impl Pin {
                         if rcc.ahb1enr.read().gpioben().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpiob, rcc);
                         }
-                    } else if #[cfg(feature = "g0")] {
+                    } else if #[cfg(any(feature = "g0", feature = "c0"))] {
                         if rcc.iopenr.read().iopben().bit_is_clear() {
                             rcc.iopenr.modify(|_, w| w.iopben().set_bit());
                             rcc.ioprstr.modify(|_, w| w.iopbrst().set_bit());
@@ -579,7 +584,7 @@ impl Pin {
                         if rcc.ahb1enr.read().gpiocen().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpioc, rcc);
                         }
-                    } else if #[cfg(feature = "g0")] {
+                    } else if #[cfg(any(feature = "g0", feature = "c0"))] {
                         if rcc.iopenr.read().iopcen().bit_is_clear() {
                             rcc.iopenr.modify(|_, w| w.iopcen().set_bit());
                             rcc.ioprstr.modify(|_, w| w.iopcrst().set_bit());
@@ -609,7 +614,7 @@ impl Pin {
                         if rcc.ahb1enr.read().gpioden().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpiod, rcc);
                         }
-                    } else if #[cfg(feature = "g0")] {
+                    } else if #[cfg(any(feature = "g0", feature = "c0"))] {
                         if rcc.iopenr.read().iopden().bit_is_clear() {
                             rcc.iopenr.modify(|_, w| w.iopden().set_bit());
                             rcc.ioprstr.modify(|_, w| w.iopdrst().set_bit());
@@ -627,6 +632,7 @@ impl Pin {
                 feature = "f3x4",
                 feature = "f410",
                 feature = "g0",
+                feature = "c0",
                 feature = "wb",
                 feature = "wl"
             )))]
@@ -646,7 +652,7 @@ impl Pin {
                         if rcc.ahb1enr.read().gpioeen().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpioe, rcc);
                         }
-                    } else if #[cfg(feature = "g0")] {
+                    } else if #[cfg(any(feature = "g0", feature = "c0"))] {
                         if rcc.iopenr.read().iopeen().bit_is_clear() {
                             rcc.iopenr.modify(|_, w| w.iopeen().set_bit());
                             rcc.ioprstr.modify(|_, w| w.ioperst().set_bit());
@@ -686,7 +692,7 @@ impl Pin {
                         if rcc.ahb1enr.read().gpiofen().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpiof, rcc);
                         }
-                    } else if #[cfg(feature = "g0")] {
+                    } else if #[cfg(any(feature = "g0", feature = "c0"))] {
                         if rcc.iopenr.read().iopfen().bit_is_clear() {
                             rcc.iopenr.modify(|_, w| w.iopfen().set_bit());
                             rcc.ioprstr.modify(|_, w| w.iopfrst().set_bit());
@@ -711,6 +717,7 @@ impl Pin {
                 feature = "l412",
                 feature = "l4x3",
                 feature = "g0",
+                feature = "c0",
                 feature = "wb",
                 feature = "wl"
             )))]
@@ -730,7 +737,7 @@ impl Pin {
                         if rcc.ahb1enr.read().gpiogen().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpiog, rcc);
                         }
-                    } else if #[cfg(feature = "g0")] {
+                    } else if #[cfg(any(feature = "g0", feature = "c0"))] {
                         if rcc.iopenr.read().iopgen().bit_is_clear() {
                             rcc.iopenr.modify(|_, w| w.iopgen().set_bit());
                             rcc.ioprstr.modify(|_, w| w.iopgrst().set_bit());
@@ -772,6 +779,7 @@ impl Pin {
                 feature = "l412",
                 feature = "l4x3",
                 feature = "g0",
+                feature = "c0",
                 feature = "g4",
                 feature = "wb",
                 feature = "wl"
@@ -792,7 +800,7 @@ impl Pin {
                         if rcc.ahb1enr.read().gpiohen().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpioh, rcc);
                         }
-                    } else if #[cfg(feature = "g0")] {
+                    } else if #[cfg(any(feature = "g0", feature = "c0"))] {
                         if rcc.iopenr.read().iophen().bit_is_clear() {
                             rcc.iopenr.modify(|_, w| w.iophen().set_bit());
                             rcc.ioprstr.modify(|_, w| w.iophrst().set_bit());
@@ -959,7 +967,7 @@ impl Pin {
         assert!(value <= 15, "Alt function must be 0 to 15.");
 
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g0", feature = "wb", feature = "h5"))] {
+            if #[cfg(any(feature = "l5", feature = "g0", feature = "c0", feature = "wb", feature = "h5"))] {
                 set_alt!(self.regs(), self.pin, afsel, value, [(0, l), (1, l), (2, l),
                     (3, l), (4, l), (5, l), (6, l), (7, l), (8, h), (9, h), (10, h), (11, h), (12, h),
                     (13, h), (14, h), (15, h)])
@@ -989,7 +997,7 @@ impl Pin {
         };
 
         cfg_if! {
-            if #[cfg(feature = "g0")] {
+            if #[cfg(any(feature = "g0", feature = "c0"))] {
                 set_exti_g0!(self.pin, rising, falling, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
                     (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
                     (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
@@ -1211,7 +1219,7 @@ pub fn clear_exti_interrupt(line: u8) {
                         _ => panic!(),
                     }
                 });
-            } else if #[cfg(any(feature = "l5", feature = "g0"))] {
+            } else if #[cfg(any(feature = "l5", feature = "g0", feature = "c0"))] {
                 (*EXTI::ptr()).rpr1.modify(|_, w| {
                     match line {
                         0 => w.rpif0().set_bit(),
@@ -1341,6 +1349,7 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
             feature = "f3x4",
             feature = "f410",
             feature = "g0",
+            feature = "c0",
             feature = "wb",
             feature = "wl"
         )))]
@@ -1369,6 +1378,7 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
             feature = "l412",
             feature = "l4x3",
             feature = "g0",
+            feature = "c0",
             feature = "wb",
             feature = "wl"
         )))]
@@ -1383,6 +1393,7 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
             feature = "l412",
             feature = "l4x3",
             feature = "g0",
+            feature = "c0",
             feature = "g4",
             feature = "wb",
             feature = "wl"
@@ -1433,7 +1444,7 @@ pub unsafe fn write_dma(
                 channel_cfg,
             );
         }
-        #[cfg(not(any(feature = "g0", feature = "wb")))]
+        #[cfg(not(any(feature = "g0", feature = "c0", feature = "wb")))]
         dma::DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             dma::cfg_channel(
@@ -1490,7 +1501,7 @@ pub unsafe fn read_dma(
                 channel_cfg,
             );
         }
-        #[cfg(not(any(feature = "g0", feature = "wb")))]
+        #[cfg(not(any(feature = "g0", feature = "c0", feature = "wb")))]
         dma::DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             dma::cfg_channel(

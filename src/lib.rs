@@ -215,6 +215,13 @@ compile_error!("This crate requires an MCU-specifying feature to be enabled. eg 
 // todo: U5 once SVD is out.
 use cfg_if::cfg_if;
 use cortex_m::{self, delay::Delay};
+// C0 PAC
+#[cfg(feature = "c011")]
+pub use stm32c0::stm32c011 as pac;
+#[cfg(feature = "c031")]
+pub use stm32c0::stm32c031 as pac;
+#[cfg(feature = "c071")]
+pub use stm32c0::stm32c071 as pac;
 #[cfg(feature = "f3x4")]
 pub use stm32f3::stm32f3x4 as pac;
 #[cfg(feature = "f301")]
@@ -346,7 +353,7 @@ pub use stm32wl::stm32wle5 as pac;
 
 pub mod macros;
 
-#[cfg(not(any(feature = "f301", feature = "f302")))]
+#[cfg(not(any(feature = "f301", feature = "f302", feature = "c0")))]
 pub mod adc;
 
 // bxCAN families: F3, F4, L4,
@@ -377,6 +384,7 @@ pub mod crc;
     feature = "wb",
     feature = "g0",
     feature = "h5", // todo: H5 DAC pending PAC fix.
+    feature = "c0", // todo
 )))]
 // WB doesn't have a DAC. Some G0 variants do - add it! Most F4 variants have it, some don't
 pub mod dac;
@@ -393,6 +401,7 @@ pub mod dac;
     feature = "wb",
     feature = "wl",
     feature = "h5", // todo: Check PAC.
+    feature = "c0",
 // todo: DFSDM support for other platforms that don't support clustering
 )))]
 pub mod dfsdm;
@@ -447,6 +456,7 @@ feature = "g4a1",
 feature = "wl",
 feature = "l5", // todo: PAC errors on some regs.
 feature = "h5",
+feature = "c0",
 )))]
 pub mod qspi;
 
@@ -462,6 +472,7 @@ pub mod qspi;
 )))]
 pub mod rng;
 
+#[cfg(not(feature = "c0"))] // todo 
 pub mod rtc;
 
 #[cfg(not(any(
@@ -471,16 +482,17 @@ pub mod rtc;
     feature = "h7b3",
     feature = "wl",
     feature = "h5", // todo
+    feature = "c0", // todo
 )))]
 pub mod sai;
 
-#[cfg(not(feature = "h5"))] // todo: Add H5 SPI!
+#[cfg(not(any(feature = "h5", feature = "c0")))] // todo: Add H5 SPI!
 pub mod spi;
 
-#[cfg(not(feature = "h5"))] // todo temp
+#[cfg(not(any(feature = "h5", feature = "c0")))] // todo temp
 pub mod timer;
 
-// #[cfg(not(feature = "h5"))] // todo temp. Needs CR1 and ISR added, among other things.
+#[cfg(not(feature = "c0"))]
 pub mod usart;
 
 // todo: More MCUs A/R. They will need modifications in the module.
@@ -531,7 +543,7 @@ mod util;
 pub use util::{BaudPeriph, RccPeriph};
 
 // todo: Remove this debug_workaroudn function on MCUs that don't require it. Ie, is this required on G4? G0?
-#[cfg(not(any(feature = "g0")))]
+#[cfg(not(any(feature = "g0", feature = "c0")))]
 /// Workaround due to debugger disconnecting in WFI (and low-power) modes.
 /// This affects most (all?) STM32 devices. In production on battery-powered
 /// devices that don't use DMA, consider removing this, to prevent power

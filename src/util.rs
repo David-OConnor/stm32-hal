@@ -22,7 +22,8 @@ use crate::{
     feature = "f411",
     feature = "f412",
     feature = "wb",
-    feature = "g0"
+    feature = "g0",
+    feature = "c0",
 )))]
 cfg_if! {
     if #[cfg(any(feature = "f3", feature = "l412", feature = "g4", feature = "h7b3"))] {
@@ -62,6 +63,10 @@ macro_rules! rcc_en_reset {
                 $rcc.apbenr1.modify(|_, w| w.[<$periph en>]().set_bit());
                 $rcc.apbrstr1.modify(|_, w| w.[<$periph rst>]().set_bit());
                 $rcc.apbrstr1.modify(|_, w| w.[<$periph rst>]().clear_bit());
+            } else if #[cfg(feature = "c0")] {
+                $rcc.apbenr1().modify(|_, w| w.[<$periph en>()]().set_bit());
+                $rcc.apbrstr1().modify(|_, w| w.[<$periph rst>()]().set_bit());
+                $rcc.apbrstr1().modify(|_, w| w.[<$periph rst>()]().clear_bit());
             } else {  // H7
                 $rcc.apb1lenr.modify(|_, w| w.[<$periph en>]().set_bit());
                 $rcc.apb1lrstr.modify(|_, w| w.[<$periph rst>]().set_bit());
@@ -79,6 +84,10 @@ macro_rules! rcc_en_reset {
                 $rcc.apbenr2.modify(|_, w| w.[<$periph en>]().set_bit());
                 $rcc.apbrstr2.modify(|_, w| w.[<$periph rst>]().set_bit());
                 $rcc.apbrstr2.modify(|_, w| w.[<$periph rst>]().clear_bit());
+            } else if #[cfg(feature = "c0")] {
+                $rcc.apbenr2().modify(|_, w| w.[<$periph en>()]().set_bit());
+                $rcc.apbrstr2().modify(|_, w| w.[<$periph rst>()]().set_bit());
+                $rcc.apbrstr2().modify(|_, w| w.[<$periph rst>()]().clear_bit());
             } else {
                 $rcc.apb2enr.modify(|_, w| w.[<$periph en>]().set_bit());
                 $rcc.apb2rstr.modify(|_, w| w.[<$periph rst>]().set_bit());
@@ -99,7 +108,8 @@ macro_rules! rcc_en_reset {
                 $rcc.ahbenr.modify(|_, w| w.[<$periph en>]().set_bit());
                 $rcc.ahbrstr.modify(|_, w| w.[<$periph rst>]().set_bit());
                 $rcc.ahbrstr.modify(|_, w| w.[<$periph rst>]().clear_bit());
-            } else if #[cfg(feature = "g0")] {
+            // } else if #[cfg(feature = "g0")] {
+            } else if #[cfg(any(feature = "g0", feature = "c0"))] {
                 $rcc.ahbenr.modify(|_, w| w.[<$periph en>]().set_bit());
                 $rcc.ahbrstr.modify(|_, w| w.[<$periph rst>]().set_bit());
                 $rcc.ahbrstr.modify(|_, w| w.[<$periph rst>]().clear_bit());
@@ -132,7 +142,7 @@ macro_rules! rcc_en_reset {
     };
 }
 
-#[cfg(not(any(feature = "f", feature = "g0", feature = "l")))]
+#[cfg(not(any(feature = "f", feature = "g0", feature = "c0", feature = "l")))]
 macro_rules! rcc_en_reset_apb1enr2 {
     ($periph:expr, $rcc:expr) => {
         paste::paste! {
@@ -171,6 +181,7 @@ impl BaudPeriph for pac::USART2 {
     feature = "f413",
     feature = "l4x1",
     feature = "g0",
+    feature = "c0",
     feature = "wb",
     feature = "wl",
 )))]
@@ -233,7 +244,13 @@ cfg_if! {
     }
 }
 
-#[cfg(not(any(feature = "f", feature = "g0", feature = "wl", feature = "l")))]
+#[cfg(not(any(
+    feature = "f",
+    feature = "g0",
+    feature = "c0",
+    feature = "wl",
+    feature = "l"
+)))]
 impl BaudPeriph for pac::LPUART1 {
     fn baud(clock_cfg: &Clocks) -> u32 {
         clock_cfg.apb1()

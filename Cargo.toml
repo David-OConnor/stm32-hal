@@ -31,6 +31,7 @@ stm32g4 = { version = "0.15.1", optional = true }
 stm32h7 = { version = "0.15.1", optional = true }
 stm32wb = { version = "0.15.1", optional = true }
 stm32wl = { version = "0.15.1", optional = true }
+stm32c0 = { version = "0.16.0", optional = true }
 
 defmt = "1.0.1"
 
@@ -171,6 +172,12 @@ wb55 = ["stm32wb/stm32wb55", "wb"]
 # [WL](https://docs.rs/crate/stm32wl/latest/source/Cargo.toml)
 wle5 = ["stm32wl/stm32wle5", "wl"]
 
+# [C0](https://docs.rs/crate/stm32c0/latest/source/Cargo.toml)
+c011 = ["stm32c0/stm32c011", "c0"]
+c031 = ["stm32c0/stm32c031", "c0"]
+c071 = ["stm32c0/stm32c071", "c0"]
+
+
 usb = ["dep:stm32-usbd"]
 #usb = ["dep:stm32-usbd", "usb-device", "usbd-serial"]
 
@@ -190,13 +197,15 @@ monotonic = ["dep:rtic-monotonic"]
 # to an entire family.
 f = []
 l = []
+c_g0 = []  # todo: A/R
 f3 = ["f"]
 f4 = ["f"]
 l4 = ["l"]
 l5 = ["l"]
-g0 = []
+g0 = ["c_g0"]
 g4 = []
 h5 = []
 h7 = []
 wb = []
 wl = []
+c0 = ["c_g0"]

@@ -34,6 +34,8 @@ This library provides high-level access to STM32 peripherals.
 F3, F4, L4, L5, G0, G4, H5, H7, WB, and WL. U5 is planned once its SVD files and PAC
 become available.
 
+C0 is a WIP.
+
 Tested on the following devices:
 - STM32F303
 - STM32F401, F411
