@@ -23,7 +23,7 @@ pub fn setup(timeout: f32) {
 
         // 32kHz clock.
         // todo: Hardcoded prescaler of 32. This allows a timeout between 0 and 4.096 seconds.
-        regs.pr.write(|w| w.bits(0b011));
+        regs.pr().write(|w| w.bits(0b011));
 
         // 4. Write the IWDG reload register (IWDG_RLR).
         // A 12-bit value. Assumes a prescaler of 32.

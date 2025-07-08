@@ -474,9 +474,9 @@ impl Clocks {
         // todo: Is this the right module to do this in?
         #[cfg(feature = "h7")]
         {
-            rcc.apb4enr.modify(|_, w| w.syscfgen().bit(true));
-            rcc.apb4rstr.modify(|_, w| w.syscfgrst().bit(true));
-            rcc.apb4rstr.modify(|_, w| w.syscfgrst().clear_bit());
+            rcc.apb4enr().modify(|_, w| w.syscfgen().bit(true));
+            rcc.apb4rstr().modify(|_, w| w.syscfgrst().bit(true));
+            rcc.apb4rstr().modify(|_, w| w.syscfgrst().clear_bit());
         }
 
         let mut i = 0;
@@ -569,7 +569,7 @@ impl Clocks {
         // H742 RM, Table 17.
         let wait_states = self.vos_range.wait_states(self.hclk());
 
-        flash.acr.modify(|_, w| unsafe {
+        flash.acr().modify(|_, w| unsafe {
             w.latency().bits(wait_states.0);
             w.wrhighfreq().bits(wait_states.1)
         });
@@ -644,14 +644,14 @@ impl Clocks {
         });
 
         #[cfg(feature = "h7")]
-        rcc.d1cfgr.modify(|_, w| unsafe {
+        rcc.d1cfgr().modify(|_, w| unsafe {
             w.d1cpre().bits(self.d1_core_prescaler as u8);
             w.d1ppre().bits(self.d1_prescaler as u8);
             w.hpre().bits(self.hclk_prescaler as u8)
         });
 
         #[cfg(feature = "h7")]
-        rcc.d2cfgr.modify(|_, w| unsafe {
+        rcc.d2cfgr().modify(|_, w| unsafe {
             w.d2ppre1().bits(self.d2_prescaler1 as u8);
             w.d2ppre2().bits(self.d2_prescaler2 as u8)
         });
@@ -783,7 +783,7 @@ impl Clocks {
             rcc.pllckselr.modify(|_, w| w.divm1().bits(self.pll1.divm));
 
             #[cfg(feature = "h7")]
-            rcc.pllcfgr.modify(|_, w| {
+            rcc.pllcfgr().modify(|_, w| {
                 w.pll1rge().bits(pll1_rng_val);
                 w.pll1vcosel().bit(pll1_vco != 0);
                 w.divp1en().bit(true);
@@ -792,7 +792,7 @@ impl Clocks {
             });
 
             #[cfg(feature = "h5")]
-            rcc.pll1cfgr.modify(|_, w| unsafe {
+            rcc.pll1cfgr().modify(|_, w| unsafe {
                 w.pll1src().bits(self.pll_src.bits());
                 w.divm1().bits(self.pll1.divm);
                 w.pll1rge().bits(pll1_rng_val);
@@ -851,7 +851,7 @@ impl Clocks {
             rcc.pllckselr.modify(|_, w| w.divm2().bits(self.pll2.divm));
 
             #[cfg(feature = "h7")]
-            rcc.pllcfgr.modify(|_, w| {
+            rcc.pllcfgr().modify(|_, w| {
                 w.pll2rge().bits(pll2_rng_val);
                 w.pll2vcosel().bit(pll2_vco != 0);
                 w.divp2en().bit(self.pll2.pllp_en);
@@ -860,7 +860,7 @@ impl Clocks {
             });
 
             #[cfg(feature = "h5")]
-            rcc.pll2cfgr.modify(|_, w| unsafe {
+            rcc.pll2cfgr().modify(|_, w| unsafe {
                 w.pll2src().bits(self.pll_src.bits());
                 w.pll2rge().bits(pll2_rng_val);
                 w.pll2vcosel().bit(pll2_vco != 0);
@@ -916,7 +916,7 @@ impl Clocks {
             rcc.pllckselr.modify(|_, w| w.divm3().bits(self.pll3.divm));
 
             #[cfg(feature = "h7")]
-            rcc.pllcfgr.modify(|_, w| {
+            rcc.pllcfgr().modify(|_, w| {
                 w.pll3rge().bits(pll3_rng_val);
                 w.pll3vcosel().bit(pll3_vco != 0);
                 w.divp3en().bit(self.pll3.pllp_en);
@@ -925,7 +925,7 @@ impl Clocks {
             });
 
             #[cfg(feature = "h5")]
-            rcc.pll3cfgr.modify(|_, w| unsafe {
+            rcc.pll3cfgr().modify(|_, w| unsafe {
                 w.pll3src().bits(self.pll_src.bits());
                 w.pll3rge().bits(pll3_rng_val);
                 w.pll3vcosel().bit(pll3_vco != 0);
@@ -1410,7 +1410,7 @@ pub fn enable_crs(sync_src: CrsSyncSrc) {
     let crs = unsafe { &(*CRS::ptr()) };
     let rcc = unsafe { &(*RCC::ptr()) };
 
-    rcc.apb1henr.modify(|_, w| w.crsen().bit(true));
+    rcc.apb1henr().modify(|_, w| w.crsen().bit(true));
 
     crs.cfgr
         .modify(|_, w| unsafe { w.syncsrc().bits(sync_src as u8) });

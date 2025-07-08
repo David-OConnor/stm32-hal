@@ -202,14 +202,14 @@ cfg_if! {
                 let rcc = unsafe { &*pac::RCC::ptr() };
 
                 // Enable USB peripheral
-                rcc.ahb1enr.modify(|_, w| w.usb1otgen().enabled());
+                rcc.ahb1enr().modify(|_, w| w.usb1otgen().enabled());
 
                 // Enable ULPI Clock
-                rcc.ahb1enr.modify(|_, w| w.usb1ulpien().enabled());
+                rcc.ahb1enr().modify(|_, w| w.usb1ulpien().enabled());
 
                 // Reset USB peripheral
-                rcc.ahb1rstr.modify(|_, w| w.usb1otgrst().bit(true));
-                rcc.ahb1rstr.modify(|_, w| w.usb1otgrst().clear_bit());
+                rcc.ahb1rstr().modify(|_, w| w.usb1otgrst().bit(true));
+                rcc.ahb1rstr().modify(|_, w| w.usb1otgrst().clear_bit());
             }
 
             fn ahb_frequency_hz(&self) -> u32 {

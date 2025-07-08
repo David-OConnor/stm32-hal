@@ -301,7 +301,7 @@ where
     /// Clear an interrupt flag - run this in the interrupt's handler to prevent
     /// repeat firings.
     pub fn clear_interrupt(&mut self, interrupt: FcRadarInterrupt) {
-        self.regs.icr.write(|w| match interrupt {
+        self.regs.icr().write(|w| match interrupt {
             FcRadarInterrupt::TgtAcq =>  w.tacf().bit(true),
             FcRadarInterrupt::LostTrack => w.ltcf().bit(true),
         });

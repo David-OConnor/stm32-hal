@@ -189,7 +189,7 @@ cfg_if! {
             // (Clear by setting cwfuf bits in `pwr_scr`.)
             cfg_if! {
                 if #[cfg(feature = "l4")] {
-                    pwr.scr.write(|w| {
+                    pwr.scr().write(|w| {
                         w.wuf1().bit(true);
                         w.wuf2().bit(true);
                         w.wuf3().bit(true);
@@ -197,7 +197,7 @@ cfg_if! {
                         w.wuf5().bit(true)
                     });
                 } else if #[cfg(feature = "g0")] {
-                    pwr.scr.write(|w| {
+                    pwr.scr().write(|w| {
                         w.cwuf1().bit(true);
                         w.cwuf2().bit(true);
                         // w.cwuf3().bit(true); // todo: PAC ommission?
@@ -206,7 +206,7 @@ cfg_if! {
                         w.cwuf6().bit(true)
                     });
                 } else {
-                    pwr.scr.write(|w| {
+                    pwr.scr().write(|w| {
                         w.cwuf1().bit(true);
                         w.cwuf2().bit(true);
                         w.cwuf3().bit(true);
@@ -246,7 +246,7 @@ cfg_if! {
             // – WUFx bits are cleared in power status register 1 (PWR_SR1)
             // (Clear by setting cwfuf bits in `pwr_scr`.)
 
-            // pwr.scr.write(|_, w| {
+            // pwr.scr().write(|_, w| {
             //     w.cwuf1().bit(true);
             //     w.cwuf2().bit(true);
             //     w.cwuf3().bit(true);
@@ -269,7 +269,7 @@ cfg_if! {
     } else { // H7
         /// The CSleep mode applies only to the CPU subsystem. In CSleep mode, the CPU clock is
         /// stopped. The CPU subsystem peripheral clocks operate according to the values of
-        /// PERxLPEN bits in RCC_C1_xxxxENR or RCC_DnxxxxENR. See H743 RM, Table 37.
+        /// PERxLPEN bits in RCC_C1_xxxxENR or RCC_Dnxxxxenr(). See H743 RM, Table 37.
         pub fn csleep() {
             sleep();
         }

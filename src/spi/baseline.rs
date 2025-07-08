@@ -418,8 +418,10 @@ where
         let periph_addr_write = &self.regs.dr() as *const _ as u32;
         let periph_addr_read = &self.regs.dr() as *const _ as u32;
 
-        let num_data_write = len_write as u16;
-        let num_data_read = len_read as u16;
+        // let num_data_write = len_write as u16;
+        // let num_data_read = len_read as u16;
+        let num_data_write = len_write as u32;
+        let num_data_read = len_read as u32;
 
         // Be careful - order of enabling Rx and Tx may matter, along with other things like when we
         // enable the channels, and the SPI periph.

@@ -47,9 +47,9 @@ cfg_if! {
                         rcc_en_reset!(apb1, can1, rcc);
                     } else if #[cfg(feature = "h7")]{
                         // We don't yet have apb1h support in `rcc_en_reset`.
-                        rcc.apb1henr.modify(|_, w| w.fdcanen().bit(true));
-                        rcc.apb1hrstr.modify(|_, w| w.fdcanrst().bit(true));
-                        rcc.apb1hrstr.modify(|_, w| w.fdcanrst().clear_bit());
+                        rcc.apb1henr().modify(|_, w| w.fdcanen().bit(true));
+                        rcc.apb1hrstr().modify(|_, w| w.fdcanrst().bit(true));
+                        rcc.apb1hrstr().modify(|_, w| w.fdcanrst().clear_bit());
 
                         // set_message_ram_layout();
 

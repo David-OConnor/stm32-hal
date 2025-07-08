@@ -36,13 +36,15 @@ macro_rules! busy_wait {
             if isr.$flag().bit_is_set() {
                 break;
             } else if isr.berr().bit_is_set() {
-                $regs.icr.write(|w| w.berrcf().bit(true));
+                $regs.icr().write(|w| w.berrcf().bit(true));
                 return Err(Error::Bus);
             } else if isr.arlo().bit_is_set() {
-                $regs.icr.write(|w| w.arlocf().bit(true));
+                $regs.icr().write(|w| w.arlocf().bit(true));
                 return Err(Error::Arbitration);
             } else if isr.nackf().bit_is_set() {
-                $regs.icr.write(|w| w.stopcf().bit(true).nackcf().bit(true));
+                $regs
+                    .icr()
+                    .write(|w| w.stopcf().bit(true).nackcf().bit(true));
 
                 // If a pending TXIS flag is set, write dummy data to TXDR
                 if $regs.isr().read().txis().bit_is_set() {
@@ -312,7 +314,7 @@ where
         assert!(scll <= 255);
         assert!(sclh <= 255);
 
-        regs.timingr.write(|w| unsafe {
+        regs.timingr().write(|w| unsafe {
             w.presc().bits(presc as u8);
             w.scldel().bits(scldel as u8);
             w.sdadel().bits(sdadel as u8);
@@ -390,7 +392,7 @@ where
         // todo: Timeout detection?
 
         // todo: HWCFGR Missing from PAC
-        // self.regs.hwcfgr.modify(|_, w| w.smbus().bit(true));
+        // self.regs.hwcfgr().modify(|_, w| w.smbus().bit(true));
 
         if originally_enabled {
             self.regs.cr1().modify(|_, w| w.pe().bit(true));
@@ -422,7 +424,7 @@ where
             // Wait until we have received something
             busy_wait!(self.regs, rxne);
 
-            *byte = self.regs.rxdr.read().rxdata().bits();
+            *byte = self.regs.rxdr().read().rxdata().bits();
         }
 
         Ok(())
@@ -496,7 +498,7 @@ where
             // Wait until we have received something
             busy_wait!(self.regs, rxne);
 
-            *byte = self.regs.rxdr.read().rxdata().bits();
+            *byte = self.regs.rxdr().read().rxdata().bits();
         }
 
         Ok(())
@@ -696,10 +698,10 @@ where
         // SMBus Master receiver on page 1171.
         // Note: If DMA is used for reception, the RXIE bit does not need to be enabled
 
-        #[cfg(feature = "h7")]
+        // #[cfg(feature = "h7")]
         let num_data = len as u32;
-        #[cfg(not(feature = "h7"))]
-        let num_data = len as u16;
+        // #[cfg(not(feature = "h7"))]
+        // let num_data = len as u16;
 
         match dma_periph {
             dma::DmaPeriph::Dma1 => {

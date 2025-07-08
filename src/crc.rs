@@ -19,20 +19,20 @@ impl CrcExt for CRC {
     fn crc(self, rcc: &mut RCC) -> Crc {
         cfg_if! {
             if #[cfg(feature = "f3")] {
-                rcc.ahbenr.modify(|_, w| w.crcen().bit(true));
+                rcc.ahbenr().modify(|_, w| w.crcen().bit(true));
                 // F3 doesn't appear to have a crcrst field in `ahbrstr`, per RM.
             } else if #[cfg(feature = "g0")] {
-                rcc.ahbenr.modify(|_, w| w.crcen().bit(true));
-                rcc.ahbrstr.modify(|_, w| w.crcrst().bit(true));
-                rcc.ahbrstr.modify(|_, w| w.crcrst().clear_bit());
+                rcc.ahbenr().modify(|_, w| w.crcen().bit(true));
+                rcc.ahbrstr().modify(|_, w| w.crcrst().bit(true));
+                rcc.ahbrstr().modify(|_, w| w.crcrst().clear_bit());
             } else if #[cfg(any(feature = "l4", feature = "wb", feature = "l5", feature = "g4"))] {
-                rcc.ahb1enr.modify(|_, w| w.crcen().bit(true));
-                rcc.ahb1rstr.modify(|_, w| w.crcrst().bit(true));
-                rcc.ahb1rstr.modify(|_, w| w.crcrst().clear_bit());
+                rcc.ahb1enr().modify(|_, w| w.crcen().bit(true));
+                rcc.ahb1rstr().modify(|_, w| w.crcrst().bit(true));
+                rcc.ahb1rstr().modify(|_, w| w.crcrst().clear_bit());
             } else { // H7
-                rcc.ahb4enr.modify(|_, w| w.crcen().bit(true));
-                rcc.ahb4rstr.modify(|_, w| w.crcrst().bit(true));
-                rcc.ahb4rstr.modify(|_, w| w.crcrst().clear_bit());
+                rcc.ahb4enr().modify(|_, w| w.crcen().bit(true));
+                rcc.ahb4rstr().modify(|_, w| w.crcrst().bit(true));
+                rcc.ahb4rstr().modify(|_, w| w.crcrst().clear_bit());
             }
         }
 
@@ -68,20 +68,20 @@ impl Crc {
         });
         cfg_if! {
             if #[cfg(any(feature = "h7"))] {
-                self.regs.pol.write(|w| w.pol().bits(config.poly.pol()));
+                self.regs.pol().write(|w| w.pol().bits(config.poly.pol()));
             } else {
-                self.regs.pol.write(|w| unsafe { w.bits(config.poly.pol()) });
+                self.regs.pol().write(|w| unsafe { w.bits(config.poly.pol()) });
             }
         }
 
         // writing to INIT sets DR to its value
         #[cfg(not(any(feature = "h7", feature = "l4")))]
         self.regs
-            .init
+            .init()
             .write(|w| unsafe { w.crc_init().bits(config.initial) });
         #[cfg(any(feature = "h7", feature = "l4"))]
         self.regs
-            .init
+            .init()
             .write(|w| unsafe { w.init().bits(config.initial) });
     }
 

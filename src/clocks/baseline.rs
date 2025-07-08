@@ -910,10 +910,10 @@ impl Clocks {
             }
             #[cfg(feature = "g0")]
             InputSrc::Lse => {
-                rcc.bdcr.modify(|_, w| w.lseon().bit(true));
+                rcc.bdcr().modify(|_, w| w.lseon().bit(true));
 
                 i = 0;
-                while rcc.bdcr.read().lserdy().bit_is_clear() {
+                while rcc.bdcr().read().lserdy().bit_is_clear() {
                     wait_hang!(i);
                 }
             }
@@ -942,7 +942,7 @@ impl Clocks {
 
         // todo: Adapt this logic for H7? Mix H7 into this module?
         #[cfg(feature = "wb")]
-        rcc.extcfgr.modify(|_, w| unsafe {
+        rcc.extcfgr().modify(|_, w| unsafe {
             w.c2hpre().bits(self.hclk2_prescaler as u8);
             w.shdhpre().bits(self.hclk4_prescaler as u8)
         });
@@ -967,7 +967,7 @@ impl Clocks {
 
             cfg_if! {
                 if #[cfg(feature = "g0")] {
-                    rcc.pllsyscfgr.modify(|_, w| unsafe {
+                    rcc.pllsyscfgr().modify(|_, w| unsafe {
                         w.pllsrc().bits(pll_src.bits());
                         w.pllren().bit(true);
                         w.pllqen().bit(self.pll.pllq_en);
@@ -979,7 +979,7 @@ impl Clocks {
                         w.pllp().bits(self.pll.divp as u8)
                     });
                 } else {
-                    rcc.pllcfgr.modify(|_, w| unsafe {
+                    rcc.pllcfgr().modify(|_, w| unsafe {
                         w.pllsrc().bits(pll_src.bits());
                         w.pllren().bit(true);
                         w.pllqen().bit(self.pll.pllq_en);
@@ -1003,13 +1003,13 @@ impl Clocks {
             cfg_if! {
                 if #[cfg(feature = "g0")] {
                     // Set Pen, Qen, and Ren after we enable the PLL.
-                    rcc.pllsyscfgr.modify(|_, w| {
+                    rcc.pllsyscfgr().modify(|_, w| {
                         w.pllpen().bit(true);
                         w.pllqen().bit(true);
                         w.pllren().bit(true)
                     });
                 } else {
-                    rcc.pllcfgr.modify(|_, w| {
+                    rcc.pllcfgr().modify(|_, w| {
                         w.pllpen().bit(true);
                         w.pllqen().bit(true);
                         w.pllren().bit(true)
@@ -1020,7 +1020,7 @@ impl Clocks {
             cfg_if! {
                 // todo: Missing some settings I'm not sure what to make of on L.
                 if #[cfg(any(feature = "l4", feature = "l5"))] {
-                    rcc.pllsai1cfgr.modify(|_, w| unsafe {
+                    rcc.pllsai1cfgr().modify(|_, w| unsafe {
                         w.pllsai1ren().bit(self.pllsai1.pllr_en);
                         w.pllsai1qen().bit(self.pllsai1.pllq_en);
                         w.pllsai1pen().bit(self.pllsai1.pllp_en);
@@ -1033,7 +1033,7 @@ impl Clocks {
                     });
 
                     #[cfg(any(feature = "l4x5", feature = "l4x6"))]
-                    rcc.pllsai2cfgr.modify(|_, w| unsafe {
+                    rcc.pllsai2cfgr().modify(|_, w| unsafe {
                         w.pllsai2ren().bit(self.pllsai1.pllr_en);
                         // w.pllsai2qen().bit(self.pllsai1.pllq_en);
                         w.pllsai2pen().bit(self.pllsai1.pllp_en);
@@ -1046,7 +1046,7 @@ impl Clocks {
                     });
 
                 } else if #[cfg(feature = "wb")] {
-                    rcc.pllsai1cfgr.modify(|_, w| unsafe {
+                    rcc.pllsai1cfgr().modify(|_, w| unsafe {
                         w.pllren().bit(self.pllsai1.pllr_en);
                         w.pllqen().bit(self.pllsai1.pllq_en);
                         w.pllpen().bit(self.pllsai1.pllp_en);
@@ -1085,9 +1085,9 @@ impl Clocks {
         // Only valid for some devices (On at least L4, and G4.)
         #[cfg(not(any(feature = "g0", feature = "wl")))]
         if self.hsi48_on {
-            rcc.crrcr.modify(|_, w| w.hsi48on().bit(true));
+            rcc.crrcr().modify(|_, w| w.hsi48on().bit(true));
             i = 0;
-            while rcc.crrcr.read().hsi48rdy().bit_is_clear() {
+            while rcc.crrcr().read().hsi48rdy().bit_is_clear() {
                 wait_hang!(i);
             }
         }
@@ -1095,31 +1095,31 @@ impl Clocks {
         // This modification is separate from the other CCIPR writes due to awkward
         // feature-gate code
         #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "l5")))]
-        rcc.ccipr
+        rcc.ccipr()
             .modify(|_, w| unsafe { w.sai1sel().bits(self.sai1_src as u8) });
 
         #[cfg(feature = "g4")]
-        rcc.ccipr
+        rcc.ccipr()
             .modify(|_, w| unsafe { w.fdcansel().bits(self.can_src as u8) });
 
         #[cfg(feature = "g0c1")]
-        rcc.ccipr2
+        rcc.ccipr2()
             .modify(|_, w| unsafe { w.fdcansel().bits(self.can_src as u8) });
 
         #[cfg(feature = "l5")]
-        rcc.ccipr2
+        rcc.ccipr2()
             .modify(|_, w| unsafe { w.sai1sel().bits(self.sai1_src as u8) });
 
         #[cfg(any(feature = "l4", feature = "g4"))]
-        rcc.ccipr
+        rcc.ccipr()
             .modify(|_, w| unsafe { w.clk48sel().bits(self.clk48_src as u8) });
 
         #[cfg(feature = "l5")]
-        rcc.ccipr1
+        rcc.ccipr1()
             .modify(|_, w| unsafe { w.clk48msel().bits(self.clk48_src as u8) });
 
         #[cfg(not(any(feature = "f", feature = "l", feature = "g0")))]
-        rcc.ccipr
+        rcc.ccipr()
             // todo: Don't hard-code.
             .modify(|_, w| unsafe { w.lpuart1sel().bits(self.lpuart_src as u8) });
 
@@ -1246,7 +1246,7 @@ impl Clocks {
                     wait_hang!(i);
                 }
 
-                rcc.cfgr
+                rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
 
                 rcc.cr().modify(|_, w| w.pllon().bit(true));
@@ -1274,7 +1274,7 @@ impl Clocks {
                             wait_hang!(i);
                         }
 
-                        rcc.cfgr
+                        rcc.cfgr()
                             .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
                     }
                 }
@@ -1298,7 +1298,7 @@ impl Clocks {
                         wait_hang!(i);
                     }
 
-                    rcc.cfgr
+                    rcc.cfgr()
                         .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
                 }
             }
@@ -1309,17 +1309,17 @@ impl Clocks {
                 while rcc.csr.read().lsirdy().bit_is_clear() {
                     wait_hang!(i);
                 }
-                rcc.cfgr
+                rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
             }
             #[cfg(feature = "g0")]
             InputSrc::Lse => {
-                rcc.bdcr.modify(|_, w| w.lseon().bit(true));
+                rcc.bdcr().modify(|_, w| w.lseon().bit(true));
                 let mut i = 0;
-                while rcc.bdcr.read().lserdy().bit_is_clear() {
+                while rcc.bdcr().read().lserdy().bit_is_clear() {
                     wait_hang!(i);
                 }
-                rcc.cfgr
+                rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
             }
         }
@@ -1695,14 +1695,14 @@ pub fn enable_crs(sync_src: CrsSyncSrc) {
     // todo: CRSEN missing on l4x5 pac: https://github.com/stm32-rs/stm32-rs/issues/572
     cfg_if! {
     if #[cfg(feature = "l4x5")] {
-    let val = rcc.apb1enr1.read().bits();
-    rcc.apb1enr1.write(|w| unsafe { w.bits(val | (1 << 24)) });
+    let val = rcc.apb1enr1().read().bits();
+    rcc.apb1enr1().write(|w| unsafe { w.bits(val | (1 << 24)) });
     } else {
-    rcc.apb1enr1.modify(|_, w| w.crsen().bit(true));
+    rcc.apb1enr1().modify(|_, w| w.crsen().bit(true));
     }
     }
 
-    crs.cfgr
+    crs.cfgr()
         .modify(|_, w| unsafe { w.syncsrc().bits(sync_src as u8) });
 
     crs.cr().modify(|_, w| {

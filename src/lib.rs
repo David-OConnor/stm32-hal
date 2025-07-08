@@ -576,7 +576,7 @@ pub fn debug_workaround() {
 
     cfg_if! {
         if #[cfg(feature = "f3")] {
-            rcc.ahbenr.modify(|_, w| w.dma1en().bit(true));
+            rcc.ahbenr().modify(|_, w| w.dma1en().bit(true));
         } else if #[cfg(feature = "h5")] {
             rcc.ahb1enr().modify(|_, w| w.gpdma1en().bit(true));
         } else {

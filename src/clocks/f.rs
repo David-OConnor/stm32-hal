@@ -501,7 +501,7 @@ impl Clocks {
                     }
                 });
                 } else if #[cfg(feature = "f4")] {
-                    rcc.pllcfgr.modify(|_, w| unsafe {
+                    rcc.pllcfgr().modify(|_, w| unsafe {
                         w.pllsrc().bit(pll_src.bits() != 0);
                         w.plln().bits(self.plln);
                         w.pllm().bits(self.pllm);
@@ -570,7 +570,7 @@ impl Clocks {
                 rcc.cr().modify(|_, w| w.hseon().bit(true));
                 while rcc.cr().read().hserdy().is_not_ready() {}
 
-                rcc.cfgr
+                rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
             }
             InputSrc::Pll(_) => {
@@ -581,7 +581,7 @@ impl Clocks {
                 rcc.cr().modify(|_, w| w.pllon().off());
                 while rcc.cr().read().pllrdy().is_ready() {}
 
-                rcc.cfgr
+                rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
 
                 rcc.cr().modify(|_, w| w.pllon().on());

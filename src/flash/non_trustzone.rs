@@ -178,8 +178,8 @@ impl Flash {
         // The following sequence is used to unlock this register:
         // 1. Write KEY1 = 0x45670123 in the Flash key register (FLASH_KEYR)
         // 2. Write KEY2 = 0xCDEF89AB in the FLASH_KEYR register.
-        regs.keyr.write(|w| unsafe { w.bits(FLASH_KEY1) });
-        regs.keyr.write(|w| unsafe { w.bits(FLASH_KEY2) });
+        regs.keyr().write(|w| unsafe { w.bits(FLASH_KEY1) });
+        regs.keyr().write(|w| unsafe { w.bits(FLASH_KEY2) });
 
         if regs.cr().read().lock().bit_is_clear() {
             Ok(())
@@ -199,8 +199,8 @@ impl Flash {
     //         return Ok(());
     //     }
     //
-    //     regs.optkeyr.write(|w| unsafe { w.bits(FLASH_OPT_KEY1) });
-    //     regs.optkeyr.write(|w| unsafe { w.bits(FLASH_OPT_KEY2) });
+    //     regs.optkeyr().write(|w| unsafe { w.bits(FLASH_OPT_KEY1) });
+    //     regs.optkeyr().write(|w| unsafe { w.bits(FLASH_OPT_KEY2) });
     //
     //     if regs.cr().read().lock().bit_is_clear() {
     //         Ok(())
