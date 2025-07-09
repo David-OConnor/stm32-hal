@@ -1191,7 +1191,7 @@ macro_rules! hal {
                             channel_cfg,
                         );
                     }
-                    #[cfg(not(feature = "g0"))]
+                    #[cfg(dma2)]
                     dma::DmaPeriph::Dma2 => {
                         let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                         dma::cfg_channel(

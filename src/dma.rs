@@ -13,13 +13,13 @@
 //     }
 // }
 
+
 use core::{
     ops::Deref,
     sync::atomic::{self, Ordering},
 };
 
 use crate::{
-    MAX_ITERS,
     pac::{self, RCC},
     util::rcc_en_reset,
 };
@@ -27,8 +27,9 @@ use crate::{
 cfg_if! {
     if #[cfg(any(feature = "f3x4", feature = "f301", feature = "g0"))] {
         use crate::pac::{dma1, DMA1};
-    }
-    else {
+    } else if #[cfg(any(feature = "h5", feature = "c0"))] {
+        use crate::pac::{dma as dma1, DMA as DMA1};
+    } else {
         use crate::pac::{dma1, dma2, DMA1, DMA2};
     }
 }
@@ -49,12 +50,7 @@ use paste::paste;
 #[derive(Clone, Copy)]
 pub enum DmaPeriph {
     Dma1,
-    #[cfg(not(any(
-        feature = "f3x4",
-        feature = "f301",
-        all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))),
-        feature = "wb",
-    )))] // todo: f3x4 too
+    #[cfg(dma2)]
     Dma2,
 }
 
@@ -1204,7 +1200,7 @@ pub fn stop(periph: DmaPeriph, channel: DmaChannel) {
             let mut regs = unsafe { &(*DMA1::ptr()) };
             stop_internal(&mut regs, channel);
         }
-        #[cfg(not(any(feature = "f3x4", feature = "f301", feature = "g0", feature = "wb")))]
+        #[cfg(dma2)]
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             stop_internal(&mut regs, channel);
@@ -1426,7 +1422,7 @@ pub fn enable_interrupt(periph: DmaPeriph, channel: DmaChannel, interrupt: DmaIn
             let mut regs = unsafe { &(*DMA1::ptr()) };
             enable_interrupt_internal(&mut regs, channel, interrupt);
         }
-        #[cfg(not(any(feature = "f3x4", feature = "f301", feature = "g0", feature = "wb")))]
+        #[cfg(dma2)]
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             enable_interrupt_internal(&mut regs, channel, interrupt);
@@ -1441,7 +1437,7 @@ pub fn disable_interrupt(periph: DmaPeriph, channel: DmaChannel, interrupt: DmaI
             let mut regs = unsafe { &(*DMA1::ptr()) };
             disable_interrupt_internal(&mut regs, channel, interrupt);
         }
-        #[cfg(not(any(feature = "f3x4", feature = "f301", feature = "g0", feature = "wb")))]
+        #[cfg(dma2)]
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             disable_interrupt_internal(&mut regs, channel, interrupt);
@@ -1456,7 +1452,7 @@ pub fn clear_interrupt(periph: DmaPeriph, channel: DmaChannel, interrupt: DmaInt
             let mut regs = unsafe { &(*DMA1::ptr()) };
             clear_interrupt_internal(&mut regs, channel, interrupt);
         }
-        #[cfg(not(any(feature = "f3x4", feature = "f301", feature = "g0", feature = "wb")))]
+        #[cfg(dma2)]
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             clear_interrupt_internal(&mut regs, channel, interrupt);
@@ -1534,10 +1530,7 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
                 mux.ccr(channel as usize)
                     .modify(|_, w| w.dmareq_id().bits(input as u8));
             }
-            #[cfg(not(any(
-                all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))),
-                feature = "wb"
-            )))]
+            #[cfg(dma2)]
             DmaPeriph::Dma2 => {
                 // #[cfg(not(feature = "h7"))]
                 // match channel {
@@ -1769,19 +1762,19 @@ cfg_if! {
 
         #[cfg(feature = "h7")]
         make_chan_struct!(2, 0);
-        #[cfg(not(any(feature = "g0", feature = "wb")))]
+        #[cfg(not(any(feature = "g0", feature = "wb", feature = "c0")))]
         make_chan_struct!(2, 1);
-        #[cfg(not(any(feature = "g0", feature = "wb")))]
+        #[cfg(not(any(feature = "g0", feature = "wb", feature = "c0")))]
         make_chan_struct!(2, 2);
-        #[cfg(not(any(feature = "g0", feature = "wb")))]
+        #[cfg(not(any(feature = "g0", feature = "wb", feature = "c0")))]
         make_chan_struct!(2, 3);
-        #[cfg(not(any(feature = "g0", feature = "wb")))]
+        #[cfg(not(any(feature = "g0", feature = "wb", feature = "c0")))]
         make_chan_struct!(2, 4);
-        #[cfg(not(any(feature = "g0", feature = "wb")))]
+        #[cfg(not(any(feature = "g0", feature = "wb", feature = "c0")))]
         make_chan_struct!(2, 5);
-        #[cfg(not(any(feature = "g0", feature = "wb")))]
+        #[cfg(not(any(feature = "g0", feature = "wb", feature = "c0")))]
         make_chan_struct!(2, 6);
-        #[cfg(not(any(feature = "g0", feature = "wb")))]
+        #[cfg(not(any(feature = "g0", feature = "wb", feature = "c0")))]
         make_chan_struct!(2, 7);
         #[cfg(any(feature = "l5", feature = "g4"))]
         make_chan_struct!(2, 8);

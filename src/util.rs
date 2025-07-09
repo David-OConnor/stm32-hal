@@ -35,7 +35,7 @@ cfg_if! {
 }
 
 cfg_if! {
-    if #[cfg(any(feature = "g0", feature = "wl"))] {
+    if #[cfg(any(feature = "g0", feature = "c0", feature = "wl"))] {
         use crate::pac::ADC as ADC1;
 
     } else {
@@ -124,6 +124,14 @@ macro_rules! rcc_en_reset {
             $rcc.ahb3enr().modify(|_, w| w.[<$periph en>]().bit(true));
             $rcc.ahb3rstr().modify(|_, w| w.[<$periph rst>]().bit(true));
             $rcc.ahb3rstr().modify(|_, w| w.[<$periph rst>]().clear_bit());
+        }
+    };
+    // C0's pac v 0.16 calls it this, although it's actually ahb4.
+    (ahb, $periph:expr, $rcc:expr) => {
+        paste::paste! {
+            $rcc.ahbenr().modify(|_, w| w.[<$periph en>]().bit(true));
+            $rcc.ahbrstr().modify(|_, w| w.[<$periph rst>]().bit(true));
+            $rcc.ahbrstr().modify(|_, w| w.[<$periph rst>]().clear_bit());
         }
     };
 }
@@ -931,7 +939,7 @@ cfg_if! {
     }
 }
 
-#[cfg(not(any(feature = "f", feature = "g0", feature = "wl", feature = "l")))]
+#[cfg(not(any(feature = "f", feature = "g0", feature = "wl", feature = "l", feature = "c0")))]
 impl RccPeriph for pac::LPUART1 {
     fn en_reset(rcc: &RegisterBlock) {
         #[cfg(not(feature = "h7"))]

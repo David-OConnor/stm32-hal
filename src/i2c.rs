@@ -10,7 +10,9 @@ use core::ops::Deref;
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "l552", feature = "h5")))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
-#[cfg(not(any(feature = "h5")))]
+#[cfg(any(feature = "c0", feature = "h5"))]
+use crate::pac::DMA as DMA1;
+#[cfg(not(any(feature = "h5", feature = "c0")))]
 use crate::pac::DMA1;
 use crate::{
     MAX_ITERS,
@@ -635,7 +637,7 @@ where
                     channel_cfg,
                 );
             }
-            #[cfg(not(any(feature = "f3x4", feature = "f301", feature = "g0", feature = "wb")))]
+            #[cfg(dma2)]
             dma::DmaPeriph::Dma2 => {
                 let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                 dma::cfg_channel(
@@ -713,7 +715,7 @@ where
                     channel_cfg,
                 );
             }
-            #[cfg(not(any(feature = "f3x4", feature = "f301", feature = "g0", feature = "wb")))]
+            #[cfg(dma2)]
             dma::DmaPeriph::Dma2 => {
                 let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                 dma::cfg_channel(

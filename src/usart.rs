@@ -15,7 +15,9 @@ use cfg_if::cfg_if;
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552", feature = "h5")))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
-#[cfg(not(any(feature = "h5")))]
+#[cfg(any(feature = "c0", feature = "h5"))]
+use crate::pac::DMA as DMA1;
+#[cfg(not(any(feature = "h5", feature = "c0")))]
 use crate::pac::DMA1;
 use crate::{
     MAX_ITERS,
@@ -395,7 +397,7 @@ where
                 for word in data {
                     let mut i = 0;
 
-                    #[cfg(feature = "h5")]
+                    #[cfg(any(feature = "h5", feature = "c0"))]
                     while isr!(self.regs).read().txfe().bit_is_clear() {
                         i += 1;
                         if i >= MAX_ITERS {
@@ -403,7 +405,7 @@ where
                         }
                     }
 
-                    #[cfg(not(feature = "h5"))]
+                    #[cfg(not(any(feature = "h5", feature = "c0")))]
                     // Note: Per these PACs, TXFNF and TXE are on the same field, so this is actually
                     // checking txfnf if the fifo is enabled.
                     while isr!(self.regs).read().txe().bit_is_clear() {
@@ -481,7 +483,7 @@ where
                 if #[cfg(not(feature = "f4"))] {
                     // Wait for the next bit
 
-                    #[cfg(feature = "h5")]
+                    #[cfg(any(feature = "h5", feature = "c0"))]
                     while isr!(self.regs).read().rxfne().bit_is_clear() {
                         i_ += 1;
                         if i_ >= MAX_ITERS {
@@ -489,7 +491,7 @@ where
                         }
                     }
 
-                    #[cfg(not(feature = "h5"))]
+                    #[cfg(not(any(feature = "h5", feature = "c0")))]
                     while isr!(self.regs).read().rxne().bit_is_clear() {
                         i_ += 1;
                         if i_ >= MAX_ITERS {
@@ -598,7 +600,7 @@ where
                     channel_cfg,
                 );
             }
-            #[cfg(not(any(feature = "f3x4", feature = "f301", feature = "g0", feature = "wb")))]
+            #[cfg(dma2)]
             dma::DmaPeriph::Dma2 => {
                 let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                 dma::cfg_channel(
@@ -679,7 +681,7 @@ where
                     channel_cfg,
                 );
             }
-            #[cfg(not(any(feature = "f3x4", feature = "f301", feature = "g0", feature = "wb")))]
+            #[cfg(dma2)]
             dma::DmaPeriph::Dma2 => {
                 let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                 dma::cfg_channel(
@@ -896,17 +898,17 @@ where
             UsartInterrupt::LineBreak => status.lbdf().bit_is_set(),
             UsartInterrupt::Overrun => status.ore().bit_is_set(),
             UsartInterrupt::ParityError => status.pe().bit_is_set(),
-            #[cfg(feature = "h5")]
+            #[cfg(any(feature = "h5", feature = "c0"))]
             UsartInterrupt::ReadNotEmpty => status.rxfne().bit_is_set(),
-            #[cfg(not(feature = "h5"))]
+            #[cfg(not(any(feature = "h5", feature = "c0")))]
             UsartInterrupt::ReadNotEmpty => status.rxne().bit_is_set(),
             UsartInterrupt::ReceiverTimeout => status.rtof().bit_is_set(),
             #[cfg(not(any(feature = "f3", feature = "l4")))]
             UsartInterrupt::Tcbgt => status.tcbgt().bit_is_set(),
             UsartInterrupt::TransmissionComplete => status.tc().bit_is_set(),
-            #[cfg(feature = "h5")]
+            #[cfg(any(feature = "h5", feature = "c0"))]
             UsartInterrupt::TransmitEmpty => status.txfe().bit_is_set(),
-            #[cfg(not(feature = "h5"))]
+            #[cfg(not(any(feature = "h5", feature = "c0")))]
             UsartInterrupt::TransmitEmpty => status.txe().bit_is_set(),
         }
     }
@@ -929,8 +931,13 @@ where
             Ok(())
         };
 
-        #[cfg(not(feature = "wl"))]
+        #[cfg(not(any(feature = "wl", feature = "c0")))]
         if status.nf().bit_is_set() {
+            result = Err(UartError::Noise);
+        }
+
+        #[cfg(feature = "c0")]
+        if status.ne().bit_is_set() {
             result = Err(UartError::Noise);
         }
 
@@ -944,7 +951,10 @@ where
                     self.regs.icr().write(|w| {
                         w.pecf().bit(true);
                         w.fecf().bit(true);
+                        #[cfg(not(feature = "c0"))]
                         w.ncf().bit(true);
+                        #[cfg(feature = "c0")]
+                        w.necf().bit(true);
                         w.orecf().bit(true)
                     });
                     let _ = self.regs.rdr().read();

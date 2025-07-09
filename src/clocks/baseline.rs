@@ -41,7 +41,7 @@ pub enum CrsSyncSrc {
     Usb = 0b10,
 }
 
-#[cfg(not(any(feature = "g0", feature = "g4")))]
+#[cfg(not(any(feature = "g0", feature = "g4", feature = "c0")))]
 #[derive(Clone, Copy, PartialEq)]
 pub enum PllSrc {
     None,
@@ -50,7 +50,7 @@ pub enum PllSrc {
     Hse(u32),
 }
 
-#[cfg(any(feature = "g0", feature = "g4"))]
+#[cfg(any(feature = "g0", feature = "g4", feature = "c0"))]
 #[derive(Clone, Copy, PartialEq)]
 pub enum PllSrc {
     None,
@@ -64,14 +64,14 @@ impl PllSrc {
     /// Sets PLLCFGR reg (PLLSYSCFGR on G0), PLLSRC field.
     pub fn bits(&self) -> u8 {
         // L4 RM, 6.4.4
-        #[cfg(not(any(feature = "g0", feature = "g4")))]
+        #[cfg(not(any(feature = "g0", feature = "g4", feature = "c0")))]
         match self {
             Self::None => 0b00,
             Self::Msi(_) => 0b01,
             Self::Hsi => 0b10,
             Self::Hse(_) => 0b11,
         }
-        #[cfg(any(feature = "g0", feature = "g4"))]
+        #[cfg(any(feature = "g0", feature = "g4", feature = "c0"))]
         match self {
             Self::None => 0b00,
             Self::Hsi => 0b10,
@@ -177,10 +177,11 @@ pub enum RfWakeupSrc {
 enum WaitState {
     W0 = 0,
     W1 = 1,
+    #[cfg(not(feature = "c0"))]
     W2 = 2,
-    #[cfg(not(feature = "wl"))]
+    #[cfg(not(any(feature = "wl", feature = "c0")))]
     W3 = 3,
-    #[cfg(not(any(feature = "wb", feature = "wl")))]
+    #[cfg(not(any(feature = "wb", feature = "wl", feature = "c0")))]
     W4 = 4,
     #[cfg(feature = "l5")]
     W5 = 5,
@@ -266,6 +267,8 @@ impl Default for PllCfg {
             divn: 64,
             #[cfg(feature = "wl")]
             divn: 24,
+            #[cfg(feature = "c0")]
+            divn: 24, // todo: Guess; QC this.
             #[cfg(not(feature = "wb"))]
             divr: Pllr::Div2,
             #[cfg(feature = "wb")]
@@ -640,120 +643,126 @@ impl Clocks {
         let sysclk = self.sysclk();
 
         cfg_if! {
-        if #[cfg(feature = "wb")] {
-        let hclk = sysclk / self.hclk4_prescaler.value() as u32;
-        } else if #[cfg(feature = "wl")] {
-        let hclk = sysclk / self.hclk3_prescaler.value() as u32;
-        } else {
-        let hclk = sysclk / self.hclk_prescaler.value() as u32;
-        }
+            if #[cfg(feature = "wb")] {
+                let hclk = sysclk / self.hclk4_prescaler.value() as u32;
+            } else if #[cfg(feature = "wl")] {
+                let hclk = sysclk / self.hclk3_prescaler.value() as u32;
+            } else {
+                let hclk = sysclk / self.hclk_prescaler.value() as u32;
+            }
         }
 
         cfg_if! {
-        if #[cfg(feature = "g4")] {
-        if self.boost_mode {
-        // The sequence to switch from Range1 normal mode to Range1 boost mode is:
-        // 1. The system clock must be divided by 2 using the AHB prescaler before switching to a
-        // higher system frequency.
-        rcc.cfgr().modify(|_, w| unsafe { w.hpre().bits(HclkPrescaler::Div2 as u8) });
-        // 2. Clear the R1MODE bit is in the PWR_CR5 register.
-        let pwr = unsafe { &(*pac::PWR::ptr()) };
-        pwr.cr5().modify(|_, w| w.r1mode().clear_bit());
-        }
+            if #[cfg(feature = "g4")] {
+                if self.boost_mode {
+                // The sequence to switch from Range1 normal mode to Range1 boost mode is:
+                // 1. The system clock must be divided by 2 using the AHB prescaler before switching to a
+                // higher system frequency.
+                rcc.cfgr().modify(|_, w| unsafe { w.hpre().bits(HclkPrescaler::Div2 as u8) });
+                // 2. Clear the R1MODE bit is in the PWR_CR5 register.
+                let pwr = unsafe { &(*pac::PWR::ptr()) };
+                pwr.cr5().modify(|_, w| w.r1mode().clear_bit());
+            }
 
-        // (Remaining steps accomplished below)
-        // 3. Adjust the number of wait states according to the new frequency target in range1 boost
-        // mode
-        // 4. Configure and switch to new system frequency.
-        // 5. Wait for at least 1us and then reconfigure the AHB prescaler to get the needed HCLK
-        // clock frequency.
-        }
+            // (Remaining steps accomplished below)
+            // 3. Adjust the number of wait states according to the new frequency target in range1 boost
+            // mode
+            // 4. Configure and switch to new system frequency.
+            // 5. Wait for at least 1us and then reconfigure the AHB prescaler to get the needed HCLK
+            // clock frequency.
+            }
         }
 
         cfg_if! {
         if #[cfg(feature = "l4")] {  // RM section 3.3.3
-        let wait_state = if hclk <= 16_000_000 {
-        WaitState::W0
-        } else if hclk <= 32_000_000 {
-        WaitState::W1
-        } else if hclk <= 48_000_000 {
-        WaitState::W2
-        } else if hclk <= 64_000_000 {
-        WaitState::W3
-        } else {
-        WaitState::W4
-        };
+            let wait_state = if hclk <= 16_000_000 {
+                WaitState::W0
+            } else if hclk <= 32_000_000 {
+                WaitState::W1
+            } else if hclk <= 48_000_000 {
+                WaitState::W2
+            } else if hclk <= 64_000_000 {
+                WaitState::W3
+            } else {
+                WaitState::W4
+            };
         } else if #[cfg(feature = "l5")] {  // RM section 6.3.3
-        let wait_state = if hclk <= 20_000_000 {
-        WaitState::W0
-        } else if hclk <= 40_000_000 {
-        WaitState::W1
-        } else if hclk <= 60_000_000 {
-        WaitState::W2
-        } else if hclk <= 80_000_000 {
-        WaitState::W3
-        } else if hclk <= 100_000_000 {
-        WaitState::W4
-        } else {
-        WaitState::W5
-        };
+            let wait_state = if hclk <= 20_000_000 {
+                WaitState::W0
+            } else if hclk <= 40_000_000 {
+                WaitState::W1
+            } else if hclk <= 60_000_000 {
+                WaitState::W2
+            } else if hclk <= 80_000_000 {
+                WaitState::W3
+            } else if hclk <= 100_000_000 {
+                WaitState::W4
+            } else {
+                WaitState::W5
+            };
         } else if #[cfg(feature = "g0")] {  // G0. RM section 3.3.4
-        let wait_state = if hclk <= 24_000_000 {
-        WaitState::W0
-        } else if hclk <= 48_000_000 {
-        WaitState::W1
-        } else {
-        WaitState::W2
-        };
+            let wait_state = if hclk <= 24_000_000 {
+                WaitState::W0
+            } else if hclk <= 48_000_000 {
+                WaitState::W1
+            } else {
+                WaitState::W2
+            };
+        } else if #[cfg(feature = "c0")] { // C0 RM, section 4.3.2, table 14.
+            let wait_state = if hclk <= 24_000_000 {
+                WaitState::W0
+            } else {
+                WaitState::W1
+            };
         } else if #[cfg(feature = "wb")] {  // WB. RM section 3.3.4, Table 4.
         // Note: This applies to HCLK4 HCLK. (See HCLK4 used above for hclk var.)
         let wait_state = if hclk <= 18_000_000 {
-        WaitState::W0
-        } else if hclk <= 36_000_000 {
-        WaitState::W1
-        } else if hclk <= 54_000_000 {
-        WaitState::W2
-        } else {
-        WaitState::W3
-        };
+                WaitState::W0
+            } else if hclk <= 36_000_000 {
+                WaitState::W1
+            } else if hclk <= 54_000_000 {
+                WaitState::W2
+            } else {
+                WaitState::W3
+            };
         } else if #[cfg(any(feature = "wb", feature = "wl"))] {  // WL. RM section 3.3.4, Table 5.
         // Note: This applies to HCLK3 HCLK. (See HCLK3 used above for hclk var.)
         let wait_state = if hclk <= 18_000_000 {
-        WaitState::W0
-        } else if hclk <= 36_000_000 {
-        WaitState::W1
-        } else {
-        WaitState::W2
-        };
+                WaitState::W0
+            } else if hclk <= 36_000_000 {
+                WaitState::W1
+            } else {
+                WaitState::W2
+            };
         } else {  // G4. RM section 3.3.3
-        let wait_state = if self.boost_mode {
-        // Vcore Range 1 boost mode
-        if hclk <= 34_000_000 {
-        WaitState::W0
-        } else if hclk <= 68_000_000 {
-        WaitState::W1
-        } else if hclk <= 102_000_000 {
-        WaitState::W2
-        } else if hclk <= 136_000_000 {
-        WaitState::W3
-        } else {
-        WaitState::W4
-        }
-        } else {
-        // Vcore Range 1 normal mode.
-        if hclk <= 30_000_000 {
-        WaitState::W0
-        } else if hclk <= 60_000_000 {
-        WaitState::W1
-        } else if hclk <= 90_000_000 {
-        WaitState::W2
-        } else if hclk <= 120_000_000 {
-        WaitState::W3
-        } else {
-        WaitState::W4
-        }
-        };
-        }
+            let wait_state = if self.boost_mode {
+            // Vcore Range 1 boost mode
+            if hclk <= 34_000_000 {
+                    WaitState::W0
+                } else if hclk <= 68_000_000 {
+                    WaitState::W1
+                } else if hclk <= 102_000_000 {
+                    WaitState::W2
+                } else if hclk <= 136_000_000 {
+                    WaitState::W3
+                } else {
+                    WaitState::W4
+                }
+            } else {
+            // Vcore Range 1 normal mode.
+            if hclk <= 30_000_000 {
+                    WaitState::W0
+                } else if hclk <= 60_000_000 {
+                    WaitState::W1
+                } else if hclk <= 90_000_000 {
+                    WaitState::W2
+                } else if hclk <= 120_000_000 {
+                    WaitState::W3
+                } else {
+                    WaitState::W4
+                }
+            };
+            }
         }
 
         // Enable instruction and data caches, for a potential performance increase.
@@ -762,7 +771,7 @@ impl Clocks {
 
         #[cfg(not(feature = "l5"))]
         flash.acr().modify(|_, w| unsafe {
-            #[cfg(not(feature = "g0"))]
+            #[cfg(not(any(feature = "g0", feature = "c0")))]
             w.dcrst().bit(true);
             w.icrst().bit(true)
         });
@@ -772,7 +781,7 @@ impl Clocks {
         flash.acr().modify(|_, w| unsafe {
             // G0: Instruction cache, but no data cache.
             w.latency().bits(wait_state as u8);
-            #[cfg(not(feature = "g0"))]
+            #[cfg(not(any(feature = "g0", feature = "c0")))]
             w.dcen().bit(true);
             w.icen().bit(true);
             // Prefetch on the ICode bus can be used to read the next sequential instruction line from the
@@ -821,7 +830,7 @@ impl Clocks {
 
         // Enable oscillators, and wait until ready.
         match self.input_src {
-            #[cfg(not(any(feature = "g0", feature = "g4")))]
+            #[cfg(msi)]
             InputSrc::Msi(range) => {
                 // MSI initializes to the default clock source. Turn it off before
                 // Adjusting its speed etc.
@@ -866,7 +875,7 @@ impl Clocks {
             InputSrc::Pll(pll_src) => {
                 // todo: PLL setup here is DRY with the HSE, HSI, and MSI setup above.
                 match pll_src {
-                    #[cfg(not(any(feature = "g0", feature = "g4")))]
+                    #[cfg(msi)]
                     PllSrc::Msi(range) => {
                         rcc.cr().modify(|_, w| unsafe {
                             w.msirange().bits(range as u8);
@@ -930,13 +939,13 @@ impl Clocks {
         rcc.cfgr().modify(|_, w| unsafe {
             w.sw().bits(self.input_src.bits());
             w.hpre().bits(self.hclk_prescaler as u8);
-            #[cfg(not(feature = "g0"))]
+            #[cfg(not(any(feature = "g0", feature = "c0")))]
             w.ppre2().bits(self.apb2_prescaler as u8); // HCLK division for APB2.
             #[cfg(any(feature = "l4", feature = "l5"))]
             w.stopwuck().bit(self.stop_wuck as u8 != 0);
-            #[cfg(not(feature = "g0"))]
+            #[cfg(not(any(feature = "g0", feature = "c0")))]
             return w.ppre1().bits(self.apb1_prescaler as u8); // HCLK division for APB1
-            #[cfg(feature = "g0")]
+            #[cfg(any(feature = "g0", feature = "c0"))]
             return w.ppre().bits(self.apb1_prescaler as u8);
         });
 
@@ -957,10 +966,12 @@ impl Clocks {
         // the input source is PLL.
         if let InputSrc::Pll(pll_src) = self.input_src {
             // Turn off the PLL: Required for modifying some of the settings below.
+            #[cfg(not(feature = "c0"))]  // todo uhoh... This should be set for C0?
             rcc.cr().modify(|_, w| w.pllon().clear_bit());
             // Wait for the PLL to no longer be ready before executing certain writes.
 
             let mut i = 0;
+            #[cfg(not(feature = "c0"))] // todo?
             while rcc.cr().read().pllrdy().bit_is_set() {
                 wait_hang!(i);
             }
@@ -1071,7 +1082,13 @@ impl Clocks {
 
         // This modification is separate from the other CCIPR writes due to awkward
         // feature-gate code
-        #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "l5", feature = "l412")))]
+        #[cfg(not(any(
+            feature = "g0",
+            feature = "g4",
+            feature = "wl",
+            feature = "l5",
+            feature = "l412"
+        )))]
         rcc.ccipr()
             .modify(|_, w| unsafe { w.sai1sel().bits(self.sai1_src as u8) });
 
@@ -1194,7 +1211,7 @@ impl Clocks {
                         }
                         // If on G, we'll already be on HSI, so need to take action.
                     }
-                    #[cfg(not(any(feature = "g0", feature = "g4")))]
+                    #[cfg(msi)]
                     PllSrc::Msi(range) => {
                         // Range initializes to 4Mhz, so set that as well.
                         #[cfg(not(feature = "wb"))]
@@ -1243,7 +1260,7 @@ impl Clocks {
                     // So, if stopwuck is at its default value of MSI, we need to re-enable HSI,
                     // and re-select it. Otherwise, take no action. Reverse for MSI-reselection.
                     // For G, we already are using HSI, so need to take action either.
-                    #[cfg(not(any(feature = "g0", feature = "g4")))]
+                    #[cfg(msi)]
                     if let StopWuck::Msi = self.stop_wuck {
                         rcc.cr().modify(|_, w| w.hsion().bit(true));
                         let mut i = 0;
@@ -1256,7 +1273,7 @@ impl Clocks {
                     }
                 }
             }
-            #[cfg(not(any(feature = "g0", feature = "g4")))]
+            #[cfg(msi)]
             InputSrc::Msi(range) => {
                 // Range initializes to 4Mhz, so set that as well.
                 #[cfg(not(feature = "wb"))]
@@ -1426,24 +1443,24 @@ impl Clocks {
     }
 
     cfg_if! {
-    if #[cfg(any(feature = "g0", feature = "wl"))] {
-    pub fn usb(&self) -> u32 {
-    unimplemented!("No USB on G0 or WL");
-    }
-    } else if #[cfg(feature = "g4")] {
-    pub fn usb(&self) -> u32 {
-    48_000_000 // Uses hsi48.
-    }
+        if #[cfg(any(feature = "g0", feature = "wl"))] {
+        pub fn usb(&self) -> u32 {
+            unimplemented!("No USB on G0 or WL");
+        }
+        } else if #[cfg(feature = "g4")] {
+            pub fn usb(&self) -> u32 {
+                48_000_000 // Uses hsi48.
+            }
     } else { // L4 and L5
     pub fn usb(&self) -> u32 {
-    match self.clk48_src {
-    Clk48Src::Hsi48 => 48_000_000,
-    Clk48Src::PllSai1 => unimplemented!(),
-    Clk48Src::Pllq => unimplemented!(),
-    Clk48Src::Msi => unimplemented!(),
-    }
-    }
-    }
+        match self.clk48_src {
+            Clk48Src::Hsi48 => 48_000_000,
+                Clk48Src::PllSai1 => unimplemented!(),
+                Clk48Src::Pllq => unimplemented!(),
+                Clk48Src::Msi => unimplemented!(),
+            }
+            }
+        }
     }
 
     /// Get the APB1 peripheral clock frequency frequency, in hz
@@ -1495,7 +1512,7 @@ impl Clocks {
     }
 
     /// Get the SAI audio clock frequency, in hz
-    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
+    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "c0")))]
     pub fn sai1_speed(&self) -> u32 {
         let pll_src = match self.input_src {
             InputSrc::Msi(msi_rng) => PllSrc::Msi(msi_rng),
@@ -1543,6 +1560,9 @@ impl Clocks {
         let max_clock = 64_000_000;
 
         #[cfg(feature = "wl")]
+        let max_clock = 48_000_000;
+
+        #[cfg(feature = "c0")]
         let max_clock = 48_000_000;
 
         // todo: Check valid PLL output range as well. You can use Cube, mousing over the PLL

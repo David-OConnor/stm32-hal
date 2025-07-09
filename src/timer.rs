@@ -36,7 +36,13 @@ use num_traits::float::FloatCore; // To round floats.
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552")))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
+
+#[cfg(not(feature = "c0"))]
 use crate::pac::DMA1;
+
+#[cfg(feature = "c0")]
+use crate::pac::DMA as DMA1;
+
 // todo: LPTIM (low-power timers) and HRTIM (high-resolution timers). And Advanced control functionality
 use crate::{
     clocks::Clocks,
@@ -744,7 +750,7 @@ macro_rules! make_timer {
                             channel_cfg,
                         );
                     }
-                    #[cfg(not(any(feature = "g0", feature = "wb")))]
+                    #[cfg(dma2)]
                     dma::DmaPeriph::Dma2 => {
                         let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                         dma::cfg_channel(
@@ -792,7 +798,11 @@ macro_rules! make_timer {
 
                 match dma_periph {
                     dma::DmaPeriph::Dma1 => {
+                        #[cfg(not(feature = "c0"))]
                         let mut regs = unsafe { &(*pac::DMA1::ptr()) };
+                        #[cfg(feature = "c0")]
+                        let mut regs = unsafe { &(*pac::DMA::ptr()) };
+
                         dma::cfg_channel(
                             &mut regs,
                             dma_channel,
@@ -807,7 +817,7 @@ macro_rules! make_timer {
                             channel_cfg,
                         );
                     }
-                    #[cfg(not(any(feature = "g0", feature = "wb")))]
+                    #[cfg(dma2)]
                     dma::DmaPeriph::Dma2 => {
                         let mut regs = unsafe { &(*pac::DMA2::ptr()) };
                         dma::cfg_channel(
@@ -2020,10 +2030,12 @@ pub fn clear_update_interrupt(tim_num: u8) {
             #[cfg(not(any(feature = "f373")))]
             1 => periphs.TIM1.sr().write(|w| w.bits(bits).uif().clear_bit()),
             #[cfg(not(any(
-                 feature = "f410",
-                 feature = "g070",
-                 feature = "l5", // todo PAC bug?
-                 feature = "wb55", // todo PAC bug?
+                feature = "f410",
+                feature = "g070",
+                feature = "l5", // todo PAC bug?
+                feature = "wb55", // todo PAC bug?
+                feature = "c011",
+                feature = "c031",
             )))]
             2 => periphs.TIM2.sr().write(|w| w.bits(bits).uif().clear_bit()),
             #[cfg(not(any(
@@ -2048,6 +2060,7 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 feature = "l4x3",
                 feature = "l5", // todo PAC bug?
                 feature = "g0",
+                feature = "c0",
                 feature = "wb",
                 feature = "wl"
             )))]
@@ -2066,6 +2079,7 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 all(feature = "f4", not(feature = "f410")),
             ))]
             5 => periphs.TIM5.sr().write(|w| w.bits(bits).uif().clear_bit()),
+            // todo!
             _ => unimplemented!(),
         }
     };
@@ -2105,6 +2119,8 @@ cfg_if! {
         feature = "g070",
         feature = "l5", // todo PAC bug?
         feature = "wb55", // todo PAC bug?
+        feature = "c011",
+        feature = "c031",
     )))] {
         make_timer!(TIM2, tim2, 1, u32);
         cc_4_channels!(TIM2, u32);
@@ -2141,6 +2157,7 @@ cfg_if! {
         feature = "l4x3",
         feature = "l5", // todo PAC bug?
         feature = "g0",
+        feature = "c0",
         feature = "wb",
         feature = "wl"
     )))] {
@@ -2207,6 +2224,11 @@ cfg_if! {
     }
 }
 
+#[cfg(feature = "c0")]
+make_timer!(TIM14, tim14, 1, u32);
+#[cfg(feature = "c0")]
+cc_4_channels!(TIM14, u32);
+
 // Todo: the L5 PAC has an address error on TIM15 - remove it until solved.
 cfg_if! {
     if #[cfg(not(any(
@@ -2217,7 +2239,9 @@ cfg_if! {
         feature = "g041",
         feature = "g030",
         feature = "wb",
-        feature = "wl"
+        feature = "wl",
+      // todo: Tim15 is available on c091/02, but I don't see a PAC for that.
+        feature = "c0",
     )))] {
         make_timer!(TIM15, tim15, 2, u16);
         // todo: TIM15 on some variant has 2 channels (Eg H7). On others, like L4x3, it appears to be 1.

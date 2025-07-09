@@ -7,7 +7,7 @@ This library provides high-level access to STM32 peripherals.
 
 ## Requirements
 1. Provide high-level access to most STM32 peripherals
-2. Support these STM32 families: `F3`, `F4`, `L4`, `L5`, `G`, `H`, `U`, and `W`
+2. Support these STM32 families: `F3`, `F4`, `L4`, `L5`, `G`, `H5`, `H7`, `C0`,`WB`, `WL`
 3. Allow switching MCUs with minimal code change
 4. Provide a consistent API across peripheral modules
 5. Support both DMA and non-DMA interfaces
@@ -31,10 +31,12 @@ This library provides high-level access to STM32 peripherals.
 
 
 ## Supported MCUs
-F3, F4, L4, L5, G0, G4, H5, H7, WB, and WL. U5 is planned once its SVD files and PAC
-become available.
+F3, F4, L4, L5, G0, G4, H5, H7, WB, WL, C0.
 
-C0 is a WIP.
+Legend. Green: Supported. Light blue: Partial support. Red: Not supported, and won't. Purple: Not supported, and open to adding.
+![STM32 support](screenshots/stm32_support.png)
+
+
 
 Tested on the following devices:
 - STM32F303
@@ -43,7 +45,7 @@ Tested on the following devices:
 - STM32L552
 - STM32WB5MMG
 - STM32G431, G491, G473
-- STM32H743(V), H745 (both cores)
+- STM32H743(V), H745 (both cores), H723
 
 
 ## Getting started

@@ -17,12 +17,10 @@ cfg_if::cfg_if! {
     if #[cfg(feature = "f")] {
         mod f;
         pub use f::*;
-    } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g0", feature = "g4", feature = "wb", feature = "wl"))] {
+    } else if #[cfg(any(feature = "l4", feature = "l5", feature = "g0", feature = "g4", feature = "wb", feature = "wl", feature = "c0"))] {
         mod baseline;
         pub use baseline::*;
-    } else if #[cfg(feature = "u5")] {
-        // todo once SVD is out
-    } else if #[cfg(any(feature = "h5", feature = "h7"))] {
+    }else if #[cfg(any(feature = "h5", feature = "h7"))] {
         mod h;
         pub use h::*;
     }

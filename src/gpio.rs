@@ -16,20 +16,13 @@ use core::convert::Infallible;
 use embedded_hal::digital::{ErrorType, InputPin, OutputPin, StatefulOutputPin};
 
 use crate::pac::{self, EXTI, RCC};
-#[cfg(not(feature = "h7"))]
+#[cfg(not(any(feature = "h7", feature = "g0", feature = "c0")))]
 use crate::util::rcc_en_reset;
 
-// #[cfg(not(any(
-//     // feature = "g0",
-//     feature = "f4",
-//     // feature = "l5",
-//     feature = "f3",
-//     feature = "l4"
-// )))]
-// use core::ops::Deref;
-
 cfg_if! {
-    if #[cfg(all(feature = "g0", feature = "c0", not(any(feature = "g0b1", feature = "g0c1"))))] {
+    if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
+        use crate::pac::DMA as DMA1;
+    } else if #[cfg(feature = "c0")] {
         use crate::pac::DMA as DMA1;
     } else if #[cfg(any(feature = "f4", feature = "h5"))] {} else {
         use crate::pac::DMA1;

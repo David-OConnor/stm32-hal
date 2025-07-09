@@ -18,11 +18,17 @@ use cfg_if::cfg_if;
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
-#[cfg(not(any(feature = "f4", feature = "l552")))]
+#[cfg(not(any(feature = "f4")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
+
+#[cfg(not(feature = "c0"))]
+use crate::pac::{DMA1, dma1 as dma_p};
+
+#[cfg(feature = "c0")]
+use crate::pac::{DMA as DMA1, dma as dma_p};
+
 use crate::{
     pac,
-    pac::{DMA1, dma1 as dma_p},
     util::RccPeriph,
 }; // todo temp
 
