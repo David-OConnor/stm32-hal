@@ -492,7 +492,13 @@ impl Flash {
         // 1. Check that no Flash main memory operation is ongoing by checking the BSY bit in the
         // Flash status register (FLASH_SR).
         let sr = regs.sr().read();
-        if sr.bsy().bit_is_set() {
+
+        #[cfg(not(feature = "c0"))]
+        let busy = sr.bsy().bit_is_set();
+        #[cfg(feature = "c0")]
+        let busy = sr.bsy1().bit_is_set();
+
+        if busy {
             self.lock();
             return Err(Error::Busy);
         }
@@ -552,7 +558,10 @@ impl Flash {
                 address = address.add(1);
             }
             // 5. Wait until the BSY bit is cleared in the FLASH_SR register.
+            #[cfg(not(feature = "c0"))]      
             while regs.sr().read().bsy().bit_is_set() {}
+            #[cfg(feature = "c0")]
+            while regs.sr().read().bsy1().bit_is_set() {}
 
             // 6. Check that EOP flag is set in the FLASH_SR register (meaning that the programming
             // operation has succeed), and clear it by software.

@@ -103,13 +103,13 @@ unsafe impl UsbPeripheral for Peripheral {
                     }
                 }
             } else if #[cfg(feature = "l5")] {
-                rcc.apb1enr2.modify(|_, w| w.usbfsen().bit(true));
-                rcc.apb1rstr2.modify(|_, w| w.usbfsrst().bit(true));
-                rcc.apb1rstr2.modify(|_ , w| w.usbfsrst().clear_bit());
+                rcc.apb1enr2().modify(|_, w| w.usbfsen().bit(true));
+                rcc.apb1rstr2().modify(|_, w| w.usbfsrst().bit(true));
+                rcc.apb1rstr2().modify(|_ , w| w.usbfsrst().clear_bit());
             } else if #[cfg(feature = "wb")] {
                 rcc.apb1enr1().modify(|_, w| w.usben().bit(true));
-                rcc.apb1rstr1.modify(|_, w| w.usbfsrst().bit(true));
-                rcc.apb1rstr1.modify(|_ , w| w.usbfsrst().clear_bit());
+                rcc.apb1rstr1().modify(|_, w| w.usbfsrst().bit(true));
+                rcc.apb1rstr1().modify(|_ , w| w.usbfsrst().clear_bit());
             } else { // G0, G4
                 rcc_en_reset!(apb1, usb, rcc);
             }

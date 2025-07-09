@@ -476,7 +476,6 @@ pub mod qspi;
 )))]
 pub mod rng;
 
-#[cfg(not(feature = "c0"))] // todo
 pub mod rtc;
 
 #[cfg(not(any(
@@ -498,7 +497,6 @@ pub mod spi;
 #[cfg(not(any(feature = "h5", feature = "c0")))] // todo temp
 pub mod timer;
 
-#[cfg(not(feature = "c0"))]
 pub mod usart;
 
 // todo: More MCUs A/R. They will need modifications in the module.
