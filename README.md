@@ -33,7 +33,9 @@ This library provides high-level access to STM32 peripherals.
 ## Supported MCUs
 F3, F4, L4, L5, G0, G4, H5, H7, WB, WL, C0.
 
-Legend. Green: Supported. Light blue: Partial support. Red: Not supported, and won't. Purple: Not supported, and open to adding.
+Legend. Green: Supported. Light blue: Partial support. Red: Not supported, and won't. Purple: 
+Not supported, and open to adding.
+
 ![STM32 support](screenshots/stm32_support.png)
 
 

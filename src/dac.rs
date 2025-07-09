@@ -58,7 +58,7 @@ use cfg_if::cfg_if;
 /// Select the channel to output to. Most MCUs only use 2 channels.
 pub enum DacChannel {
     C1 = 1,
-    #[cfg(not(feature = "wl"))] // WL only has one channel.
+    #[cfg(not(any(feature = "wl", feature = "f410")))]
     C2 = 2,
 }
 
@@ -349,7 +349,7 @@ where
         // Doesn't use the newer API.
         match channel {
             DacChannel::C1 => cr.modify(|_, w| w.en1().clear_bit()),
-            #[cfg(not(feature = "wl"))]
+            #[cfg(not(any(feature = "wl", feature = "f410")))]
             DacChannel::C2 => cr.modify(|_, w| w.en2().clear_bit()),
         };
     }
@@ -445,14 +445,13 @@ where
         #[cfg(feature = "g4")]
         match channel {
             DacChannel::C1 => self.regs.cr().modify(|_, w| w.dmaen1().bit(true)),
-            #[cfg(not(feature = "wl"))]
             DacChannel::C2 => self.regs.cr().modify(|_, w| w.dmaen2().bit(true)),
         };
 
         #[cfg(not(feature = "g4"))]
         match channel {
             DacChannel::C1 => self.regs.cr().modify(|_, w| w.dmaen1().bit(true)),
-            #[cfg(not(feature = "wl"))]
+            #[cfg(not(any(feature = "wl", feature = "f410")))]
             DacChannel::C2 => self.regs.cr().modify(|_, w| w.dmaen2().bit(true)),
         };
 
@@ -549,6 +548,7 @@ where
                 w.ten(channel as u8).bit(true);
                 w.tsel1().bits(trigger as u8)
             }),
+            #[cfg(not(feature = "f410"))]
             DacChannel::C2 => cr.modify(|_, w| unsafe {
                 w.ten(channel as u8).bit(true);
                 w.tsel2().bits(trigger as u8)
@@ -618,7 +618,7 @@ where
     pub fn clear_interrupt(&mut self, channel: DacChannel) {
         self.regs.sr().write(|w| match channel {
             DacChannel::C1 => w.dmaudr1().bit(true),
-            #[cfg(not(feature = "wl"))]
+            #[cfg(not(any(feature = "wl", feature = "f410")))]
             DacChannel::C2 => w.dmaudr2().bit(true),
         });
     }

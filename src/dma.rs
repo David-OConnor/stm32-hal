@@ -962,10 +962,10 @@ pub fn cfg_channel<D>(
     // 2. Set the memory address in the DMA_CMARx register.
     // The data is written to/read from the memory after the peripheral event or after the
     // channel is enabled in memory-to-memory mode.
-    #[cfg(feature = "h7")]
+    #[cfg(any(feature = "h7", feature = "l5"))]
     ch_r.m0ar().write(|w| unsafe { w.bits(mem_addr) });
 
-    #[cfg(not(feature = "h7"))]
+    #[cfg(not(any(feature = "h7", feature = "l5")))]
     ch_r.mar().write(|w| unsafe { w.bits(mem_addr) });
 
     // todo: m1ar too, if in double-buffer mode.

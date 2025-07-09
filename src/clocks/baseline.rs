@@ -90,71 +90,71 @@ pub enum StopWuck {
 }
 
 cfg_if! {
-if #[cfg(feature = "g0")] {
-#[derive(Clone, Copy, PartialEq)]
-/// Clock input source, also known as system clock switch. Sets RCC_CFGR register, SW field.
-pub enum InputSrc {
-Hsi,
-Hse(u32), // freq in Mhz,
-Pll(PllSrc),
-Lsi,
-Lse,
-}
+    if #[cfg(feature = "g0")] {
+        #[derive(Clone, Copy, PartialEq)]
+            /// Clock input source, also known as system clock switch. Sets RCC_CFGR register, SW field.
+            pub enum InputSrc {
+            Hsi,
+            Hse(u32), // freq in Mhz,
+            Pll(PllSrc),
+            Lsi,
+            Lse,
+        }
 
-impl InputSrc {
-/// Required due to numerical value on non-uniform discrim being experimental.
-/// (ie, can't set on `Pll(Pllsrc)`. G0 RM, section 5.4.3.
-pub fn bits(&self) -> u8 {
-match self {
-Self::Hsi => 0b000,
-Self::Hse(_) => 0b001,
-Self::Pll(_) => 0b010,
-Self::Lsi => 0b011,
-Self::Lse => 0b100,
-}
-}
-}
-} else if #[cfg(feature = "g4")] {
-#[derive(Clone, Copy, PartialEq)]
-pub enum InputSrc {
-Hsi,
-Hse(u32), // freq in Hz,
-Pll(PllSrc),
-}
+        impl InputSrc {
+        /// Required due to numerical value on non-uniform discrim being experimental.
+        /// (ie, can't set on `Pll(Pllsrc)`. G0 RM, section 5.4.3.
+        pub fn bits(&self) -> u8 {
+        match self {
+        Self::Hsi => 0b000,
+        Self::Hse(_) => 0b001,
+        Self::Pll(_) => 0b010,
+        Self::Lsi => 0b011,
+        Self::Lse => 0b100,
+        }
+        }
+        }
+    } else if #[cfg(feature = "g4")] {
+            #[derive(Clone, Copy, PartialEq)]
+            pub enum InputSrc {
+                Hsi,
+                Hse(u32), // freq in Hz,
+                Pll(PllSrc),
+            }
 
-impl InputSrc {
-/// Required due to numerical value on non-uniform discrim being experimental.
-/// (ie, can't set on `Pll(Pllsrc)`.
-pub fn bits(&self) -> u8 {
-match self {
-Self::Hsi => 0b01,
-Self::Hse(_) => 0b10,
-Self::Pll(_) => 0b11,
-}
-}
-}
+        impl InputSrc {
+            /// Required due to numerical value on non-uniform discrim being experimental.
+            /// (ie, can't set on `Pll(Pllsrc)`.
+            pub fn bits(&self) -> u8 {
+            match self {
+            Self::Hsi => 0b01,
+            Self::Hse(_) => 0b10,
+            Self::Pll(_) => 0b11,
+            }
+        }
+    }
 } else {  // ie L4 and L5
-#[derive(Clone, Copy, PartialEq)]
-pub enum InputSrc {
-Msi(MsiRange),
-Hsi,
-Hse(u32), // freq in Hz,
-Pll(PllSrc),
-}
+    #[derive(Clone, Copy, PartialEq)]
+    pub enum InputSrc {
+        Msi(MsiRange),
+        Hsi,
+        Hse(u32), // freq in Hz,
+        Pll(PllSrc),
+    }
 
-impl InputSrc {
-/// Required due to numerical value on non-uniform discrim being experimental.
-/// (ie, can't set on `Pll(Pllsrc)`.
-pub fn bits(&self) -> u8 {
-match self {
-Self::Msi(_) => 0b00,
-Self::Hsi => 0b01,
-Self::Hse(_) => 0b10,
-Self::Pll(_) => 0b11,
-}
-}
-}
-}
+        impl InputSrc {
+            /// Required due to numerical value on non-uniform discrim being experimental.
+            /// (ie, can't set on `Pll(Pllsrc)`.
+            pub fn bits(&self) -> u8 {
+                match self {
+                    Self::Msi(_) => 0b00,
+                    Self::Hsi => 0b01,
+                    Self::Hse(_) => 0b10,
+                    Self::Pll(_) => 0b11,
+                }
+            }
+        }
+    }
 }
 
 #[cfg(feature = "wb")]
@@ -559,12 +559,14 @@ pub enum LpUartSrc {
 /// implementation, then modify as required, referencing your RM's clock tree,
 /// or Stm32Cube IDE's interactive clock manager. Apply settings by running `.setup()`.
 pub struct Clocks {
+    #[cfg(not(feature = "c0"))]
     /// The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
     pub input_src: InputSrc,
     /// Enable and speed status for the main PLL
+    #[cfg(not(feature = "c0"))]
     pub pll: PllCfg,
     /// Enable and speed status for the SAI PLL
-    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
+    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "c0")))]
     pub pllsai1: PllCfg,
     #[cfg(any(feature = "l4x5", feature = "l4x6"))]
     pub pllsai2: PllCfg,
@@ -828,6 +830,7 @@ impl Clocks {
             };
         }
 
+        #[cfg(not(feature = "c0"))]
         // Enable oscillators, and wait until ready.
         match self.input_src {
             #[cfg(msi)]
@@ -937,6 +940,7 @@ impl Clocks {
         });
 
         rcc.cfgr().modify(|_, w| unsafe {
+            #[cfg(not(feature = "c0"))]
             w.sw().bits(self.input_src.bits());
             w.hpre().bits(self.hclk_prescaler as u8);
             #[cfg(not(any(feature = "g0", feature = "c0")))]
@@ -971,11 +975,12 @@ impl Clocks {
             // Wait for the PLL to no longer be ready before executing certain writes.
 
             let mut i = 0;
-            #[cfg(not(feature = "c0"))] // todo?
+            #[cfg(not(feature = "c0"))]
             while rcc.cr().read().pllrdy().bit_is_set() {
                 wait_hang!(i);
             }
 
+            #[cfg(not(feature = "c0"))]
             rcc.pllcfgr().modify(|_, w| unsafe {
                 w.pllsrc().bits(pll_src.bits());
                 w.pllren().bit(true);
@@ -999,6 +1004,7 @@ impl Clocks {
                 w.pllq().bits(self.pll.divq as u8)
             });
 
+            #[cfg(not(feature = "c0"))]
             rcc.pllcfgr().modify(|_, w| {
                 w.pllpen().bit(true);
                 w.pllqen().bit(true);
@@ -1046,14 +1052,16 @@ impl Clocks {
                 }
             }
 
+            #[cfg(not(feature = "c0"))]
             rcc.cr().modify(|_, w| w.pllon().bit(true));
             i = 0;
+            #[cfg(not(feature = "c0"))]
             while rcc.cr().read().pllrdy().bit_is_clear() {
                 wait_hang!(i);
             }
 
             cfg_if! {
-                if #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "l412")))] {
+                if #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "l412", feature = "c0")))] {
                     if self.pllsai1.enabled {
                         rcc.cr().modify(|_, w| w.pllsai1on().bit(true));
                         i = 0;
@@ -1234,17 +1242,22 @@ impl Clocks {
                     PllSrc::None => (),
                 }
 
+                #[cfg(not(feature = "c0"))]
                 rcc.cr().modify(|_, w| w.pllon().clear_bit());
                 let mut i = 0;
+                #[cfg(not(feature = "c0"))]
                 while rcc.cr().read().pllrdy().bit_is_set() {
                     wait_hang!(i);
                 }
 
+                #[cfg(not(feature = "c0"))]
                 rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
 
+                #[cfg(not(feature = "c0"))]
                 rcc.cr().modify(|_, w| w.pllon().bit(true));
                 let mut i = 0;
+                #[cfg(not(feature = "c0"))]
                 while rcc.cr().read().pllrdy().bit_is_clear() {
                     wait_hang!(i);
                 }
@@ -1393,6 +1406,7 @@ impl Clocks {
         while rcc.cr().read().msirdy().bit_is_clear() {}
     }
 
+    #[cfg(not(feature = "c0"))]
     /// Get the sysclock frequency, in hz.
     pub fn sysclk(&self) -> u32 {
         match self.input_src {
@@ -1426,7 +1440,7 @@ impl Clocks {
     /// if !clock_cfg.pll_is_enabled() {
     ///     clock_cfg.reselect_input();
     ///}
-    ///```
+    #[cfg(not(feature = "c0"))]
     pub fn pll_is_enabled(&self) -> bool {
         let rcc = unsafe { &(*RCC::ptr()) };
         rcc.cr().read().pllon().bit_is_set()
@@ -1543,6 +1557,7 @@ impl Clocks {
         }
     }
 
+    #[cfg(not(feature = "c0"))] // no PLL on C0
     pub fn validate_speeds(&self) -> Result<(), RccError> {
         #[cfg(feature = "l4")]
         let max_clock = 80_000_000;
@@ -1583,7 +1598,7 @@ impl Clocks {
             return Err(RccError::Speed);
         }
 
-        #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
+        #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "c0")))]
         if self.pllsai1.pdiv == 1 {
             return Err(RccError::Speed);
         }
@@ -1638,9 +1653,11 @@ impl Default for Clocks {
     /// All peripheral. Speeds -> L4: 80Mhz. L5: 110Mhz. G0: 64Mhz. G4: 170Mhz. WB: 64Mhz.
     fn default() -> Self {
         Self {
+            #[cfg(not(feature = "c0"))]
             input_src: InputSrc::Pll(PllSrc::Hsi),
+            #[cfg(not(feature = "c0"))]
             pll: PllCfg::default(),
-            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
+            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "c0")))]
             pllsai1: PllCfg::disabled(),
             #[cfg(any(feature = "l4x5", feature = "l4x6"))]
             pllsai2: PllCfg::disabled(),

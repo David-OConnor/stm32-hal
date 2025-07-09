@@ -1112,7 +1112,7 @@ where
         match filter {
             Filter::F0 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l5"))] {
+                    if #[cfg(any(feature = "l552"))] {
                         let cr1 = &self.regs.flt0cr1;
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm0_cr1;
@@ -1127,7 +1127,7 @@ where
             #[cfg(not(feature = "l4x6"))]
             Filter::F1 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l5"))] {
+                    if #[cfg(any(feature = "l552"))] {
                         let cr1 = &self.regs.flt1cr1;
                     } else if #[cfg(any(feature = "l4"))] {
                         // let cr1 = &self.regs.dfsdm1_cr1;
@@ -1139,7 +1139,7 @@ where
             }
             Filter::F2 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l5"))] {
+                    if #[cfg(any(feature = "l552"))] {
                         let cr1 = &self.regs.flt2cr1;
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm2_cr1;
@@ -1152,7 +1152,7 @@ where
 
             Filter::F3 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l5"))] {
+                    if #[cfg(any(feature = "l552"))] {
                         let cr1 = &self.regs.flt3cr1;
                     } else if #[cfg(any(feature = "l4"))] {
                         let cr1 = &self.regs.dfsdm3_cr1;
@@ -1167,7 +1167,7 @@ where
         let periph_addr = match filter {
             Filter::F0 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l5"))] {
+                    if #[cfg(any(feature = "l552"))] {
                         let rdatar = &self.regs.flt0rdatar();
                     } else if #[cfg(any(feature = "l4"))] {
                         let rdatar = &self.regs.dfsdm0_rdatar();
@@ -1182,7 +1182,7 @@ where
             #[cfg(not(feature = "l4x6"))]
             Filter::F1 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l5"))] {
+                    if #[cfg(any(feature = "l552"))] {
                         let rdatar = &self.regs.flt1rdatar();
                     } else if #[cfg(any(feature = "l4"))] {
                         // let rdatar = &self.regs.dfsdm1_rdatar();
@@ -1195,7 +1195,7 @@ where
 
             Filter::F2 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l5"))] {
+                    if #[cfg(any(feature = "l552"))] {
                         let rdatar = &self.regs.flt2rdatar();
                     } else if #[cfg(any(feature = "l4"))] {
                         let rdatar = &self.regs.dfsdm2_rdatar();
@@ -1208,7 +1208,7 @@ where
 
             Filter::F3 => {
                 cfg_if! {
-                    if #[cfg(any(feature = "l5"))] {
+                    if #[cfg(any(feature = "l552"))] {
                         let rdatar = &self.regs.flt3rdatar();
                     } else if #[cfg(any(feature = "l4"))] {
                         let rdatar = &self.regs.dfsdm3_rdatar();

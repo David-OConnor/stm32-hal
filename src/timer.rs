@@ -2140,11 +2140,17 @@ cfg_if! {
         feature = "f410",
         feature = "wb",
         feature = "wl",
+        feature = "c0",
     )))] {
         make_timer!(TIM3, tim3, 1, u32);
         cc_4_channels!(TIM3, u32);
     }
 }
+
+#[cfg(feature = "c0")]
+make_timer!(TIM3, tim3, 1, u16);
+#[cfg(feature = "c0")]
+cc_4_channels!(TIM3, u16);
 
 cfg_if! {
     if #[cfg(not(any(
@@ -2227,7 +2233,7 @@ cfg_if! {
 #[cfg(feature = "c0")]
 make_timer!(TIM14, tim14, 1, u32);
 #[cfg(feature = "c0")]
-cc_4_channels!(TIM14, u32);
+cc_2_channels!(TIM14, u16);
 
 // Todo: the L5 PAC has an address error on TIM15 - remove it until solved.
 cfg_if! {
