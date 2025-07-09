@@ -157,7 +157,7 @@ impl Crc {
     }
 
     cfg_if! {
-        if #[cfg(any(feature = "f3x4", feature = "g0", feature = "g4", feature = "h7", feature = "wb"))] {
+        if #[cfg(any(feature = "f3x4", feature = "g0", feature = "g4", feature = "h7", feature = "wb", feature = "l5"))] {
             /// Write the independent data register. The IDR can be used as
             /// temporary storage. It is not cleared on CRC hash reset.
             ///
@@ -177,7 +177,7 @@ impl Crc {
     }
 
     cfg_if! {
-        if #[cfg(any(feature = "f3x4", feature = "g0", feature = "g4", feature = "h7", feature = "wb"))] {
+        if #[cfg(any(feature = "f3x4", feature = "g0", feature = "g4", feature = "h7", feature = "wb", feature = "l5"))] {
             /// Get the current value of the independent data register.
             ///
             /// The IDR is not involved with CRC calculation.

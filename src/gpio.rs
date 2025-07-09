@@ -377,7 +377,7 @@ macro_rules! set_exti {
                         }
 
                         cfg_if! {
-                            if #[cfg(any(feature = "g4", feature = "wb", feature = "wl", feature = "c0"))] {
+                            if #[cfg(any(feature = "g4", feature = "wb", feature = "wl", feature = "c0", feature = "l5"))] {
                                 exti.rtsr1().modify(|_, w| w.[<rt $num>]().bit($rising));
                                 exti.ftsr1().modify(|_, w| w.[<ft $num>]().bit($falling));
                             // } else if #[cfg(any(feature = "wb", feature = "wl"))] {
@@ -393,7 +393,7 @@ macro_rules! set_exti {
                             }
                         }
 
-                        #[cfg(not(any(feature = "g0", feature = "c0")))]
+                        #[cfg(not(any(feature = "g0", feature = "c0", feature = "l5")))]
                         syscfg
                             .[<exticr $crnum>]()
                             .modify(|_, w| unsafe { w.[<exti $num>]().bits($val) });
@@ -446,12 +446,12 @@ macro_rules! set_exti_l5 {
 
                         #[cfg(feature = "l5")]
                         exti
-                            .[<exticr $crnum>]
+                            .[<exticr $crnum>]()
                             .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
 
                         #[cfg(feature = "h5")]
                         exti
-                            .[<exticr $crnum>]
+                            .[<exticr $crnum>]()
                             .modify(|_, w| unsafe { w.[<exti $num>]().bits($val) });
                     }
                 )+
@@ -768,7 +768,7 @@ impl Pin {
                 {
                     unsafe {
                         (*crate::pac::PWR::ptr())
-                            .cr2
+                            .cr2()
                             .modify(|_, w| w.iosv().bit(true));
                     }
                 }
@@ -1008,13 +1008,14 @@ impl Pin {
             //         (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]
             //     );
             // } else
-            if #[cfg(any(feature = "l5", feature = "h5"))] {
-                set_exti_l5!(self.pin, rising, falling, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
-                    (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
-                    (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
-                    (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]
-                );
-            } else if #[cfg(feature = "f4")] {
+            // if #[cfg(any(feature = "l5", feature = "h5"))] {
+            //     set_exti_l5!(self.pin, rising, falling, self.port.cr_val(), [(0, 1, 1), (1, 1, 0_7), (2, 1, 0_7),
+            //         (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
+            //         (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
+            //         (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]
+            //     );
+            // } else
+            if #[cfg(feature = "f4")] {
                 set_exti_f4!(self.pin, rising, falling, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
                         (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
                         (13, 4), (14, 4), (15, 4)]

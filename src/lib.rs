@@ -489,7 +489,8 @@ pub mod rtc;
 )))]
 pub mod sai;
 
-#[cfg(not(any(feature = "h5", feature = "c0")))] // todo: Add H5 SPI!
+// as of Pac 0.16, unable to find spi1 reg for f301. (Renamed something else?)
+#[cfg(not(any(feature = "h5", feature = "c0", feature = "f301")))] // todo: Add H5 SPI!
 pub mod spi;
 
 #[cfg(not(any(feature = "h5", feature = "c0")))] // todo temp

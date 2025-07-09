@@ -1278,7 +1278,7 @@ hal!(ADC3, ADC3_4, adc3, 34);
 #[cfg(any(feature = "f303"))]
 hal!(ADC4, ADC3_4, adc4, 34);
 
-#[cfg(any(feature = "l4"))]
+#[cfg(any(feature = "l4", feature = "l5"))]
 hal!(ADC1, ADC_COMMON, adc1, _);
 
 #[cfg(any(
@@ -1292,10 +1292,6 @@ hal!(ADC2, ADC_COMMON, adc2, _);
 
 #[cfg(any(feature = "l4x5", feature = "l4x6",))]
 hal!(ADC3, ADC_COMMON, adc3, _);
-
-// todo: ADC 1 vs 2 on L5? L5 supports up to 2 ADCs, so I'm not sure what's going on here.
-#[cfg(any(feature = "l5"))]
-hal!(ADC, ADC_COMMON, adc1, _);
 
 // todo Implement ADC3 on H7. The issue is the enable / reset being on ahb4.
 cfg_if! {

@@ -1033,15 +1033,25 @@ macro_rules! cc_4_channels {
         impl Timer<pac::$TIMX> {
             /// Function that allows us to set direction only on timers that have this option.
             pub fn set_dir(&mut self) {
-                self.regs.cr1().modify(|_, w| w.dir().bit(self.cfg.direction as u8 != 0));
-                self.regs.cr1().modify(|_, w| unsafe { w.cms().bits(self.cfg.alignment as u8) });
+                self.regs
+                    .cr1()
+                    .modify(|_, w| w.dir().bit(self.cfg.direction as u8 != 0));
+                self.regs
+                    .cr1()
+                    .modify(|_, w| unsafe { w.cms().bits(self.cfg.alignment as u8) });
             }
 
             /// Set up input capture, eg for PWM input.
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
             /// Note: Does not handle TISEL (timer input selection register - you must do this manually
             /// using the PAC.
-            #[cfg(not(any(feature = "f", feature = "l4x5", feature = "l5", feature = "g0", feature = "wb")))]
+            #[cfg(not(any(
+                feature = "f",
+                feature = "l4x5",
+                feature = "l5",
+                feature = "g0",
+                feature = "wb"
+            )))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
@@ -1137,7 +1147,6 @@ macro_rules! cc_4_channels {
                     }
                 }
 
-
                 // todo: SMCR: Set in the Input PWM settings, but not normal input capture (?)
                 // 6. Select the valid trigger input: write the TS bits to 101 in the TIMx_SMCR register
                 // (TI1FP1 selected).
@@ -1174,7 +1183,6 @@ macro_rules! cc_4_channels {
                             #[cfg(not(any(feature = "f", feature = "l5", feature = "wb")))]
                             w.oc2m_3().bit((mode as u8) >> 3 != 0);
                             w.oc2m().bits((mode as u8) & 0b111)
-
                         });
                     }
                     TimChannel::C3 => {
@@ -1182,13 +1190,18 @@ macro_rules! cc_4_channels {
                             #[cfg(not(any(feature = "f", feature = "l5", feature = "wb")))]
                             w.oc3m_3().bit((mode as u8) >> 3 != 0);
                             w.oc3m().bits((mode as u8) & 0b111)
-
                         });
                     }
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
                         self.regs.ccmr2_output().modify(|_, w| unsafe {
-                            #[cfg(not(any(feature = "f3", feature = "f4", feature = "l5", feature = "wb", feature = "h7")))]
+                            #[cfg(not(any(
+                                feature = "f3",
+                                feature = "f4",
+                                feature = "l5",
+                                feature = "wb",
+                                feature = "h7"
+                            )))]
                             w.oc4m_3().bit((mode as u8) >> 3 != 0);
                             w.oc4m().bits((mode as u8) & 0b111)
                         });
@@ -1208,13 +1221,6 @@ macro_rules! cc_4_channels {
                             #[cfg(not(feature = "wl"))]
                             TimChannel::C4 => self.regs.ccr4().read().bits(),
                         }) as $res
-                    } else if #[cfg(any(feature = "l5"))] {
-                        match channel {
-                            TimChannel::C1 => self.regs.ccr1().read().ccr1().bits(),
-                            TimChannel::C2 => self.regs.ccr2().read().ccr2().bits(),
-                            TimChannel::C3 => self.regs.ccr3().read().ccr3().bits(),
-                            TimChannel::C4 => self.regs.ccr4().read().ccr4().bits(),
-                        }
                     } else {
                         match channel {
                             TimChannel::C1 => self.regs.ccr1().read().ccr().bits().into(),
@@ -1230,27 +1236,26 @@ macro_rules! cc_4_channels {
             /// Set the duty cycle, as a portion of ARR (`get_max_duty()`). Note that this
             /// needs to be re-run if you change ARR at any point.
             pub fn set_duty(&mut self, channel: TimChannel, duty: $res) {
-                cfg_if! {
-                    if #[cfg(any(feature = "l5"))] {
-                        unsafe {
-                            match channel {
-                                TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr1().bits(duty.try_into().unwrap())),
-                                TimChannel::C2 => self.regs.ccr2().write(|w| w.ccr2().bits(duty.try_into().unwrap())),
-                                TimChannel::C3 => self.regs.ccr3().write(|w| w.ccr3().bits(duty.try_into().unwrap())),
-                                TimChannel::C4 => self.regs.ccr4().write(|w| w.ccr4().bits(duty.try_into().unwrap())),
-                            };
-                        }
-                    } else {
-                        unsafe {
-                            match channel {
-                                TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr().bits(duty.try_into().unwrap())),
-                                TimChannel::C2 => self.regs.ccr2().write(|w| w.ccr().bits(duty.try_into().unwrap())),
-                                TimChannel::C3 => self.regs.ccr3().write(|w| w.ccr().bits(duty.try_into().unwrap())),
-                                #[cfg(not(feature = "wl"))]
-                                TimChannel::C4 => self.regs.ccr4().write(|w| w.ccr().bits(duty.try_into().unwrap())),
-                            };
-                        }
-                    }
+                unsafe {
+                    match channel {
+                        TimChannel::C1 => self
+                            .regs
+                            .ccr1()
+                            .write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                        TimChannel::C2 => self
+                            .regs
+                            .ccr2()
+                            .write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                        TimChannel::C3 => self
+                            .regs
+                            .ccr3()
+                            .write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                        #[cfg(not(feature = "wl"))]
+                        TimChannel::C4 => self
+                            .regs
+                            .ccr4()
+                            .write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                    };
                 }
             }
 
@@ -1269,7 +1274,9 @@ macro_rules! cc_4_channels {
             /// interrupt flags of channels configured in output (CCxS=00 in TIMx_CCMRx register) are set
             /// both when the counter is counting up or down.
             pub fn set_alignment(&mut self, alignment: Alignment) {
-                self.regs.cr1().modify(|_, w| unsafe { w.cms().bits(alignment as u8) });
+                self.regs
+                    .cr1()
+                    .modify(|_, w| unsafe { w.cms().bits(alignment as u8) });
                 self.cfg.alignment = alignment;
             }
 
@@ -1287,11 +1294,23 @@ macro_rules! cc_4_channels {
             /// Set complementary output polarity. See docs on the `Polarity` enum.
             pub fn set_complementary_polarity(&mut self, channel: TimChannel, polarity: Polarity) {
                 match channel {
-                    TimChannel::C1 => self.regs.ccer().modify(|_, w| w.cc1np().bit(polarity.bit())),
-                    TimChannel::C2 => self.regs.ccer().modify(|_, w| w.cc2np().bit(polarity.bit())),
-                    TimChannel::C3 => self.regs.ccer().modify(|_, w| w.cc3np().bit(polarity.bit())),
+                    TimChannel::C1 => self
+                        .regs
+                        .ccer()
+                        .modify(|_, w| w.cc1np().bit(polarity.bit())),
+                    TimChannel::C2 => self
+                        .regs
+                        .ccer()
+                        .modify(|_, w| w.cc2np().bit(polarity.bit())),
+                    TimChannel::C3 => self
+                        .regs
+                        .ccer()
+                        .modify(|_, w| w.cc3np().bit(polarity.bit())),
                     #[cfg(not(any(feature = "f4", feature = "wl", feature = "l4")))]
-                    TimChannel::C4 => self.regs.ccer().modify(|_, w| w.cc4np().bit(polarity.bit())),
+                    TimChannel::C4 => self
+                        .regs
+                        .ccer()
+                        .modify(|_, w| w.cc4np().bit(polarity.bit())),
                     #[cfg(any(feature = "f4", feature = "wl", feature = "l4"))] // PAC ommission
                     _ => panic!(),
                 };
@@ -1319,7 +1338,11 @@ macro_rules! cc_4_channels {
             }
 
             /// Set Capture Compare mode in output mode. See docs on the `CaptureCompare` enum.
-            pub fn set_capture_compare_output(&mut self, channel: TimChannel, mode: CaptureCompare) {
+            pub fn set_capture_compare_output(
+                &mut self,
+                channel: TimChannel,
+                mode: CaptureCompare,
+            ) {
                 // Note: CC1S bits are writable only when the channel is OFF (CC1E = 0 in TIMx_CCER)
                 self.disable_capture_compare(channel);
 
@@ -1398,7 +1421,7 @@ macro_rules! cc_4_channels {
                 self.reinitialize();
             }
         }
-    }
+    };
 }
 
 #[cfg(any(feature = "g0", feature = "g4"))]
@@ -1682,7 +1705,7 @@ macro_rules! cc_1_channel {
                             w.ic1f().bits(filter)
                         });
                     }
-                    _ => panic!()
+                    _ => panic!(),
                 };
 
                 // todo?
@@ -1701,53 +1724,41 @@ macro_rules! cc_1_channel {
                         #[cfg(not(feature = "g070"))] // todo: PAC bug?
                         self.regs.ccmr1_output().modify(|_, w| unsafe {
                             // todo: L5/WB is probably due to a PAC error. Has oc1m_2.
-                            #[cfg(not(any(feature = "f", feature = "l4",
-                                feature = "l5", feature = "wb", feature = "g0")))]
+                            #[cfg(not(any(
+                                feature = "f",
+                                feature = "l4",
+                                feature = "l5",
+                                feature = "wb",
+                                feature = "g0"
+                            )))]
                             w.oc1m_3().bit((mode as u8) >> 3 != 0);
                             w.oc1m().bits((mode as u8) & 0b111)
                         });
                     }
-                    _ => panic!()
+                    _ => panic!(),
                 };
             }
 
             /// Return the set duty period for a given channel. Divide by `get_max_duty()`
             /// to find the portion of the duty cycle used.
             pub fn get_duty(&self, channel: TimChannel) -> $res {
-                cfg_if! {
-                    if #[cfg(any(feature = "l5"))] {
-                        match channel {
-                            TimChannel::C1 => self.regs.ccr1().read().ccr1().bits(),
-                            _ => panic!()
-                        }
-                    } else {
-                        match channel {
-                            TimChannel::C1 => self.regs.ccr1().read().ccr().bits().try_into().unwrap(),
-                            _ => panic!()
-                        }
-                    }
+                match channel {
+                    TimChannel::C1 => self.regs.ccr1().read().ccr().bits().try_into().unwrap(),
+                    _ => panic!(),
                 }
             }
 
             /// Set the duty cycle, as a portion of ARR (`get_max_duty()`). Note that this
             /// needs to be re-run if you change ARR at any point.
             pub fn set_duty(&mut self, channel: TimChannel, duty: $res) {
-                cfg_if! {
-                     if #[cfg(any(feature = "l5"))] {
-                        unsafe {
-                            match channel {
-                                TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr1().bits(duty.try_into().unwrap())),
-                                _ => panic!()
-                            };
-                        }
-                    } else {
-                        unsafe {
-                            match channel {
-                                TimChannel::C1 => self.regs.ccr1().write(|w| w.ccr().bits(duty.try_into().unwrap())),
-                                _ => panic!()
-                            };
-                        }
-                    }
+                unsafe {
+                    match channel {
+                        TimChannel::C1 => self
+                            .regs
+                            .ccr1()
+                            .write(|w| w.ccr().bits(duty.try_into().unwrap())),
+                        _ => panic!(),
+                    };
                 }
             }
 
@@ -1755,22 +1766,25 @@ macro_rules! cc_1_channel {
             pub fn set_polarity(&mut self, channel: TimChannel, polarity: Polarity) {
                 match channel {
                     TimChannel::C1 => self.regs.ccer().modify(|_, w| w.cc1p().bit(polarity.bit())),
-                    _ => panic!()
+                    _ => panic!(),
                 };
             }
 
             /// Set complementary output polarity. See docs on the `Polarity` enum.
             pub fn set_complementary_polarity(&mut self, channel: TimChannel, polarity: Polarity) {
                 match channel {
-                    TimChannel::C1 => self.regs.ccer().modify(|_, w| w.cc1np().bit(polarity.bit())),
-                    _ => panic!()
+                    TimChannel::C1 => self
+                        .regs
+                        .ccer()
+                        .modify(|_, w| w.cc1np().bit(polarity.bit())),
+                    _ => panic!(),
                 };
             }
             /// Disables capture compare on a specific channel.
             pub fn disable_capture_compare(&mut self, channel: TimChannel) {
                 match channel {
                     TimChannel::C1 => self.regs.ccer().modify(|_, w| w.cc1e().clear_bit()),
-                    _ => panic!()
+                    _ => panic!(),
                 };
             }
 
@@ -1778,12 +1792,16 @@ macro_rules! cc_1_channel {
             pub fn enable_capture_compare(&mut self, channel: TimChannel) {
                 match channel {
                     TimChannel::C1 => self.regs.ccer().modify(|_, w| w.cc1e().bit(true)),
-                    _ => panic!()
+                    _ => panic!(),
                 };
             }
 
             /// Set Capture Compare mode in output mode. See docs on the `CaptureCompare` enum.
-            pub fn set_capture_compare_output(&mut self, channel: TimChannel, mode: CaptureCompare) {
+            pub fn set_capture_compare_output(
+                &mut self,
+                channel: TimChannel,
+                mode: CaptureCompare,
+            ) {
                 self.disable_capture_compare(channel);
 
                 match channel {
@@ -1791,11 +1809,11 @@ macro_rules! cc_1_channel {
                         .regs
                         .ccmr1_output()
                         .modify(unsafe { |_, w| w.cc1s().bits(mode as u8) }),
-                    _ => panic!()
+                    _ => panic!(),
                 };
             }
 
-           /// Set Capture Compare mode in input mode. See docs on the `CaptureCompare` enum.
+            /// Set Capture Compare mode in input mode. See docs on the `CaptureCompare` enum.
             pub fn set_capture_compare_input(&mut self, channel: TimChannel, mode: CaptureCompare) {
                 self.disable_capture_compare(channel);
 
@@ -1804,7 +1822,7 @@ macro_rules! cc_1_channel {
                         .regs
                         .ccmr1_input()
                         .modify(unsafe { |_, w| w.cc1s().bits(mode as u8) }),
-                    _ => panic!()
+                    _ => panic!(),
                 };
             }
 
@@ -1824,7 +1842,7 @@ macro_rules! cc_1_channel {
             pub fn set_preload(&mut self, channel: TimChannel, value: bool) {
                 match channel {
                     TimChannel::C1 => self.regs.ccmr1_output().modify(|_, w| w.oc1pe().bit(value)),
-                    _ => panic!()
+                    _ => panic!(),
                 };
 
                 // "As the preload registers are transferred to the shadow registers only when an update event
@@ -1833,7 +1851,7 @@ macro_rules! cc_1_channel {
                 self.reinitialize();
             }
         }
-    }
+    };
 }
 
 /// Calculate values required to set the timer frequency: `PSC` and `ARR`. This can be
@@ -1954,10 +1972,7 @@ cfg_if! {
 
             /// Return the integer associated with the maximum duty period.
             pub fn get_max_duty(&self) -> u32 {
-                // #[cfg(feature = "l5")]
                 return self.regs.arr().read().bits()
-                // #[cfg(not(feature = "l5"))]
-                // self.regs.arr().read().arr().bits()
             }
 
             /// Set the auto-reload register value. Used for adjusting frequency.

@@ -25,7 +25,7 @@ use crate::{
 };
 
 cfg_if! {
-    if #[cfg(any(feature = "f3x4", feature = "g0"))] {
+    if #[cfg(any(feature = "f3x4", feature = "f301", feature = "g0"))] {
         use crate::pac::{dma1, DMA1};
     }
     else {
@@ -51,6 +51,7 @@ pub enum DmaPeriph {
     Dma1,
     #[cfg(not(any(
         feature = "f3x4",
+        feature = "f301",
         all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))),
         feature = "wb",
     )))] // todo: f3x4 too
@@ -1203,7 +1204,7 @@ pub fn stop(periph: DmaPeriph, channel: DmaChannel) {
             let mut regs = unsafe { &(*DMA1::ptr()) };
             stop_internal(&mut regs, channel);
         }
-        #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
+        #[cfg(not(any(feature = "f3x4", feature = "f301", feature = "g0", feature = "wb")))]
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             stop_internal(&mut regs, channel);
@@ -1425,7 +1426,7 @@ pub fn enable_interrupt(periph: DmaPeriph, channel: DmaChannel, interrupt: DmaIn
             let mut regs = unsafe { &(*DMA1::ptr()) };
             enable_interrupt_internal(&mut regs, channel, interrupt);
         }
-        #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
+        #[cfg(not(any(feature = "f3x4", feature = "f301", feature = "g0", feature = "wb")))]
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             enable_interrupt_internal(&mut regs, channel, interrupt);
@@ -1440,7 +1441,7 @@ pub fn disable_interrupt(periph: DmaPeriph, channel: DmaChannel, interrupt: DmaI
             let mut regs = unsafe { &(*DMA1::ptr()) };
             disable_interrupt_internal(&mut regs, channel, interrupt);
         }
-        #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
+        #[cfg(not(any(feature = "f3x4", feature = "f301", feature = "g0", feature = "wb")))]
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             disable_interrupt_internal(&mut regs, channel, interrupt);
@@ -1455,7 +1456,7 @@ pub fn clear_interrupt(periph: DmaPeriph, channel: DmaChannel, interrupt: DmaInt
             let mut regs = unsafe { &(*DMA1::ptr()) };
             clear_interrupt_internal(&mut regs, channel, interrupt);
         }
-        #[cfg(not(any(feature = "f3x4", feature = "g0", feature = "wb")))]
+        #[cfg(not(any(feature = "f3x4", feature = "f301", feature = "g0", feature = "wb")))]
         DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             clear_interrupt_internal(&mut regs, channel, interrupt);

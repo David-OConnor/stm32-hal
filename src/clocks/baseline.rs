@@ -785,11 +785,12 @@ impl Clocks {
 
         #[cfg(feature = "l5")]
         flash
-            .acr
+            .acr()
             .modify(|_, w| unsafe { w.latency().bits(wait_state as u8) });
 
         #[cfg(feature = "l5")] // todo: u5 too.
-        icache.icache_cr().modify(|_, w| w.en().bit(true));
+        // todo hmm. Removed or renamed in pac 0.16?
+        // icache.icache_cr().modify(|_, w| w.en().bit(true));
 
         // Reference Manual, 6.2.5:
         // The device embeds 3 PLLs: PLL, PLLSAI1, PLLSAI2. Each PLL provides up to three
@@ -808,7 +809,6 @@ impl Clocks {
         // 4. Enable the PLL again by setting PLLON to 1.
         // 5. Enable the desired PLL outputs by configuring PLLPEN, PLLQEN, PLLREN in PLL
         // configuration register (RCC_PLLCFGR).
-
         let mut i = 0;
         macro_rules! wait_hang {
             ($i:expr) => {

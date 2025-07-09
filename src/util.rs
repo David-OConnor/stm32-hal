@@ -34,7 +34,7 @@ cfg_if! {
 }
 
 cfg_if! {
-    if #[cfg(any(feature = "l5", feature = "g0", feature = "wl"))] {
+    if #[cfg(any(feature = "g0", feature = "wl"))] {
         use crate::pac::ADC as ADC1;
 
     } else {
@@ -532,8 +532,8 @@ impl RccPeriph for pac::SPI3 {
             // Note `sp3en` mixed with `spi3rst`; why we can't use the usual macro.
             if #[cfg(feature = "l5")] {
                 rcc.apb1enr1().modify(|_, w| w.sp3en().bit(true));
-                rcc.apb1rstr1.modify(|_, w| w.spi3rst().bit(true));
-                rcc.apb1rstr1.modify(|_, w| w.spi3rst().clear_bit());
+                rcc.apb1rstr1().modify(|_, w| w.spi3rst().bit(true));
+                rcc.apb1rstr1().modify(|_, w| w.spi3rst().clear_bit());
             } else {
                 rcc_en_reset!(apb1, spi3, rcc);
             }

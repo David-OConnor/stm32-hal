@@ -52,29 +52,29 @@ pub enum Error {
 fn clear_error_flags(regs: &FLASH, security: Security) {
     match security {
         Security::NonSecure => {
-            let sr = regs.nssr.read();
+            let sr = regs.nssr().read();
 
             // todo: Can't find this, although it's in the RM.
             // if sr.nsoptwerr().bit_is_set() {
-            //     regs.nssr.write(|w| w.nsoptwerr().bit(true));
+            //     regs.nssr().write(|w| w.nsoptwerr().bit(true));
             // }
             if sr.nspgserr().bit_is_set() {
-                regs.nssr.write(|w| w.nspgserr().bit(true));
+                regs.nssr().write(|w| w.nspgserr().bit(true));
             }
             if sr.nssizerr().bit_is_set() {
-                regs.nssr.write(|w| w.nssizerr().bit(true));
+                regs.nssr().write(|w| w.nssizerr().bit(true));
             }
             if sr.nspgaerr().bit_is_set() {
-                regs.nssr.write(|w| w.nspgaerr().bit(true));
+                regs.nssr().write(|w| w.nspgaerr().bit(true));
             }
             if sr.nswrperr().bit_is_set() {
-                regs.nssr.write(|w| w.nswrperr().bit(true));
+                regs.nssr().write(|w| w.nswrperr().bit(true));
             }
             if sr.nsprogerr().bit_is_set() {
-                regs.nssr.write(|w| w.nsprogerr().bit(true));
+                regs.nssr().write(|w| w.nsprogerr().bit(true));
             }
             if sr.nsoperr().bit_is_set() {
-                regs.nssr.write(|w| w.nsoperr().bit(true));
+                regs.nssr().write(|w| w.nsoperr().bit(true));
             }
         }
         Security::Secure => {
@@ -141,7 +141,7 @@ impl Flash {
     pub fn lock(&mut self, security: Security) {
         match security {
             Security::NonSecure => {
-                while self.regs.nssr.read().nsbsy().bit_is_set() {}
+                while self.regs.nssr().read().nsbsy().bit_is_set() {}
                 self.regs.nscr().modify(|_, w| w.nslock().bit(true));
             }
             Security::Secure => {
@@ -163,7 +163,7 @@ impl Flash {
             Security::NonSecure => {
                 // 1. Check that no Flash memory operation is ongoing by checking the NSBSY bit in the Flash
                 // status register (FLASH_NSSR).
-                let sr = self.regs.nssr.read();
+                let sr = self.regs.nssr().read();
                 if sr.nsbsy().bit_is_set() {
                     self.lock(security);
                     return Err(Error::Busy);
@@ -195,7 +195,7 @@ impl Flash {
                 self.regs.nscr().modify(|_, w| w.nsstrt().bit(true));
 
                 // 5. Wait for the NSBSY bit to be cleared in the FLASH_SR register.
-                while self.regs.nssr.read().nsbsy().bit_is_set() {}
+                while self.regs.nssr().read().nsbsy().bit_is_set() {}
                 self.regs.nscr().modify(|_, w| w.nsper().clear_bit());
             }
             Security::Secure => {
@@ -242,7 +242,7 @@ impl Flash {
 
                 // 1. Check that no Flash memory operation is ongoing by checking the NSBSY bit in the
                 // FLASH_NSSR register.
-                let sr = self.regs.nssr.read();
+                let sr = self.regs.nssr().read();
                 if sr.nsbsy().bit_is_set() {
                     self.lock(security);
                     return Err(Error::Busy);
@@ -258,20 +258,20 @@ impl Flash {
                 match bank {
                     Bank::B1 => self.regs.nscr().modify(|_, w| w.nsmer1().bit(true)),
                     Bank::B2 => self.regs.nscr().modify(|_, w| w.nsmer2().clear_bit()),
-                }
+                };
 
                 // 4. Set the NSSTRT bit in the FLASH_NSCR register.
                 self.regs.nscr().modify(|_, w| w.nsstrt().bit(true));
 
                 // 5. Wait for the NSBSY bit to be cleared in the FLASH_NSSR register.
-                while self.regs.nssr.read().nsbsy().bit_is_set() {}
+                while self.regs.nssr().read().nsbsy().bit_is_set() {}
 
                 // 6. The NSMER1 or NSMER2 bits can be cleared if no more non-secure bank erase is
                 // requested.
                 match bank {
                     Bank::B1 => self.regs.nscr().modify(|_, w| w.nsmer1().clear_bit()),
                     Bank::B2 => self.regs.nscr().modify(|_, w| w.nsmer2().clear_bit()),
-                }
+                };
             }
             Security::Secure => {
                 let sr = self.regs.secsr().read();
@@ -285,7 +285,7 @@ impl Flash {
                 match bank {
                     Bank::B1 => self.regs.seccr().modify(|_, w| w.secmer1().bit(true)),
                     Bank::B2 => self.regs.seccr().modify(|_, w| w.secmer2().clear_bit()),
-                }
+                };
 
                 self.regs.seccr().modify(|_, w| w.secstrt().bit(true));
 
@@ -294,7 +294,7 @@ impl Flash {
                 match bank {
                     Bank::B1 => self.regs.seccr().modify(|_, w| w.secmer1().clear_bit()),
                     Bank::B2 => self.regs.seccr().modify(|_, w| w.secmer2().clear_bit()),
-                }
+                };
             }
         }
 
@@ -320,7 +320,7 @@ impl Flash {
 
         match security {
             Security::NonSecure => {
-                let sr = self.regs.nssr.read();
+                let sr = self.regs.nssr().read();
                 if sr.nsbsy().bit_is_set() {
                     self.lock(security);
                     return Err(Error::Busy);
@@ -361,12 +361,12 @@ impl Flash {
                     };
 
                     // 5. Wait until the BSY bit is cleared in the FLASH_NSSR register.
-                    while self.regs.nssr.read().nsbsy().bit_is_set() {}
+                    while self.regs.nssr().read().nsbsy().bit_is_set() {}
 
                     // 6. Check that NSEOP flag is set in the FLASH_NSSR register (meaning that the programming
                     // operation has succeed), and clear it by software.
-                    if self.regs.nssr.read().nseop().bit_is_set() {
-                        self.regs.nssr.modify(|_, w| w.nseop().bit(true));
+                    if self.regs.nssr().read().nseop().bit_is_set() {
+                        self.regs.nssr().modify(|_, w| w.nseop().bit(true));
                     }
                 }
 
