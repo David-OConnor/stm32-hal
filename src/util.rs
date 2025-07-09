@@ -21,6 +21,7 @@ use crate::{
     feature = "f401",
     feature = "f411",
     feature = "f412",
+    feature = "l412",
     feature = "wb",
     feature = "g0",
     feature = "c0",
@@ -369,7 +370,8 @@ impl RccPeriph for pac::TIM6 {
     feature = "g030",
     feature = "c0",
     feature = "wb",
-    feature = "wl"
+    feature = "wl",
+    feature = "l412",
 )))]
 impl RccPeriph for pac::TIM7 {
     fn en_reset(rcc: &RegisterBlock) {
@@ -524,7 +526,8 @@ impl RccPeriph for pac::SPI2 {
     feature = "g0",
     feature = "c0",
     feature = "wb",
-    feature = "wl"
+    feature = "wl",
+    feature = "l412",
 )))]
 impl RccPeriph for pac::SPI3 {
     fn en_reset(rcc: &RegisterBlock) {
@@ -584,7 +587,8 @@ impl RccPeriph for pac::SPI4 {
     feature = "c0",
     feature = "g4", // todo: G4 PAC issue re getting channel-specific reg blocks.
     feature = "h7b3",
-    feature = "wl"
+    feature = "wl",
+    feature = "l412",
 )))]
 impl RccPeriph for pac::SAI1 {
     fn en_reset(rcc: &RegisterBlock) {
@@ -1000,6 +1004,7 @@ impl RccPeriph for pac::LPUART1 {
     feature = "wb",
     feature = "g0",
     feature = "c0",
+    feature = "l412",
 )))]
 cfg_if! {
     if #[cfg(all(feature = "h7", not(feature = "h7b3")))] {

@@ -11,7 +11,7 @@ use crate::{
 };
 
 cfg_if! {
-    if #[cfg(any(feature = "f3", feature = "l412", feature = "g4", feature = "h7b3"))] {
+    if #[cfg(any(feature = "f3", feature = "g4", feature = "h7b3"))] {
         use pac::dac1 as p;
     } else {
         use pac::dac as p;

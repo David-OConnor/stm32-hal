@@ -383,6 +383,7 @@ pub mod crc;
     feature = "f401",
     feature = "f411",
     feature = "f412",
+    feature = "l412",
     feature = "wb",
     feature = "g0",
     feature = "h5", // todo: H5 DAC pending PAC fix.
@@ -486,6 +487,7 @@ pub mod rtc;
     feature = "wl",
     feature = "h5", // todo
     feature = "c0", // todo
+    feature = "l412",
 )))]
 pub mod sai;
 

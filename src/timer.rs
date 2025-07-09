@@ -2032,6 +2032,7 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 // feature = "l412",
                 feature = "l5", // todo PAC bug?
                 feature = "l4x3",
+                feature = "l412",
                 feature = "f410",
                 feature = "wb",
                 feature = "wl"
@@ -2119,6 +2120,7 @@ cfg_if! {
         // feature = "l412",
         feature = "l5", // todo PAC bug?
         feature = "l4x3",
+        feature = "l412",
         feature = "f410",
         feature = "wb",
         feature = "wl",

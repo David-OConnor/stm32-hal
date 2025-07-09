@@ -788,7 +788,8 @@ impl Clocks {
             .acr()
             .modify(|_, w| unsafe { w.latency().bits(wait_state as u8) });
 
-        #[cfg(feature = "l5")] // todo: u5 too.
+        let mut i = 0;
+
         // todo hmm. Removed or renamed in pac 0.16?
         // icache.icache_cr().modify(|_, w| w.en().bit(true));
 
@@ -809,7 +810,6 @@ impl Clocks {
         // 4. Enable the PLL again by setting PLLON to 1.
         // 5. Enable the desired PLL outputs by configuring PLLPEN, PLLQEN, PLLREN in PLL
         // configuration register (RCC_PLLCFGR).
-        let mut i = 0;
         macro_rules! wait_hang {
             ($i:expr) => {
                 i += 1;
@@ -996,7 +996,7 @@ impl Clocks {
 
             cfg_if! {
                 // todo: Missing some settings I'm not sure what to make of on L.
-                if #[cfg(any(feature = "l4", feature = "l5"))] {
+                if #[cfg(all(any(feature = "l4", feature = "l5"), not(feature = "l412")))] {
                     rcc.pllsai1cfgr().modify(|_, w| unsafe {
                         w.pllsai1ren().bit(self.pllsai1.pllr_en);
                         w.pllsai1qen().bit(self.pllsai1.pllq_en);
@@ -1042,7 +1042,7 @@ impl Clocks {
             }
 
             cfg_if! {
-                if #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))] {
+                if #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "l412")))] {
                     if self.pllsai1.enabled {
                         rcc.cr().modify(|_, w| w.pllsai1on().bit(true));
                         i = 0;
@@ -1071,7 +1071,7 @@ impl Clocks {
 
         // This modification is separate from the other CCIPR writes due to awkward
         // feature-gate code
-        #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "l5")))]
+        #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "l5", feature = "l412")))]
         rcc.ccipr()
             .modify(|_, w| unsafe { w.sai1sel().bits(self.sai1_src as u8) });
 

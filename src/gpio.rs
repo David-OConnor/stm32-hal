@@ -134,7 +134,7 @@ pub enum Port {
     B,
     #[cfg(not(feature = "wl"))]
     C,
-    #[cfg(not(any(feature = "f410", feature = "wl")))]
+    #[cfg(not(any(feature = "f410", feature = "wl", feature = "l412")))]
     D,
     #[cfg(not(any(
         feature = "f301",
@@ -143,7 +143,8 @@ pub enum Port {
         feature = "g0",
         feature = "c0",
         feature = "wb",
-        feature = "wl"
+        feature = "wl",
+        feature = "l412",
     )))]
     E,
     #[cfg(not(any(
@@ -203,7 +204,7 @@ impl Port {
             Self::B => 1,
             #[cfg(not(feature = "wl"))]
             Self::C => 2,
-            #[cfg(not(any(feature = "f410", feature = "wl")))]
+            #[cfg(not(any(feature = "f410", feature = "wl", feature = "l412")))]
             Self::D => 3,
             #[cfg(not(any(
                 feature = "f301",
@@ -212,7 +213,8 @@ impl Port {
                 feature = "g0",
                 feature = "c0",
                 feature = "wb",
-                feature = "wl"
+                feature = "wl",
+                feature = "l412",
             )))]
             Self::E => 4,
             #[cfg(not(any(
@@ -224,7 +226,7 @@ impl Port {
                 feature = "l412",
                 feature = "l4x3",
                 feature = "wb",
-                feature = "wl"
+                feature = "wl",
             )))]
             Self::F => 5,
             #[cfg(not(any(
@@ -430,37 +432,6 @@ macro_rules! set_exti_f4 {
     }
 }
 
-#[cfg(any(feature = "l5", feature = "h5"))]
-// For L5 See `set_exti!`. Different method naming pattern for exticr().
-macro_rules! set_exti_l5 {
-    ($pin:expr, $rising:expr, $falling:expr, $val:expr, [$(($num:expr, $crnum:expr, $num2:expr)),+]) => {
-        let exti = unsafe { &(*pac::EXTI::ptr()) };
-
-        paste! {
-            match $pin {
-                $(
-                    $num => {
-                        exti.imr1().modify(|_, w| w.[<im $num>]().bit(true));  // unmask
-                        exti.rtsr1().modify(|_, w| w.[<rt $num>]().bit($rising));  // Rising trigger
-                        exti.ftsr1().modify(|_, w| w.[<ft $num>]().bit($falling));   // Falling trigger
-
-                        #[cfg(feature = "l5")]
-                        exti
-                            .[<exticr $crnum>]()
-                            .modify(|_, w| unsafe { w.[<exti $num2>]().bits($val) });
-
-                        #[cfg(feature = "h5")]
-                        exti
-                            .[<exticr $crnum>]()
-                            .modify(|_, w| unsafe { w.[<exti $num>]().bits($val) });
-                    }
-                )+
-                _ => panic!("GPIO pins must be 0 - 15."),
-            }
-        }
-    }
-}
-
 // #[cfg(any(feature = "g0", feature = "c0"))]
 // // For G0. See `set_exti!`. Todo? Reduce DRY.
 // macro_rules! set_exti_g0 {
@@ -600,7 +571,7 @@ impl Pin {
                     }
                 }
             }
-            #[cfg(not(any(feature = "f410", feature = "wl")))]
+            #[cfg(not(any(feature = "f410", feature = "wl", feature = "l412")))]
             Port::D => {
                 cfg_if! {
                     if #[cfg(feature = "f3")] {
@@ -637,7 +608,8 @@ impl Pin {
                 feature = "g0",
                 feature = "c0",
                 feature = "wb",
-                feature = "wl"
+                feature = "wl",
+                feature = "l412",
             )))]
             Port::E => {
                 cfg_if! {
@@ -1001,20 +973,6 @@ impl Pin {
         };
 
         cfg_if! {
-            // if #[cfg(any(feature = "g0", feature = "c0"))] {
-            //     set_exti_g0!(self.pin, rising, falling, self.port.cr_val(), [(0, 1, 0_7), (1, 1, 0_7), (2, 1, 0_7),
-            //         (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
-            //         (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
-            //         (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]
-            //     );
-            // } else
-            // if #[cfg(any(feature = "l5", feature = "h5"))] {
-            //     set_exti_l5!(self.pin, rising, falling, self.port.cr_val(), [(0, 1, 1), (1, 1, 0_7), (2, 1, 0_7),
-            //         (3, 1, 0_7), (4, 2, 0_7), (5, 2, 0_7), (6, 2, 0_7), (7, 2, 0_7), (8, 3, 8_15),
-            //         (9, 3, 8_15), (10, 3, 8_15), (11, 3, 8_15), (12, 4, 8_15),
-            //         (13, 4, 8_15), (14, 4, 8_15), (15, 4, 8_15)]
-            //     );
-            // } else
             if #[cfg(feature = "f4")] {
                 set_exti_f4!(self.pin, rising, falling, self.port.cr_val(), [(0, 1), (1, 1), (2, 1),
                         (3, 1), (4, 2), (5, 2), (6, 2), (7, 2), (8, 3), (9, 3), (10, 3), (11, 3), (12, 4),
@@ -1348,7 +1306,7 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
         Port::B => crate::pac::GPIOB::ptr() as _,
         #[cfg(not(feature = "wl"))]
         Port::C => crate::pac::GPIOC::ptr() as _,
-        #[cfg(not(any(feature = "f410", feature = "wl")))]
+        #[cfg(not(any(feature = "f410", feature = "wl", feature = "l412")))]
         Port::D => crate::pac::GPIOD::ptr() as _,
         #[cfg(not(any(
             feature = "f301",
@@ -1357,7 +1315,8 @@ const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
             feature = "g0",
             feature = "c0",
             feature = "wb",
-            feature = "wl"
+            feature = "wl",
+            feature = "l412",
         )))]
         Port::E => crate::pac::GPIOE::ptr() as _,
         #[cfg(not(any(
