@@ -540,7 +540,7 @@ mod util;
 pub use util::{BaudPeriph, RccPeriph};
 
 // todo: Remove this debug_workaroudn function on MCUs that don't require it. Ie, is this required on G4? G0?
-#[cfg(not(any(feature = "g0", feature = "c0")))]
+#[cfg(not(any(feature = "g0", feature = "c0", feature = "h747cm4")))]
 /// Workaround due to debugger disconnecting in WFI (and low-power) modes.
 /// This affects most (all?) STM32 devices. In production on battery-powered
 /// devices that don't use DMA, consider removing this, to prevent power
