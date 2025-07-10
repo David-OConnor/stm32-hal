@@ -1046,7 +1046,6 @@ pub fn cfg_channel<D>(
     }
 }
 
-
 /// Stop a DMA transfer, if in progress.
 // #[cfg(feature = "h7")]
 fn stop_internal<D>(regs: &mut D, channel: DmaChannel)

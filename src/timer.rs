@@ -2054,7 +2054,7 @@ pub fn clear_update_interrupt(tim_num: u8) {
             #[cfg(not(any(feature = "f373")))]
             1 => {
                 periphs.TIM1.sr().write(|w| w.bits(bits).uif().clear_bit());
-            },
+            }
             #[cfg(not(any(
                 feature = "f410",
                 feature = "g070",
@@ -2066,7 +2066,10 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 feature = "c031",
             )))]
             2 => {
-                periphs.TIM2.sr().write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
+                periphs
+                    .TIM2
+                    .sr()
+                    .write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
             }
             #[cfg(not(any(
                 feature = "f301",
@@ -2079,8 +2082,11 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 feature = "wl"
             )))]
             3 => {
-                periphs.TIM3.sr().write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
-            },
+                periphs
+                    .TIM3
+                    .sr()
+                    .write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
+            }
             #[cfg(not(any(
                 feature = "f301",
                 feature = "f3x4",
@@ -2096,7 +2102,7 @@ pub fn clear_update_interrupt(tim_num: u8) {
             )))]
             4 => {
                 periphs.TIM4.sr().write(|w| w.bits(bits).uif().clear_bit());
-            },
+            }
             #[cfg(any(
                 feature = "f373",
                 feature = "l4x5",
@@ -2123,26 +2129,22 @@ pub fn clear_update_interrupt(tim_num: u8) {
             ))]
             8 => {
                 periphs.TIM8.sr().write(|w| w.bits(bits).uif().clear_bit());
-            },
-            #[cfg(any(
-                feature = "h5",
-            ))]
+            }
+            #[cfg(any(feature = "h5",))]
             12 => {
                 periphs.TIM12.sr().write(|w| w.bits(bits).uif().clear_bit());
-            },
-            #[cfg(any(
-                feature = "h5",
-            ))]
+            }
+            #[cfg(any(feature = "h5",))]
             13 => {
                 periphs.TIM13.sr().write(|w| w.bits(bits).uif().clear_bit());
-            },
-            #[cfg(any(
-                feature = "h5",
-                feature = "c0",
-            ))]
+            }
+            #[cfg(any(feature = "h5", feature = "c0",))]
             14 => {
-                periphs.TIM14.sr().write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
-            },
+                periphs
+                    .TIM14
+                    .sr()
+                    .write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
+            }
             #[cfg(not(any(
                 feature = "f4",
                 feature = "g031",
@@ -2156,14 +2158,18 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 feature = "c0",
             )))]
             15 => {
-                periphs.TIM15.sr().write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
-            },
-            #[cfg(not(any(
-                feature = "f4",
-            )))]
+                periphs
+                    .TIM15
+                    .sr()
+                    .write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
+            }
+            #[cfg(not(any(feature = "f4",)))]
             16 => {
-                periphs.TIM16.sr().write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
-            },
+                periphs
+                    .TIM16
+                    .sr()
+                    .write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
+            }
             #[cfg(not(any(
                 feature = "l4x1",
                 feature = "l4x2",
@@ -2172,8 +2178,11 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 feature = "f4",
             )))]
             17 => {
-                periphs.TIM17.sr().write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
-            },
+                periphs
+                    .TIM17
+                    .sr()
+                    .write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
+            }
             _ => unimplemented!(),
         }
     };

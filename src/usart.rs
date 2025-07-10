@@ -898,17 +898,41 @@ where
             UsartInterrupt::LineBreak => status.lbdf().bit_is_set(),
             UsartInterrupt::Overrun => status.ore().bit_is_set(),
             UsartInterrupt::ParityError => status.pe().bit_is_set(),
-            #[cfg(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051", feature = "g061"))]
+            #[cfg(any(
+                feature = "h5",
+                feature = "c0",
+                feature = "g050",
+                feature = "g051",
+                feature = "g061"
+            ))]
             UsartInterrupt::ReadNotEmpty => status.rxfne().bit_is_set(),
-            #[cfg(not(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051", feature = "g061")))]
+            #[cfg(not(any(
+                feature = "h5",
+                feature = "c0",
+                feature = "g050",
+                feature = "g051",
+                feature = "g061"
+            )))]
             UsartInterrupt::ReadNotEmpty => status.rxne().bit_is_set(),
             UsartInterrupt::ReceiverTimeout => status.rtof().bit_is_set(),
             #[cfg(not(any(feature = "f3", feature = "l4")))]
             UsartInterrupt::Tcbgt => status.tcbgt().bit_is_set(),
             UsartInterrupt::TransmissionComplete => status.tc().bit_is_set(),
-            #[cfg(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051", feature = "g061"))]
+            #[cfg(any(
+                feature = "h5",
+                feature = "c0",
+                feature = "g050",
+                feature = "g051",
+                feature = "g061"
+            ))]
             UsartInterrupt::TransmitEmpty => status.txfe().bit_is_set(),
-            #[cfg(not(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051", feature = "g061")))]
+            #[cfg(not(any(
+                feature = "h5",
+                feature = "c0",
+                feature = "g050",
+                feature = "g051",
+                feature = "g061"
+            )))]
             UsartInterrupt::TransmitEmpty => status.txe().bit_is_set(),
         }
     }
@@ -931,7 +955,13 @@ where
             Ok(())
         };
 
-        #[cfg(not(any(feature = "wl", feature = "c0", feature = "g050", feature = "g051", feature = "g061")))]
+        #[cfg(not(any(
+            feature = "wl",
+            feature = "c0",
+            feature = "g050",
+            feature = "g051",
+            feature = "g061"
+        )))]
         if status.nf().bit_is_set() {
             result = Err(UartError::Noise);
         }
