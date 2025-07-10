@@ -84,6 +84,6 @@ impl SupplyConfig {
                 w.ldoen().clear_bit();
                 w.bypass().bit(true)
             }),
-        }
+        };
     }
 }
