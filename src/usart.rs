@@ -397,7 +397,7 @@ where
                 for word in data {
                     let mut i = 0;
 
-                    #[cfg(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051"))]
+                    #[cfg(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051", feature = "g061"))]
                     while isr!(self.regs).read().txfe().bit_is_clear() {
                         i += 1;
                         if i >= MAX_ITERS {
@@ -405,7 +405,7 @@ where
                         }
                     }
 
-                    #[cfg(not(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051")))]
+                    #[cfg(not(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051", feature = "g061")))]
                     // Note: Per these PACs, TXFNF and TXE are on the same field, so this is actually
                     // checking txfnf if the fifo is enabled.
                     while isr!(self.regs).read().txe().bit_is_clear() {
@@ -483,7 +483,7 @@ where
                 if #[cfg(not(feature = "f4"))] {
                     // Wait for the next bit
 
-                    #[cfg(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051"))]
+                    #[cfg(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051", feature = "g061"))]
                     while isr!(self.regs).read().rxfne().bit_is_clear() {
                         i_ += 1;
                         if i_ >= MAX_ITERS {
@@ -491,7 +491,7 @@ where
                         }
                     }
 
-                    #[cfg(not(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051")))]
+                    #[cfg(not(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051", feature = "g061")))]
                     while isr!(self.regs).read().rxne().bit_is_clear() {
                         i_ += 1;
                         if i_ >= MAX_ITERS {
@@ -898,17 +898,17 @@ where
             UsartInterrupt::LineBreak => status.lbdf().bit_is_set(),
             UsartInterrupt::Overrun => status.ore().bit_is_set(),
             UsartInterrupt::ParityError => status.pe().bit_is_set(),
-            #[cfg(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051"))]
+            #[cfg(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051", feature = "g061"))]
             UsartInterrupt::ReadNotEmpty => status.rxfne().bit_is_set(),
-            #[cfg(not(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051")))]
+            #[cfg(not(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051", feature = "g061")))]
             UsartInterrupt::ReadNotEmpty => status.rxne().bit_is_set(),
             UsartInterrupt::ReceiverTimeout => status.rtof().bit_is_set(),
             #[cfg(not(any(feature = "f3", feature = "l4")))]
             UsartInterrupt::Tcbgt => status.tcbgt().bit_is_set(),
             UsartInterrupt::TransmissionComplete => status.tc().bit_is_set(),
-            #[cfg(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051"))]
+            #[cfg(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051", feature = "g061"))]
             UsartInterrupt::TransmitEmpty => status.txfe().bit_is_set(),
-            #[cfg(not(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051")))]
+            #[cfg(not(any(feature = "h5", feature = "c0", feature = "g050", feature = "g051", feature = "g061")))]
             UsartInterrupt::TransmitEmpty => status.txe().bit_is_set(),
         }
     }
@@ -931,12 +931,12 @@ where
             Ok(())
         };
 
-        #[cfg(not(any(feature = "wl", feature = "c0", feature = "g050", feature = "g051")))]
+        #[cfg(not(any(feature = "wl", feature = "c0", feature = "g050", feature = "g051", feature = "g061")))]
         if status.nf().bit_is_set() {
             result = Err(UartError::Noise);
         }
 
-        #[cfg(any(feature = "c0", feature = "g050", feature = "g051"))]
+        #[cfg(any(feature = "c0", feature = "g050", feature = "g051", feature = "g061"))]
         if status.ne().bit_is_set() {
             result = Err(UartError::Noise);
         }
@@ -951,9 +951,9 @@ where
                     self.regs.icr().write(|w| {
                         w.pecf().bit(true);
                         w.fecf().bit(true);
-                        #[cfg(not(any(feature = "c0", feature = "g050", feature = "g051")))]
+                        #[cfg(not(any(feature = "c0", feature = "g050", feature = "g051", feature = "g061")))]
                         w.ncf().bit(true);
-                        #[cfg(any(feature = "c0", feature = "g050", feature = "g051"))]
+                        #[cfg(any(feature = "c0", feature = "g050", feature = "g051", feature = "g061"))]
                         w.necf().bit(true);
                         w.orecf().bit(true)
                     });

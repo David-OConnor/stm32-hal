@@ -466,7 +466,7 @@ impl Pin {
                         if rcc.ahb1enr().read().gpioaen().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpioa, rcc);
                         }
-                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g071", feature = "g081"))] {
+                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g061", feature = "g071", feature = "g081"))] {
                         if rcc.iopenr().read().iopaen().bit_is_clear() {
                             rcc.iopenr().modify(|_, w| w.iopaen().bit(true));
                             rcc.ioprstr().modify(|_, w| w.ioparst().bit(true));
@@ -507,7 +507,7 @@ impl Pin {
                         if rcc.ahb1enr().read().gpioben().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpiob, rcc);
                         }
-                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g071", feature = "g081"))] {
+                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g061", feature = "g071", feature = "g081"))] {
                         if rcc.iopenr().read().iopaen().bit_is_clear() {
                             rcc.iopenr().modify(|_, w| w.iopaen().bit(true));
                             rcc.ioprstr().modify(|_, w| w.ioparst().bit(true));
@@ -549,7 +549,7 @@ impl Pin {
                         if rcc.ahb1enr().read().gpiocen().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpioc, rcc);
                         }
-                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g071", feature = "g081"))] {
+                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g061", feature = "g071", feature = "g081"))] {
                         if rcc.iopenr().read().iopaen().bit_is_clear() {
                             rcc.iopenr().modify(|_, w| w.iopaen().bit(true));
                             rcc.ioprstr().modify(|_, w| w.ioparst().bit(true));
@@ -591,7 +591,7 @@ impl Pin {
                         if rcc.ahb1enr().read().gpioden().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpiod, rcc);
                         }
-                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g071", feature = "g081"))] {
+                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g061", feature = "g071", feature = "g081"))] {
                         if rcc.iopenr().read().iopaen().bit_is_clear() {
                             rcc.iopenr().modify(|_, w| w.iopaen().bit(true));
                             rcc.ioprstr().modify(|_, w| w.ioparst().bit(true));
@@ -676,7 +676,7 @@ impl Pin {
                         if rcc.ahb1enr().read().gpiofen().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpiof, rcc);
                         }
-                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g071", feature = "g081"))] {
+                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g061", feature = "g071", feature = "g081"))] {
                         if rcc.iopenr().read().iopaen().bit_is_clear() {
                             rcc.iopenr().modify(|_, w| w.iopaen().bit(true));
                             rcc.ioprstr().modify(|_, w| w.ioparst().bit(true));
@@ -1336,9 +1336,18 @@ pub fn clear_exti_interrupt_edge(line: u8, edge: Edge) {
 
 /// Clear an EXTI interrupt, lines 0 - 15. Note that this function currently doesn't support
 /// higher extis, but will work for all GPIO interrupts.
+#[cfg(any(feature = "l5", feature = "g0", feature = "c0"))]
+pub fn clear_exti_interrupt(line: u8, edge: Edge) {
+    // This is set as default to rising to keep the same behavior as before.
+    clear_exti_interrupt_edge(line, edge);
+}
+
+#[cfg(not(any(feature = "l5", feature = "g0", feature = "c0")))]
+/// Clear an EXTI interrupt, lines 0 - 15. Note that this function currently doesn't support
+/// higher extis, but will work for all GPIO interrupts.
 pub fn clear_exti_interrupt(line: u8) {
     // This is set as default to rising to keep the same behavior as before.
-    clear_exti_interrupt_edge(line, Edge::Rising);
+    clear_exti_interrupt_edge(line, Edge::Rising); // Edge is unused for these variants.
 }
 
 const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {

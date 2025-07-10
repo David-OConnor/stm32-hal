@@ -87,11 +87,11 @@ fn clear_error_flags(regs: &FLASH) {
             if sr.optverr().bit_is_set() {
                 regs.sr().write(|w| w.optverr().bit(true));
             }
-            #[cfg(not(any(feature = "h735", feature = "g0", feature = "g4")))]
+            #[cfg(not(any(feature = "h735", feature = "g0", feature = "g4", feature = "wl", feature = "wb", feature = "l4", feature = "c0")))]
             if sr.rderr().bit_is_set() {
                 regs.sr().write(|w| w.rderr().bit(true));
             }
-            #[cfg(not(any(feature = "h735", feature = "g0", feature = "g4")))]
+            #[cfg(not(any(feature = "h735", feature = "g0", feature = "g4", feature = "wl", feature = "wb", feature = "l4", feature = "c0")))]
             if sr.rdperr().bit_is_set() {
                 regs.sr().write(|w| w.rdperr().bit(true));
             }

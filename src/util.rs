@@ -337,6 +337,7 @@ pub trait RccPeriph {
     feature = "g070",
     feature = "g030",
     feature = "g051",
+    feature = "g061",
     feature = "c0",
     feature = "wb",
     feature = "wl"
@@ -378,6 +379,7 @@ impl RccPeriph for pac::TIM6 {
     feature = "g070",
     feature = "g030",
     feature = "g051",
+    feature = "g061",
     feature = "c0",
     feature = "wb",
     feature = "wl",
@@ -503,7 +505,7 @@ impl RccPeriph for pac::SPI1 {
     }
 }
 
-#[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl", feature = "c0")))]
+#[cfg(not(any(feature = "f3x4", feature = "wb", feature = "wl", feature = "c0", feature = "g061")))]
 impl RccPeriph for pac::SPI2 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb1, spi2, rcc);

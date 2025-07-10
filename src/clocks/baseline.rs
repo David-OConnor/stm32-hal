@@ -968,6 +968,7 @@ impl Clocks {
 
         // Note that with this code setup, PLLSAI won't work properly unless using
         // the input source is PLL.
+        #[cfg(not(feature = "c0"))]
         if let InputSrc::Pll(pll_src) = self.input_src {
             // Turn off the PLL: Required for modifying some of the settings below.
             #[cfg(not(feature = "c0"))] // todo uhoh... This should be set for C0?
@@ -1079,10 +1080,11 @@ impl Clocks {
 
         // Enable the HSI48 as required, which is used for USB, RNG, etc.
         // Only valid for some devices (On at least L4, and G4.)
-        #[cfg(not(any(feature = "g0", feature = "wl")))]
+        #[cfg(not(any(feature = "g0", feature = "wl", feature = "c0")))]
         if self.hsi48_on {
             rcc.crrcr().modify(|_, w| w.hsi48on().bit(true));
             i = 0;
+            #[cfg(not(feature = "c0"))]
             while rcc.crrcr().read().hsi48rdy().bit_is_clear() {
                 wait_hang!(i);
             }
@@ -1095,7 +1097,8 @@ impl Clocks {
             feature = "g4",
             feature = "wl",
             feature = "l5",
-            feature = "l412"
+            feature = "l412",
+            feature = "c0",
         )))]
         rcc.ccipr()
             .modify(|_, w| unsafe { w.sai1sel().bits(self.sai1_src as u8) });
@@ -1120,7 +1123,7 @@ impl Clocks {
         rcc.ccipr1()
             .modify(|_, w| unsafe { w.clk48msel().bits(self.clk48_src as u8) });
 
-        #[cfg(not(any(feature = "f", feature = "l", feature = "g0")))]
+        #[cfg(not(any(feature = "f", feature = "l", feature = "g0", feature = "c0")))]
         rcc.ccipr()
             // todo: Don't hard-code.
             .modify(|_, w| unsafe { w.lpuart1sel().bits(self.lpuart_src as u8) });
@@ -1144,7 +1147,8 @@ impl Clocks {
                 }
 
             } else {
-                 match self.input_src {
+                #[cfg(not(feature = "c0"))]
+                match self.input_src {
                     InputSrc::Hsi => (),
                     InputSrc::Pll(pll_src) => {
                         match pll_src {
@@ -1186,6 +1190,7 @@ impl Clocks {
         // from stop or standby mode. This assumes we're on a clean init,
         // or waking up from stop mode etc.
 
+        #[cfg(not(feature = "c0"))]
         match self.input_src {
             InputSrc::Hse(_) => {
                 rcc.cr().modify(|_, w| w.hseon().bit(true));
@@ -1433,6 +1438,11 @@ impl Clocks {
         }
     }
 
+    #[cfg(feature = "c0")]
+    pub fn sysclk(&self) -> u32 {
+        48_000 // todo A/R.
+    }
+
     /// Check if the PLL is enabled. This is useful if checking whether to re-enable the PLL
     /// after exiting Stop or Standby modes, eg so you don't re-enable if it was already re-enabled
     /// in a different context. eg:
@@ -1555,6 +1565,11 @@ impl Clocks {
             SaiSrc::Hsi => 16_000_000,
             SaiSrc::ExtClk => unimplemented!(),
         }
+    }
+
+    #[cfg(feature = "c0")] // no PLL on C0
+    pub fn validate_speeds(&self) -> Result<(), RccError> {
+        Ok(()) // todo: A/R
     }
 
     #[cfg(not(feature = "c0"))] // no PLL on C0
