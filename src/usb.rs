@@ -65,6 +65,9 @@ unsafe impl UsbPeripheral for Peripheral {
     #[cfg(feature = "g0")]
     const EP_MEMORY: *const () = 0x4000_5c00 as _;
 
+    #[cfg(feature = "c0")]
+    const EP_MEMORY: *const () = 0x4000_5c00 as _; // Table 7
+
     #[cfg(any(feature = "f3", feature = "g4"))]
     const EP_MEMORY: *const () = 0x4000_6000 as _;
 
@@ -81,12 +84,15 @@ unsafe impl UsbPeripheral for Peripheral {
     #[cfg(feature = "g0")]
     const EP_MEMORY_SIZE: usize = 2_048;
 
+    #[cfg(feature = "c0")]
+    const EP_MEMORY_SIZE: usize = 2_048; // Table 154.
+
     // Endpoint memory access scheme.
     // Set to `true` if "2x16 bits/word" access scheme is used, otherwise set to `false`.
     #[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "wb"))]
     const EP_MEMORY_ACCESS_2X16: bool = true;
 
-    #[cfg(any(feature = "f3", feature = "g0"))]
+    #[cfg(any(feature = "f3", feature = "g0", feature = "c0"))]
     // F3 uses 1x16 or 2x16 depending on variant. G0 uses a 32-bit word.
     const EP_MEMORY_ACCESS_2X16: bool = false;
 

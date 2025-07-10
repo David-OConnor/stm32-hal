@@ -874,6 +874,7 @@ impl Clocks {
             #[cfg(feature = "h7")]
             rcc.pll2divr().modify(|_, w| unsafe {
                 w.divn2().bits(self.pll2.divn - 1);
+                #[cfg(not(any(feature = "h753", feature = "h753v")))] // todo?
                 w.divp2().bits(self.pll2.divp - 1);
                 w.divq2().bits(self.pll2.divq - 1);
                 w.divr2().bits(self.pll2.divr - 1)
