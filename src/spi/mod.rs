@@ -20,17 +20,11 @@ use cfg_if::cfg_if;
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4")))]
 use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
-
-#[cfg(not(feature = "c0"))]
-use crate::pac::{DMA1, dma1 as dma_p};
-
 #[cfg(feature = "c0")]
 use crate::pac::{DMA as DMA1, dma as dma_p};
-
-use crate::{
-    pac,
-    util::RccPeriph,
-}; // todo temp
+#[cfg(not(feature = "c0"))]
+use crate::pac::{DMA1, dma1 as dma_p};
+use crate::{pac, util::RccPeriph}; // todo temp
 
 #[macro_export]
 macro_rules! check_errors {

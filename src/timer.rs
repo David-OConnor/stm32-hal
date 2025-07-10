@@ -36,13 +36,10 @@ use num_traits::float::FloatCore; // To round floats.
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552")))]
 use crate::dma::{self, ChannelCfg, DmaChannel};
-
-#[cfg(not(feature = "c0"))]
-use crate::pac::DMA1;
-
 #[cfg(feature = "c0")]
 use crate::pac::DMA as DMA1;
-
+#[cfg(not(feature = "c0"))]
+use crate::pac::DMA1;
 // todo: LPTIM (low-power timers) and HRTIM (high-resolution timers). And Advanced control functionality
 use crate::{
     clocks::Clocks,
@@ -1910,6 +1907,7 @@ cfg_if! {
         feature = "g041",
         feature = "g070",
         feature = "g030",
+        feature = "g051",
         feature = "c0",
         feature = "wb",
         feature = "wl"
@@ -2034,6 +2032,9 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 feature = "g070",
                 feature = "l5", // todo PAC bug?
                 feature = "wb55", // todo PAC bug?
+                feature = "g030",
+                feature = "g031",
+                feature = "g050",
                 feature = "c011",
                 feature = "c031",
             )))]
@@ -2119,6 +2120,10 @@ cfg_if! {
         feature = "g070",
         feature = "l5", // todo PAC bug?
         feature = "wb55", // todo PAC bug?
+        feature = "g030",
+        feature = "g031",
+        feature = "g050",
+        feature = "g031",
         feature = "c011",
         feature = "c031",
     )))] {
@@ -2244,6 +2249,7 @@ cfg_if! {
         feature = "g031",
         feature = "g041",
         feature = "g030",
+        feature = "g051",
         feature = "wb",
         feature = "wl",
       // todo: Tim15 is available on c091/02, but I don't see a PAC for that.

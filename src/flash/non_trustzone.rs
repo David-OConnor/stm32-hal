@@ -87,13 +87,13 @@ fn clear_error_flags(regs: &FLASH) {
             if sr.optverr().bit_is_set() {
                 regs.sr().write(|w| w.optverr().bit(true));
             }
-            #[cfg(not(feature = "h735"))]
+            #[cfg(not(any(feature = "h735", feature = "g0", feature = "g4")))]
             if sr.rderr().bit_is_set() {
                 regs.sr().write(|w| w.rderr().bit(true));
             }
-            #[cfg(feature = "h735")]
+            #[cfg(not(any(feature = "h735", feature = "g0", feature = "g4")))]
             if sr.rdperr().bit_is_set() {
-                regs.sr().write(|w| w.rderr().bit(true));
+                regs.sr().write(|w| w.rdperr().bit(true));
             }
             if sr.fasterr().bit_is_set() {
                 regs.sr().write(|w| w.fasterr().bit(true));
@@ -232,9 +232,9 @@ impl Flash {
         #[cfg(feature = "h735")]
         let regs = &self.regs;
 
-        #[cfg(not(feature = "c0"))]
+        #[cfg(not(flash_bsy1))]
         while regs.sr().read().bsy().bit_is_set() {}
-        #[cfg(feature = "c0")]
+        #[cfg(flash_bsy1)]
         while regs.sr().read().bsy1().bit_is_set() {}
 
         regs.cr().modify(|_, w| w.lock().bit(true));
@@ -251,10 +251,12 @@ impl Flash {
         self.unlock()?;
         let regs = &self.regs;
 
-        #[cfg(not(feature = "c0"))]
-        let busy = regs.sr().read().bsy().bit_is_set();
-        #[cfg(feature = "c0")]
-        let busy = regs.sr().read().bsy1().bit_is_set();
+        let sr = regs.sr().read();
+
+        #[cfg(not(flash_bsy1))]
+        let busy = sr.bsy().bit_is_set();
+        #[cfg(flash_bsy1)]
+        let busy = sr.bsy1().bit_is_set();
 
         // 1. Check that no Flash memory operation is ongoing by checking the BSY bit in the Flash
         // status register (FLASH_SR).
@@ -328,9 +330,9 @@ impl Flash {
         }
 
         // 5. Wait for the BSY bit to be cleared in the FLASH_SR register.
-        #[cfg(not(feature = "c0"))]
+        #[cfg(not(flash_bsy1))]
         while regs.sr().read().bsy().bit_is_set() {}
-        #[cfg(feature = "c0")]
+        #[cfg(flash_bsy1)]
         while regs.sr().read().bsy1().bit_is_set() {}
 
         cfg_if! {
@@ -422,9 +424,9 @@ impl Flash {
         // operation. Refer to Section 4.7: FLASH error management for details.
         let sr = regs.sr().read();
 
-        #[cfg(not(feature = "c0"))]
+        #[cfg(not(flash_bsy1))]
         let busy = sr.bsy().bit_is_set();
-        #[cfg(feature = "c0")]
+        #[cfg(flash_bsy1)]
         let busy = sr.bsy1().bit_is_set();
 
         if busy {
@@ -475,9 +477,9 @@ impl Flash {
         }
 
         // 5. Wait for the BSY bit to be cleared in the FLASH_SR register.
-        #[cfg(not(feature = "c0"))]
+        #[cfg(not(flash_bsy1))]
         while regs.sr().read().bsy().bit_is_set() {}
-        #[cfg(feature = "c0")]
+        #[cfg(flash_bsy1)]
         while regs.sr().read().bsy1().bit_is_set() {}
 
         // (Some RMs describe this procedure, to clear mer, with ambiguity of if it's required)
@@ -514,9 +516,9 @@ impl Flash {
         // Flash status register (FLASH_SR).
         let sr = regs.sr().read();
 
-        #[cfg(not(feature = "c0"))]
+        #[cfg(not(flash_bsy1))]
         let busy = sr.bsy().bit_is_set();
-        #[cfg(feature = "c0")]
+        #[cfg(flash_bsy1)]
         let busy = sr.bsy1().bit_is_set();
 
         if busy {
@@ -579,9 +581,9 @@ impl Flash {
                 address = address.add(1);
             }
             // 5. Wait until the BSY bit is cleared in the FLASH_SR register.
-            #[cfg(not(feature = "c0"))]
+            #[cfg(not(flash_bsy1))]
             while regs.sr().read().bsy().bit_is_set() {}
-            #[cfg(feature = "c0")]
+            #[cfg(flash_bsy1)]
             while regs.sr().read().bsy1().bit_is_set() {}
 
             // 6. Check that EOP flag is set in the FLASH_SR register (meaning that the programming

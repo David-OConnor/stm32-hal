@@ -371,11 +371,7 @@ pub mod can;
 
 pub mod clocks;
 
-#[cfg(not(any(
-    feature = "f",
-    feature = "wb",
-    feature = "wl",
-)))]
+#[cfg(not(any(feature = "f", feature = "wb", feature = "wl",)))]
 pub mod crc;
 
 #[cfg(not(any(
@@ -463,16 +459,7 @@ feature = "c0",
 pub mod qspi;
 
 // Note: Some F4 variants support RNG, but we haven't figured out the details yet. Send a PR if interested.
-#[cfg(not(any(
-    feature = "f",
-    feature = "g030",
-    feature = "g031",
-    feature = "g070",
-    feature = "g071",
-    feature = "g0b1",
-    feature = "g0c1",
-    feature = "c0",
-)))]
+#[cfg(not(any(feature = "f", feature = "g0", feature = "c0",)))]
 pub mod rng;
 
 #[cfg(not(feature = "c0"))] // todo

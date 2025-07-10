@@ -20,9 +20,7 @@ use crate::pac::{self, EXTI, RCC};
 use crate::util::rcc_en_reset;
 
 cfg_if! {
-    if #[cfg(all(feature = "g0", not(any(feature = "g0b1", feature = "g0c1"))))] {
-        use crate::pac::DMA as DMA1;
-    } else if #[cfg(feature = "c0")] {
+    if #[cfg(feature = "c0")] {
         use crate::pac::DMA as DMA1;
     } else if #[cfg(any(feature = "f4", feature = "h5"))] {} else {
         use crate::pac::DMA1;
@@ -372,7 +370,8 @@ macro_rules! set_exti {
                         }
 
                         cfg_if! {
-                            if #[cfg(any(feature = "g4", feature = "wb", feature = "wl", feature = "c0", feature = "l5"))] {
+                            if #[cfg(any(feature = "g4", feature = "wb", feature = "wl", feature = "c0", feature = "l5",
+                                feature = "g030", feature = "g050", feature = "g070"))] {
                                 exti.rtsr1().modify(|_, w| w.[<rt $num>]().bit($rising));
                                 exti.ftsr1().modify(|_, w| w.[<ft $num>]().bit($falling));
                             // } else if #[cfg(any(feature = "wb", feature = "wl"))] {
@@ -467,11 +466,17 @@ impl Pin {
                         if rcc.ahb1enr().read().gpioaen().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpioa, rcc);
                         }
-                    } else if #[cfg(feature = "g0")] {
+                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g071", feature = "g081"))] {
                         if rcc.iopenr().read().iopaen().bit_is_clear() {
                             rcc.iopenr().modify(|_, w| w.iopaen().bit(true));
                             rcc.ioprstr().modify(|_, w| w.ioparst().bit(true));
                             rcc.ioprstr().modify(|_, w| w.ioparst().clear_bit());
+                        }
+                    } else if #[cfg(any(feature = "g0"))] {
+                        if rcc.iopenr().read().gpioaen().bit_is_clear() {
+                            rcc.iopenr().modify(|_, w| w.gpioaen().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.gpioarst().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.gpioarst().clear_bit());
                         }
                     } else if #[cfg(feature = "c0")] {
                          if rcc.iopenr().read().gpioaen().bit_is_clear() {
@@ -502,11 +507,17 @@ impl Pin {
                         if rcc.ahb1enr().read().gpioben().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpiob, rcc);
                         }
+                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g071", feature = "g081"))] {
+                        if rcc.iopenr().read().iopaen().bit_is_clear() {
+                            rcc.iopenr().modify(|_, w| w.iopaen().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.ioparst().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.ioparst().clear_bit());
+                        }
                     } else if #[cfg(feature = "g0")] {
-                        if rcc.iopenr().read().iopben().bit_is_clear() {
-                            rcc.iopenr().modify(|_, w| w.iopben().bit(true));
-                            rcc.ioprstr().modify(|_, w| w.iopbrst().bit(true));
-                            rcc.ioprstr().modify(|_, w| w.iopbrst().clear_bit());
+                        if rcc.iopenr().read().gpioben().bit_is_clear() {
+                            rcc.iopenr().modify(|_, w| w.gpioben().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.gpiobrst().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.gpiobrst().clear_bit());
                         }
                     } else if #[cfg(feature = "c0")] {
                          if rcc.iopenr().read().gpioben().bit_is_clear() {
@@ -538,11 +549,17 @@ impl Pin {
                         if rcc.ahb1enr().read().gpiocen().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpioc, rcc);
                         }
+                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g071", feature = "g081"))] {
+                        if rcc.iopenr().read().iopaen().bit_is_clear() {
+                            rcc.iopenr().modify(|_, w| w.iopaen().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.ioparst().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.ioparst().clear_bit());
+                        }
                     } else if #[cfg(feature = "g0")] {
-                        if rcc.iopenr().read().iopcen().bit_is_clear() {
-                            rcc.iopenr().modify(|_, w| w.iopcen().bit(true));
-                            rcc.ioprstr().modify(|_, w| w.iopcrst().bit(true));
-                            rcc.ioprstr().modify(|_, w| w.iopcrst().clear_bit());
+                        if rcc.iopenr().read().gpiocen().bit_is_clear() {
+                            rcc.iopenr().modify(|_, w| w.gpiocen().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.gpiocrst().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.gpiocrst().clear_bit());
                         }
                     } else if #[cfg(feature = "c0")] {
                          if rcc.iopenr().read().gpiocen().bit_is_clear() {
@@ -574,11 +591,17 @@ impl Pin {
                         if rcc.ahb1enr().read().gpioden().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpiod, rcc);
                         }
+                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g071", feature = "g081"))] {
+                        if rcc.iopenr().read().iopaen().bit_is_clear() {
+                            rcc.iopenr().modify(|_, w| w.iopaen().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.ioparst().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.ioparst().clear_bit());
+                        }
                     } else if #[cfg(feature = "g0")] {
-                        if rcc.iopenr().read().iopden().bit_is_clear() {
-                            rcc.iopenr().modify(|_, w| w.iopden().bit(true));
-                            rcc.ioprstr().modify(|_, w| w.iopdrst().bit(true));
-                            rcc.ioprstr().modify(|_, w| w.iopdrst().clear_bit());
+                        if rcc.iopenr().read().gpioden().bit_is_clear() {
+                            rcc.iopenr().modify(|_, w| w.gpioden().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.gpiodrst().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.gpiodrst().clear_bit());
                         }
                     } else if #[cfg(feature = "c0")] {
                          if rcc.iopenr().read().gpioden().bit_is_clear() {
@@ -653,11 +676,17 @@ impl Pin {
                         if rcc.ahb1enr().read().gpiofen().bit_is_clear() {
                             rcc_en_reset!(ahb1, gpiof, rcc);
                         }
+                    } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g071", feature = "g081"))] {
+                        if rcc.iopenr().read().iopaen().bit_is_clear() {
+                            rcc.iopenr().modify(|_, w| w.iopaen().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.ioparst().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.ioparst().clear_bit());
+                        }
                     } else if #[cfg(feature = "g0")] {
-                        if rcc.iopenr().read().iopfen().bit_is_clear() {
-                            rcc.iopenr().modify(|_, w| w.iopfen().bit(true));
-                            rcc.ioprstr().modify(|_, w| w.iopfrst().bit(true));
-                            rcc.ioprstr().modify(|_, w| w.iopfrst().clear_bit());
+                        if rcc.iopenr().read().gpiofen().bit_is_clear() {
+                            rcc.iopenr().modify(|_, w| w.gpiofen().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.gpiofrst().bit(true));
+                            rcc.ioprstr().modify(|_, w| w.gpiofrst().clear_bit());
                         }
                     } else if #[cfg(feature = "c0")] {
                          if rcc.iopenr().read().gpiofen().bit_is_clear() {
@@ -1373,6 +1402,7 @@ pub unsafe fn write_dma(
     match dma_periph {
         dma::DmaPeriph::Dma1 => {
             let mut regs = unsafe { &(*DMA1::ptr()) };
+
             dma::cfg_channel(
                 &mut regs,
                 dma_channel,
@@ -1385,7 +1415,7 @@ pub unsafe fn write_dma(
                 channel_cfg,
             );
         }
-        #[cfg(not(any(feature = "g0", feature = "c0", feature = "wb")))]
+        #[cfg(dma2)]
         dma::DmaPeriph::Dma2 => {
             let mut regs = unsafe { &(*pac::DMA2::ptr()) };
             dma::cfg_channel(
@@ -1430,6 +1460,7 @@ pub unsafe fn read_dma(
     match dma_periph {
         dma::DmaPeriph::Dma1 => {
             let mut regs = unsafe { &(*DMA1::ptr()) };
+
             dma::cfg_channel(
                 &mut regs,
                 dma_channel,

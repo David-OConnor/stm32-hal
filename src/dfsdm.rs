@@ -575,7 +575,6 @@ where
         let cr1 = &self.regs.flt(filter as usize).cr1();
         cr1.modify(|_, w| w.rdmaen().bit(true));
 
-
         let rdatar = &self.regs.flt(filter as usize).rdatar();
         let periph_addr = &rdatar as *const _ as u32;
 

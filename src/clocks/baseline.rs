@@ -970,7 +970,7 @@ impl Clocks {
         // the input source is PLL.
         if let InputSrc::Pll(pll_src) = self.input_src {
             // Turn off the PLL: Required for modifying some of the settings below.
-            #[cfg(not(feature = "c0"))]  // todo uhoh... This should be set for C0?
+            #[cfg(not(feature = "c0"))] // todo uhoh... This should be set for C0?
             rcc.cr().modify(|_, w| w.pllon().clear_bit());
             // Wait for the PLL to no longer be ready before executing certain writes.
 

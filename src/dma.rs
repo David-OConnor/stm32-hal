@@ -13,7 +13,6 @@
 //     }
 // }
 
-
 use core::{
     ops::Deref,
     sync::atomic::{self, Ordering},
@@ -766,7 +765,7 @@ where
         cfg_if! {
             if #[cfg(feature = "f3")] {
                 rcc.ahbenr().modify(|_, w| w.dma1en().bit(true)); // no dmarst on F3.
-            } else if #[cfg(feature = "g0")] {
+            } else if #[cfg(any(feature = "g031", feature = "g041", feature = "g051", feature = "g071", feature = "g081"))] {
                 rcc_en_reset!(ahb1, dma, rcc);
             } else {
                 rcc_en_reset!(ahb1, dma1, rcc);
