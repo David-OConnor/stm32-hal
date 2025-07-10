@@ -1143,7 +1143,7 @@ pub fn set_state(port: Port, pin: u8, value: PinState) {
 
 /// Clear an EXTI interrupt, lines 0 - 15. Note that this function currently doesn't support
 /// higher extis, but will work for all GPIO interrupts.
-pub fn clear_exti_interrupt(line: u8) {
+pub fn clear_exti_interrupt_edge(line: u8, edge: Edge) {
     // todo: Macro to avoid DRY?
     unsafe {
         cfg_if! {
@@ -1192,27 +1192,55 @@ pub fn clear_exti_interrupt(line: u8) {
                     }
                 });
             } else if #[cfg(any(feature = "l5", feature = "g0", feature = "c0"))] {
-                (*EXTI::ptr()).rpr1().modify(|_, w| {
-                    match line {
-                        0 => w.rpif0().bit(true),
-                        1 => w.rpif1().bit(true),
-                        2 => w.rpif2().bit(true),
-                        3 => w.rpif3().bit(true),
-                        4 => w.rpif4().bit(true),
-                        5 => w.rpif5().bit(true),
-                        6 => w.rpif6().bit(true),
-                        7 => w.rpif7().bit(true),
-                        8 => w.rpif8().bit(true),
-                        9 => w.rpif9().bit(true),
-                        10 => w.rpif10().bit(true),
-                        11 => w.rpif11().bit(true),
-                        12 => w.rpif12().bit(true),
-                        13 => w.rpif13().bit(true),
-                        14 => w.rpif14().bit(true),
-                        15 => w.rpif15().bit(true),
-                        _ => panic!(),
-                    }
-                });
+                match edge {
+                    Edge::Rising => {
+                        (*EXTI::ptr()).rpr1().modify(|_, w| {
+                            match line {
+                                0 => w.rpif0().bit(true),
+                                1 => w.rpif1().bit(true),
+                                2 => w.rpif2().bit(true),
+                                3 => w.rpif3().bit(true),
+                                4 => w.rpif4().bit(true),
+                                5 => w.rpif5().bit(true),
+                                6 => w.rpif6().bit(true),
+                                7 => w.rpif7().bit(true),
+                                8 => w.rpif8().bit(true),
+                                9 => w.rpif9().bit(true),
+                                10 => w.rpif10().bit(true),
+                                11 => w.rpif11().bit(true),
+                                12 => w.rpif12().bit(true),
+                                13 => w.rpif13().bit(true),
+                                14 => w.rpif14().bit(true),
+                                15 => w.rpif15().bit(true),
+                                _ => panic!(),
+                            }
+                        });
+                    },
+                    Edge::Falling => {
+                        (*EXTI::ptr()).fpr1().modify(|_, w| {
+                            match line {
+                                0 => w.fpif0().bit(true),
+                                1 => w.fpif1().bit(true),
+                                2 => w.fpif2().bit(true),
+                                3 => w.fpif3().bit(true),
+                                4 => w.fpif4().bit(true),
+                                5 => w.fpif5().bit(true),
+                                6 => w.fpif6().bit(true),
+                                7 => w.fpif7().bit(true),
+                                8 => w.fpif8().bit(true),
+                                9 => w.fpif9().bit(true),
+                                10 => w.fpif10().bit(true),
+                                11 => w.fpif11().bit(true),
+                                12 => w.fpif12().bit(true),
+                                13 => w.fpif13().bit(true),
+                                14 => w.fpif14().bit(true),
+                                15 => w.fpif15().bit(true),
+                                _ => panic!(),
+                            }
+                        });
+                    },
+                    Edge::Either => panic!(),
+                }
             } else if #[cfg(any(feature = "f373", feature = "f4"))] {
                 (*EXTI::ptr()).pr().modify(|_, w| {
                     match line {
@@ -1304,6 +1332,13 @@ pub fn clear_exti_interrupt(line: u8) {
             }
         }
     }
+}
+
+/// Clear an EXTI interrupt, lines 0 - 15. Note that this function currently doesn't support
+/// higher extis, but will work for all GPIO interrupts.
+pub fn clear_exti_interrupt(line: u8) {
+    // This is set as default to rising to keep the same behavior as before.
+    clear_exti_interrupt_edge(line, Edge::Rising);
 }
 
 const fn regs(port: Port) -> *const pac::gpioa::RegisterBlock {
