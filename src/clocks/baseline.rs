@@ -1506,33 +1506,34 @@ impl Clocks {
     }
 
     cfg_if! {
-    if #[cfg(feature = "g0")] {
-    // On G0, a single APB prescaler is used for both APB1 and APB2.
-    pub fn apb2(&self) -> u32 {
-    self.hclk() / self.apb1_prescaler.value() as u32
-    }
+        if #[cfg(feature = "g0")] {
+            // On G0, a single APB prescaler is used for both APB1 and APB2.
+            pub fn apb2(&self) -> u32 {
+                self.hclk() / self.apb1_prescaler.value() as u32
+            }
 
-    pub fn apb2_timer(&self) -> u32 {
-    if let ApbPrescaler::Div1 = self.apb1_prescaler {
-    self.apb2()
-    } else {
-    self.apb2() * 2
-    }
-    }
-    } else {
-    /// Get the APB2 peipheral clock frequency, in hz.
-    pub fn apb2(&self) -> u32 {
-    self.hclk() / self.apb2_prescaler.value() as u32
-    }
+            pub fn apb2_timer(&self) -> u32 {
+                if let ApbPrescaler::Div1 = self.apb1_prescaler {
+                    self.apb2()
+                } else {
+                    self.apb2() * 2
+                }
+            }
 
-    pub fn apb2_timer(&self) -> u32 {
-    if let ApbPrescaler::Div1 = self.apb2_prescaler {
-    self.apb2()
-    } else {
-    self.apb2() * 2
-    }
-    }
-    }
+        } else {
+            /// Get the APB2 peipheral clock frequency, in hz.
+            pub fn apb2(&self) -> u32 {
+                self.hclk() / self.apb2_prescaler.value() as u32
+            }
+
+            pub fn apb2_timer(&self) -> u32 {
+                if let ApbPrescaler::Div1 = self.apb2_prescaler {
+                    self.apb2()
+                } else {
+                    self.apb2() * 2
+                }
+            }
+        }
     }
 
     /// Get the SAI audio clock frequency, in hz
