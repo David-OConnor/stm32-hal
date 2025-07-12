@@ -6,7 +6,6 @@
 #![no_main]
 #![no_std]
 
-use cortex_m::peripheral::NVIC;
 use cortex_m_rt::entry;
 use critical_section::with;
 use defmt::println;

@@ -5,7 +5,7 @@
 
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-use cortex_m::{self, peripheral::NVIC};
+use cortex_m;
 use cortex_m_rt::entry;
 use critical_section::with;
 use hal::{

@@ -4,7 +4,7 @@
 #![no_main]
 #![no_std]
 
-use cortex_m::{delay::Delay, peripheral::NVIC};
+use cortex_m::delay::Delay};
 use cortex_m_rt::entry;
 use critical_section::with;
 use hal::{
@@ -111,8 +111,8 @@ fn main() -> ! {
 
     defmt::println!("Reading: {:?}", &dma_buf[0]);
 
-    // Unmask the interrupt line. See the `DMA_CH1` interrupt handler below.
-    unsafe { NVIC::unmask(pac::Interrupt::DMA1_CH1) }
+    // Unmask the interrupt line, and set its priority. See the `DMA_CH1` interrupt handler below.
+    setup_nvic!([(DMA1_CH1, 3)]);
 
     // 3: Example of starting a circular DMA transfer using 2 channels. This will continuously update
     // the buffer with values from channels 17 and 12. (You can set longer sequence lengths as well).

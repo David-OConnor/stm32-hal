@@ -99,7 +99,7 @@ macro_rules! setup_nvic {
     ) => {
         unsafe {
             $(
-                NVIC::unmask(pac::Interrupt::$int);
+                cortex_m::peripheral::NVIC::unmask(pac::Interrupt::$int);
             )*
             $(
                 $cp.NVIC.set_priority(pac::Interrupt::$int, $prio);

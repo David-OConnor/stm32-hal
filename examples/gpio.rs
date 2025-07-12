@@ -7,7 +7,7 @@
 #![no_main]
 #![no_std]
 
-use cortex_m::{delay::Delay, peripheral::NVIC};
+use cortex_m::delay::Delay;
 use cortex_m_rt::entry;
 use critical_section::with;
 use embedded_hal::digital::OutputPin;

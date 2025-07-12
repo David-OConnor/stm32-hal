@@ -25,7 +25,7 @@
 
 use core::sync::atomic::{self, AtomicBool, AtomicU8, AtomicU32, AtomicUsize, Ordering};
 
-use cortex_m::{self, asm, delay::Delay, peripheral::NVIC};
+use cortex_m::{self, asm, delay::Delay};
 use cortex_m_rt::entry;
 use critical_section::with;
 use defmt_rtt as _; // global logger
