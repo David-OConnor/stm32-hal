@@ -7,7 +7,7 @@
 
 use cortex_m::{self, peripheral::NVIC};
 use cortex_m_rt::entry;
-use critical_section::{CriticalSection, Mutex, with};
+use critical_section::{CriticalSection, with};
 use defmt::println;
 use defmt_rtt as _;
 use hal::{

@@ -13,7 +13,7 @@ use cortex_m::{
     delay::Delay,
     peripheral::NVIC,
 };
-use critical_section::{with, Mutex};
+use critical_section::with;
 use cortex_m_rt::entry;
 
 // These lines are part of our setup for debug printing.

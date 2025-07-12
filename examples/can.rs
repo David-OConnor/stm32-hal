@@ -3,11 +3,9 @@
 #![no_main]
 #![no_std]
 
-use core::cell::{Cell, RefCell};
-
 use cortex_m::{delay::Delay, interrupt, peripheral::NVIC};
 use cortex_m_rt::entry;
-use critical_section::{Mutex, with};
+use critical_section::with;
 use fdcan::{
     FdCan, NormalOperationMode,
     frame::{FrameFormat, TxFrameHeader},

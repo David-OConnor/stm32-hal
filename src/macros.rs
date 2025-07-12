@@ -31,7 +31,7 @@ macro_rules! access_globals {
 
 /// Syntax helper for setting global variables of the form `Mutex<RefCell<Option>>>`.
 /// eg in interrupt handlers. Ideal for non-copy-type variables that can't be initialized
-/// immediatiately. `Mutex` and `cell::RefCell` must be imported.
+/// immediatiately.
 ///
 /// Example: `make_globals!(
 ///     (USB_SERIAL, SerialPort<UsbBusType>),
@@ -41,13 +41,13 @@ macro_rules! access_globals {
 macro_rules! make_globals {
     ($(($NAME:ident, $type:ty)),+ $(,)?) => {
         $(
-            static $NAME: Mutex<RefCell<Option<$type>>> = Mutex::new(RefCell::new(None));
+            static $NAME: critical_section::Mutex<core::cell::RefCell<Option<$type>>> = critical_section::Mutex::new(core::cell::RefCell::new(None));
         )+
     };
 }
 
 /// Syntax helper for setting global variables of the form `Mutex<Cell<>>>`.
-/// eg in interrupt handlers. Ideal for copy-type variables. `Mutex` and `cell::Cell` must be imported.
+/// eg in interrupt handlers. Ideal for copy-type variables.
 ///
 /// Example: `make_simple_globals!(
 ///     (VALUE, f32, 2.),
@@ -57,13 +57,12 @@ macro_rules! make_globals {
 macro_rules! make_simple_globals {
     ($(($NAME:ident, $type:ty, $val:expr)),+ $(,)?) => {
         $(
-            static $NAME: Mutex<Cell<$type>> = Mutex::new(Cell::new($val));
+            static $NAME: critical_section::Mutex<core::cell::Cell<$type>> = critical_section::Mutex::new(core::cell::Cell::new($val));
         )+
     };
 }
 
-/// Initialize one or more globals inside a critical section. `critical_section::with`
-/// must be imported.
+/// Initialize one or more globals inside a critical section.
 ///
 /// Usage:
 /// ```rust
@@ -77,7 +76,7 @@ macro_rules! make_simple_globals {
 #[macro_export]
 macro_rules! init_globals {
     ($(($NAME:ident, $val:expr)),* $(,)?) => {
-        with(|cs| {
+        critical_section::with(|cs| {
             $(
                 $NAME.borrow(cs).replace(Some($val));
             )*
