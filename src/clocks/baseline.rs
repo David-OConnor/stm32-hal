@@ -657,21 +657,21 @@ impl Clocks {
         cfg_if! {
             if #[cfg(feature = "g4")] {
                 if self.boost_mode {
-                // The sequence to switch from Range1 normal mode to Range1 boost mode is:
-                // 1. The system clock must be divided by 2 using the AHB prescaler before switching to a
-                // higher system frequency.
-                rcc.cfgr().modify(|_, w| unsafe { w.hpre().bits(HclkPrescaler::Div2 as u8) });
-                // 2. Clear the R1MODE bit is in the PWR_CR5 register.
-                let pwr = unsafe { &(*pac::PWR::ptr()) };
-                pwr.cr5().modify(|_, w| w.r1mode().clear_bit());
-            }
+                    // The sequence to switch from Range1 normal mode to Range1 boost mode is:
+                    // 1. The system clock must be divided by 2 using the AHB prescaler before switching to a
+                    // higher system frequency.
+                    rcc.cfgr().modify(|_, w| unsafe { w.hpre().bits(HclkPrescaler::Div2 as u8) });
+                    // 2. Clear the R1MODE bit is in the PWR_CR5 register.
+                    let pwr = unsafe { &(*pac::PWR::ptr()) };
+                    pwr.cr5().modify(|_, w| w.r1mode().clear_bit());
+                }
 
-            // (Remaining steps accomplished below)
-            // 3. Adjust the number of wait states according to the new frequency target in range1 boost
-            // mode
-            // 4. Configure and switch to new system frequency.
-            // 5. Wait for at least 1us and then reconfigure the AHB prescaler to get the needed HCLK
-            // clock frequency.
+                // (Remaining steps accomplished below)
+                // 3. Adjust the number of wait states according to the new frequency target in range1 boost
+                // mode
+                // 4. Configure and switch to new system frequency.
+                // 5. Wait for at least 1us and then reconfigure the AHB prescaler to get the needed HCLK
+                // clock frequency.
             }
         }
 
@@ -1718,12 +1718,12 @@ pub fn enable_crs(sync_src: CrsSyncSrc) {
 
     // todo: CRSEN missing on l4x5 pac: https://github.com/stm32-rs/stm32-rs/issues/572
     cfg_if! {
-    if #[cfg(feature = "l4x5")] {
-    let val = rcc.apb1enr1().read().bits();
-    rcc.apb1enr1().write(|w| unsafe { w.bits(val | (1 << 24)) });
-    } else {
-    rcc.apb1enr1().modify(|_, w| w.crsen().bit(true));
-    }
+        if #[cfg(feature = "l4x5")] {
+            let val = rcc.apb1enr1().read().bits();
+            rcc.apb1enr1().write(|w| unsafe { w.bits(val | (1 << 24)) });
+        } else {
+            rcc.apb1enr1().modify(|_, w| w.crsen().bit(true));
+        }
     }
 
     crs.cfgr()

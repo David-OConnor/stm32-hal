@@ -160,7 +160,6 @@ where
     /// Read a single byte if available, or block until it's available.
     pub fn read(&mut self) -> Result<u8, SpiError> {
         check_errors!(self.regs.sr().read());
-
         // todo: Use fIFO like in H7 code?
 
         let mut i = 0;

@@ -41,7 +41,7 @@ macro_rules! access_globals {
 macro_rules! make_globals {
     ($(($NAME:ident, $type:ty)),+ $(,)?) => {
         $(
-            static $NAME: critical_section::Mutex<core::cell::RefCell<Option<$type>>> = critical_section::Mutex::new(core::cell::RefCell::new(None));
+            static $NAME: ::critical_section::Mutex<core::cell::RefCell<Option<$type>>> = ::critical_section::Mutex::new(core::cell::RefCell::new(None));
         )+
     };
 }
@@ -57,7 +57,7 @@ macro_rules! make_globals {
 macro_rules! make_simple_globals {
     ($(($NAME:ident, $type:ty, $val:expr)),+ $(,)?) => {
         $(
-            static $NAME: critical_section::Mutex<core::cell::Cell<$type>> = critical_section::Mutex::new(core::cell::Cell::new($val));
+            static $NAME: ::critical_section::Mutex<core::cell::Cell<$type>> = ::critical_section::Mutex::new(core::cell::Cell::new($val));
         )+
     };
 }
@@ -76,7 +76,7 @@ macro_rules! make_simple_globals {
 #[macro_export]
 macro_rules! init_globals {
     ($(($NAME:ident, $val:expr)),* $(,)?) => {
-        critical_section::with(|cs| {
+        ::critical_section::with(|cs| {
             $(
                 $NAME.borrow(cs).replace(Some($val));
             )*
