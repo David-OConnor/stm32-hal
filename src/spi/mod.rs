@@ -245,7 +245,7 @@ where
     /// Run this after each transfer completes - you may wish to do this in an interrupt
     /// (eg DMA transfer complete) instead of blocking. `channel2` is an optional second channel
     /// to stop; eg if you have both a tx and rx channel.
-    #[cfg(not(any(feature = "f4", feature = "l552")))]
+    #[cfg(not(any(feature = "f4")))]
     pub fn stop_dma(
         &mut self,
         channel: DmaChannel,
@@ -281,7 +281,7 @@ where
 
     /// Convenience function that clears the interrupt, and stops the transfer. For use with the TC
     /// interrupt only.
-    #[cfg(not(any(feature = "f4", feature = "l552")))]
+    #[cfg(not(any(feature = "f4")))]
     pub fn cleanup_dma(
         &mut self,
         dma_periph: dma::DmaPeriph,

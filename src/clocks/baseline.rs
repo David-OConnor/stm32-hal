@@ -102,25 +102,25 @@ cfg_if! {
         }
 
         impl InputSrc {
-        /// Required due to numerical value on non-uniform discrim being experimental.
-        /// (ie, can't set on `Pll(Pllsrc)`. G0 RM, section 5.4.3.
-        pub fn bits(&self) -> u8 {
-        match self {
-        Self::Hsi => 0b000,
-        Self::Hse(_) => 0b001,
-        Self::Pll(_) => 0b010,
-        Self::Lsi => 0b011,
-        Self::Lse => 0b100,
-        }
-        }
+            /// Required due to numerical value on non-uniform discrim being experimental.
+            /// (ie, can't set on `Pll(Pllsrc)`. G0 RM, section 5.4.3.
+            pub fn bits(&self) -> u8 {
+                match self {
+                Self::Hsi => 0b000,
+                Self::Hse(_) => 0b001,
+                Self::Pll(_) => 0b010,
+                Self::Lsi => 0b011,
+                Self::Lse => 0b100,
+                }
+            }
         }
     } else if #[cfg(feature = "g4")] {
-            #[derive(Clone, Copy, PartialEq)]
-            pub enum InputSrc {
-                Hsi,
-                Hse(u32), // freq in Hz,
-                Pll(PllSrc),
-            }
+        #[derive(Clone, Copy, PartialEq)]
+        pub enum InputSrc {
+            Hsi,
+            Hse(u32), // freq in Hz,
+            Pll(PllSrc),
+        }
 
         impl InputSrc {
             /// Required due to numerical value on non-uniform discrim being experimental.
@@ -676,94 +676,94 @@ impl Clocks {
         }
 
         cfg_if! {
-        if #[cfg(feature = "l4")] {  // RM section 3.3.3
-            let wait_state = if hclk <= 16_000_000 {
-                WaitState::W0
-            } else if hclk <= 32_000_000 {
-                WaitState::W1
-            } else if hclk <= 48_000_000 {
-                WaitState::W2
-            } else if hclk <= 64_000_000 {
-                WaitState::W3
-            } else {
-                WaitState::W4
-            };
-        } else if #[cfg(feature = "l5")] {  // RM section 6.3.3
-            let wait_state = if hclk <= 20_000_000 {
-                WaitState::W0
-            } else if hclk <= 40_000_000 {
-                WaitState::W1
-            } else if hclk <= 60_000_000 {
-                WaitState::W2
-            } else if hclk <= 80_000_000 {
-                WaitState::W3
-            } else if hclk <= 100_000_000 {
-                WaitState::W4
-            } else {
-                WaitState::W5
-            };
-        } else if #[cfg(feature = "g0")] {  // G0. RM section 3.3.4
-            let wait_state = if hclk <= 24_000_000 {
-                WaitState::W0
-            } else if hclk <= 48_000_000 {
-                WaitState::W1
-            } else {
-                WaitState::W2
-            };
-        } else if #[cfg(feature = "c0")] { // C0 RM, section 4.3.2, table 14.
-            let wait_state = if hclk <= 24_000_000 {
-                WaitState::W0
-            } else {
-                WaitState::W1
-            };
-        } else if #[cfg(feature = "wb")] {  // WB. RM section 3.3.4, Table 4.
-        // Note: This applies to HCLK4 HCLK. (See HCLK4 used above for hclk var.)
-        let wait_state = if hclk <= 18_000_000 {
-                WaitState::W0
-            } else if hclk <= 36_000_000 {
-                WaitState::W1
-            } else if hclk <= 54_000_000 {
-                WaitState::W2
-            } else {
-                WaitState::W3
-            };
-        } else if #[cfg(any(feature = "wb", feature = "wl"))] {  // WL. RM section 3.3.4, Table 5.
-        // Note: This applies to HCLK3 HCLK. (See HCLK3 used above for hclk var.)
-        let wait_state = if hclk <= 18_000_000 {
-                WaitState::W0
-            } else if hclk <= 36_000_000 {
-                WaitState::W1
-            } else {
-                WaitState::W2
-            };
-        } else {  // G4. RM section 3.3.3
-            let wait_state = if self.boost_mode {
-            // Vcore Range 1 boost mode
-            if hclk <= 34_000_000 {
+            if #[cfg(feature = "l4")] {  // RM section 3.3.3
+                let wait_state = if hclk <= 16_000_000 {
                     WaitState::W0
-                } else if hclk <= 68_000_000 {
+                } else if hclk <= 32_000_000 {
                     WaitState::W1
-                } else if hclk <= 102_000_000 {
+                } else if hclk <= 48_000_000 {
                     WaitState::W2
-                } else if hclk <= 136_000_000 {
+                } else if hclk <= 64_000_000 {
                     WaitState::W3
                 } else {
                     WaitState::W4
-                }
-            } else {
-            // Vcore Range 1 normal mode.
-            if hclk <= 30_000_000 {
+                };
+            } else if #[cfg(feature = "l5")] {  // RM section 6.3.3
+                let wait_state = if hclk <= 20_000_000 {
                     WaitState::W0
+                } else if hclk <= 40_000_000 {
+                    WaitState::W1
                 } else if hclk <= 60_000_000 {
-                    WaitState::W1
-                } else if hclk <= 90_000_000 {
                     WaitState::W2
-                } else if hclk <= 120_000_000 {
+                } else if hclk <= 80_000_000 {
                     WaitState::W3
-                } else {
+                } else if hclk <= 100_000_000 {
                     WaitState::W4
-                }
-            };
+                } else {
+                    WaitState::W5
+                };
+            } else if #[cfg(feature = "g0")] {  // G0. RM section 3.3.4
+                let wait_state = if hclk <= 24_000_000 {
+                    WaitState::W0
+                } else if hclk <= 48_000_000 {
+                    WaitState::W1
+                } else {
+                    WaitState::W2
+                };
+            } else if #[cfg(feature = "c0")] { // C0 RM, section 4.3.2, table 14.
+                let wait_state = if hclk <= 24_000_000 {
+                    WaitState::W0
+                } else {
+                    WaitState::W1
+                };
+            } else if #[cfg(feature = "wb")] {  // WB. RM section 3.3.4, Table 4.
+                // Note: This applies to HCLK4 HCLK. (See HCLK4 used above for hclk var.)
+                let wait_state = if hclk <= 18_000_000 {
+                    WaitState::W0
+                } else if hclk <= 36_000_000 {
+                    WaitState::W1
+                } else if hclk <= 54_000_000 {
+                    WaitState::W2
+                } else {
+                    WaitState::W3
+                };
+            } else if #[cfg(any(feature = "wb", feature = "wl"))] {  // WL. RM section 3.3.4, Table 5.
+                // Note: This applies to HCLK3 HCLK. (See HCLK3 used above for hclk var.)
+                let wait_state = if hclk <= 18_000_000 {
+                    WaitState::W0
+                } else if hclk <= 36_000_000 {
+                    WaitState::W1
+                } else {
+                    WaitState::W2
+                };
+            } else {  // G4. RM section 3.3.3
+                let wait_state = if self.boost_mode {
+                    // Vcore Range 1 boost mode
+                    if hclk <= 34_000_000 {
+                        WaitState::W0
+                    } else if hclk <= 68_000_000 {
+                        WaitState::W1
+                    } else if hclk <= 102_000_000 {
+                        WaitState::W2
+                    } else if hclk <= 136_000_000 {
+                        WaitState::W3
+                    } else {
+                        WaitState::W4
+                    }
+                } else {
+                    // Vcore Range 1 normal mode.
+                    if hclk <= 30_000_000 {
+                        WaitState::W0
+                    } else if hclk <= 60_000_000 {
+                        WaitState::W1
+                    } else if hclk <= 90_000_000 {
+                        WaitState::W2
+                    } else if hclk <= 120_000_000 {
+                        WaitState::W3
+                    } else {
+                        WaitState::W4
+                    }
+                };
             }
         }
 
@@ -971,17 +971,14 @@ impl Clocks {
         #[cfg(not(feature = "c0"))]
         if let InputSrc::Pll(pll_src) = self.input_src {
             // Turn off the PLL: Required for modifying some of the settings below.
-            #[cfg(not(feature = "c0"))] // todo uhoh... This should be set for C0?
             rcc.cr().modify(|_, w| w.pllon().clear_bit());
             // Wait for the PLL to no longer be ready before executing certain writes.
 
             let mut i = 0;
-            #[cfg(not(feature = "c0"))]
             while rcc.cr().read().pllrdy().bit_is_set() {
                 wait_hang!(i);
             }
 
-            #[cfg(not(feature = "c0"))]
             rcc.pllcfgr().modify(|_, w| unsafe {
                 w.pllsrc().bits(pll_src.bits());
                 w.pllren().bit(true);
@@ -1005,7 +1002,6 @@ impl Clocks {
                 w.pllq().bits(self.pll.divq as u8)
             });
 
-            #[cfg(not(feature = "c0"))]
             rcc.pllcfgr().modify(|_, w| {
                 w.pllpen().bit(true);
                 w.pllqen().bit(true);
@@ -1053,16 +1049,14 @@ impl Clocks {
                 }
             }
 
-            #[cfg(not(feature = "c0"))]
             rcc.cr().modify(|_, w| w.pllon().bit(true));
             i = 0;
-            #[cfg(not(feature = "c0"))]
             while rcc.cr().read().pllrdy().bit_is_clear() {
                 wait_hang!(i);
             }
 
             cfg_if! {
-                if #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "l412", feature = "c0")))] {
+                if #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "l412")))] {
                     if self.pllsai1.enabled {
                         rcc.cr().modify(|_, w| w.pllsai1on().bit(true));
                         i = 0;

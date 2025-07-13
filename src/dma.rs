@@ -545,8 +545,10 @@ pub enum Priority {
     VeryHigh = 0b11,
 }
 
+// Note: L5 also uses the 0 - 7 scheme, but the PAC doesn't reflect this.
 #[derive(Copy, Clone)]
 #[repr(u8)]
+#[cfg(feature = "h7")]
 /// Represents a DMA channel to select, eg when configuring for use with a peripheral.
 /// u8 representation is used to index registers on H7 PAC (And hopefully on future PACs if they
 /// adopt H7's approach)
@@ -567,9 +569,32 @@ pub enum DmaChannel {
     C6 = 6,
     #[cfg(not(any(feature = "g0", feature = "c0")))]
     C7 = 7,
+}
+
+// todo: Experimenting with offset ch
+#[derive(Copy, Clone)]
+#[repr(u8)]
+#[cfg(not(feature = "h7"))]
+/// Represents a DMA channel to select, eg when configuring for use with a peripheral.
+/// u8 representation is used to index registers on H7 PAC (And hopefully on future PACs if they
+/// adopt H7's approach)
+pub enum DmaChannel {
+    C1 = 0,
+    C2 = 1,
+    C3 = 2,
+    #[cfg(not(any(feature = "c011", feature = "c031")))]
+    C4 = 3,
+    #[cfg(not(any(feature = "c011", feature = "c031")))]
+    C5 = 4,
+    // todo: Some G0 variants have channels 6 and 7 and DMA1. (And up to 5 channels on DMA2)
+    //todo: Same for C0: Some variants have these channels.
+    #[cfg(not(any(feature = "g0", feature = "c0")))]
+    C6 = 5,
+    #[cfg(not(any(feature = "g0", feature = "c0")))]
+    C7 = 6,
     // todo: Which else have 8? Also, note that some have diff amounts on dma1 vs 2.
     #[cfg(any(feature = "l5", feature = "g4"))]
-    C8 = 8,
+    C8 = 7,
 }
 
 #[derive(Copy, Clone)]
@@ -1397,50 +1422,34 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
         #[cfg(feature = "g4")]
         rcc.ahb1enr().modify(|_, w| w.dmamux1en().bit(true));
 
+        // Note the offset by 1, due to mismatch in DMA channels starting at 1, and DMAMUX
+        // channels starting at 0. Ops tested this is correct on G4.
+
+        // G4 RM: "For category 3 and category 4 devices:
+        // - DMAMUX channels 0 to 7 are connected to DMA1 channels 1 to 8
+        // - DMAMUX channels 8 to 15 are connected to DMA2 channels 1 to 8"
+        // For category 2 devices (G431 etc):
+        // - DMAMUX channels 0 to 5 are connected to DMA1 channels 1 to 6
+        // - DMAMUX channels 6 to 11 are connected to DMA2 channels 1 to 6
+
+        // todo: Setting to +8 for G431 for now, while TS other issues; I believe
+        // todo that's how it was set previously.
+
+        // L5 RM: Same as cat 3/4 G4 devs above, but connected to DMA chs 0-7 respectively.
+        #[cfg(feature = "g431")]
+        // let dma2_offset = 6;
+        let dma2_offset = 8; // todo temp
+        #[cfg(not(feature = "g431"))]
+        let dma2_offset = 8;
+
         match periph {
             DmaPeriph::Dma1 => {
-                // #[cfg(not(feature = "h7"))]
-                // match channel {
-                //     // Note the offset by 1, due to mismatch in DMA channels starting at 1, and DMAMUX
-                //     // channels starting at 0. Ops tested this is correct on G4.
-                //     DmaChannel::C1 => mux.c0cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     DmaChannel::C2 => mux.c1cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     DmaChannel::C3 => mux.c2cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     DmaChannel::C4 => mux.c3cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     DmaChannel::C5 => mux.c4cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     #[cfg(not(feature = "g0"))]
-                //     DmaChannel::C6 => mux.c5cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     #[cfg(not(feature = "g0"))]
-                //     DmaChannel::C7 => mux.c6cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     #[cfg(any(feature = "l5", feature = "g4"))]
-                //     DmaChannel::C8 => mux.c7cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                // }
-                //
-                // #[cfg(feature = "h7")]
                 mux.ccr(channel as usize)
                     .modify(|_, w| w.dmareq_id().bits(input as u8));
             }
             #[cfg(dma2)]
             DmaPeriph::Dma2 => {
-                // #[cfg(not(feature = "h7"))]
-                // match channel {
-                //     DmaChannel::C1 => mux.c8cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     DmaChannel::C2 => mux.c9cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     DmaChannel::C3 => mux.c10cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     DmaChannel::C4 => mux.c11cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     DmaChannel::C5 => mux.c12cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     #[cfg(not(feature = "g0"))]
-                //     DmaChannel::C6 => mux.c13cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     #[cfg(not(any(feature = "g0", feature = "wb", feature = "wl")))]
-                //     DmaChannel::C7 => mux.c14cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                //     #[cfg(any(feature = "wb", feature = "wl"))]
-                //     DmaChannel::C7 => (), // Maybe no channel 7 on DMA2 on these platforms.
-                //     #[cfg(any(feature = "l5", feature = "g4"))]
-                //     DmaChannel::C8 => mux.c15cr().modify(|_, w| w.dmareq_id().bits(input as u8)),
-                // }
-                //
-                // #[cfg(feature = "h7")]
-                mux.ccr(channel as usize + 8)
+                mux.ccr(channel as usize + dma2_offset)
                     .modify(|_, w| w.dmareq_id().bits(input as u8));
             }
         }
