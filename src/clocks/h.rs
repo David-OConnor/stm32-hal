@@ -175,7 +175,7 @@ pub enum HclkPrescaler {
 }
 
 impl HclkPrescaler {
-    pub fn value(&self) -> u16 {
+    pub const fn value(&self) -> u16 {
         match self {
             Self::Div1 => 1,
             Self::Div2 => 2,
@@ -202,7 +202,7 @@ pub enum ApbPrescaler {
 }
 
 impl ApbPrescaler {
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         match self {
             Self::Div1 => 1,
             Self::Div2 => 2,
@@ -281,7 +281,7 @@ pub enum HsiDiv {
 }
 
 impl HsiDiv {
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         match self {
             Self::Div1 => 1,
             Self::Div2 => 2,
@@ -1068,7 +1068,7 @@ impl Clocks {
 
     /// Calculate the input speed to the PLL. This must be between 1 and 16 Mhz. Called `refx_ck`
     /// in the RM.
-    pub fn pll_input_speed(&self, pll_src: PllSrc, pll_num: u8) -> u32 {
+    pub const fn pll_input_speed(&self, pll_src: PllSrc, pll_num: u8) -> u32 {
         let input_freq = match pll_src {
             PllSrc::Csi => 4_000_000,
             // todo: QC if H5 HSI is 64 or 32M.
@@ -1086,7 +1086,7 @@ impl Clocks {
     }
 
     /// Calculate VCO output frequency: = Fref1_ck x DIVN1
-    pub fn vco_output_freq(&self, pll_src: PllSrc, pll_num: u8) -> u32 {
+    pub const fn vco_output_freq(&self, pll_src: PllSrc, pll_num: u8) -> u32 {
         let input_speed = self.pll_input_speed(pll_src, pll_num);
         match pll_num {
             1 => input_speed * self.pll1.divn as u32,
@@ -1111,7 +1111,7 @@ impl Clocks {
 
     /// Calculate the sysclock frequency, in hz. Note that for dual core variants, this is for CPU1.
     /// CPU2 syclock is equal to the HCLK, so use the `hclk()` method.
-    pub fn sysclk(&self) -> u32 {
+    pub const fn sysclk(&self) -> u32 {
         match self.input_src {
             InputSrc::Pll1 => {
                 // divm1 is included in `pll_input_speed`.
@@ -1127,12 +1127,12 @@ impl Clocks {
 
     #[cfg(feature = "h7")]
     /// Get the Domain 1 core prescaler frequency, in hz
-    pub fn d1cpreclk(&self) -> u32 {
+    pub const fn d1cpreclk(&self) -> u32 {
         self.sysclk() / self.d1_core_prescaler.value() as u32
     }
 
     /// Get the HCLK frequency, in hz
-    pub fn hclk(&self) -> u32 {
+    pub const fn hclk(&self) -> u32 {
         #[cfg(feature = "h7")]
         return self.sysclk()
             / self.d1_core_prescaler.value() as u32
@@ -1143,7 +1143,7 @@ impl Clocks {
 
     /// Get the systick speed. Note that for dual core variants, this is for CPU1.
     /// CPU2 systick is equal to the HCLK (possibly divided by 8), so use the `hclk()` method.
-    pub fn systick(&self) -> u32 {
+    pub const fn systick(&self) -> u32 {
         // todo: There's an optional /8 divider we're not taking into account here.
         #[cfg(feature = "h7")]
         return self.d1cpreclk();
@@ -1152,18 +1152,18 @@ impl Clocks {
     }
 
     /// Get the USB clock frequency, in hz
-    pub fn usb(&self) -> u32 {
+    pub const fn usb(&self) -> u32 {
         // let (input_freq, _) = sysclock(self.input_src, self.divm1, self.divn1, self.divp1);
         // (input_freq * 1_000_000) as u32 / self.divm1 as u32 * self.pll_sai1_mul as u32 / 2
         0 // todo
     }
 
-    pub fn apb1(&self) -> u32 {
+    pub const fn apb1(&self) -> u32 {
         self.hclk() / self.d2_prescaler1.value() as u32
     }
 
     /// Get the frequency used by APB1 timers, in hz
-    pub fn apb1_timer(&self) -> u32 {
+    pub const fn apb1_timer(&self) -> u32 {
         if let ApbPrescaler::Div1 = self.d2_prescaler1 {
             self.apb1()
         } else {
@@ -1171,12 +1171,12 @@ impl Clocks {
         }
     }
 
-    pub fn apb2(&self) -> u32 {
+    pub const fn apb2(&self) -> u32 {
         self.hclk() / self.d2_prescaler2.value() as u32
     }
 
     /// Get the frequency used by APB2 timers, in hz
-    pub fn apb2_timer(&self) -> u32 {
+    pub const fn apb2_timer(&self) -> u32 {
         if let ApbPrescaler::Div1 = self.d2_prescaler2 {
             self.apb2()
         } else {
@@ -1185,7 +1185,7 @@ impl Clocks {
     }
 
     /// Get the SAI1 audio clock frequency, in hz
-    pub fn sai1_speed(&self) -> u32 {
+    pub const fn sai1_speed(&self) -> u32 {
         let pll_src = match self.input_src {
             InputSrc::Pll1 => self.pll_src,
             InputSrc::Csi => PllSrc::Csi,
@@ -1302,7 +1302,7 @@ impl Default for Clocks {
     /// HSE output is not bypassed.
     fn default() -> Self {
         Self {
-            /// The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
+            // The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
             input_src: InputSrc::Pll1,
             pll_src: PllSrc::Hsi(HsiDiv::Div1),
             pll1: PllCfg::default(),
@@ -1311,7 +1311,7 @@ impl Default for Clocks {
             #[cfg(feature = "h7")]
             d1_core_prescaler: HclkPrescaler::Div1,
             d1_prescaler: ApbPrescaler::Div2,
-            /// The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
+            // The value to divide SYSCLK by, to get systick and peripheral clocks. Also known as AHB divider
             #[cfg(feature = "h5")]
             hclk_prescaler: HclkPrescaler::Div1,
             #[cfg(feature = "h7")]
@@ -1326,17 +1326,17 @@ impl Default for Clocks {
             d2_prescaler2: ApbPrescaler::Div2,
             #[cfg(feature = "h7")]
             d3_prescaler: ApbPrescaler::Div2,
-            /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
-            /// frees up the pin for use as GPIO.
+            // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
+            // frees up the pin for use as GPIO.
             hse_bypass: false,
             usb_src: UsbSrc::Hsi48,
             security_system: false,
-            /// Enable the HSI48.
+            // Enable the HSI48.
             hsi48_on: false,
-            /// Select the input source to use after waking up from `stop` mode. Eg HSI or MSI.
+            // Select the input source to use after waking up from `stop` mode. Eg HSI or MSI.
             stop_wuck: StopWuck::Hsi,
-            /// Note that to get full speed, we need to use VOS0. These are configured
-            /// in the `full_speed` method.
+            // Note that to get full speed, we need to use VOS0. These are configured
+            // in the `full_speed` method.
             vos_range: VosRange::VOS1,
             sai1_src: SaiSrc::Pll1Q,
             #[cfg(not(feature = "h735"))]

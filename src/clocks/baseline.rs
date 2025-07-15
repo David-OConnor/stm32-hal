@@ -236,7 +236,7 @@ pub enum MsiRange {
 #[cfg(not(any(feature = "g0", feature = "g4", feature = "c0")))]
 impl MsiRange {
     // Calculate the approximate frequency, in Hz.
-    fn value(&self) -> u32 {
+    const fn value(&self) -> u32 {
         match self {
             Self::R100k => 100_000,
             Self::R200k => 200_000,
@@ -318,7 +318,7 @@ impl PllCfg {
         }
     }
 
-    pub fn pvalue(&self) -> u8 {
+    pub const fn pvalue(&self) -> u8 {
         match self.pdiv {
             0 => self.divp.value(),
             pdiv => pdiv,
@@ -363,7 +363,7 @@ pub enum Pllm {
 }
 
 impl Pllm {
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         #[cfg(not(any(feature = "l5", feature = "g4")))]
         match self {
             Self::Div1 => 1,
@@ -415,7 +415,7 @@ pub enum Pllr {
 
 #[cfg(any(feature = "g0", feature = "wb"))]
 impl Pllr {
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         match self {
             Self::Div2 => 2,
             Self::Div3 => 3,
@@ -441,7 +441,7 @@ pub enum Pllr {
 
 #[cfg(not(any(feature = "g0", feature = "wb")))]
 impl Pllr {
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         match self {
             Self::Div2 => 2,
             Self::Div4 => 4,
@@ -460,7 +460,7 @@ pub enum Pllp {
 }
 
 impl Pllp {
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         match self {
             Self::Div7 => 7,
             Self::Div17 => 17,
@@ -495,7 +495,7 @@ pub enum HclkPrescaler {
 }
 
 impl HclkPrescaler {
-    pub fn value(&self) -> u16 {
+    pub const fn value(&self) -> u16 {
         match self {
             Self::Div1 => 1,
             #[cfg(feature = "wb")]
@@ -532,7 +532,7 @@ pub enum ApbPrescaler {
 }
 
 impl ApbPrescaler {
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         match self {
             Self::Div1 => 1,
             Self::Div2 => 2,
@@ -1483,7 +1483,7 @@ impl Clocks {
     }
 
     /// Get the sysclock frequency, in hz.
-    pub fn sysclk(&self) -> u32 {
+    pub const fn sysclk(&self) -> u32 {
         match self.input_src {
             #[cfg(not(feature = "c0"))]
             InputSrc::Pll(pll_src) => {
@@ -1525,27 +1525,27 @@ impl Clocks {
     }
 
     /// Get the HCLK frequency, in hz
-    pub fn hclk(&self) -> u32 {
+    pub const fn hclk(&self) -> u32 {
         self.sysclk() / self.hclk_prescaler.value() as u32
     }
 
     /// Get the systick frequency, in  hz
-    pub fn systick(&self) -> u32 {
+    pub const fn systick(&self) -> u32 {
         self.hclk()
     }
 
     cfg_if! {
         if #[cfg(any(feature = "g0", feature = "wl"))] {
-            pub fn usb(&self) -> u32 {
+            pub const fn usb(&self) -> u32 {
                 unimplemented!("No USB on G0 or WL");
             }
         } else if #[cfg(any(feature = "g4", feature = "c071"))] {
-            pub fn usb(&self) -> u32 {
+            pub const fn usb(&self) -> u32 {
                 48_000_000 // Uses hsi48.
             }
          // todo: Handle c031/11
         } else { // L4 and L5
-            pub fn usb(&self) -> u32 {
+            pub const fn usb(&self) -> u32 {
 
                 #[cfg(not(feature = "c0"))]
                 match self.clk48_src {
@@ -1561,12 +1561,12 @@ impl Clocks {
     }
 
     /// Get the APB1 peripheral clock frequency frequency, in hz
-    pub fn apb1(&self) -> u32 {
+    pub const fn apb1(&self) -> u32 {
         self.hclk() / self.apb1_prescaler.value() as u32
     }
 
     /// Get the frequency used by APB1 timers, in hz
-    pub fn apb1_timer(&self) -> u32 {
+    pub const fn apb1_timer(&self) -> u32 {
         // L4 RM, 6.2.14: The timer clock frequencies are automatically defined by hardware. There are two cases:
         // 1. If the APB prescaler equals 1, the timer clock frequencies are set to the same
         // frequency as that of the APB domain.
@@ -1581,11 +1581,11 @@ impl Clocks {
     cfg_if! {
         if #[cfg(feature = "g0")] {
             // On G0, a single APB prescaler is used for both APB1 and APB2.
-            pub fn apb2(&self) -> u32 {
+            pub const fn apb2(&self) -> u32 {
                 self.hclk() / self.apb1_prescaler.value() as u32
             }
 
-            pub fn apb2_timer(&self) -> u32 {
+            pub const fn apb2_timer(&self) -> u32 {
                 if let ApbPrescaler::Div1 = self.apb1_prescaler {
                     self.apb2()
                 } else {
@@ -1595,11 +1595,11 @@ impl Clocks {
 
         } else {
             /// Get the APB2 peipheral clock frequency, in hz.
-            pub fn apb2(&self) -> u32 {
+            pub const fn apb2(&self) -> u32 {
                 self.hclk() / self.apb2_prescaler.value() as u32
             }
 
-            pub fn apb2_timer(&self) -> u32 {
+            pub const fn apb2_timer(&self) -> u32 {
                 if let ApbPrescaler::Div1 = self.apb2_prescaler {
                     self.apb2()
                 } else {
@@ -1611,7 +1611,7 @@ impl Clocks {
 
     /// Get the SAI audio clock frequency, in hz
     #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "c0")))]
-    pub fn sai1_speed(&self) -> u32 {
+    pub const fn sai1_speed(&self) -> u32 {
         let pll_src = match self.input_src {
             InputSrc::Msi(msi_rng) => PllSrc::Msi(msi_rng),
             InputSrc::Hsi => PllSrc::Hsi,
