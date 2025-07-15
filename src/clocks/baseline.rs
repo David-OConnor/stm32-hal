@@ -17,7 +17,7 @@ use crate::{
 
 // todo: WB is missing second LSI2, and perhaps other things.
 
-#[cfg(not(any(feature = "g0", feature = "wl")))]
+#[cfg(not(any(feature = "g0", feature = "wl", feature = "c0")))]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum Clk48Src {
@@ -90,10 +90,37 @@ pub enum StopWuck {
 }
 
 cfg_if! {
-    if #[cfg(feature = "g0")] {
+    if #[cfg(feature = "c0")] {
         #[derive(Clone, Copy, PartialEq)]
-            /// Clock input source, also known as system clock switch. Sets RCC_CFGR register, SW field.
-            pub enum InputSrc {
+        /// Clock input source, also known as system clock switch. Sets RCC_CFGR register, SW field.
+        pub enum InputSrc {
+            /// Called "hsisys" in the RM; keeping it as Hsi here for consistency.
+            Hsi,
+            Hse(u32), // freq in Mhz,
+            #[cfg(feature = "c071")]
+            HsiUsb48,
+            Lsi,
+            Lse,
+        }
+
+        impl InputSrc {
+            /// Required due to numerical value on non-uniform discrim being experimental.
+            /// (ie, can't set on `Pll(Pllsrc)`. G0 RM, section 5.4.3.
+            pub fn bits(&self) -> u8 {
+                match self {
+                    Self::Hsi => 0b000,
+                    Self::Hse(_) => 0b001,
+                    #[cfg(feature = "c071")]
+                    Self::HsiUsb48 => 0b010,
+                    Self::Lsi => 0b011,
+                    Self::Lse => 0b100,
+                }
+            }
+        }
+    } else if #[cfg(feature = "g0")] {
+        #[derive(Clone, Copy, PartialEq)]
+        /// Clock input source, also known as system clock switch. Sets RCC_CFGR register, SW field.
+        pub enum InputSrc {
             Hsi,
             Hse(u32), // freq in Mhz,
             Pll(PllSrc),
@@ -187,7 +214,7 @@ enum WaitState {
     W5 = 5,
 }
 
-#[cfg(not(any(feature = "g0", feature = "g4")))]
+#[cfg(not(any(feature = "g0", feature = "g4", feature = "c0")))]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 /// Specify the range of MSI - this is effectively it's oscillation speed.
@@ -206,7 +233,7 @@ pub enum MsiRange {
     R48M = 0b1011,
 }
 
-#[cfg(not(any(feature = "g0", feature = "g4")))]
+#[cfg(not(any(feature = "g0", feature = "g4", feature = "c0")))]
 impl MsiRange {
     // Calculate the approximate frequency, in Hz.
     fn value(&self) -> u32 {
@@ -559,7 +586,6 @@ pub enum LpUartSrc {
 /// implementation, then modify as required, referencing your RM's clock tree,
 /// or Stm32Cube IDE's interactive clock manager. Apply settings by running `.setup()`.
 pub struct Clocks {
-    #[cfg(not(feature = "c0"))]
     /// The input source for the system and peripheral clocks. Eg HSE, HSI, PLL etc
     pub input_src: InputSrc,
     /// Enable and speed status for the main PLL
@@ -588,7 +614,7 @@ pub struct Clocks {
     pub apb2_prescaler: ApbPrescaler,
     // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     // frees up the pin for use as GPIO.
-    #[cfg(not(any(feature = "g0", feature = "wl")))]
+    #[cfg(not(any(feature = "g0", feature = "wl", feature = "c0")))]
     /// The input source for the 48Mhz clock used by USB.
     pub clk48_src: Clk48Src,
     #[cfg(not(any(feature = "f", feature = "l", feature = "g0")))]
@@ -597,7 +623,7 @@ pub struct Clocks {
     /// frees up the pin for use as GPIO.
     pub hse_bypass: bool,
     pub security_system: bool,
-    #[cfg(not(any(feature = "g0", feature = "wl")))]
+    #[cfg(not(any(feature = "g0", feature = "wl", feature = "c0")))]
     /// Enable the HSI48. For L4, this is only applicable for some devices.
     pub hsi48_on: bool,
     #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
@@ -830,7 +856,6 @@ impl Clocks {
             };
         }
 
-        #[cfg(not(feature = "c0"))]
         // Enable oscillators, and wait until ready.
         match self.input_src {
             #[cfg(msi)]
@@ -875,6 +900,7 @@ impl Clocks {
                     wait_hang!(i);
                 }
             }
+            #[cfg(not(feature = "c0"))]
             InputSrc::Pll(pll_src) => {
                 // todo: PLL setup here is DRY with the HSE, HSI, and MSI setup above.
                 match pll_src {
@@ -929,6 +955,28 @@ impl Clocks {
                     wait_hang!(i);
                 }
             }
+            #[cfg(feature = "c0")]
+            InputSrc::Lsi => {
+                rcc.csr2().modify(|_, w| w.lsion().bit(true));
+
+                i = 0;
+                while rcc.csr2().read().lsirdy().bit_is_clear() {
+                    wait_hang!(i);
+                }
+            }
+            #[cfg(feature = "c0")]
+            InputSrc::Lse => {
+                rcc.csr1().modify(|_, w| w.lseon().bit(true));
+
+                i = 0;
+                while rcc.csr1().read().lserdy().bit_is_clear() {
+                    wait_hang!(i);
+                }
+            }
+            #[cfg(feature = "c071")]
+            InputSrc::HsiUsb48 => {
+                // todo: A/R
+            }
         }
 
         rcc.cr().modify(|_, w| {
@@ -940,7 +988,6 @@ impl Clocks {
         });
 
         rcc.cfgr().modify(|_, w| unsafe {
-            #[cfg(not(feature = "c0"))]
             w.sw().bits(self.input_src.bits());
             w.hpre().bits(self.hclk_prescaler as u8);
             #[cfg(not(any(feature = "g0", feature = "c0")))]
@@ -1078,11 +1125,22 @@ impl Clocks {
         if self.hsi48_on {
             rcc.crrcr().modify(|_, w| w.hsi48on().bit(true));
             i = 0;
-            #[cfg(not(feature = "c0"))]
             while rcc.crrcr().read().hsi48rdy().bit_is_clear() {
                 wait_hang!(i);
             }
         }
+
+        // todo: PAC error? c071 should have usb48. Missing though.
+
+        // #[cfg(feature = "c071")]
+        // if self.hsi48_on {
+        //     rcc.cr().modify(|_, w| w.hsi48usbon().bit(true));
+        //     i = 0;
+        //     #[cfg(not(feature = "c0"))]
+        //     while rcc.cr().read().hsi48usbon().bit_is_clear() {
+        //         wait_hang!(i);
+        //     }
+        // }
 
         // This modification is separate from the other CCIPR writes due to awkward
         // feature-gate code
@@ -1141,9 +1199,9 @@ impl Clocks {
                 }
 
             } else {
-                #[cfg(not(feature = "c0"))]
                 match self.input_src {
                     InputSrc::Hsi => (),
+                    #[cfg(not(feature = "c0"))]
                     InputSrc::Pll(pll_src) => {
                         match pll_src {
                         PllSrc::Hsi => (),
@@ -1184,7 +1242,6 @@ impl Clocks {
         // from stop or standby mode. This assumes we're on a clean init,
         // or waking up from stop mode etc.
 
-        #[cfg(not(feature = "c0"))]
         match self.input_src {
             InputSrc::Hse(_) => {
                 rcc.cr().modify(|_, w| w.hseon().bit(true));
@@ -1196,6 +1253,7 @@ impl Clocks {
                 rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
             }
+            #[cfg(not(feature = "c0"))]
             InputSrc::Pll(pll_src) => {
                 // todo: DRY with above.
                 match pll_src {
@@ -1241,22 +1299,17 @@ impl Clocks {
                     PllSrc::None => (),
                 }
 
-                #[cfg(not(feature = "c0"))]
                 rcc.cr().modify(|_, w| w.pllon().clear_bit());
                 let mut i = 0;
-                #[cfg(not(feature = "c0"))]
                 while rcc.cr().read().pllrdy().bit_is_set() {
                     wait_hang!(i);
                 }
 
-                #[cfg(not(feature = "c0"))]
                 rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
 
-                #[cfg(not(feature = "c0"))]
                 rcc.cr().modify(|_, w| w.pllon().bit(true));
                 let mut i = 0;
-                #[cfg(not(feature = "c0"))]
                 while rcc.cr().read().pllrdy().bit_is_clear() {
                     wait_hang!(i);
                 }
@@ -1318,6 +1371,16 @@ impl Clocks {
                 rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
             }
+            #[cfg(feature = "c0")]
+            InputSrc::Lsi => {
+                rcc.csr2().modify(|_, w| w.lsion().bit(true));
+                let mut i = 0;
+                while rcc.csr2().read().lsirdy().bit_is_clear() {
+                    wait_hang!(i);
+                }
+                rcc.cfgr()
+                    .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
+            }
             #[cfg(feature = "g0")]
             InputSrc::Lse => {
                 rcc.bdcr().modify(|_, w| w.lseon().bit(true));
@@ -1327,6 +1390,20 @@ impl Clocks {
                 }
                 rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
+            }
+            #[cfg(feature = "c0")]
+            InputSrc::Lse => {
+                rcc.csr1().modify(|_, w| w.lseon().bit(true));
+                let mut i = 0;
+                while rcc.csr1().read().lserdy().bit_is_clear() {
+                    wait_hang!(i);
+                }
+                rcc.cfgr()
+                    .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
+            }
+            #[cfg(feature = "c071")]
+            InputSrc::HsiUsb48 => {
+                // todo: A/R
             }
         }
 
@@ -1405,10 +1482,10 @@ impl Clocks {
         while rcc.cr().read().msirdy().bit_is_clear() {}
     }
 
-    #[cfg(not(feature = "c0"))]
     /// Get the sysclock frequency, in hz.
     pub fn sysclk(&self) -> u32 {
         match self.input_src {
+            #[cfg(not(feature = "c0"))]
             InputSrc::Pll(pll_src) => {
                 let input_freq = match pll_src {
                     #[cfg(not(any(feature = "g0", feature = "g4")))]
@@ -1421,20 +1498,17 @@ impl Clocks {
                     / self.pll.divr.value() as u32
             }
 
-            #[cfg(not(any(feature = "g0", feature = "g4")))]
+            #[cfg(msi)]
             InputSrc::Msi(range) => range.value() as u32,
             InputSrc::Hsi => 16_000_000,
             InputSrc::Hse(freq) => freq,
-            #[cfg(feature = "g0")]
+            #[cfg(any(feature = "g0", feature = "c0"))]
             InputSrc::Lsi => 32_000,
-            #[cfg(feature = "g0")]
+            #[cfg(any(feature = "g0", feature = "c0"))]
             InputSrc::Lse => 32_768,
+            #[cfg(feature = "c071")]
+            InputSrc::HsiUsb48 => 48_000_000,
         }
-    }
-
-    #[cfg(feature = "c0")]
-    pub fn sysclk(&self) -> u32 {
-        48_000 // todo A/R.
     }
 
     /// Check if the PLL is enabled. This is useful if checking whether to re-enable the PLL
@@ -1462,21 +1536,26 @@ impl Clocks {
 
     cfg_if! {
         if #[cfg(any(feature = "g0", feature = "wl"))] {
-        pub fn usb(&self) -> u32 {
-            unimplemented!("No USB on G0 or WL");
-        }
-        } else if #[cfg(feature = "g4")] {
+            pub fn usb(&self) -> u32 {
+                unimplemented!("No USB on G0 or WL");
+            }
+        } else if #[cfg(any(feature = "g4", feature = "c071"))] {
             pub fn usb(&self) -> u32 {
                 48_000_000 // Uses hsi48.
             }
-    } else { // L4 and L5
-    pub fn usb(&self) -> u32 {
-        match self.clk48_src {
-            Clk48Src::Hsi48 => 48_000_000,
-                Clk48Src::PllSai1 => unimplemented!(),
-                Clk48Src::Pllq => unimplemented!(),
-                Clk48Src::Msi => unimplemented!(),
-            }
+         // todo: Handle c031/11
+        } else { // L4 and L5
+            pub fn usb(&self) -> u32 {
+
+                #[cfg(not(feature = "c0"))]
+                match self.clk48_src {
+                    Clk48Src::Hsi48 => 48_000_000,
+                    Clk48Src::PllSai1 => unimplemented!(),
+                    Clk48Src::Pllq => unimplemented!(),
+                    Clk48Src::Msi => unimplemented!(),
+                }
+                #[cfg(feature = "c0")]
+                48_000_000 // todo ?
             }
         }
     }
@@ -1665,6 +1744,8 @@ impl Default for Clocks {
         Self {
             #[cfg(not(feature = "c0"))]
             input_src: InputSrc::Pll(PllSrc::Hsi),
+            #[cfg(feature = "c0")]
+            input_src: InputSrc::Hsi,
             #[cfg(not(feature = "c0"))]
             pll: PllCfg::default(),
             #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "c0")))]
@@ -1681,13 +1762,13 @@ impl Default for Clocks {
             apb1_prescaler: ApbPrescaler::Div1,
             #[cfg(not(feature = "g0"))]
             apb2_prescaler: ApbPrescaler::Div1,
-            #[cfg(not(any(feature = "g0", feature = "wl")))]
+            #[cfg(not(any(feature = "g0", feature = "wl", feature = "c0")))]
             clk48_src: Clk48Src::Hsi48,
             #[cfg(not(any(feature = "f", feature = "l", feature = "g0")))]
             lpuart_src: LpUartSrc::Pclk,
             hse_bypass: false,
             security_system: false,
-            #[cfg(not(any(feature = "g0", feature = "wl")))]
+            #[cfg(not(any(feature = "g0", feature = "wl", feature = "c0")))]
             hsi48_on: false,
             #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
             stop_wuck: StopWuck::Msi,
