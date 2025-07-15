@@ -437,7 +437,7 @@ impl RccPeriph for pac::I2C1 {
     }
 }
 
-#[cfg(not(any(feature = "wb", feature = "f3x4", feature = "c0")))]
+#[cfg(not(any(feature = "wb", feature = "f3x4", feature = "c011", feature = "c031")))]
 impl RccPeriph for pac::I2C2 {
     fn en_reset(rcc: &RegisterBlock) {
         rcc_en_reset!(apb1, i2c2, rcc);
@@ -509,7 +509,8 @@ impl RccPeriph for pac::SPI1 {
     feature = "f3x4",
     feature = "wb",
     feature = "wl",
-    feature = "c0",
+    feature = "c011",
+    feature = "c031",
     feature = "g061"
 )))]
 impl RccPeriph for pac::SPI2 {
