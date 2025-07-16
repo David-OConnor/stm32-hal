@@ -40,6 +40,21 @@ cfg_if! {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, defmt::Format)]
+/// Possible error states for flash operations.
+pub enum FlashError {
+    /// Flash controller is not done yet
+    Busy,
+    /// Error detected (by command execution, or because no command could be executed)
+    Illegal,
+    /// Set during read if ECC decoding logic detects correctable or uncorrectable error
+    EccError,
+    /// Page number is out of range
+    PageOutOfRange,
+    /// (Legal) command failed
+    Failure,
+}
+
 pub struct Flash {
     pub regs: FLASH,
     #[cfg(any(

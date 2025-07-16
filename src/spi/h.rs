@@ -4,9 +4,10 @@ use core::{cell::UnsafeCell, ops::Deref, ptr};
 
 use super::*;
 use crate::{
-    MAX_ITERS, check_errors,
+    check_errors,
+    error::{Error, Result},
     pac::{self, RCC},
-    util::RccPeriph,
+    util::{RccPeriph, bounded_loop},
 };
 
 // Depth of FIFO to use. See RM0433 Rev 7, Table 409. Note that 16 is acceptable on this MCU,
@@ -167,22 +168,28 @@ where
     /// paragraph. It is important to do this before the system enters a low-power mode when the
     /// peripheral clock is stopped. Ongoing transactions can be corrupted in this case. In some
     /// modes the disable procedure is the only way to stop continuous communication running.
-    pub fn disable(&mut self) {
+    pub fn disable(&mut self) -> Result<()> {
         // The correct disable procedure is (except when receive only mode is used):
         // 1. Wait until TXC=1 and/or EOT=1 (no more data to transmit and last data frame sent).
         // When CRC is used, it is sent automatically after the last data in the block is processed.
         // TXC/EOT is set when CRC frame is completed in this case. When a transmission is
         // suspended the software has to wait till CSTART bit is cleared.
-        while self.regs.sr().read().txc().bit_is_clear() {}
-        while self.regs.sr().read().eot().bit_is_clear() {}
+        bounded_loop!(
+            self.regs.sr().read().txc().bit_is_clear()
+                && self.regs.sr().read().eot().bit_is_clear(),
+            Error::RegisterUnchanged
+        );
         // 2. Read all RxFIFO data (until RXWNE=0 and RXPLVL=00)
-        while self.regs.sr().read().rxwne().bit_is_set()
-            || self.regs.sr().read().rxplvl().bits() != 0
-        {
-            unsafe { ptr::read_volatile(&self.regs.rxdr() as *const _ as *const u8) };
-        }
+        bounded_loop!(
+            self.regs.sr().read().rxwne().bit_is_set()
+                || self.regs.sr().read().rxplvl().bits() != 0,
+            Error::RegisterUnchanged,
+            { unsafe { ptr::read_volatile(&self.regs.rxdr() as *const _ as *const ()) } }
+        );
         // 3. Disable the SPI (SPE=0).
         self.regs.cr1().modify(|_, w| w.spe().clear_bit());
+
+        Ok(())
     }
 
     // todo: Temp C+P from h7xx hal while troubleshooting.
@@ -190,17 +197,14 @@ where
     ///
     /// * Assumes the transaction has started (CSTART handled externally)
     /// * Assumes at least one word has already been written to the Tx FIFO
-    fn exchange(&mut self, word: u8) -> Result<u8, SpiError> {
+    fn exchange(&mut self, word: u8) -> Result<u8> {
         let status = self.regs.sr().read();
         check_errors!(status);
 
-        let mut i = 0;
-        while !self.regs.sr().read().dxp().is_available() {
-            i += 1;
-            if i >= MAX_ITERS {
-                return Err(SpiError::Hardware);
-            }
-        }
+        bounded_loop!(
+            !self.regs.sr().read().dxp().is_available(),
+            Error::RegisterUnchanged
+        );
 
         // NOTE(write_volatile/read_volatile) write/read only 1 word
         #[allow(invalid_reference_casting)]
@@ -215,23 +219,20 @@ where
     ///
     /// Assumes the transaction has started (CSTART handled externally)
     /// Assumes at least one word has already been written to the Tx FIFO
-    pub fn read(&mut self) -> Result<u8, SpiError> {
+    pub fn read(&mut self) -> Result<u8> {
         check_errors!(self.regs.sr().read());
 
-        let mut i = 0;
-        while !self.regs.sr().read().rxp().is_not_empty() {
-            i += 1;
-            if i >= MAX_ITERS {
-                return Err(SpiError::Hardware);
-            }
-        }
+        bounded_loop!(
+            !self.regs.sr().read().rxp().is_not_empty(),
+            Error::RegisterUnchanged
+        );
 
         // NOTE(read_volatile) read only 1 word
         return Ok(unsafe { ptr::read_volatile(&self.regs.rxdr() as *const _ as *const u8) });
     }
 
     /// Write multiple bytes on the SPI line, blocking until complete.
-    pub fn write(&mut self, write_words: &[u8]) -> Result<(), SpiError> {
+    pub fn write(&mut self, write_words: &[u8]) -> Result<()> {
         // both buffers are the same length
         if write_words.is_empty() {
             return Ok(());
@@ -241,7 +242,7 @@ where
         let len = write_words.len();
         let mut write = write_words.iter();
         for _ in 0..core::cmp::min(FIFO_LEN, len) {
-            self.send(*write.next().unwrap());
+            self.send(unsafe { *write.next().unwrap_unchecked() })?;
         }
 
         // Continue filling write FIFO and emptying read FIFO
@@ -258,7 +259,7 @@ where
     }
 
     /// Read multiple bytes to a buffer, blocking until complete.
-    pub fn transfer(&mut self, words: &mut [u8]) -> Result<(), SpiError> {
+    pub fn transfer(&mut self, words: &mut [u8]) -> Result<()> {
         if words.is_empty() {
             return Ok(());
         }
@@ -266,7 +267,7 @@ where
         // Fill the first half of the write FIFO
         let len = words.len();
         for i in 0..core::cmp::min(FIFO_LEN, len) {
-            self.send(words[i]).ok();
+            self.send(words[i])?;
         }
 
         for i in FIFO_LEN..len + FIFO_LEN {
@@ -284,7 +285,7 @@ where
         Ok(())
     }
 
-    fn send(&mut self, word: u8) -> Result<(), SpiError> {
+    fn send(&mut self, word: u8) -> Result<()> {
         check_errors!(self.regs.sr().read());
 
         // NOTE(write_volatile) see note above
@@ -308,7 +309,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<()> {
         // todo: Accept u16 and u32 words too.
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
@@ -331,7 +332,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
 
             dma::DmaPeriph::Dma2 => {
@@ -346,12 +347,14 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
         }
 
         self.regs.cr1().modify(|_, w| w.spe().bit(true));
         self.regs.cr1().modify(|_, w| w.cstart().bit(true)); // Must be separate from SPE enable.
+
+        Ok(())
     }
 
     pub unsafe fn write_dma(
@@ -360,7 +363,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<()> {
         // Static write and read buffers?
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
@@ -397,7 +400,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
             dma::DmaPeriph::Dma2 => {
                 let mut regs = unsafe { &(*pac::DMA2::ptr()) };
@@ -411,7 +414,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
         }
 
@@ -421,6 +424,8 @@ where
         // 4. Enable the SPI by setting the SPE bit.
         self.regs.cr1().modify(|_, w| w.spe().bit(true));
         self.regs.cr1().modify(|_, w| w.cstart().bit(true)); // Must be separate from SPE enable.
+
+        Ok(())
     }
 
     /// Transfer data from DMA; this is the basic reading API, using both write and read transfers:
@@ -434,7 +439,7 @@ where
         channel_cfg_write: ChannelCfg,
         channel_cfg_read: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<()> {
         // todo: Accept u16 and u32 words too.
         let (ptr_write, len_write) = (buf_write.as_ptr(), buf_write.len());
         let (ptr_read, len_read) = (buf_read.as_mut_ptr(), buf_read.len());
@@ -466,7 +471,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_write,
-                );
+                )?;
 
                 dma::cfg_channel(
                     &mut regs,
@@ -478,7 +483,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_read,
-                );
+                )?;
             }
 
             dma::DmaPeriph::Dma2 => {
@@ -493,7 +498,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_write,
-                );
+                )?;
 
                 dma::cfg_channel(
                     &mut regs,
@@ -505,7 +510,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_read,
-                );
+                )?;
             }
         }
 
@@ -513,6 +518,8 @@ where
 
         self.regs.cr1().modify(|_, w| w.spe().bit(true));
         self.regs.cr1().modify(|_, w| w.cstart().bit(true)); // Must be separate from SPE enable.
+
+        Ok(())
     }
 
     /// Enable an interrupt.

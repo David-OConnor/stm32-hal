@@ -24,7 +24,7 @@ use crate::pac::sai;
 use crate::pac::sai1 as sai;
 #[cfg(feature = "h7")]
 use crate::pac::sai4 as sai;
-use crate::{clocks::Clocks, pac::RCC, util::RccPeriph};
+use crate::{clocks::Clocks, error::Result, pac::RCC, util::RccPeriph};
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
@@ -978,7 +978,8 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         dma_channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma: &mut Dma<D>,
-    ) where
+    ) -> Result<()>
+    where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         let (ptr, len) = (buf.as_ptr(), buf.len());
@@ -1037,7 +1038,8 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
             _ => dma::DataSize::S32,
         };
 
-        dma.cfg_channel(
+        dma::cfg_channel(
+            dma,
             dma_channel,
             periph_addr,
             ptr as u32,
@@ -1046,7 +1048,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
             datasize,
             datasize,
             channel_cfg,
-        );
+        )
 
         // 4. Enable the SAI interface. (handled by `Sai::enable() in user code`.)
     }
@@ -1064,7 +1066,8 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         dma_channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma: &mut Dma<D>,
-    ) where
+    ) -> Result<()>
+    where
         D: Deref<Target = dma_p::RegisterBlock>,
     {
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
@@ -1110,7 +1113,8 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
             _ => dma::DataSize::S32,
         };
 
-        dma.cfg_channel(
+        dma::cfg_channel(
+            dma,
             dma_channel,
             periph_addr,
             ptr as u32,
@@ -1119,7 +1123,7 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
             datasize,
             datasize,
             channel_cfg,
-        );
+        )
 
         // 4. Enable the SAI interface. (handled by `Sai::enable() in user code`.)
     }

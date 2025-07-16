@@ -11,6 +11,11 @@ use crate::pac;
 #[cfg(not(feature = "h7"))]
 use crate::pac::PWR;
 
+use crate::{
+    error::{Error, Result},
+    util::bounded_loop,
+};
+
 // See L4 Reference Manual section 5.3.6. The values correspond to the PWR_CR1 LPMS bits.
 // todo PWR_CR1, LPMS field.
 #[derive(Clone, Copy)]
@@ -27,7 +32,7 @@ pub enum StopMode {
 /// You must select an MSI speed of 2Mhz or lower. Note that you may need to adjust peripheral
 /// implementations that rely on system clock or APB speed.
 #[cfg(any(feature = "l4", feature = "l5"))]
-pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) {
+pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) -> Result<()> {
     let rcc = unsafe { &(*pac::RCC::ptr()) };
     let pwr = unsafe { &(*PWR::ptr()) };
 
@@ -35,25 +40,31 @@ pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) {
     if speed as u8 > MsiRange::R2M as u8 {
         panic!("Selected Msi speed must be 2Mhz or lower to enter use low power run.")
     }
-    clocks.change_msi_speed(speed);
+    clocks.change_msi_speed(speed)?;
     // LPR = 1
     pwr.cr1().modify(|_, w| w.lpr().bit(true));
+
+    Ok(())
 }
 
 /// L4 RM, table 24
 /// Return to normal run mode from low-power run. Requires you to increase the clock speed
 /// manually after running this.
 #[cfg(any(feature = "l4", feature = "l5"))]
-pub fn return_from_low_power_run() {
+pub fn return_from_low_power_run() -> Result<()> {
     let pwr = unsafe { &(*PWR::ptr()) };
 
     // LPR = 0
     pwr.cr1().modify(|_, w| w.lpr().clear_bit());
 
     // Wait until REGLPF = 0
-    while pwr.sr2().read().reglpf().bit_is_set() {}
+    bounded_loop!(
+        pwr.sr2().read().reglpf().bit_is_set(),
+        Error::RegisterUnchanged
+    );
 
     // Increase the system clock frequency
+    Ok(())
 }
 
 /// Place the system in sleep now mode. To enter `low-power sleep now`, enter low power mode
