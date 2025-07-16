@@ -115,9 +115,10 @@ impl_from_error!(QspiError);
 
 #[cfg(feature = "embedded_hal")]
 mod embedded_io_impl {
-    use super::{Error, I2cError, UsartError};
     use embedded_hal::i2c::{Error as I2cEhError, ErrorKind as I2cErrorKind, NoAcknowledgeSource};
     use embedded_io::{Error as IoError, ErrorKind as IoErrorKind};
+
+    use super::{Error, I2cError, UsartError};
 
     // Other,
     // NotFound,

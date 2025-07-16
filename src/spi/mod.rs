@@ -18,17 +18,16 @@ use cfg_if::cfg_if;
 
 cfg_if! {
     if #[cfg(feature = "c0")] { // pac bug?
-       use crate::{pac::{self, dma as dma1, DMA as DMA1}, util::rcc_en_reset};
+       use crate::{pac::{self, DMA as DMA1}};
     } else {
         use crate::pac::{self, DMA1};
     }
 }
-use crate::{error::Result, util::RccPeriph};
-
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
 #[cfg(not(any(feature = "f4", feature = "l552")))]
-use crate::dma::{self, ChannelCfg, DmaChannel}; // todo temp
+use crate::dma::{self, ChannelCfg, DmaChannel};
+use crate::{error::Result, util::RccPeriph}; // todo temp
 
 #[macro_export]
 macro_rules! check_errors {

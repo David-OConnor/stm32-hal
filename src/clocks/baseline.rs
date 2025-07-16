@@ -8,15 +8,14 @@ use cfg_if::cfg_if;
 
 #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]
 use crate::pac::CRS;
+#[cfg(not(any(feature = "wb", feature = "wl")))]
+use crate::util::rcc_en_reset;
 use crate::{
     clocks::RccError,
     error::{Error, Result},
     pac::{self, FLASH, RCC},
     util::bounded_loop,
 };
-
-#[cfg(not(any(feature = "wb", feature = "wl")))]
-use crate::util::rcc_en_reset;
 
 // todo: WB is missing second LSI2, and perhaps other things.
 
@@ -27,11 +26,20 @@ pub enum Clk48Src {
     // Note: On G4 which only has HSI48 and PLLQ, PLLSai1 and MSI are marked "reserved", and
     // The values it has are the same as on L4/5.
     Hsi48 = 0b00, // Not valid for some L4 variants.
-    #[cfg(not(feature = "g4"))]
+    #[cfg(feature = "g4")]
     PllSai1 = 0b01, // Not avail on G4
     Pllq = 0b10,
-    #[cfg(not(feature = "g4"))]
+    #[cfg(msi)]
     Msi = 0b11,
+}
+
+#[cfg(feature = "c071")]
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// Sets `RCC_CCIPR2` register, `USBSEL` field.
+pub enum Clk48Src {
+    HsiUsb48 = 0,
+    Hse = 1,
 }
 
 #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "g4"))]
@@ -617,7 +625,7 @@ pub struct Clocks {
     pub apb2_prescaler: ApbPrescaler,
     // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     // frees up the pin for use as GPIO.
-    #[cfg(not(any(feature = "g0", feature = "wl", feature = "c0")))]
+    #[cfg(not(any(feature = "g0", feature = "wl", feature = "c011", feature = "c031")))]
     /// The input source for the 48Mhz clock used by USB.
     pub clk48_src: Clk48Src,
     #[cfg(not(any(feature = "f", feature = "l", feature = "g0")))]
@@ -1172,6 +1180,12 @@ impl Clocks {
         rcc.ccipr1()
             .modify(|_, w| unsafe { w.clk48msel().bits(self.clk48_src as u8) });
 
+        #[cfg(feature = "c071")]
+        // todo: QC this single bit field the PAC expects. Doesn't feel right.
+        // (vals are 0 or 1 in the DS; not true or false.)
+        rcc.ccipr2()
+            .modify(|_, w| unsafe { w.usbsel().bit(self.clk48_src as u8 != 0) });
+
         #[cfg(not(any(feature = "f", feature = "l", feature = "g0", feature = "c0")))]
         rcc.ccipr()
             // todo: Don't hard-code.
@@ -1428,7 +1442,7 @@ impl Clocks {
         Ok(())
     }
 
-    #[cfg(any(feature = "l4", feature = "l5"))]
+    #[cfg(msi)]
     /// Enables MSI, and configures it at 48Mhz, and trims it using the LSE. This is useful when using it as
     /// the USB clock, ie with `clk48_src: Clk48Src::Msi`. Don't use this if using MSI for the input
     /// source or PLL source. You may need to re-run this after exiting `stop` mode. Only works for USB
@@ -1546,18 +1560,20 @@ impl Clocks {
                 48_000_000 // Uses hsi48.
             }
          // todo: Handle c031/11
+        } else if #[cfg(feature = "c071")] {
+            match self.clk48_src {
+                Clk48Src::HsiUsb48 => 48_000_000,
+                Clk48Src::Hse => unimplemented!(),
+            }
         } else { // L4 and L5
+            #[cfg(not(feature = "c0"))]
             pub const fn usb(&self) -> u32 {
-
-                #[cfg(not(feature = "c0"))]
                 match self.clk48_src {
                     Clk48Src::Hsi48 => 48_000_000,
                     Clk48Src::PllSai1 => unimplemented!(),
                     Clk48Src::Pllq => unimplemented!(),
                     Clk48Src::Msi => unimplemented!(),
                 }
-                #[cfg(feature = "c0")]
-                48_000_000 // todo ?
             }
         }
     }
@@ -1765,6 +1781,8 @@ impl Default for Clocks {
             apb2_prescaler: ApbPrescaler::Div1,
             #[cfg(not(any(feature = "g0", feature = "wl", feature = "c0")))]
             clk48_src: Clk48Src::Hsi48,
+            #[cfg(feature = "c071")]
+            clk48_src: Clk48Src::HsiUsb48,
             #[cfg(not(any(feature = "f", feature = "l", feature = "g0")))]
             lpuart_src: LpUartSrc::Pclk,
             hse_bypass: false,

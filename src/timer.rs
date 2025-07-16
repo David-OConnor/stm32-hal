@@ -8,11 +8,6 @@
 
 #[cfg(feature = "monotonic")]
 use core;
-use core::{
-    sync::atomic::{AtomicU32, Ordering},
-    time::Duration,
-};
-
 #[cfg(not(any(
     feature = "f401",
     feature = "f410",
@@ -26,13 +21,16 @@ use core::{
     feature = "wl"
 )))]
 use core::ops::Deref;
+use core::{
+    sync::atomic::{AtomicU32, Ordering},
+    time::Duration,
+};
 
 use cfg_if::cfg_if;
+use num_traits::float::FloatCore; // To round floats.
 use paste::paste;
 #[cfg(feature = "monotonic")]
 use rtic_monotonic::Monotonic;
-
-use num_traits::float::FloatCore; // To round floats.
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
@@ -42,15 +40,6 @@ use crate::dma::{self, ChannelCfg, DmaChannel};
 use crate::pac::DMA as DMA1;
 #[cfg(not(feature = "c0"))]
 use crate::pac::DMA1;
-// todo: LPTIM (low-power timers) and HRTIM (high-resolution timers). And Advanced control functionality
-use crate::{
-    clocks::Clocks,
-    error::{Error, Result},
-    instant::Instant,
-    pac::{self, RCC},
-    util::rcc_en_reset,
-};
-
 #[cfg(not(any(
     feature = "f401",
     feature = "f410",
@@ -60,10 +49,20 @@ use crate::{
     feature = "g041",
     feature = "g070",
     feature = "g030",
+    feature = "g051",
+    feature = "c0",
     feature = "wb",
     feature = "wl"
 )))]
 use crate::util::RccPeriph;
+// todo: LPTIM (low-power timers) and HRTIM (high-resolution timers). And Advanced control functionality
+use crate::{
+    clocks::Clocks,
+    error::{Error, Result},
+    instant::Instant,
+    pac::{self, RCC},
+    util::rcc_en_reset,
+};
 
 // This `TICK_OVERFLOW_COUNT` must be incremented in firmware in the timer's update interrupt.
 pub static TICK_OVERFLOW_COUNT: AtomicU32 = AtomicU32::new(0);

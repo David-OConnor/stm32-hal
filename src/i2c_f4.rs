@@ -265,8 +265,9 @@ where
 #[cfg(feature = "embedded_hal")]
 #[cfg_attr(docsrs, doc(cfg(feature = "embedded_hal")))]
 mod embedded_hal_impl {
-    use super::*;
     use embedded_hal::i2c::{ErrorType, I2c as I2cEh, Operation, SevenBitAddress};
+
+    use super::*;
 
     impl<R> ErrorType for I2c<R>
     where

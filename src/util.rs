@@ -112,7 +112,8 @@ cfg_if! {
     }
 }
 
-pub(crate) use {cr1, isr};
+pub(crate) use cr1;
+pub(crate) use isr;
 
 /// Enables and resets peripheral clocks on various RCC registers.
 /// The first argument is a `apb1`, `ahb2` etc to specify the reg block. The second is something like

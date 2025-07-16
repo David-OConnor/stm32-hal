@@ -10,7 +10,6 @@ use crate::clocks::{Clocks, MsiRange};
 use crate::pac;
 #[cfg(not(feature = "h7"))]
 use crate::pac::PWR;
-
 use crate::{
     error::{Error, Result},
     util::bounded_loop,

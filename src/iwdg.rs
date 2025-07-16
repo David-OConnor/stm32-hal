@@ -4,7 +4,6 @@
 use crate::pac::IWDG;
 #[cfg(any(feature = "h735", feature = "h747cm4", feature = "h747cm7"))]
 use crate::pac::IWDG1 as IWDG;
-
 use crate::{
     error::{Error, Result},
     util::bounded_loop,

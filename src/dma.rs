@@ -1,12 +1,12 @@
 //! Support for the Direct Memory Access (DMA) peripheral. This module handles initialization, and transfer
 //! configuration for DMA. The `dma::cfg_channel` method is called by modules that use DMA.
 
-use cfg_if::cfg_if;
-
 use core::{
     ops::Deref,
     sync::atomic::{self, Ordering},
 };
+
+use cfg_if::cfg_if;
 
 use crate::{
     error::{Error, Result},
