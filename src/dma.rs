@@ -1,17 +1,7 @@
 //! Support for the Direct Memory Access (DMA) peripheral. This module handles initialization, and transfer
-//! configuration for DMA. The `Dma::cfg_channel` method is called by modules that use DMA.
+//! configuration for DMA. The `dma::cfg_channel` method is called by modules that use DMA.
 
-// todo: This module could be greatly simplified if [this issue](https://github.com/stm32-rs/stm32-rs/issues/610)
-// todo is addressed: Ie H7 PAC approach adopted by other modules.
-
-// todo: Use this clip or something similar to end terminate while loops, as in other modules.
-// let mut i = 0;
-// while asdf {
-//     i += 1;
-//     if i >= MAX_ITERS {
-//         return Err(Error::Hardware);
-//     }
-// }
+use cfg_if::cfg_if;
 
 use core::{
     ops::Deref,
@@ -19,32 +9,44 @@ use core::{
 };
 
 use crate::{
-    pac::{self, RCC},
-    util::rcc_en_reset,
+    error::{Error, Result},
+    pac::RCC,
+    util::bounded_loop,
 };
 
 cfg_if! {
-    if #[cfg(any(feature = "f3x4", feature = "f301", feature = "g0"))] {
-        use crate::pac::{dma1, DMA1};
-    } else if #[cfg(any(feature = "h5", feature = "c0"))] {
-        use crate::pac::{dma as dma1, DMA as DMA1};
+    if #[cfg(any(
+        feature = "f3x4",
+        feature = "f301",
+        all(feature = "g0", not(any(feature = "g0b0", feature = "g0b1", feature = "g0c1")))
+    ))] {
+        use crate::{pac::{dma1, DMA1}, util::rcc_en_reset};
     } else {
-        use crate::pac::{dma1, dma2, DMA1, DMA2};
+        use crate::{pac::{dma1, dma2, DMA1, DMA2}, util::rcc_en_reset};
     }
 }
-
-// use embedded_dma::{ReadBuffer, WriteBuffer};
-use cfg_if::cfg_if;
+// #[cfg(any(feature = "g0", feature = "wb", feature = "f3"))]
+// F4 family does not have a multipexer infront of the DMA.
 #[cfg(any(feature = "g0", feature = "g4", feature = "wl"))]
-use pac::DMAMUX;
+use crate::pac::DMAMUX;
 // todo: DMAMUX2 support (Not sure if WB has it, but H7 has both).
 #[cfg(any(feature = "l5", feature = "wb", feature = "h7"))]
-use pac::DMAMUX1 as DMAMUX;
+use crate::pac::DMAMUX1 as DMAMUX;
 #[cfg(feature = "h7")]
-use pac::DMAMUX2;
-use paste::paste;
+use crate::pac::DMAMUX2;
 
 // todo: Several sections of this are only correct for DMA1.
+
+/// Errors that can occur when performing DMA.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, defmt::Format)]
+pub enum DmaError {
+    TransferError,
+    #[cfg(any(feature = "h7", feature = "f4"))]
+    FifoError,
+    #[cfg(any(feature = "h7", feature = "f4"))]
+    DirectModeError,
+}
 
 #[derive(Clone, Copy)]
 pub enum DmaPeriph {
@@ -660,9 +662,13 @@ macro_rules! set_ccr {
         // "The register fields/bits MEM2MEM, PL[1:0], MSIZE[1:0], PSIZE[1:0], MINC, PINC, and DIR
         // are read-only when EN = 1"
         let originally_enabled = $ccr().read().en().bit_is_set();
+
         if originally_enabled {
             $ccr().modify(|_, w| w.en().clear_bit());
-            while $ccr().read().en().bit_is_set() {}
+            bounded_loop!(
+                $ccr().read().en().bit_is_set(),
+                Error::RegisterUnchanged
+            );
         }
 
         if let Circular::Enabled = $circular {
@@ -692,9 +698,9 @@ macro_rules! set_ccr {
 
         if originally_enabled {
             $ccr().modify(|_, w| w.en().bit(true));
-            while $ccr().read().en().bit_is_clear() {}
+            bounded_loop!($ccr().read().en().bit_is_clear(), Error::RegisterUnchanged);
         }
-    }
+    };
 }
 
 /// Reduce DRY over channels when configuring a channel's interrupts.
@@ -705,7 +711,7 @@ macro_rules! enable_interrupt {
         let originally_enabled = $ccr().read().en().bit_is_set();
         if originally_enabled {
             $ccr().modify(|_, w| w.en().clear_bit());
-            while $ccr().read().en().bit_is_set() {}
+            bounded_loop!($ccr().read().en().bit_is_set(), Error::RegisterUnchanged);
         }
 
         $ccr().modify(|_, w| match $interrupt_type {
@@ -716,7 +722,7 @@ macro_rules! enable_interrupt {
 
         if originally_enabled {
             $ccr().modify(|_, w| w.en().bit(true));
-            while $ccr().read().en().bit_is_clear() {}
+            bounded_loop!($ccr().read().en().bit_is_clear(), Error::RegisterUnchanged);
         }
     };
 }
@@ -729,7 +735,7 @@ macro_rules! disable_interrupt {
         let originally_disabled = $ccr().read().en().bit_is_set();
         if originally_disabled {
             $ccr().modify(|_, w| w.en().clear_bit());
-            while $ccr().read().en().bit_is_set() {}
+            bounded_loop!($ccr().read().en().bit_is_set(), Error::RegisterUnchanged);
         }
 
         $ccr().modify(|_, w| match $interrupt_type {
@@ -740,7 +746,7 @@ macro_rules! disable_interrupt {
 
         if originally_disabled {
             $ccr().modify(|_, w| w.en().bit(true));
-            while $ccr().read().en().bit_is_clear() {}
+            bounded_loop!($ccr().read().en().bit_is_clear(), Error::RegisterUnchanged);
         }
     };
 }
@@ -779,6 +785,16 @@ impl Default for ChannelCfg {
 /// Represents a Direct Memory Access (DMA) peripheral.
 pub struct Dma<D> {
     pub regs: D,
+}
+
+impl<D> Deref for Dma<D>
+where
+    D: Deref<Target = dma1::RegisterBlock>,
+{
+    type Target = dma1::RegisterBlock;
+    fn deref(&self) -> &Self::Target {
+        &self.regs
+    }
 }
 
 impl<D> Dma<D>
@@ -843,7 +859,7 @@ where
         periph_size: DataSize,
         mem_size: DataSize,
         cfg: ChannelCfg,
-    ) {
+    ) -> Result<()> {
         cfg_channel(
             &mut self.regs,
             channel,
@@ -863,13 +879,13 @@ where
     }
 
     /// Stop a DMA transfer, if in progress.
-    pub fn stop(&mut self, channel: DmaChannel) {
-        stop_internal(&mut self.regs, channel);
+    pub fn stop(&mut self, channel: DmaChannel) -> Result<()> {
+        stop_internal(&mut self.regs, channel)
     }
 
     /// Clear an interrupt flag.
-    pub fn clear_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
-        clear_interrupt_internal(&mut self.regs, channel, interrupt);
+    pub fn clear_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) -> Result<()> {
+        clear_interrupt_internal(&mut self.regs, channel, interrupt)
     }
 
     // todo: G0 removed from this fn due to a bug introduced in PAC 0.13
@@ -908,14 +924,18 @@ where
     }
 
     /// Enable a specific type of interrupt.
-    pub fn enable_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
-        enable_interrupt_internal(&mut self.regs, channel, interrupt);
+    pub fn enable_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) -> Result<()> {
+        enable_interrupt_internal(&mut self.regs, channel, interrupt)
     }
 
     /// Disable a specific type of interrupt.
     /// todo: Non-H7 version too!
     // #[cfg(feature = "h7")]
-    pub fn disable_interrupt(&mut self, channel: DmaChannel, interrupt: DmaInterrupt) {
+    pub fn disable_interrupt(
+        &mut self,
+        channel: DmaChannel,
+        interrupt: DmaInterrupt,
+    ) -> Result<()> {
         // Can only be set when the channel is disabled.
         // todo: Is this true for disabling interrupts true, re the channel must be disabled?
         #[cfg(feature = "h7")]
@@ -927,7 +947,7 @@ where
 
         if originally_enabled {
             cr.modify(|_, w| w.en().clear_bit());
-            while cr.read().en().bit_is_set() {}
+            bounded_loop!(cr.read().en().bit_is_set(), Error::RegisterUnchanged);
         }
 
         match interrupt {
@@ -946,8 +966,10 @@ where
 
         if originally_enabled {
             cr.modify(|_, w| w.en().bit(true));
-            while cr.read().en().bit_is_clear() {}
+            bounded_loop!(cr.read().en().bit_is_clear(), Error::RegisterUnchanged);
         }
+
+        Ok(())
     }
 }
 
@@ -964,27 +986,39 @@ pub fn cfg_channel<D>(
     periph_size: DataSize,
     mem_size: DataSize,
     cfg: ChannelCfg,
-) where
+) -> Result<()>
+where
     D: Deref<Target = dma1::RegisterBlock>,
 {
     cfg_if! {
         if #[cfg(feature = "h7")] {
-            let mut ch_r = regs.st(channel as usize);
+            let mut channel = regs.st(channel as usize);
         } else {
-            let mut ch_r = regs.ch(channel as usize);
+            let mut channel = regs.ch(channel as usize);
         }
     }
     // todo: The H7 sections are different, but we consolidated the comments. Figure out
     // todo what's different and fix it by following the steps
+    // FIXME: Something is not right here.
 
-    ch_r.cr().modify(|_, w| w.en().clear_bit());
-    while ch_r.cr().read().en().bit_is_set() {}
+    let originally_enabled = channel.cr().read().en().bit_is_set();
+
+    channel.cr().modify(|_, w| w.en().clear_bit());
+    bounded_loop!(
+        channel.cr().read().en().bit_is_set(),
+        Error::RegisterUnchanged
+    );
 
     // H743 RM Section 15.3.19 The following sequence is needed to configure a DMA stream x:
     // 1. Set the peripheral register address in the DMA_CPARx register.
     // The data is moved from/to this address to/from the memory after the peripheral event,
     // or after the channel is enabled in memory-to-memory mode.
-    ch_r.par().write(|w| unsafe { w.bits(periph_addr) });
+    channel.par().write(|w| unsafe { w.bits(periph_addr) });
+
+    // See the [Embedonomicon section on DMA](https://docs.rust-embedded.org/embedonomicon/dma.html)
+    // for info on why we use `compiler_fence` here:
+    // "We use Ordering::Release to prevent all preceding memory operations from being moved
+    // after [starting DMA], which performs a volatile write."
 
     atomic::compiler_fence(Ordering::SeqCst);
 
@@ -992,31 +1026,16 @@ pub fn cfg_channel<D>(
     // The data is written to/read from the memory after the peripheral event or after the
     // channel is enabled in memory-to-memory mode.
     #[cfg(any(feature = "h7", feature = "l5"))]
-    ch_r.m0ar().write(|w| unsafe { w.bits(mem_addr) });
+    channel.m0ar().write(|w| unsafe { w.bits(mem_addr) });
 
     #[cfg(not(any(feature = "h7", feature = "l5")))]
-    ch_r.mar().write(|w| unsafe { w.bits(mem_addr) });
+    channel.mar().write(|w| unsafe { w.bits(mem_addr) });
 
     // todo: m1ar too, if in double-buffer mode.
 
     // 3. Configure the total number of data to transfer in the DMA_CNDTRx register.
     // After each data transfer, this value is decremented.
-    ch_r.ndtr().write(|w| unsafe { w.bits(num_data) });
-
-    // 4. Configure the parameters listed below in the DMA_CCRx register:
-    // (These are listed below by their corresponding reg write code)
-
-    // todo: See note about sep reg writes to disable channel, and when you need to do this.
-
-    // 5. Activate the channel by setting the EN bit in the DMA_CCRx register.
-    // A channel, as soon as enabled, may serve any DMA request from the peripheral connected
-    // to this channel, or may start a memory-to-memory block transfer.
-    // Note: The two last steps of the channel configuration procedure may be merged into a single
-    // access to the DMA_CCRx register, to configure and enable the channel.
-    // When a channel is enabled and still active (not completed), the software must perform two
-    // separate write accesses to the DMA_CCRx register, to disable the channel, then to
-    // reprogram the channel for another next block transfer.
-    // Some fields of the DMA_CCRx register are read-only when the EN bit is set to 1
+    channel.ndtr().write(|w| unsafe { w.bits(num_data) });
 
     // (later): The circular mode must not be used in memory-to-memory mode. Before enabling a
     // channel in circular mode (CIRC = 1), the software must clear the MEM2MEM bit of the
@@ -1028,20 +1047,20 @@ pub fn cfg_channel<D>(
 
     // todo: Let user set mem2mem mode?
 
-    // See the [Embedonomicon section on DMA](https://docs.rust-embedded.org/embedonomicon/dma.html)
-    // for info on why we use `compiler_fence` here:
-    // "We use Ordering::Release to prevent all preceding memory operations from being moved
-    // after [starting DMA], which performs a volatile write."
-
-    let cr = &ch_r.cr();
-
-    let originally_enabled = cr.read().en().bit_is_set();
     if originally_enabled {
-        cr.modify(|_, w| w.en().clear_bit());
-        while cr.read().en().bit_is_set() {}
+        channel.cr().modify(|_, w| w.en().clear_bit());
+        bounded_loop!(
+            channel.cr().read().en().bit_is_set(),
+            Error::RegisterUnchanged
+        );
     }
 
-    cr.modify(|_, w| unsafe {
+    // 4. Configure the parameters listed below in the DMA_CCRx register:
+    // (These are listed below by their corresponding reg write code)
+    //
+    // todo: See note about sep reg writes to disable channel, and when you need to do this.
+
+    channel.cr().modify(|_, w| unsafe {
         // – the channel priority
         w.pl().bits(cfg.priority as u8);
         // – the data transfer direction
@@ -1065,15 +1084,29 @@ pub fn cfg_channel<D>(
         w.en().bit(true)
     });
 
+    // 5. Activate the channel by setting the EN bit in the DMA_CCRx register.
+    // A channel, as soon as enabled, may serve any DMA request from the peripheral connected
+    // to this channel, or may start a memory-to-memory block transfer.
+    // Note: The two last steps of the channel configuration procedure may be merged into a single
+    // access to the DMA_CCRx register, to configure and enable the channel.
+    // When a channel is enabled and still active (not completed), the software must perform two
+    // separate write accesses to the DMA_CCRx register, to disable the channel, then to
+    // reprogram the channel for another next block transfer.
+    // Some fields of the DMA_CCRx register are read-only when the EN bit is set to 1
+
     if originally_enabled {
-        cr.modify(|_, w| w.en().bit(true));
-        while cr.read().en().bit_is_clear() {}
+        channel.cr().modify(|_, w| w.en().set_bit());
+        bounded_loop!(
+            channel.cr().read().en().bit_is_clear(),
+            Error::RegisterUnchanged
+        );
     }
+
+    Ok(())
 }
 
 /// Stop a DMA transfer, if in progress.
-// #[cfg(feature = "h7")]
-fn stop_internal<D>(regs: &mut D, channel: DmaChannel)
+fn stop_internal<D>(regs: &mut D, channel: DmaChannel) -> Result<()>
 where
     D: Deref<Target = dma1::RegisterBlock>,
 {
@@ -1094,7 +1127,9 @@ where
     let cr = &regs.ch(channel as usize).cr();
 
     cr.modify(|_, w| w.en().clear_bit());
-    while cr.read().en().bit_is_set() {}
+    bounded_loop!(cr.read().en().bit_is_set(), Error::RegisterUnchanged);
+
+    Ok(())
 
     // The software waits for the transfer complete or transfer error interrupt.
     // (Handed by calling code)
@@ -1107,24 +1142,29 @@ where
 }
 
 /// Stop a DMA transfer, if in progress.
-pub fn stop(periph: DmaPeriph, channel: DmaChannel) {
+pub fn stop(periph: DmaPeriph, channel: DmaChannel) -> Result<()> {
     match periph {
         DmaPeriph::Dma1 => {
             let mut regs = unsafe { &(*DMA1::ptr()) };
-            stop_internal(&mut regs, channel);
+            stop_internal(&mut regs, channel)
         }
         #[cfg(dma2)]
         DmaPeriph::Dma2 => {
-            let mut regs = unsafe { &(*pac::DMA2::ptr()) };
-            stop_internal(&mut regs, channel);
+            let mut regs = unsafe { &(*DMA2::ptr()) };
+            stop_internal(&mut regs, channel)
         }
     }
 }
 
-fn clear_interrupt_internal<D>(regs: &mut D, channel: DmaChannel, interrupt: DmaInterrupt)
+fn clear_interrupt_internal<D>(
+    regs: &mut D,
+    channel: DmaChannel,
+    interrupt: DmaInterrupt,
+) -> Result<()>
 where
     D: Deref<Target = dma1::RegisterBlock>,
 {
+    // todo: Add waiting on the set bit(s)?
     cfg_if! {
         if #[cfg(any(feature = "g4", feature = "wl"))] {
             regs.ifcr().write(|w| match channel {
@@ -1280,9 +1320,14 @@ where
             });
         }
     }
+    Ok(())
 }
 
-fn enable_interrupt_internal<D>(regs: &mut D, channel: DmaChannel, interrupt: DmaInterrupt)
+fn enable_interrupt_internal<D>(
+    regs: &mut D,
+    channel: DmaChannel,
+    interrupt: DmaInterrupt,
+) -> Result<()>
 where
     D: Deref<Target = dma1::RegisterBlock>,
 {
@@ -1304,9 +1349,15 @@ where
             .fcr()
             .modify(|_, w| w.feie().bit(true)),
     };
+
+    Ok(())
 }
 
-fn disable_interrupt_internal<D>(regs: &mut D, channel: DmaChannel, interrupt: DmaInterrupt)
+fn disable_interrupt_internal<D>(
+    regs: &mut D,
+    channel: DmaChannel,
+    interrupt: DmaInterrupt,
+) -> Result<()>
 where
     D: Deref<Target = dma1::RegisterBlock>,
 {
@@ -1328,49 +1379,63 @@ where
             .fcr()
             .modify(|_, w| w.feie().clear_bit()),
     };
+
+    Ok(())
 }
 
 /// Enable a specific type of interrupt.
-pub fn enable_interrupt(periph: DmaPeriph, channel: DmaChannel, interrupt: DmaInterrupt) {
+pub fn enable_interrupt(
+    periph: DmaPeriph,
+    channel: DmaChannel,
+    interrupt: DmaInterrupt,
+) -> Result<()> {
     match periph {
         DmaPeriph::Dma1 => {
             let mut regs = unsafe { &(*DMA1::ptr()) };
-            enable_interrupt_internal(&mut regs, channel, interrupt);
+            enable_interrupt_internal(&mut regs, channel, interrupt)
         }
         #[cfg(dma2)]
         DmaPeriph::Dma2 => {
-            let mut regs = unsafe { &(*pac::DMA2::ptr()) };
-            enable_interrupt_internal(&mut regs, channel, interrupt);
+            let mut regs = unsafe { &(*DMA2::ptr()) };
+            enable_interrupt_internal(&mut regs, channel, interrupt)
         }
     }
 }
 
 /// Disable a specific type of interrupt.
-pub fn disable_interrupt(periph: DmaPeriph, channel: DmaChannel, interrupt: DmaInterrupt) {
+pub fn disable_interrupt(
+    periph: DmaPeriph,
+    channel: DmaChannel,
+    interrupt: DmaInterrupt,
+) -> Result<()> {
     match periph {
         DmaPeriph::Dma1 => {
             let mut regs = unsafe { &(*DMA1::ptr()) };
-            disable_interrupt_internal(&mut regs, channel, interrupt);
+            disable_interrupt_internal(&mut regs, channel, interrupt)
         }
         #[cfg(dma2)]
         DmaPeriph::Dma2 => {
-            let mut regs = unsafe { &(*pac::DMA2::ptr()) };
-            disable_interrupt_internal(&mut regs, channel, interrupt);
+            let mut regs = unsafe { &(*DMA2::ptr()) };
+            disable_interrupt_internal(&mut regs, channel, interrupt)
         }
     }
 }
 
 /// Clear an interrupt flag.
-pub fn clear_interrupt(periph: DmaPeriph, channel: DmaChannel, interrupt: DmaInterrupt) {
+pub fn clear_interrupt(
+    periph: DmaPeriph,
+    channel: DmaChannel,
+    interrupt: DmaInterrupt,
+) -> Result<()> {
     match periph {
         DmaPeriph::Dma1 => {
             let mut regs = unsafe { &(*DMA1::ptr()) };
-            clear_interrupt_internal(&mut regs, channel, interrupt);
+            clear_interrupt_internal(&mut regs, channel, interrupt)
         }
         #[cfg(dma2)]
         DmaPeriph::Dma2 => {
-            let mut regs = unsafe { &(*pac::DMA2::ptr()) };
-            clear_interrupt_internal(&mut regs, channel, interrupt);
+            let mut regs = unsafe { &(*DMA2::ptr()) };
+            clear_interrupt_internal(&mut regs, channel, interrupt)
         }
     }
 }
@@ -1394,22 +1459,17 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
     // "The mapping of resources to DMAMUX is hardwired.
     // DMAMUX is used with DMA1 and DMA2:
     // For category 3 and category 4 devices:
-    // •
-    // DMAMUX channels 0 to 7 are connected to DMA1 channels 1 to 8
-    // •
-    // DMAMUX channels 8 to 15 are connected to DMA2 channels 1 to 8
+    // • DMAMUX channels 0 to 7 are connected to DMA1 channels 1 to 8
+    // • DMAMUX channels 8 to 15 are connected to DMA2 channels 1 to 8
+    //
     // For category 2 devices:
-    // •
-    // DMAMUX channels 0 to 5 are connected to DMA1 channels 1 to 6
-    // •
-    // DMAMUX channels 6 to 11 are connected to DMA2 channels 1 to 6"
+    // • DMAMUX channels 0 to 5 are connected to DMA1 channels 1 to 6
+    // • DMAMUX channels 6 to 11 are connected to DMA2 channels 1 to 6"
     //
     // H723/25/33/35"
     // DMAMUX1 is used with DMA1 and DMA2 in D2 domain
-    // •
-    // DMAMUX1 channels 0 to 7 are connected to DMA1 channels 0 to 7
-    // •
-    // DMAMUX1 channels 8 to 15 are connected to DMA2 channels 0 to 7
+    // • DMAMUX1 channels 0 to 7 are connected to DMA1 channels 0 to 7
+    // • DMAMUX1 channels 8 to 15 are connected to DMA2 channels 0 to 7
     // (Note: The H7 and G4 cat 3/4 mappings are the same, except for H7's use of 0-7, and G4's use of 1-8.)
 
     // todo: With this in mind, some of the mappings below are not correct on some G4 variants.
@@ -1509,7 +1569,7 @@ where
 macro_rules! make_chan_struct {
     // ($Periph:ident, $PERIPH:ident, $periph:ident, $ch:expr) => {
     ($periph: expr, $ch:expr) => {
-        paste! {
+        paste::paste! {
             /// Experimental/WIP channel-based DMA struct.
             pub struct [<Dma $periph Ch $ch>] {
                 // #[cfg(feature = "h7")]
@@ -1588,7 +1648,6 @@ macro_rules! make_chan_struct {
                 //     )
                 // }
 
-                // #[cfg(feature = "h7")]
                 /// Configure a DMA channel. See L4 RM 0394, section 11.4.4. Sets the Transfer Complete
                 /// interrupt. Note that this fn has been (perhaps) depreciated by the standalone fn.
                 pub fn cfg_channel(
@@ -1600,7 +1659,7 @@ macro_rules! make_chan_struct {
                     periph_size: DataSize,
                     mem_size: DataSize,
                     cfg: ChannelCfg,
-                ) {
+                ) -> Result<()> {
                     cfg_channel(
                         &mut self.regs(),
                         DmaChannel::[<C $ch>],
@@ -1615,24 +1674,26 @@ macro_rules! make_chan_struct {
                 }
 
                 /// Stop a DMA transfer, if in progress.
-                pub fn stop(&mut self) {
+                pub fn stop(&mut self) -> Result<()> {
                     #[cfg(feature = "h7")]
                     let ccr = self.regs().st($ch).cr();
                     #[cfg(not(feature = "h7"))]
                     let ccr = self.regs().ch($ch).cr();
 
                     ccr.modify(|_, w| w.en().clear_bit());
-                    while ccr.read().en().bit_is_set() {}
+                    bounded_loop!(ccr.read().en().bit_is_set(), Error::RegisterUnchanged);
+
+                    Ok(())
                 }
 
                 /// Enable a specific type of interrupt.
-                pub fn enable_interrupt(&mut self, interrupt: DmaInterrupt) {
-                    enable_interrupt_internal(&mut self.regs(), DmaChannel::[<C $ch>], interrupt);
+                pub fn enable_interrupt(&mut self, interrupt: DmaInterrupt) -> Result<()> {
+                    enable_interrupt_internal(&mut self.regs(), DmaChannel::[<C $ch>], interrupt)
                 }
 
                 /// Clear an interrupt flag.
-                pub fn clear_interrupt(&mut self, interrupt: DmaInterrupt) {
-                    clear_interrupt_internal(&mut self.regs(), DmaChannel::[<C $ch>], interrupt);
+                pub fn clear_interrupt(&mut self, interrupt: DmaInterrupt) -> Result<()> {
+                    clear_interrupt_internal(&mut self.regs(), DmaChannel::[<C $ch>], interrupt)
                 }
                 // todo: Other methods.
             }

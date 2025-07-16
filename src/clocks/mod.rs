@@ -34,10 +34,9 @@ cfg_if::cfg_if! {
 // todo: Continue working through DRY between the clock modules.
 
 /// Speed out of limits.
-#[derive(Clone, Copy, Debug, defmt::Format)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, defmt::Format)]
 pub enum RccError {
     Speed,
-    Hardware,
 }
 
 // #[derive(Clone, Copy)]

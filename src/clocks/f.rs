@@ -2,8 +2,9 @@ use cfg_if::cfg_if;
 
 use crate::{
     clocks::RccError,
-    pac::{self, FLASH, RCC},
-    util::rcc_en_reset,
+    error::{Error, Result},
+    pac::{FLASH, RCC},
+    util::{bounded_loop, rcc_en_reset},
 };
 
 cfg_if! {
@@ -391,7 +392,7 @@ impl Clocks {
     /// `Invalid`, and don't setup if not.
     /// <https://docs.rs/stm32f3xx-hal/0.5.0/stm32f3xx_hal/rcc/struct.cfgr().html>
     /// Use the STM32CubeIDE Clock Configuration tab to help.
-    pub fn setup(&self) -> Result<(), RccError> {
+    pub fn setup(&self) -> Result<()> {
         if let Err(e) = self.validate_speeds() {
             return Err(e);
         }
@@ -455,23 +456,35 @@ impl Clocks {
             InputSrc::Hse(_) => {
                 rcc.cr().modify(|_, w| w.hseon().bit(true));
                 // Wait for the HSE to be ready.
-                while rcc.cr().read().hserdy().is_not_ready() {}
+                bounded_loop!(
+                    rcc.cr().read().hserdy().is_not_ready(),
+                    Error::RegisterUnchanged
+                );
             }
             InputSrc::Hsi => {
                 rcc.cr().modify(|_, w| w.hsion().bit(true));
-                while rcc.cr().read().hsirdy().is_not_ready() {}
+                bounded_loop!(
+                    rcc.cr().read().hsirdy().is_not_ready(),
+                    Error::RegisterUnchanged
+                );
             }
             InputSrc::Pll(pll_src) => {
                 match pll_src {
                     PllSrc::Hse(_) => {
                         // DRY
                         rcc.cr().modify(|_, w| w.hseon().bit(true));
-                        while rcc.cr().read().hserdy().is_not_ready() {}
+                        bounded_loop!(
+                            rcc.cr().read().hserdy().is_not_ready(),
+                            Error::RegisterUnchanged
+                        );
                     }
                     _ => {
                         // Hsi or HsiDiv2: In both cases, set up the HSI.
                         rcc.cr().modify(|_, w| w.hsion().bit(true));
-                        while rcc.cr().read().hsirdy().is_not_ready() {}
+                        bounded_loop!(
+                            rcc.cr().read().hsirdy().is_not_ready(),
+                            Error::RegisterUnchanged
+                        );
                     }
                 }
             }
@@ -485,6 +498,10 @@ impl Clocks {
             // Turn off the PLL: Required for modifying some of the settings below.
             rcc.cr().modify(|_, w| w.pllon().off());
             // Wait for the PLL to no longer be ready before executing certain writes.
+            bounded_loop!(
+                rcc.cr().read().pllrdy().is_ready(),
+                Error::RegisterUnchanged
+            );
             while rcc.cr().read().pllrdy().is_ready() {}
 
             cfg_if! {
@@ -519,7 +536,10 @@ impl Clocks {
             // Now turn PLL back on, once we're configured things that can only be set with it off.
             rcc.cr().modify(|_, w| w.pllon().on());
 
-            while rcc.cr().read().pllrdy().is_not_ready() {}
+            bounded_loop!(
+                rcc.cr().read().pllrdy().is_not_ready(),
+                Error::RegisterUnchanged
+            );
         }
 
         rcc.cfgr().modify(|_, w| unsafe {
@@ -560,7 +580,7 @@ impl Clocks {
 
     /// Re-select innput source; used on Stop and Standby modes, where the system reverts
     /// to HSI after wake.
-    pub fn reselect_input(&self) {
+    pub fn reselect_input(&self) -> Result<()> {
         let rcc = unsafe { &(*RCC::ptr()) };
         // Re-select the input source; it will revert to HSI during `Stop` or `Standby` mode.
 
@@ -569,7 +589,10 @@ impl Clocks {
         match self.input_src {
             InputSrc::Hse(_) => {
                 rcc.cr().modify(|_, w| w.hseon().bit(true));
-                while rcc.cr().read().hserdy().is_not_ready() {}
+                bounded_loop!(
+                    rcc.cr().read().hserdy().is_not_ready(),
+                    Error::RegisterUnchanged
+                );
 
                 rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
@@ -577,19 +600,30 @@ impl Clocks {
             InputSrc::Pll(_) => {
                 // todo: DRY with above.
                 rcc.cr().modify(|_, w| w.hseon().bit(true));
-                while rcc.cr().read().hserdy().is_not_ready() {}
+                bounded_loop!(
+                    rcc.cr().read().hserdy().is_not_ready(),
+                    Error::RegisterUnchanged
+                );
 
                 rcc.cr().modify(|_, w| w.pllon().off());
-                while rcc.cr().read().pllrdy().is_ready() {}
+                bounded_loop!(
+                    rcc.cr().read().pllrdy().is_not_ready(),
+                    Error::RegisterUnchanged
+                );
 
                 rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
 
                 rcc.cr().modify(|_, w| w.pllon().on());
-                while rcc.cr().read().pllrdy().is_not_ready() {}
+                bounded_loop!(
+                    rcc.cr().read().pllrdy().is_not_ready(),
+                    Error::RegisterUnchanged
+                );
             }
             InputSrc::Hsi => (), // Already reset to this.
         }
+
+        Ok(())
     }
 
     #[cfg(feature = "f3")]
@@ -684,7 +718,7 @@ impl Clocks {
         }
     }
 
-    pub fn validate_speeds(&self) -> Result<(), RccError> {
+    pub fn validate_speeds(&self) -> Result<()> {
         cfg_if! {
             if #[cfg(feature = "f3")] {
                 let max_clock = 72_000_000;
@@ -701,26 +735,26 @@ impl Clocks {
 
         #[cfg(feature = "f4")]
         if self.plln < 50 || self.plln > 432 || self.pllm < 2 || self.pllm > 63 {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         let max_hclk = max_clock;
 
         // todo: min clock? eg for apxb?
         if self.sysclk() > max_hclk {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         if self.hclk() > max_hclk {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         if self.apb1() > max_clock {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         if self.apb2() > max_clock {
-            return Err(RccError::Speed);
+            return Err(Error::RccError(RccError::Speed));
         }
 
         Ok(())

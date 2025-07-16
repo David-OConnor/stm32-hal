@@ -2,9 +2,10 @@ use core::{ops::Deref, ptr};
 
 use super::*;
 use crate::{
-    MAX_ITERS, check_errors,
+    check_errors,
+    error::{Error, Result},
     pac::{self, RCC},
-    util::RccPeriph,
+    util::{RccPeriph, bounded_loop},
 };
 
 // Depth of FIFO to use. See G4 RM, table 359.
@@ -138,53 +139,57 @@ where
     /// paragraph. It is important to do this before the system enters a low-power mode when the
     /// peripheral clock is stopped. Ongoing transactions can be corrupted in this case. In some
     /// modes the disable procedure is the only way to stop continuous communication running.
-    pub fn disable(&mut self) {
+    pub fn disable(&mut self) -> Result<()> {
         // The correct disable procedure is (except when receive only mode is used):
 
         // 1. Wait until FTLVL[1:0] = 00 (no more data to transmit).
         #[cfg(not(feature = "f4"))]
-        while self.regs.sr().read().ftlvl().bits() != 0 {}
+        bounded_loop!(
+            self.regs.sr().read().ftlvl().bits() != 0,
+            Error::RegisterUnchanged
+        );
         // 2. Wait until BSY=0 (the last data frame is processed).
-        while self.regs.sr().read().bsy().bit_is_set() {}
+        bounded_loop!(
+            self.regs.sr().read().bsy().bit_is_set(),
+            Error::RegisterUnchanged
+        );
         // 3. Disable the SPI (SPE=0).
         // todo: Instructions say to stop SPI (including to close DMA comms), but this breaks non-DMA writes, which assume
         // todo SPI is enabled, the way we structure things.
         self.regs.cr1().modify(|_, w| w.spe().clear_bit());
         // 4. Read data until FRLVL[1:0] = 00 (read all the received data).
+        // todo: make bounded
         #[cfg(not(feature = "f4"))]
         while self.regs.sr().read().frlvl().bits() != 0 {
             unsafe { ptr::read_volatile(&self.regs.dr() as *const _ as *const u8) };
         }
+
+        Ok(())
     }
 
     /// Read a single byte if available, or block until it's available.
-    pub fn read(&mut self) -> Result<u8, SpiError> {
+    pub fn read(&mut self) -> Result<u8> {
         check_errors!(self.regs.sr().read());
+
         // todo: Use fIFO like in H7 code?
 
-        let mut i = 0;
-        while !self.regs.sr().read().rxne().bit_is_set() {
-            i += 1;
-            if i >= MAX_ITERS {
-                return Err(SpiError::Hardware);
-            }
-        }
+        bounded_loop!(
+            !self.regs.sr().read().rxne().bit_is_set(),
+            Error::RegisterUnchanged
+        );
 
         Ok(unsafe { ptr::read_volatile(&self.regs.dr() as *const _ as *const u8) })
     }
 
     /// Write a single byte if available, or block until it's available.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
-    pub fn write_one(&mut self, byte: u8) -> Result<(), SpiError> {
+    pub fn write_one(&mut self, byte: u8) -> Result<()> {
         check_errors!(self.regs.sr().read());
 
-        let mut i = 0;
-        while !self.regs.sr().read().txe().bit_is_set() {
-            i += 1;
-            if i >= MAX_ITERS {
-                return Err(SpiError::Hardware);
-            }
-        }
+        bounded_loop!(
+            !self.regs.sr().read().txe().bit_is_set(),
+            Error::RegisterUnchanged
+        );
 
         #[allow(invalid_reference_casting)]
         unsafe {
@@ -196,7 +201,7 @@ where
 
     /// Write multiple bytes on the SPI line, blocking until complete.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
-    pub fn write(&mut self, words: &[u8]) -> Result<(), SpiError> {
+    pub fn write(&mut self, words: &[u8]) -> Result<()> {
         // todo: Take advantage of the FIFO, like H7?
         for word in words {
             self.write_one(*word)?;
@@ -208,7 +213,7 @@ where
 
     /// Read multiple bytes to a buffer, blocking until complete.
     /// See L44 RM, section 40.4.9: Data transmission and reception procedures.
-    pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<(), SpiError> {
+    pub fn transfer<'w>(&mut self, words: &'w mut [u8]) -> Result<()> {
         for word in words.iter_mut() {
             self.write_one(*word)?;
             *word = self.read()?;
@@ -222,7 +227,7 @@ where
         &mut self,
         write_buf: &'w [u8],
         read_buf: &'w mut [u8],
-    ) -> Result<(), SpiError> {
+    ) -> Result<()> {
         for (i, word) in write_buf.iter().enumerate() {
             self.write_one(*word)?;
             if i < read_buf.len() {
@@ -261,7 +266,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<()> {
         // todo: Accept u16 words too.
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
@@ -291,7 +296,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
             #[cfg(dma2)]
             dma::DmaPeriph::Dma2 => {
@@ -306,11 +311,13 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
         }
 
         self.regs.cr1().modify(|_, w| w.spe().bit(true));
+
+        Ok(())
     }
 
     /// Transmit data using DMA. See L44 RM, section 40.4.9: Communication using DMA.
@@ -323,7 +330,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<()> {
         // Static write and read buffers?
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
@@ -367,7 +374,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
             #[cfg(dma2)]
             dma::DmaPeriph::Dma2 => {
@@ -382,7 +389,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                );
+                )?;
             }
         }
 
@@ -391,6 +398,8 @@ where
 
         // 4. Enable the SPI by setting the SPE bit.
         self.regs.cr1().modify(|_, w| w.spe().bit(true));
+
+        Ok(())
     }
 
     /// Transfer data from DMA; this is the basic reading API, using both write and read transfers:
@@ -405,7 +414,7 @@ where
         channel_cfg_write: ChannelCfg,
         channel_cfg_read: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<()> {
         // todo: Accept u16 words too.
         let (ptr_write, len_write) = (buf_write.as_ptr(), buf_write.len());
         let (ptr_read, len_read) = (buf_read.as_mut_ptr(), buf_read.len());
@@ -450,7 +459,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_write,
-                );
+                )?;
 
                 dma::cfg_channel(
                     &mut regs,
@@ -462,7 +471,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_read,
-                );
+                )?;
             }
             #[cfg(dma2)]
             dma::DmaPeriph::Dma2 => {
@@ -477,7 +486,7 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_write,
-                );
+                )?;
 
                 dma::cfg_channel(
                     &mut regs,
@@ -489,12 +498,14 @@ where
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg_read,
-                );
+                )?;
             }
         }
 
         self.regs.cr2().modify(|_, w| w.txdmaen().bit(true));
         self.regs.cr1().modify(|_, w| w.spe().bit(true));
+
+        Ok(())
     }
 
     /// Enable an interrupt. Note that unlike on other peripherals, there's no explicit way to

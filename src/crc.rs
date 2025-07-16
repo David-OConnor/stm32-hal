@@ -6,7 +6,10 @@ use core::{convert::TryInto, fmt};
 
 use cfg_if::cfg_if;
 
-use crate::pac::{CRC, RCC};
+use crate::{
+    error::{Error, Result},
+    pac::{CRC, RCC},
+};
 
 // todo: Redo this in the style of the rest of our modules.
 
@@ -228,26 +231,26 @@ pub struct Polynomial(Poly);
 impl Polynomial {
     /// Create a 7-bit polynomial. Returns an error if the polynomial passed
     /// has the MSB set or is even.
-    pub fn bits7(poly: u8) -> Result<Self, PolynomialError> {
+    pub fn bits7(poly: u8) -> Result<Self> {
         if poly <= 0x7F {
             Ok(Self(Poly::B7(ensure_is_odd!(poly)?)))
         } else {
-            Err(PolynomialError::TooLarge)
+            Err(Error::PolynomialError(PolynomialError::TooLarge))
         }
     }
 
     /// Create an 8-bit polynomial. Returns an error if the polynomial passed is even.
-    pub fn bits8(poly: u8) -> Result<Self, PolynomialError> {
+    pub fn bits8(poly: u8) -> Result<Self> {
         Ok(Self(Poly::B8(ensure_is_odd!(poly)?)))
     }
 
     /// Create a 16-bit polynomial. Returns an error if the polynomial passed is even.
-    pub fn bits16(poly: u16) -> Result<Self, PolynomialError> {
+    pub fn bits16(poly: u16) -> Result<Self> {
         Ok(Self(Poly::B16(ensure_is_odd!(poly)?)))
     }
 
     /// Create a 32-bit polynomial. Returns an error if the polynomial passed is even.
-    pub fn bits32(poly: u32) -> Result<Self, PolynomialError> {
+    pub fn bits32(poly: u32) -> Result<Self> {
         Ok(Self(Poly::B32(ensure_is_odd!(poly)?)))
     }
 
@@ -314,7 +317,7 @@ impl Default for Polynomial {
 }
 
 /// Errors generated when trying to create invalid polynomials.
-#[derive(Copy, Clone, Debug, PartialEq, defmt::Format)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, defmt::Format)]
 pub enum PolynomialError {
     /// Tried to create an even polynomial.
     /// The hardware CRC unit only supports odd polynomials.

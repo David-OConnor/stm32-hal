@@ -1,7 +1,11 @@
 //! Inter-processor communication controller (IPCC).
 //! Used on STM32WB for communication between cores.
 
-use crate::pac::{self, IPCC, RCC};
+use crate::{
+    error::{Error, Result},
+    pac::{self, IPCC, RCC},
+    util::bounded_loop,
+};
 
 // todo: C1_1 and C2_1 etc for channels instead of separate core enum?
 // todo: Consider macros to reduce DRY here, re Core and Channel matching.
@@ -143,12 +147,21 @@ impl Ipcc {
 
     /// The Half-duplex channel mode is used when one processor sends a communication and the
     /// other processor sends a response to each communication (ping-pong). Blocking.
-    pub fn send_half_duplex(&mut self, core: Core, channel: IpccChannel, data: &[u8]) {
+    pub fn send_half_duplex(
+        &mut self,
+        core: Core,
+        channel: IpccChannel,
+        data: &[u8],
+    ) -> Result<()> {
         // RM, section 37.3.3: To send communication data:
         // * The sending processor waits for its response pending software variable to get 0.
         // – Once the response pending software variable is 0 the communication data is
         // posted.
-        while !self.channel_is_free(core, channel) {} // todo is this right?
+        // todo: is this right?
+        bounded_loop!(
+            self.channel_is_free(core, channel),
+            Error::RegisterUnchanged
+        );
 
         //  Once the complete communication data has been posted, the channel status flag
         // CHnF is set to occupied with CHnS and the response pending software variable is set
@@ -193,14 +206,24 @@ impl Ipcc {
                 IpccChannel::C6 => w.ch6fm().clear_bit(),
             }),
         };
+
+        Ok(())
     }
 
     /// Send a half-duplex response.
-    pub fn send_response_half_duplex(&mut self, core: Core, channel: IpccChannel, data: &[u8]) {
+    pub fn send_response_half_duplex(
+        &mut self,
+        core: Core,
+        channel: IpccChannel,
+        data: &[u8],
+    ) -> Result<()> {
         // To send a response:
         // * The receiving processor waits for its response pending software variable to get 1.
         // – Once the response pending software variable is 1 the response is posted.
-        while self.channel_is_free(core, channel) {}
+        bounded_loop!(
+            self.channel_is_free(core, channel),
+            Error::RegisterUnchanged
+        );
 
         // todo: Write response here?
 
@@ -300,7 +323,9 @@ impl Ipcc {
                     });
                 }
             },
-        };
+        }
+
+        Ok(())
     }
 
     /// Receive in half duplex mode.

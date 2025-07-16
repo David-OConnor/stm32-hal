@@ -46,7 +46,75 @@ cfg_if! {
 #[cfg(any(feature = "f3", feature = "l4",))]
 use crate::pac::dma1 as dma_p;
 
-/// Enables and resets peripheral clocks on various RCC registesr.
+// Used for while loops, to allow returning an error instead of hanging.
+pub(crate) const MAX_ITERS: u32 = 300_000; // todo: What should this be?
+
+/// DRY: Instead of infinitely busy-looping on some condition, we bound the number of iterations
+/// and return a given error upon exceeding that bound.
+macro_rules! bounded_loop {
+    ($cond:expr, $err:expr, $iters:expr, $($content:tt)?) => {
+        let mut iterations = 0;
+        while $cond {
+            iterations += 1;
+            if iterations >= $iters {
+                return Err($err);
+            }
+            $($content)?
+        }
+    };
+    ($cond:expr, $err:expr, $content:tt) => {
+        bounded_loop!($cond, $err, crate::util::MAX_ITERS, ($content));
+    };
+    ($cond:expr, $err:expr, $iters:literal) => {
+        bounded_loop!($cond, $err, $iters, ())
+    };
+    ($cond:expr, $err:expr) => {
+        bounded_loop!($cond, $err, crate::util::MAX_ITERS, ())
+    };
+}
+pub(crate) use bounded_loop;
+
+cfg_if! {
+    if #[cfg(feature = "h5")] {
+        macro_rules! cr1 {
+            ($regs:expr) => {
+                $regs.cr1_enabled()
+            };
+        }
+    } else if #[cfg(not(feature = "h5"))] {
+        macro_rules! cr1 {
+            ($regs:expr) => {
+                $regs.cr1()
+            };
+        }
+    }
+}
+
+cfg_if! {
+    if #[cfg(feature = "h5")] {
+        macro_rules! isr {
+            ($regs:expr) => {
+                $regs.isr_enabled()
+            };
+        }
+    } else if  #[cfg(feature = "f4")] {
+        macro_rules! isr {
+            ($regs:expr) => {
+                $regs.sr()
+            };
+        }
+    } else {
+        macro_rules! isr {
+            ($regs:expr) => {
+                $regs.isr()
+            };
+        }
+    }
+}
+
+pub(crate) use {cr1, isr};
+
+/// Enables and resets peripheral clocks on various RCC registers.
 /// The first argument is a `apb1`, `ahb2` etc to specify the reg block. The second is something like
 /// `tim1`, and the third is a `pac::RCC`.
 macro_rules! rcc_en_reset {
@@ -73,6 +141,7 @@ macro_rules! rcc_en_reset {
             // todo: apb1enr2 on L5? Currently we only use it with USB, which is handled in
             // todo `usb.rs`.
             // todo: apb1enr2
+            // todo: f4 has apb1lenr as well as apb1enr
         }}
     };
     (apb2, $periph:expr, $rcc:expr) => {

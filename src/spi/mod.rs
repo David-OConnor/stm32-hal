@@ -2,7 +2,7 @@
 //! Provides APIs to configure, read, and write from
 //! SPI, with blocking, nonblocking, and DMA functionality.
 
-use core::{ops::Deref, ptr};
+use core::ops::Deref;
 
 cfg_if::cfg_if! {
     if #[cfg(any(feature = "h5", feature = "h7"))] {
@@ -16,15 +16,16 @@ cfg_if::cfg_if! {
 
 use cfg_if::cfg_if;
 
+use crate::{
+    error::Result,
+    pac::{self, DMA1},
+    util::RccPeriph,
+};
+
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;
-#[cfg(not(any(feature = "f4")))]
-use crate::dma::{self, ChannelCfg, Dma, DmaChannel};
-#[cfg(feature = "c0")]
-use crate::pac::{DMA as DMA1, dma as dma_p};
-#[cfg(not(feature = "c0"))]
-use crate::pac::{DMA1, dma1 as dma_p};
-use crate::{pac, util::RccPeriph}; // todo temp
+#[cfg(not(any(feature = "f4", feature = "l552")))]
+use crate::dma::{self, ChannelCfg, DmaChannel}; // todo temp
 
 #[macro_export]
 macro_rules! check_errors {
@@ -35,18 +36,18 @@ macro_rules! check_errors {
         let crc_error = $sr.crcerr().bit_is_set();
 
         if $sr.ovr().bit_is_set() {
-            return Err(SpiError::Overrun);
+            return Err(Error::SpiError(SpiError::Overrun));
         } else if $sr.modf().bit_is_set() {
-            return Err(SpiError::ModeFault);
+            return Err(Error::SpiError(SpiError::ModeFault));
         } else if crc_error {
-            return Err(SpiError::Crc);
+            return Err(Error::SpiError(SpiError::Crc));
         }
     };
 }
 
 /// SPI error
 #[non_exhaustive]
-#[derive(Copy, Clone, Debug, defmt::Format)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, defmt::Format)]
 pub enum SpiError {
     /// Overrun occurred
     Overrun,
@@ -54,7 +55,6 @@ pub enum SpiError {
     ModeFault,
     /// CRC error
     Crc,
-    Hardware,
     DuplexFailed, // todo temp?
 }
 
@@ -245,19 +245,19 @@ where
     /// Run this after each transfer completes - you may wish to do this in an interrupt
     /// (eg DMA transfer complete) instead of blocking. `channel2` is an optional second channel
     /// to stop; eg if you have both a tx and rx channel.
-    #[cfg(not(any(feature = "f4")))]
+    #[cfg(not(any(feature = "f4", feature = "l552")))]
     pub fn stop_dma(
         &mut self,
         channel: DmaChannel,
         channel2: Option<DmaChannel>,
         dma_periph: dma::DmaPeriph,
-    ) {
+    ) -> Result<()> {
         // (RM:) To close communication it is mandatory to follow these steps in order:
         // 1. Disable DMA streams for Tx and Rx in the DMA registers, if the streams are used.
 
-        dma::stop(dma_periph, channel);
+        dma::stop(dma_periph, channel)?;
         if let Some(ch2) = channel2 {
-            dma::stop(dma_periph, ch2);
+            dma::stop(dma_periph, ch2)?;
         };
 
         // 2. Disable the SPI by following the SPI disable procedure:
@@ -277,25 +277,27 @@ where
             w.txdmaen().clear_bit();
             w.rxdmaen().clear_bit()
         });
+
+        Ok(())
     }
 
     /// Convenience function that clears the interrupt, and stops the transfer. For use with the TC
     /// interrupt only.
-    #[cfg(not(any(feature = "f4")))]
+    #[cfg(not(any(feature = "f4", feature = "l552")))]
     pub fn cleanup_dma(
         &mut self,
         dma_periph: dma::DmaPeriph,
         channel_tx: DmaChannel,
         channel_rx: Option<DmaChannel>,
-    ) {
+    ) -> Result<()> {
         // The hardware seems to automatically enable Tx too; and we use it when transmitting.
-        dma::clear_interrupt(dma_periph, channel_tx, dma::DmaInterrupt::TransferComplete);
+        dma::clear_interrupt(dma_periph, channel_tx, dma::DmaInterrupt::TransferComplete)?;
 
         if let Some(ch_rx) = channel_rx {
-            dma::clear_interrupt(dma_periph, ch_rx, dma::DmaInterrupt::TransferComplete);
+            dma::clear_interrupt(dma_periph, ch_rx, dma::DmaInterrupt::TransferComplete)?;
         }
 
-        self.stop_dma(channel_tx, channel_rx, dma_periph);
+        self.stop_dma(channel_tx, channel_rx, dma_periph)
     }
 
     /// Print the (raw) contents of the status register.
