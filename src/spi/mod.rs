@@ -16,11 +16,14 @@ cfg_if::cfg_if! {
 
 use cfg_if::cfg_if;
 
-use crate::{
-    error::Result,
-    pac::{self, DMA1},
-    util::RccPeriph,
-};
+cfg_if! {
+    if #[cfg(feature = "c0")] { // pac bug?
+       use crate::{pac::{self, dma as dma1, DMA as DMA1}, util::rcc_en_reset};
+    } else {
+        use crate::pac::{self, DMA1};
+    }
+}
+use crate::{error::Result, util::RccPeriph};
 
 #[cfg(any(feature = "f3", feature = "l4"))]
 use crate::dma::DmaInput;

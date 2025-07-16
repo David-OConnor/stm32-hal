@@ -952,19 +952,19 @@ impl Clocks {
             InputSrc::Lsi => {
                 rcc.csr2().modify(|_, w| w.lsion().bit(true));
 
-                i = 0;
-                while rcc.csr2().read().lsirdy().bit_is_clear() {
-                    wait_hang!(i);
-                }
+                bounded_loop!(
+                    rcc.csr2().read().lsirdy().bit_is_clear(),
+                    Error::RegisterUnchanged
+                );
             }
             #[cfg(feature = "c0")]
             InputSrc::Lse => {
                 rcc.csr1().modify(|_, w| w.lseon().bit(true));
 
-                i = 0;
-                while rcc.csr1().read().lserdy().bit_is_clear() {
-                    wait_hang!(i);
-                }
+                bounded_loop!(
+                    rcc.csr1().read().lserdy().bit_is_clear(),
+                    Error::RegisterUnchanged
+                );
             }
             #[cfg(feature = "c071")]
             InputSrc::HsiUsb48 => {
@@ -1362,10 +1362,10 @@ impl Clocks {
             #[cfg(feature = "c0")]
             InputSrc::Lsi => {
                 rcc.csr2().modify(|_, w| w.lsion().bit(true));
-                let mut i = 0;
-                while rcc.csr2().read().lsirdy().bit_is_clear() {
-                    wait_hang!(i);
-                }
+                bounded_loop!(
+                    rcc.csr2().read().lsirdy().bit_is_clear(),
+                    Error::RegisterUnchanged
+                );
                 rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
             }
@@ -1382,10 +1382,10 @@ impl Clocks {
             #[cfg(feature = "c0")]
             InputSrc::Lse => {
                 rcc.csr1().modify(|_, w| w.lseon().bit(true));
-                let mut i = 0;
-                while rcc.csr1().read().lserdy().bit_is_clear() {
-                    wait_hang!(i);
-                }
+                bounded_loop!(
+                    rcc.csr1().read().lserdy().bit_is_clear(),
+                    Error::RegisterUnchanged
+                );
                 rcc.cfgr()
                     .modify(|_, w| unsafe { w.sw().bits(self.input_src.bits()) });
             }
@@ -1538,7 +1538,8 @@ impl Clocks {
     cfg_if! {
         if #[cfg(any(feature = "g0", feature = "wl"))] {
             pub const fn usb(&self) -> u32 {
-                unimplemented!("No USB on G0 or WL");
+                // "No USB on G0 or WL"
+                unimplemented!();
             }
         } else if #[cfg(any(feature = "g4", feature = "c071"))] {
             pub const fn usb(&self) -> u32 {
