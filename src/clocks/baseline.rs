@@ -26,7 +26,7 @@ pub enum Clk48Src {
     // Note: On G4 which only has HSI48 and PLLQ, PLLSai1 and MSI are marked "reserved", and
     // The values it has are the same as on L4/5.
     Hsi48 = 0b00, // Not valid for some L4 variants.
-    #[cfg(feature = "g4")]
+    #[cfg(not(feature = "g4"))]
     PllSai1 = 0b01, // Not avail on G4
     Pllq = 0b10,
     #[cfg(msi)]
