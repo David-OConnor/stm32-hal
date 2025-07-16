@@ -18,11 +18,14 @@ use crate::flash::FlashError;
     feature = "wl",
     feature = "l5", // todo: PAC errors on some regs.
     feature = "h5",
+    feature = "c0",
 )))]
 use crate::qspi::QspiError;
+#[cfg(not(feature = "c0"))]
+use crate::rtc::RtcError;
 #[cfg(not(feature = "f301"))]
 use crate::spi::SpiError;
-use crate::{clocks::RccError, i2c::I2cError, rtc::RtcError, timer::TimerError, usart::UsartError};
+use crate::{clocks::RccError, i2c::I2cError, timer::TimerError, usart::UsartError};
 
 macro_rules! impl_from_error {
     ($error:ident) => {
@@ -60,6 +63,7 @@ pub enum Error {
     /// SPI errors.
     SpiError(SpiError),
     /// Clock errors.
+    #[cfg(not(feature = "c0"))]
     RtcError(RtcError),
     RccError(RccError),
     #[cfg(not(any(
@@ -74,6 +78,7 @@ pub enum Error {
         feature = "wl",
         feature = "l5", // todo: PAC errors on some regs.
         feature = "h5",
+        feature = "c0",
     )))]
     QspiError(QspiError),
 }
@@ -89,6 +94,7 @@ impl_from_error!(FlashError);
 impl_from_error!(PolynomialError);
 #[cfg(not(feature = "f301"))]
 impl_from_error!(SpiError);
+#[cfg(not(feature = "c0"))]
 impl_from_error!(RtcError);
 impl_from_error!(RccError);
 #[cfg(not(any(
@@ -103,6 +109,7 @@ impl_from_error!(RccError);
     feature = "wl",
     feature = "l5", // todo: PAC errors on some regs.
     feature = "h5",
+    feature = "c0",
 )))]
 impl_from_error!(QspiError);
 

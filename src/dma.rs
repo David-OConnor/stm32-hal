@@ -21,6 +21,8 @@ cfg_if! {
         all(feature = "g0", not(any(feature = "g0b0", feature = "g0b1", feature = "g0c1")))
     ))] {
         use crate::{pac::{dma1, DMA1}, util::rcc_en_reset};
+    } else if #[cfg(feature = "c0")] { // pac bug?
+        use crate::{pac::{dma as dma1, DMA as DMA1}, util::rcc_en_reset};
     } else {
         use crate::{pac::{dma1, dma2, DMA1, DMA2}, util::rcc_en_reset};
     }

@@ -361,10 +361,9 @@ where
             cfg_if! {
                 if #[cfg(any(
                     feature = "h5",
-                    feature = "g050",
-                    feature = "g051",
-                    feature = "g061"
-                ))] {
+                    feature = "c0",
+                    feature = "g050", feature = "g051", feature = "g061")
+                )] {
                     bounded_loop!(
                         isr!(self.regs).read().txfe().bit_is_clear(),
                         Error::RegisterUnchanged
@@ -438,10 +437,9 @@ where
             cfg_if! {
                 if #[cfg(any(
                     feature = "h5",
-                    feature = "g050",
-                    feature = "g051",
-                    feature = "g061"
-                ))] {
+                    feature = "c0",
+                    feature = "g050", feature = "g051", feature = "g061")
+                )] {
                     bounded_loop!(
                         isr!(self.regs).read().rxfne().bit_is_clear(),
                         Error::RegisterUnchanged
@@ -1042,7 +1040,11 @@ mod embedded_io_impl {
     {
         fn write_ready(&mut self) -> core::result::Result<bool, Self::Error> {
             cfg_if! {
-                if #[cfg(any(feature = "h5", feature = "g0"))] {
+                if #[cfg(any(
+                    feature = "h5",
+                    feature = "c0",
+                    feature = "g050", feature = "g051", feature = "g061")
+                )] {
                     let ready = self.regs.isr().read().txfe().bit_is_set();
                 } else if #[cfg(feature = "f4")] {
                     let ready = self.regs.sr().read().txe().bit_is_set();
