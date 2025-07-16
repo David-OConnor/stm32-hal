@@ -1478,6 +1478,7 @@ impl Clocks {
         // This mode is available for all MSI frequency ranges. At 48 MHz, the MSI in PLL-mode can
         // be used for the USB FS device, saving the need of an external high-speed crystal.
         // MSIPLLEN must be enabled after LSE is enabled
+        #[cfg(not(feature = "wb"))]
         rcc.cr().modify(|_, w| unsafe {
             w.msirange()
                 .bits(MsiRange::R48M as u8)
