@@ -634,7 +634,7 @@ pub struct Clocks {
     /// frees up the pin for use as GPIO.
     pub hse_bypass: bool,
     pub security_system: bool,
-    #[cfg(not(any(feature = "g0", feature = "wl", feature = "c0")))]
+    #[cfg(not(any(feature = "g0", feature = "wl", feature = "c011", feature = "c031")))]
     /// Enable the HSI48. For L4, this is only applicable for some devices.
     pub hsi48_on: bool,
     #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
@@ -1135,17 +1135,15 @@ impl Clocks {
             );
         }
 
-        // todo: PAC error? c071 should have usb48. Missing though.
-
-        // #[cfg(feature = "c071")]
-        // if self.hsi48_on {
-        //     rcc.cr().modify(|_, w| w.hsi48usbon().bit(true));
-        //     i = 0;
-        //     #[cfg(not(feature = "c0"))]
-        //     while rcc.cr().read().hsi48usbon().bit_is_clear() {
-        //         wait_hang!(i);
-        //     }
-        // }
+        #[cfg(feature = "c071")]
+        if self.hsi48_on {
+            rcc.cr().modify(|_, w| w.hsiusb48on().bit(true));
+            i = 0;
+            #[cfg(not(feature = "c0"))]
+            while rcc.cr().read().hsiusb48on().bit_is_clear() {
+                wait_hang!(i);
+            }
+        }
 
         // This modification is separate from the other CCIPR writes due to awkward
         // feature-gate code
@@ -1788,7 +1786,7 @@ impl Default for Clocks {
             lpuart_src: LpUartSrc::Pclk,
             hse_bypass: false,
             security_system: false,
-            #[cfg(not(any(feature = "g0", feature = "wl", feature = "c0")))]
+            #[cfg(not(any(feature = "g0", feature = "wl", feature = "c011", feature = "c031")))]
             hsi48_on: false,
             #[cfg(any(feature = "l4", feature = "l5", feature = "wb", feature = "wl"))]
             stop_wuck: StopWuck::Msi,
