@@ -1138,11 +1138,10 @@ impl Clocks {
         #[cfg(feature = "c071")]
         if self.hsi48_on {
             rcc.cr().modify(|_, w| w.hsiusb48on().bit(true));
-            i = 0;
-            #[cfg(not(feature = "c0"))]
-            while rcc.cr().read().hsiusb48on().bit_is_clear() {
-                wait_hang!(i);
-            }
+            bounded_loop!(
+                rcc.cr().read().hsiusb48rdy().bit_is_clear(),
+                Error::RegisterUnchanged
+            );
         }
 
         // This modification is separate from the other CCIPR writes due to awkward
