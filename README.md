@@ -329,7 +329,7 @@ library.
 ## Errata
 - July 2025: H735 ADC inop; needs patch. Comp inop.
 - SDIO and ethernet unimplemented
-- DMA unimplemented on F4, and L552
+- DMA unimplemented on F4
 - H7 BDMA and MDMA unimplemented
 - H5 GPDMA unimplemented
 - USART interrupts unimplemented on F4
@@ -337,12 +337,10 @@ library.
 - High-resolution timers (HRTIM) and Low power timers (LPTIM) unimplemented
 - ADC unimplemented on F4
 - Low power modes beyond csleep and cstop aren't implemented for H7
-- WB and WL are missing features relating to second core operations and RF
+- WB and WL are missing features relating to second core operations
 - L4+ MCUs not supported
-- WL is missing GPIO port C, and GPIO interrupt support
 - If using PWM (or output compare in general) on an Advanced control timer (eg TIM1 or 8),
 you must manually set the `TIMx_BDTR` register, `MOE` bit.
 - Octospi implementation is broken
-- DFSDM on L4x6 is missing Filter 1.
 - G0 and H7: Only FDCAN1 is implemented.
 - H5 is missing a lot of functionality, including DMA.
