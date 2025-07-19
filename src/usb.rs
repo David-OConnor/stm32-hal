@@ -23,8 +23,20 @@
 use core::borrow::BorrowMut;
 
 use cfg_if::cfg_if;
+
+#[cfg(not(feature = "c0"))]
 pub use stm32_usbd::UsbBus;
+
+// todo: This C0 variant is temp
+#[cfg(not(feature = "c0"))]
 use stm32_usbd::UsbPeripheral;
+
+#[cfg(feature = "c0")]
+pub use stm32_usbd2::UsbBus;
+
+// todo: This C0 variant is temp
+#[cfg(feature = "c0")]
+use stm32_usbd2::UsbPeripheral;
 
 // use usb_device::{bus::UsbBusAllocator, prelude::*};
 // use usb_device::class_prelude::UsbBus as UsbBus_;

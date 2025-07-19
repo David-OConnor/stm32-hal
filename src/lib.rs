@@ -518,7 +518,8 @@ cfg_if! {
                 feature = "l5",
                 feature = "g4",
                 feature = "wb",
-                feature = "c071", // Only C071 from C0 has USB.
+                // todo: Put back. Temp put in a separate branch for a modded stm32-usbd
+                // feature = "c071", // Only C071 from C0 has USB.
             ),
         not(feature = "g4a1"))
     ))] {
@@ -534,6 +535,9 @@ cfg_if! {
         pub use usb_otg as usb;
     }
 }
+
+#[cfg(feature = "c071")]
+pub mod usb;
 
 // For use with timers; converting ticks to real time.
 pub mod instant;
