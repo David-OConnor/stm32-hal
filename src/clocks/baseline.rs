@@ -265,6 +265,36 @@ impl MsiRange {
     }
 }
 
+#[cfg(feature = "c0")]
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// Sets CR reg, HSDIV field. Hardware default of Div4.
+pub enum HsiDiv {
+    Div1 = 0b000,
+    Div2 = 0b001,
+    Div4 = 0b010,
+    Div8 = 0b011,
+    Div16 = 0b100,
+    Div32 = 0b101,
+    Div64 = 0b110,
+    Div128 = 0b111,
+}
+
+#[cfg(feature = "c071")]
+#[derive(Clone, Copy, PartialEq)]
+#[repr(u8)]
+/// Sets CR reg, SYSDIV field. Hardware default of Div1.
+pub enum SysDiv {
+    Div1 = 0b000,
+    Div2 = 0b001,
+    Div3 = 0b010,
+    Div4 = 0b011,
+    Div5 = 0b100,
+    Div6 = 0b101,
+    Div7 = 0b110,
+    Div8 = 0b111,
+}
+
 /// Configures the speeds, and enable status of an individual PLL (PLL1, or SAIPLL). Note that the `enable`
 /// field has no effect for PLL1.
 pub struct PllCfg {
@@ -653,6 +683,10 @@ pub struct Clocks {
     #[cfg(any(feature = "g0", feature = "g4"))]
     /// FDCAN kernel clock selection. Defaults to APB1.
     pub can_src: CanSrc,
+    #[cfg(feature = "c0")]
+    pub hsi_div: HsiDiv,
+    #[cfg(feature = "c071")]
+    pub sys_div: SysDiv,
 }
 
 // todo: On L4/5, add a way to enable the MSI for use as CLK48.
@@ -980,8 +1014,11 @@ impl Clocks {
             }
         }
 
-        rcc.cr().modify(|_, w| {
-            // Enable bypass mode on HSE, since we're using a ceramic oscillator.
+        rcc.cr().modify(|_, w| unsafe {
+            #[cfg(feature = "c0")]
+            w.hsidiv().bits(self.hsi_div as u8);
+            #[cfg(feature = "c071")]
+            w.sysdiv().bits(self.sys_div as u8);
             #[cfg(feature = "wl")]
             return w.hsebyppwr().bit(self.hse_bypass);
             #[cfg(not(feature = "wl"))]
@@ -1797,6 +1834,10 @@ impl Default for Clocks {
             boost_mode: true,
             #[cfg(any(feature = "g0", feature = "g4"))]
             can_src: CanSrc::Pclk,
+            #[cfg(feature = "c0")]
+            hsi_div: HsiDiv::Div4, // todo: Div1 for full speed?
+            #[cfg(feature = "c071")]
+            sys_div: SysDiv::Div1, // todo: What should this be?
         }
     }
 }
