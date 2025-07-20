@@ -78,7 +78,7 @@ unsafe impl UsbPeripheral for Peripheral {
     const EP_MEMORY: *const () = 0x4000_5c00 as _;
 
     #[cfg(feature = "c0")]
-    const EP_MEMORY: *const () = 0x4000_5c00 as _; // Table 7
+    const EP_MEMORY: *const () = 0x4000_9800 as _; // Table 7, USBRAM entry
 
     #[cfg(any(feature = "f3", feature = "g4"))]
     const EP_MEMORY: *const () = 0x4000_6000 as _;
