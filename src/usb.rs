@@ -36,7 +36,7 @@ pub use stm32_usbd2::UsbBus;
 
 // todo: This C0 variant is temp
 #[cfg(feature = "c0")]
-use stm32_usbd2::UsbPeripheral;
+use stm32_usbd2::{UsbPeripheral, MemoryAccess};
 
 // use usb_device::{bus::UsbBusAllocator, prelude::*};
 // use usb_device::class_prelude::UsbBus as UsbBus_;
@@ -104,9 +104,12 @@ unsafe impl UsbPeripheral for Peripheral {
     #[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "wb"))]
     const EP_MEMORY_ACCESS_2X16: bool = true;
 
-    #[cfg(any(feature = "f3", feature = "g0", feature = "c0"))]
+    #[cfg(any(feature = "f3", feature = "g0"))]
     // F3 uses 1x16 or 2x16 depending on variant. G0 uses a 32-bit word.
     const EP_MEMORY_ACCESS_2X16: bool = false;
+
+    #[cfg(any(feature = "c0", feature = "h5"))]
+    const EP_MEMORY_ACCESS: MemoryAccess = MemoryAccess::Word32x1;
 
     fn enable() {
         let rcc = unsafe { &*pac::RCC::ptr() };
