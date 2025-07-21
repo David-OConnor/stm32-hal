@@ -658,7 +658,7 @@ pub struct Clocks {
     #[cfg(not(any(feature = "g0", feature = "wl", feature = "c011", feature = "c031")))]
     /// The input source for the 48Mhz clock used by USB.
     pub clk48_src: Clk48Src,
-    #[cfg(not(any(feature = "f", feature = "l", feature = "g0")))]
+    #[cfg(not(any(feature = "f", feature = "l", feature = "g0", feature = "c0")))]
     pub lpuart_src: LpUartSrc,
     /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     /// frees up the pin for use as GPIO.
@@ -1828,7 +1828,7 @@ impl Default for Clocks {
             stop_wuck: StopWuck::Msi,
             #[cfg(feature = "wb")]
             rf_wakeup_src: RfWakeupSrc::Lse,
-            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
+            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "c0")))]
             sai1_src: SaiSrc::Pllp,
             #[cfg(feature = "g4")]
             boost_mode: true,
