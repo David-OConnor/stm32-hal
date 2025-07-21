@@ -420,11 +420,10 @@ macro_rules! make_timer {
                     // `freq` is in Hz.
                     rcc_en_reset!([<apb $apb>], $tim, rcc);
 
-                    let clock_speed = match $apb {
-                        1 => clocks.apb1_timer(),
-                        _ => clocks.apb2_timer(),
-                    };
-
+                    #[cfg(not(feature = "c0"))]
+                    let clock_speed = clocks.[<apb $apb _timer>]();
+                    #[cfg(feature = "c0")]
+                    let clock_speed = clocks.apb1_timer(); // C0 only has one APB
 
                     regs.cr1().modify(|_, w| {
                         #[cfg(not(feature = "f373"))]
