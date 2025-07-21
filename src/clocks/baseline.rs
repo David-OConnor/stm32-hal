@@ -280,6 +280,22 @@ pub enum HsiDiv {
     Div128 = 0b111,
 }
 
+#[cfg(feature = "c0")]
+impl HsiDiv {
+    pub const fn value(&self) -> u32 {
+        match self {
+            HsiDiv::Div1 => 1,
+            HsiDiv::Div2 => 2,
+            HsiDiv::Div4 => 4,
+            HsiDiv::Div8 => 8,
+            HsiDiv::Div16 => 16,
+            HsiDiv::Div32 => 32,
+            HsiDiv::Div64 => 64,
+            HsiDiv::Div128 => 128,
+        }
+    }
+}
+
 #[cfg(feature = "c071")]
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
@@ -293,6 +309,21 @@ pub enum SysDiv {
     Div6 = 0b101,
     Div7 = 0b110,
     Div8 = 0b111,
+}
+
+impl SysDiv {
+    pub const fn value(&self) -> u32 {
+        match self {
+            SysDiv::Div1 => 1,
+            SysDiv::Div2 => 2,
+            SysDiv::Div3 => 3,
+            SysDiv::Div4 => 4,
+            SysDiv::Div5 => 5,
+            SysDiv::Div6 => 6,
+            SysDiv::Div7 => 7,
+            SysDiv::Div8 => 8,
+        }
+    }
 }
 
 /// Configures the speeds, and enable status of an individual PLL (PLL1, or SAIPLL). Note that the `enable`
@@ -650,7 +681,7 @@ pub struct Clocks {
     pub hclk4_prescaler: HclkPrescaler,
     /// The divider of HCLK to get the APB1 peripheral clock
     pub apb1_prescaler: ApbPrescaler,
-    #[cfg(not(feature = "g0"))]
+    #[cfg(not(any(feature = "g0", feature = "c0")))]
     /// The divider of HCLK to get the APB2 peripheral clock
     pub apb2_prescaler: ApbPrescaler,
     // Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
@@ -658,7 +689,7 @@ pub struct Clocks {
     #[cfg(not(any(feature = "g0", feature = "wl", feature = "c011", feature = "c031")))]
     /// The input source for the 48Mhz clock used by USB.
     pub clk48_src: Clk48Src,
-    #[cfg(not(any(feature = "f", feature = "l", feature = "g0")))]
+    #[cfg(not(any(feature = "f", feature = "l", feature = "g0", feature = "c0")))]
     pub lpuart_src: LpUartSrc,
     /// Bypass the HSE output, for use with oscillators that don't need it. Saves power, and
     /// frees up the pin for use as GPIO.
@@ -673,7 +704,7 @@ pub struct Clocks {
     #[cfg(feature = "wb")]
     /// Select the RF wakeup source.
     pub rf_wakeup_src: RfWakeupSrc,
-    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
+    #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "c0")))]
     /// SAI1 kernel clock source selection
     pub sai1_src: SaiSrc,
     #[cfg(feature = "g4")]
@@ -1534,7 +1565,7 @@ impl Clocks {
 
     /// Get the sysclock frequency, in hz.
     pub const fn sysclk(&self) -> u32 {
-        match self.input_src {
+        let clk = match self.input_src {
             #[cfg(not(feature = "c0"))]
             InputSrc::Pll(pll_src) => {
                 let input_freq = match pll_src {
@@ -1550,7 +1581,10 @@ impl Clocks {
 
             #[cfg(msi)]
             InputSrc::Msi(range) => range.value() as u32,
+            #[cfg(not(feature = "c0"))]
             InputSrc::Hsi => 16_000_000,
+            #[cfg(feature = "c0")]
+            InputSrc::Hsi => 48_000_000 / self.hsi_div.value(),
             InputSrc::Hse(freq) => freq,
             #[cfg(any(feature = "g0", feature = "c0"))]
             InputSrc::Lsi => 32_000,
@@ -1558,7 +1592,11 @@ impl Clocks {
             InputSrc::Lse => 32_768,
             #[cfg(feature = "c071")]
             InputSrc::HsiUsb48 => 48_000_000,
-        }
+        };
+        #[cfg(feature = "c071")]
+        return clk / self.sys_div.value();
+        #[cfg(not(feature = "c071"))]
+        return clk;
     }
 
     /// Check if the PLL is enabled. This is useful if checking whether to re-enable the PLL
@@ -1645,7 +1683,7 @@ impl Clocks {
                     self.apb2() * 2
                 }
             }
-        } else {
+        } else if #[cfg(not(feature = "c0"))] {
             /// Get the APB2 peipheral clock frequency, in hz.
             pub const fn apb2(&self) -> u32 {
                 self.hclk() / self.apb2_prescaler.value() as u32
@@ -1812,13 +1850,13 @@ impl Default for Clocks {
             #[cfg(feature = "wb")]
             hclk4_prescaler: HclkPrescaler::Div1,
             apb1_prescaler: ApbPrescaler::Div1,
-            #[cfg(not(feature = "g0"))]
+            #[cfg(not(any(feature = "g0", feature = "c0")))]
             apb2_prescaler: ApbPrescaler::Div1,
             #[cfg(not(any(feature = "g0", feature = "wl", feature = "c0")))]
             clk48_src: Clk48Src::Hsi48,
             #[cfg(feature = "c071")]
             clk48_src: Clk48Src::HsiUsb48,
-            #[cfg(not(any(feature = "f", feature = "l", feature = "g0")))]
+            #[cfg(not(any(feature = "f", feature = "l", feature = "g0", feature = "c0")))]
             lpuart_src: LpUartSrc::Pclk,
             hse_bypass: false,
             security_system: false,
@@ -1828,7 +1866,7 @@ impl Default for Clocks {
             stop_wuck: StopWuck::Msi,
             #[cfg(feature = "wb")]
             rf_wakeup_src: RfWakeupSrc::Lse,
-            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl")))]
+            #[cfg(not(any(feature = "g0", feature = "g4", feature = "wl", feature = "c0")))]
             sai1_src: SaiSrc::Pllp,
             #[cfg(feature = "g4")]
             boost_mode: true,
