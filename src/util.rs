@@ -226,7 +226,10 @@ pub trait BaudPeriph {
 
 impl BaudPeriph for pac::USART1 {
     fn baud(clock_cfg: &Clocks) -> u32 {
-        clock_cfg.apb2()
+        #[cfg(feature = "c0")]
+        return clock_cfg.apb1();
+        #[cfg(not(feature = "c0"))]
+        return clock_cfg.apb2();
     }
 }
 
@@ -345,7 +348,10 @@ pub trait VrefPeriph {
 
 impl VrefPeriph for ADC1 {
     fn vref(clock_cfg: &Clocks) -> u32 {
-        clock_cfg.apb2()
+        #[cfg(feature = "c0")]
+        return clock_cfg.apb1();
+        #[cfg(not(feature = "c0"))]
+        return clock_cfg.apb2();
     }
 }
 
