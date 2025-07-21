@@ -674,6 +674,10 @@ impl Clocks {
         self.sysclk() / self.hclk_prescaler.value() as u32
     }
 
+    /// Get the systick frequency, in hz
+    ///
+    /// Note: This function returns the systick core clock frequency.
+    /// When systick is configured to use the external clock, the systick frequency is `systick() / 8`.
     pub const fn systick(&self) -> u32 {
         self.hclk()
     }
