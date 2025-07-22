@@ -311,6 +311,7 @@ pub enum SysDiv {
     Div8 = 0b111,
 }
 
+#[cfg(feature = "c071")]
 impl SysDiv {
     pub const fn value(&self) -> u32 {
         match self {
