@@ -536,7 +536,7 @@ cfg_if! {
     }
 }
 
-#[cfg(feature = "c071")]
+#[cfg(all(feature = "usb", feature = "c071"))]
 pub mod usb;
 
 // For use with timers; converting ticks to real time.
