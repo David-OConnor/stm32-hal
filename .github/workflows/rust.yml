@@ -30,7 +30,8 @@ jobs:
 #          - g0c1
           - c011
           - c031
-          - c071
+          # todo temp rm while on temp usb
+         # - c071
 
     steps:
       - uses: actions/checkout@v2
