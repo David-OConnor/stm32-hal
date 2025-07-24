@@ -155,6 +155,15 @@ impl Rtc {
                 // backup domain
                 pwr.cr1().modify( | _, w| w.dbp().bit(true)); // Unlock the backup domain
                 bounded_loop!(pwr.cr1().read().dbp().bit_is_clear(), Error::RegisterUnchanged);
+            } else if #[cfg(feature = "c0")] {
+                // todo: QC this.
+                rcc.apbenr1().modify(|_, w| {
+                    w.pwren().bit(true);
+                    w.rtcapben().bit(true)
+                });
+
+                rcc.apbsmenr1().modify(|_, w| w.rtcapbsmen().bit(true));  // In sleep and stop modes.
+                pwr.cr1().read(); // Read to allow the pwr clock to enable
             } else if #[cfg(any(feature = "g0"))] {
                 rcc.apbenr1().modify(|_, w| {
                     w.pwren().bit(true);
@@ -191,12 +200,16 @@ impl Rtc {
                     } else if #[cfg(feature = "h5")] {
                         rcc.bdcr().modify(|_, w| w.lsion().bit(true));
                         bounded_loop!(rcc.bdcr().read().lsirdy().bit_is_clear(), Error::RegisterUnchanged);
+                    } else if #[cfg(feature = "c0")] {
+                        rcc.csr2().modify(|_, w| w.lsion().bit(true));
+                        bounded_loop!(rcc.csr2().read().lsirdy().bit_is_clear(), Error::RegisterUnchanged);
                     } else {
                         rcc.csr().modify(|_, w| w.lsion().bit(true));
                         bounded_loop!(rcc.csr().read().lsirdy().bit_is_clear(), Error::RegisterUnchanged);
                     }
                 }
             }
+            #[cfg(not(feature = "c0"))]
             RtcClockSource::Lse => {
                 // Can only set lsebyp when lse is off, so do this as a separate step.
                 rcc.bdcr()
@@ -207,14 +220,33 @@ impl Rtc {
                     Error::RegisterUnchanged
                 );
             }
+            #[cfg(feature = "c0")]
+            RtcClockSource::Lse => {
+                // Can only set lsebyp when lse is off, so do this as a separate step.
+                rcc.csr1()
+                    .modify(|_, w| w.lsebyp().bit(config.bypass_lse_output));
+                rcc.csr1().modify(|_, w| w.lseon().bit(true));
+
+                bounded_loop!(
+                    rcc.csr1().read().lserdy().bit_is_clear(),
+                    Error::RegisterUnchanged
+                );
+            }
             _ => (),
         }
 
+        #[cfg(not(feature = "c0"))]
         rcc.bdcr().modify(|_, w| {
             // 3. Select the RTC clock source in the Backup domain control register (RCC_BDCR).
             unsafe { w.rtcsel().bits(rtc.config.clock_source as u8) };
             // 4. Enable the RTC clock by setting the RTCEN [15] bit in the Backup domain control
             // register (RCC_BDCR)
+            w.rtcen().bit(true)
+        });
+
+        #[cfg(feature = "c0")]
+        rcc.csr1().modify(|_, w| {
+            unsafe { w.rtcsel().bits(rtc.config.clock_source as u8) };
             w.rtcen().bit(true)
         });
 
@@ -343,6 +375,7 @@ impl Rtc {
             panic!("Wakeup period must be between 0122.07µs and 36 hours.")
         }
 
+        #[cfg(not(feature = "c0"))]
         self.regs
             .wutr()
             .modify(|_, w| unsafe { w.wut().bits(wutr as u16) });
@@ -376,6 +409,7 @@ impl Rtc {
             ClockConfig::Three => 0b110, // eg 18h to 36h
         };
 
+        #[cfg(not(feature = "c0"))]
         // 000: RTC/16 clock is selected
         // 001: RTC/8 clock is selected
         // 010: RTC/4 clock is selected
@@ -387,7 +421,7 @@ impl Rtc {
             .modify(|_, w| unsafe { w.wucksel().bits(word) });
     }
 
-    #[cfg(not(feature = "f373"))]
+    #[cfg(not(any(feature = "f373", feature = "c0")))]
     /// Setup periodic auto-wakeup interrupts. See ST AN4759, Table 11, and more broadly,
     /// section 2.4.1. See also reference manual, section 27.5.
     /// In addition to running this function, set up the interrupt handling function by
@@ -446,7 +480,7 @@ impl Rtc {
         // Ensure access to Wakeup auto-reload counter and bits WUCKSEL[2:0] is allowed.
         // Poll WUTWF until it is set in RTC_ISR (RTC2)/RTC_ICSR (RTC3) (May not be avail on F3)
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
+            if #[cfg(rtc_icsr)] {
                 bounded_loop!(self.regs.icsr().read().wutwf().bit_is_clear(), Error::RegisterUnchanged);
             } else {
                 bounded_loop!(self.regs.isr().read().wutwf().bit_is_clear(), Error::RegisterUnchanged);
@@ -462,7 +496,7 @@ impl Rtc {
         self.regs.cr().modify(|_, w| w.wutie().bit(true));
 
         cfg_if! {
-            if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
+            if #[cfg(rtc_icsr)] {
                 self.regs.scr().write(|w| w.cwutf().bit(true));
             } else {
                 self.regs.isr().modify(|_, w| w.wutf().clear_bit());
@@ -474,6 +508,7 @@ impl Rtc {
         Ok(())
     }
 
+    #[cfg(not(feature = "c0"))]
     /// Enable the wakeup timer.
     pub fn enable_wakeup(&mut self) {
         unsafe {
@@ -484,6 +519,7 @@ impl Rtc {
         }
     }
 
+    #[cfg(not(feature = "c0"))]
     /// Disable the wakeup timer.
     pub fn disable_wakeup(&mut self) {
         unsafe {
@@ -494,6 +530,7 @@ impl Rtc {
         }
     }
 
+    #[cfg(not(feature = "c0"))]
     /// Change the sleep time for the auto wakeup, after it's been set up.
     /// Sleep time is in MS. Major DRY from `set_wakeup`.
     pub fn set_wakeup_interval(&mut self, sleep_time: f32) -> Result<()> {
@@ -511,7 +548,7 @@ impl Rtc {
         }
 
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
+            if #[cfg(rtc_icsr)] {
                 bounded_loop!(self.regs.icsr().read().wutwf().bit_is_clear(), Error::RegisterUnchanged);
             } else {
                 bounded_loop!(self.regs.isr().read().wutwf().bit_is_clear(), Error::RegisterUnchanged);
@@ -529,6 +566,7 @@ impl Rtc {
         Ok(())
     }
 
+    #[cfg(not(feature = "c0"))]
     /// Clears the wakeup flag. Must be cleared manually after every RTC wakeup.
     /// Alternatively, you could call this in the RTC wakeup interrupt handler.
     pub fn clear_wakeup_flag(&mut self) -> Result<()> {
@@ -536,7 +574,8 @@ impl Rtc {
             regs.cr().modify(|_, w| w.wute().clear_bit());
 
             cfg_if! {
-                if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
+                if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", 
+                    feature = "wl", feature = "h5", feature = "c0"))] {
                     regs.scr().write(|w| w.cwutf().bit(true));
                 } else {
                     // Note that we clear this by writing 0, which isn't
@@ -565,7 +604,7 @@ impl Rtc {
         // todo: L4 has ICSR and ISR regs. Maybe both for backwards compat?
 
         cfg_if! {
-            if #[cfg(any(feature = "l5", feature = "g0", feature = "g4", feature = "l412", feature = "wl", feature = "h5"))] {
+            if #[cfg(rtc_icsr)] {
                 // Enter init mode if required. This is generally used to edit the clock or calendar,
                 // but not for initial enabling steps.
                 if init_mode && self.regs.icsr().read().initf().bit_is_clear() {

@@ -21,7 +21,6 @@ use crate::flash::FlashError;
     feature = "c0",
 )))]
 use crate::qspi::QspiError;
-#[cfg(not(feature = "c0"))]
 use crate::rtc::RtcError;
 #[cfg(not(feature = "f301"))]
 use crate::spi::SpiError;
@@ -63,7 +62,6 @@ pub enum Error {
     /// SPI errors.
     SpiError(SpiError),
     /// Clock errors.
-    #[cfg(not(feature = "c0"))]
     RtcError(RtcError),
     RccError(RccError),
     #[cfg(not(any(
@@ -94,7 +92,6 @@ impl_from_error!(FlashError);
 impl_from_error!(PolynomialError);
 #[cfg(not(feature = "f301"))]
 impl_from_error!(SpiError);
-#[cfg(not(feature = "c0"))]
 impl_from_error!(RtcError);
 impl_from_error!(RccError);
 #[cfg(not(any(

@@ -463,7 +463,6 @@ pub mod qspi;
 #[cfg(not(any(feature = "f", feature = "g0", feature = "c0",)))]
 pub mod rng;
 
-#[cfg(not(feature = "c0"))] // todo
 pub mod rtc;
 
 #[cfg(not(any(
