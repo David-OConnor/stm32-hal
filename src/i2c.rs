@@ -628,7 +628,7 @@ where
                 dma::cfg_channel(
                     &mut regs,
                     channel,
-                    &self.regs.txdr() as *const _ as u32,
+                    self.regs.txdr().as_ptr() as u32,
                     ptr as u32,
                     num_data,
                     dma::Direction::ReadFromMem,
@@ -643,7 +643,7 @@ where
                 dma::cfg_channel(
                     &mut regs,
                     channel,
-                    &self.regs.txdr() as *const _ as u32,
+                    self.regs.txdr().as_ptr() as u32,
                     ptr as u32,
                     num_data,
                     dma::Direction::ReadFromMem,
@@ -710,7 +710,7 @@ where
                 dma::cfg_channel(
                     &mut regs,
                     channel,
-                    &self.regs.rxdr() as *const _ as u32,
+                    self.regs.rxdr().as_ptr() as u32,
                     ptr as u32,
                     num_data,
                     dma::Direction::ReadFromPeriph,
@@ -725,7 +725,7 @@ where
                 dma::cfg_channel(
                     &mut regs,
                     channel,
-                    &self.regs.rxdr() as *const _ as u32,
+                    self.regs.rxdr().as_ptr() as u32,
                     ptr as u32,
                     num_data,
                     dma::Direction::ReadFromPeriph,

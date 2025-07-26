@@ -1495,7 +1495,8 @@ pub unsafe fn read_dma(
 ) -> crate::error::Result<()> {
     let (ptr, len) = (buf.as_ptr(), buf.len());
 
-    let periph_addr = unsafe { &(*(regs(port))).idr() as *const _ as u32 };
+    // let periph_addr = unsafe { &(*(regs(port))).idr().as_ptr() as u32 };
+    let periph_addr = unsafe { (*(regs(port))).idr().as_ptr() as u32 };
 
     // #[cfg(feature = "h7")]
     let num_data = len as u32;

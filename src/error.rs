@@ -21,10 +21,9 @@ use crate::flash::FlashError;
     feature = "c0",
 )))]
 use crate::qspi::QspiError;
-use crate::rtc::RtcError;
 #[cfg(not(feature = "f301"))]
 use crate::spi::SpiError;
-use crate::{clocks::RccError, i2c::I2cError, timer::TimerError, usart::UsartError};
+use crate::{clocks::RccError, i2c::I2cError, rtc::RtcError, timer::TimerError, usart::UsartError};
 
 macro_rules! impl_from_error {
     ($error:ident) => {

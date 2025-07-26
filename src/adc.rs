@@ -1207,7 +1207,7 @@ macro_rules! hal {
                         dma::cfg_channel(
                             &mut regs,
                             dma_channel,
-                            &self.regs.dr() as *const _ as u32,
+                            self.regs.dr().as_ptr() as u32,
                             ptr as u32,
                             num_data,
                             dma::Direction::ReadFromPeriph,
@@ -1222,7 +1222,7 @@ macro_rules! hal {
                         dma::cfg_channel(
                             &mut regs,
                             dma_channel,
-                            &self.regs.dr() as *const _ as u32,
+                            self.regs.dr().as_ptr() as u32,
                             ptr as u32,
                             num_data,
                             dma::Direction::ReadFromPeriph,

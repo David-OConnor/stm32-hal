@@ -353,7 +353,7 @@ where
                     // 1. Write the USART_TDR register address in the DMA control register to configure it as
                     // the destination of the transfer. The data is moved to this address from memory after
                     // each TXE event.
-                    &self.regs.tdr() as *const _ as u32,
+                    self.regs.tdr().as_ptr() as u32,
                     // 2. Write the memory address in the DMA control register to configure it as the source of
                     // the transfer. The data is loaded into the USART_TDR register from this memory area
                     // after each TXE event.
@@ -374,7 +374,7 @@ where
                 dma::cfg_channel(
                     &mut regs,
                     channel,
-                    &self.regs.tdr() as *const _ as u32,
+                    self.regs.tdr().as_ptr() as u32,
                     ptr as u32,
                     num_data,
                     dma::Direction::ReadFromMem,
@@ -437,7 +437,7 @@ where
                     // 1. Write the USART_RDR register address in the DMA control register to configure it as
                     // the source of the transfer. The data is moved from this address to the memory after
                     // each RXNE event.
-                    &self.regs.rdr() as *const _ as u32,
+                    self.regs.rdr().as_ptr() as u32,
                     // 2. Write the memory address in the DMA control register to configure it as the destination
                     // of the transfer. The data is loaded from USART_RDR to this memory area after each
                     // RXNE event.
@@ -456,7 +456,7 @@ where
                 dma::cfg_channel(
                     &mut regs,
                     channel,
-                    &self.regs.rdr() as *const _ as u32,
+                    self.regs.rdr().as_ptr() as u32,
                     ptr as u32,
                     num_data,
                     dma::Direction::ReadFromPeriph,

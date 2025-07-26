@@ -161,7 +161,7 @@ where
         // todo: make bounded
         #[cfg(not(feature = "f4"))]
         while self.regs.sr().read().frlvl().bits() != 0 {
-            unsafe { ptr::read_volatile(&self.regs.dr() as *const _ as *const u8) };
+            unsafe { ptr::read_volatile(self.regs.dr().as_ptr() as *const u8) };
         }
 
         Ok(())
@@ -178,7 +178,7 @@ where
             Error::RegisterUnchanged
         );
 
-        Ok(unsafe { ptr::read_volatile(&self.regs.dr() as *const _ as *const u8) })
+        Ok(unsafe { ptr::read_volatile(self.regs.dr().as_ptr() as *const u8) })
     }
 
     /// Write a single byte if available, or block until it's available.
@@ -193,7 +193,7 @@ where
 
         #[allow(invalid_reference_casting)]
         unsafe {
-            ptr::write_volatile(&self.regs.dr() as *const _ as *mut u8, byte)
+            ptr::write_volatile(self.regs.dr().as_ptr() as *mut u8, byte)
         };
 
         Ok(())
@@ -280,7 +280,7 @@ where
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
-        let periph_addr = &self.regs.dr() as *const _ as u32;
+        let periph_addr = self.regs.dr().as_ptr() as u32;
         let num_data = len as u32;
 
         match dma_periph {
@@ -358,7 +358,7 @@ where
         #[cfg(feature = "l4")]
         R::write_sel(&mut dma_regs);
 
-        let periph_addr = &self.regs.dr() as *const _ as u32;
+        let periph_addr = self.regs.dr().as_ptr() as u32;
         let num_data = len as u32;
 
         match dma_periph {
@@ -423,8 +423,8 @@ where
 
         // todo: DRY here, with `write_dma`, and `read_dma`.
 
-        let periph_addr_write = &self.regs.dr() as *const _ as u32;
-        let periph_addr_read = &self.regs.dr() as *const _ as u32;
+        let periph_addr_write = self.regs.dr().as_ptr() as u32;
+        let periph_addr_read = self.regs.dr().as_ptr() as u32;
 
         let num_data_write = len_write as u32;
         let num_data_read = len_read as u32;

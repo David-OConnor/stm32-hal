@@ -1131,7 +1131,7 @@ impl Clocks {
 
     /// Get the systick speed. Note that for dual core variants, this is for CPU1.
     /// CPU2 systick is equal to the HCLK (possibly divided by 8), so use the `hclk()` method.
-    /// 
+    ///
     /// Note: This function returns the systick core clock frequency.
     /// When systick is configured to use the external clock, the systick frequency is `systick() / 8`.
     pub const fn systick(&self) -> u32 {

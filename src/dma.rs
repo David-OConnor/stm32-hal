@@ -1689,13 +1689,13 @@ macro_rules! make_chan_struct {
                 }
 
                 /// Enable a specific type of interrupt.
-                pub fn enable_interrupt(&mut self, interrupt: DmaInterrupt) -> Result<()> {
-                    enable_interrupt_internal(&mut self.regs(), DmaChannel::[<C $ch>], interrupt)
+                pub fn enable_interrupt(&mut self, interrupt: DmaInterrupt) {
+                    enable_interrupt_internal(&mut self.regs(), DmaChannel::[<C $ch>], interrupt).unwrap()
                 }
 
                 /// Clear an interrupt flag.
-                pub fn clear_interrupt(&mut self, interrupt: DmaInterrupt) -> Result<()> {
-                    clear_interrupt_internal(&mut self.regs(), DmaChannel::[<C $ch>], interrupt)
+                pub fn clear_interrupt(&mut self, interrupt: DmaInterrupt) {
+                    clear_interrupt_internal(&mut self.regs(), DmaChannel::[<C $ch>], interrupt).unwrap()
                 }
                 // todo: Other methods.
             }

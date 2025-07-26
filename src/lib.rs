@@ -406,6 +406,7 @@ pub mod dfsdm;
 pub mod dma;
 
 pub mod error;
+pub use error::Error;
 
 #[cfg(all(feature = "h7", feature = "net"))]
 pub mod ethernet;

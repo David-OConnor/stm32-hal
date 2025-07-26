@@ -184,7 +184,7 @@ where
             self.regs.sr().read().rxwne().bit_is_set()
                 || self.regs.sr().read().rxplvl().bits() != 0,
             Error::RegisterUnchanged,
-            { unsafe { ptr::read_volatile(&self.regs.rxdr() as *const _ as *const ()) } }
+            { unsafe { ptr::read_volatile(&self.regs.rxdr().as_ptr() as *const ()) } }
         );
         // 3. Disable the SPI (SPE=0).
         self.regs.cr1().modify(|_, w| w.spe().clear_bit());
@@ -209,10 +209,8 @@ where
         // NOTE(write_volatile/read_volatile) write/read only 1 word
         #[allow(invalid_reference_casting)]
         unsafe {
-            ptr::write_volatile(&self.regs.txdr() as *const _ as *mut u8, word);
-            return Ok(ptr::read_volatile(
-                &self.regs.rxdr() as *const _ as *const u8
-            ));
+            ptr::write_volatile(&self.regs.txdr().as_ptr() as *mut u8, word);
+            return Ok(ptr::read_volatile(&self.regs.rxdr().as_ptr() as *const u8));
         }
     }
     /// Read a single byte if available, or block until it's available.
@@ -228,7 +226,7 @@ where
         );
 
         // NOTE(read_volatile) read only 1 word
-        return Ok(unsafe { ptr::read_volatile(&self.regs.rxdr() as *const _ as *const u8) });
+        return Ok(unsafe { ptr::read_volatile(&self.regs.rxdr().as_ptr() as *const u8) });
     }
 
     /// Write multiple bytes on the SPI line, blocking until complete.
@@ -291,8 +289,8 @@ where
         // NOTE(write_volatile) see note above
         #[allow(invalid_reference_casting)]
         unsafe {
-            let txdr = &self.regs.txdr() as *const _ as *const UnsafeCell<u8>;
-            ptr::write_volatile(&self.regs.txdr() as *const _ as *mut u8, word)
+            let txdr = &self.regs.txdr().as_ptr() as *const UnsafeCell<u8>;
+            ptr::write_volatile(&self.regs.txdr().as_ptr() as *mut u8, word)
         }
 
         // write CSTART to start a transaction in
@@ -316,7 +314,7 @@ where
         self.regs.cr1().modify(|_, w| w.spe().clear_bit());
         self.regs.cfg1().modify(|_, w| w.rxdmaen().bit(true));
 
-        let periph_addr = &self.regs.rxdr() as *const _ as u32;
+        let periph_addr = &self.regs.rxdr().as_ptr() as u32;
         let num_data = len as u32;
 
         match dma_periph {
@@ -384,7 +382,7 @@ where
         // (N/A)
 
         // 2. Enable DMA streams for Tx and Rx in DMA registers, if the streams are used.
-        let periph_addr = &self.regs.txdr() as *const _ as u32;
+        let periph_addr = &self.regs.txdr().as_ptr() as u32;
         let num_data = len as u32;
 
         match dma_periph {
@@ -448,8 +446,8 @@ where
 
         // todo: DRY here, with `write_dma`, and `read_dma`.
 
-        let periph_addr_write = &self.regs.txdr() as *const _ as u32;
-        let periph_addr_read = &self.regs.rxdr() as *const _ as u32;
+        let periph_addr_write = &self.regs.txdr().as_ptr() as u32;
+        let periph_addr_read = &self.regs.rxdr().as_ptr() as u32;
 
         let num_data_write = len_write as u32;
         let num_data_read = len_read as u32;

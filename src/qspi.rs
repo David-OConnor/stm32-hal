@@ -365,7 +365,7 @@ impl Qspi {
         unsafe {
             for word in data {
                 #[allow(invalid_reference_casting)]
-                ptr::write_volatile(&self.regs.dr() as *const _ as *mut u8, *word);
+                ptr::write_volatile(self.regs.dr().as_ptr() as *mut u8, *word);
             }
         }
 
@@ -411,7 +411,7 @@ impl Qspi {
 
         unsafe {
             for word in buf {
-                *word = ptr::read_volatile(&self.regs.dr() as *const _ as *const u8);
+                *word = ptr::read_volatile(self.regs.dr().as_ptr() as *const u8);
             }
         }
 

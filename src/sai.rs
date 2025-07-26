@@ -1020,8 +1020,8 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         // 3. Enable the DMA. (handled by `dma.cfg_channel`)
 
         let periph_addr = match sai_channel {
-            SaiChannel::A => &self.regs.cha().dr() as *const _ as u32,
-            SaiChannel::B => &self.regs.chb().dr() as *const _ as u32,
+            SaiChannel::A => self.regs.cha().dr().as_ptr() as u32,
+            SaiChannel::B => self.regs.chb().dr().as_ptr() as u32,
         };
 
         let len = len as u32;
@@ -1095,8 +1095,8 @@ It can generate an interrupt if WCKCFGIE bit is set in SAI_xIM register");
         };
 
         let periph_addr = match sai_channel {
-            SaiChannel::A => &self.regs.cha().dr() as *const _ as u32,
-            SaiChannel::B => &self.regs.chb().dr() as *const _ as u32,
+            SaiChannel::A => self.regs.cha().dr().as_ptr() as u32,
+            SaiChannel::B => self.regs.chb().dr().as_ptr() as u32,
         };
 
         let num_data = len as u32;
