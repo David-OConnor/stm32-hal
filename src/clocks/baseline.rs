@@ -902,8 +902,6 @@ impl Clocks {
             .acr()
             .modify(|_, w| unsafe { w.latency().bits(wait_state as u8) });
 
-        let mut i = 0;
-
         // todo hmm. Removed or renamed in pac 0.16?
         // icache.icache_cr().modify(|_, w| w.en().bit(true));
 
