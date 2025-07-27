@@ -1499,8 +1499,7 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
 
         // L5 RM: Same as cat 3/4 G4 devs above, but connected to DMA chs 0-7 respectively.
         #[cfg(feature = "g431")]
-        // let dma2_offset = 6;
-        let dma2_offset = 8; // todo temp
+        let dma2_offset = 6;
         #[cfg(not(feature = "g431"))]
         let dma2_offset = 8;
 
@@ -1703,8 +1702,6 @@ macro_rules! make_chan_struct {
     };
 }
 
-// todo: As above, you may need more feature-gating, esp on
-// todo DMA2.
 // Note: G0 is limited, eg for some variants only up to DMA1, ch5.
 cfg_if! {
     if #[cfg(not(any(feature = "f3", feature = "g0")))] {

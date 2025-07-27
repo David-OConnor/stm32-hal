@@ -51,7 +51,6 @@ chrono = { version = "0.4.23", default-features = false }
 
 # These three for non-synopsis. todo: Add in for synopsis, along with our write helper, if applicable.
 stm32-usbd = { version = "0.7.0", optional = true }
-stm32-usbd2 = { version = "0.8.0", optional = true }
 # usb-device = { version = "0.3.2", optional = true}
 # usbd-serial = { version = "0.2.2", optional = true}
 
@@ -185,8 +184,6 @@ c071 = ["stm32c0/stm32c071", "c0"]
 
 
 usb = ["dep:stm32-usbd"]
-# todo temp until FeldrinH's PR to stm32-usbd is merged.
-usb_c0 = ["dep:stm32-usbd2"]
 #usb = ["dep:stm32-usbd", "usb-device", "usbd-serial"]
 
 usbotg_fs = ["synopsys-usb-otg/fs"]  # eg F4 for FS.
