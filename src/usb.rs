@@ -23,7 +23,8 @@
 use core::borrow::BorrowMut;
 
 use cfg_if::cfg_if;
-pub use stm32_usbd::{UsbBus, UsbPeripheral};
+pub use stm32_usbd::UsbBus;
+use stm32_usbd::{UsbPeripheral, MemoryAccess};
 
 // use usb_device::{bus::UsbBusAllocator, prelude::*};
 // use usb_device::class_prelude::UsbBus as UsbBus_;
@@ -89,11 +90,11 @@ unsafe impl UsbPeripheral for Peripheral {
     // Endpoint memory access scheme.
     // Set to `true` if "2x16 bits/word" access scheme is used, otherwise set to `false`.
     #[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "wb"))]
-    const EP_MEMORY_ACCESS_2X16: bool = true;
+    const EP_MEMORY_ACCESS: MemoryAccess = MemoryAccess::Word16x2;
 
     #[cfg(any(feature = "f3", feature = "g0"))]
     // F3 uses 1x16 or 2x16 depending on variant. G0 uses a 32-bit word.
-    const EP_MEMORY_ACCESS_2X16: bool = false;
+    const EP_MEMORY_ACCESS: MemoryAccess = MemoryAccess::Word16x2;
 
     #[cfg(any(feature = "c0", feature = "h5"))]
     const EP_MEMORY_ACCESS: MemoryAccess = MemoryAccess::Word32x1;
