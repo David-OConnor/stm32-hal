@@ -348,6 +348,7 @@ impl Flash {
                 regs.sr().modify(|_, w| w.eop().bit(true));
             }
         }
+
         #[cfg(not(feature = "f4"))]
         regs.cr().modify(|_, w| w.per().clear_bit());
         #[cfg(feature = "f4")]

@@ -47,7 +47,10 @@ cfg_if! {
 use crate::pac::dma1 as dma_p;
 
 // Used for while loops, to allow returning an error instead of hanging.
-pub(crate) const MAX_ITERS: u32 = 300_000; // todo: What should this be?
+// todo: What should this be?
+// Observation: On G4 at 170Mhz, 300,000 triggers a failure when erasing a flash page (prior to step 5),
+// but 900,000 is fine.
+pub(crate) const MAX_ITERS: u32 = 900_000;
 
 /// DRY: Instead of infinitely busy-looping on some condition, we bound the number of iterations
 /// and return a given error upon exceeding that bound.

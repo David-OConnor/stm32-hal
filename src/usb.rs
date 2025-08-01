@@ -24,7 +24,7 @@ use core::borrow::BorrowMut;
 
 use cfg_if::cfg_if;
 pub use stm32_usbd::UsbBus;
-use stm32_usbd::{UsbPeripheral, MemoryAccess};
+use stm32_usbd::{MemoryAccess, UsbPeripheral};
 
 // use usb_device::{bus::UsbBusAllocator, prelude::*};
 // use usb_device::class_prelude::UsbBus as UsbBus_;
