@@ -2371,11 +2371,9 @@ cfg_if! {
         cc_2_channels!(TIM12, u32);
 
         make_timer!(TIM13, tim13, 1, u32);
-        cc_slave_mode!(TIM13);
         cc_2_channels!(TIM13, u32);
 
         make_timer!(TIM14, tim14, 1, u32);
-        cc_slave_mode!(TIM14);
         cc_2_channels!(TIM14, u32);
     }
 }
@@ -2451,8 +2449,6 @@ cfg_if! {
         make_timer!(TIM19, tim19, 2, u16);
 
         cc_slave_mode!(TIM12);
-        cc_slave_mode!(TIM13);
-        cc_slave_mode!(TIM14);
         cc_slave_mode!(TIM19);
 
         cc_1_channel!(TIM12, u16);
