@@ -238,15 +238,17 @@ pub enum CountDir {
 
 /// Capture/Compare selection.
 /// This field defines the direction of the channel (input/output) as well as the used input.
-/// It affects the TIMx_CCMR1 register, CCxS fields. Note that the signifiders of the input sources
-/// varies depending on the channel. For example, the one labeled `InputTi1` here is always the associated
-/// channel, while `InputTi2` is 2 for ch1, 1 for ch2, 4 for ch3, and 3 for ch4.
+/// It affects the TIMx_CCMR1 register, CCxS fields.
+///
+/// Note that the the specific timer input source varies depending on the channel.
+/// `InputTiPrimary` always matches the associated channel (e.g. TI1 for CH1, TI2 for CH2, etc),
+/// while `InputTiSecondary` is TI2 for CH1, TI1 for CH2, TI4 for CH3, and TI3 for CH4.
 #[repr(u8)]
 #[derive(Clone, Copy)]
 pub enum CaptureCompare {
     Output = 0b00,
-    InputTi1 = 0b01,
-    InputTi2 = 0b10,
+    InputTiPrimary = 0b01,
+    InputTiSecondary = 0b10,
     InputTrc = 0b11,
 }
 
@@ -1235,7 +1237,7 @@ macro_rules! cc_4_channels {
                         // self.regs.ccmr2_input().modify(|_, w| unsafe {
                         //     w.ic4psc().bits(0b00);
                         //     w.ic4f().bits(filter)
-                // });
+                        // });
                     }
                 }
 
