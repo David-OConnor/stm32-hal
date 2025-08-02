@@ -1089,9 +1089,9 @@ macro_rules! cc_slave_mode {
             /// Set input slave mode and input trigger. See `InputSlaveMode` and `InputTrigger` documentation for more details.
             /// Use `set_input_capture` to configure input channels if required.
             ///
-            /// Note: Some modes (e.g. encoder modes) are only available on some timers. Consult the reference manual for specifics.
+            /// Note: Some modes (e.g. encoder modes) are unavailable on some timers. Consult the reference manual for specifics.
             ///
-            /// Note: Encoder and external clock slave modes clock the timer on an external input, which makes automatic frequency calculations incorrect.
+            /// Note: Encoder and external clock slave modes clock the timer from an external input, which makes automatic frequency calculations incorrect.
             /// When using these the prescaler and auto-reload are reset to hardware defaults (0 for prescaler, max value for auto-reload).
             /// Set prescaler and auto-reload manually if hardware defaults are not appropriate.
             pub fn set_input_slave_mode(
