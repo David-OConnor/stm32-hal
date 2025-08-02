@@ -1081,6 +1081,43 @@ macro_rules! make_timer {
     }
 }
 
+macro_rules! cc_slave_mode {
+    ($TIMX:ident) => {
+        impl Timer<pac::$TIMX> {
+            /// Set input slave mode and input trigger. See `InputSlaveMode` and `InputTrigger` documentation for more details.
+            /// Use `set_input_capture` to configure input channels if required. 
+            /// 
+            /// Note: Some modes (e.g. encoder modes) are only available on some timers. Consult the reference manual for specifics.
+            ///
+            /// Note: Encoder and external clock slave modes clock the timer on an external input, which makes automatic frequency calculations incorrect.
+            /// When using these the prescaler and auto-reload are reset to hardware defaults (0 for prescaler, max value for auto-reload).
+            /// Set prescaler and auto-reload manually if hardware defaults are not appropriate.
+            pub fn set_input_slave_mode(
+                &mut self,
+                slave_mode: InputSlaveMode,
+                trigger: InputTrigger,
+            ) {
+                if let InputSlaveMode::Encoder1
+                | InputSlaveMode::Encoder2
+                | InputSlaveMode::Encoder3
+                | InputSlaveMode::ExternalClock1 = slave_mode
+                {
+                    // Reset prescaler and auto-reload
+                    self.regs.psc().reset();
+                    self.regs.arr().reset();
+                    // Reset timing values because these are now incorrect
+                    self.ns_per_tick = 0;
+                    self.period = 0.;
+                }
+
+                self.regs.smcr().modify(|_, w| unsafe {
+                    w.sms().bits(slave_mode as u8).ts().bits(trigger as u8)
+                });
+            }
+        }
+    };
+}
+
 // We use macros to support the varying number of capture compare channels available on
 // different timers.
 // Note that there's lots of DRY between these implementations.
@@ -2199,6 +2236,9 @@ pub fn clear_update_interrupt(tim_num: u8) {
 #[cfg(not(any(feature = "f373")))]
 make_timer!(TIM1, tim1, 2, u16);
 
+#[cfg(not(any(feature = "f373")))]
+cc_slave_mode!(TIM1);
+
 #[cfg(not(any(feature = "f373", feature = "g0", feature = "g4")))]
 cc_4_channels!(TIM1, u16);
 // todo: PAC error?
@@ -2221,6 +2261,7 @@ cfg_if! {
         feature = "c031",
     )))] {
         make_timer!(TIM2, tim2, 1, u32);
+        cc_slave_mode!(TIM2);
         cc_4_channels!(TIM2, u32);
     }
 }
@@ -2241,6 +2282,7 @@ cfg_if! {
         // feature = "c0",
     )))] {
         make_timer!(TIM3, tim3, 1, u32);
+        cc_slave_mode!(TIM3);
         cc_4_channels!(TIM3, u32);
     }
 }
@@ -2265,6 +2307,7 @@ cfg_if! {
         feature = "wl"
     )))] {
         make_timer!(TIM4, tim4, 1, u32);
+        cc_slave_mode!(TIM4);
         cc_4_channels!(TIM4, u32);
     }
 }
@@ -2284,6 +2327,7 @@ cfg_if! {
        all(feature = "f4", not(feature = "f410")),
    ))] {
         make_timer!(TIM5, tim5, 1, u32);
+        cc_slave_mode!(TIM5);
         cc_4_channels!(TIM5, u32);
    }
 }
@@ -2298,6 +2342,7 @@ cfg_if! {
         feature = "h7",
     ))] {
         make_timer!(TIM8, tim8, 2, u16);
+        cc_slave_mode!(TIM8);
         // todo: Some issues with field names or something on l562 here.
         #[cfg(not(feature = "l5"))] // PAC bug.
         cc_4_channels!(TIM8, u16);
@@ -2310,6 +2355,7 @@ cfg_if! {
 cfg_if! {
     if #[cfg(feature = "g4")] {
         make_timer!(TIM8, tim8, 2, u32);
+        cc_slave_mode!(TIM8);
         cc_4_channels!(TIM8, u32);
     }
 }
@@ -2317,12 +2363,15 @@ cfg_if! {
 cfg_if! {
     if #[cfg(feature = "h5")] {
         make_timer!(TIM12, tim12, 1, u32);
+        cc_slave_mode!(TIM12);
         cc_2_channels!(TIM12, u32);
 
         make_timer!(TIM13, tim13, 1, u32);
+        cc_slave_mode!(TIM13);
         cc_2_channels!(TIM13, u32);
 
         make_timer!(TIM14, tim14, 1, u32);
+        cc_slave_mode!(TIM14);
         cc_2_channels!(TIM14, u32);
     }
 }
@@ -2347,6 +2396,7 @@ cfg_if! {
         feature = "c0",
     )))] {
         make_timer!(TIM15, tim15, 2, u16);
+        cc_slave_mode!(TIM15);
         // todo: TIM15 on some variant has 2 channels (Eg H7). On others, like L4x3, it appears to be 1.
         cc_1_channel!(TIM15, u16);
     }
@@ -2396,6 +2446,11 @@ cfg_if! {
         make_timer!(TIM14, tim14, 1, u16);
         make_timer!(TIM19, tim19, 2, u16);
 
+        cc_slave_mode!(TIM12);
+        cc_slave_mode!(TIM13);
+        cc_slave_mode!(TIM14);
+        cc_slave_mode!(TIM19);
+
         cc_1_channel!(TIM12, u16);
         cc_1_channel!(TIM13, u16);
         cc_1_channel!(TIM14, u16);
@@ -2406,6 +2461,8 @@ cfg_if! {
 // todo: G4 (maybe not all variants?) have TIM20.
 #[cfg(any(feature = "f303"))]
 make_timer!(TIM20, tim20, 2, u16);
+#[cfg(any(feature = "f303"))]
+cc_slave_mode!(TIM20);
 #[cfg(any(feature = "f303"))]
 cc_4_channels!(TIM20, u16);
 
