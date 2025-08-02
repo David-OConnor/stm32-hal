@@ -412,7 +412,7 @@ macro_rules! make_timer {
     ($TIMX:ident, $tim:ident, $apb:expr, $res:ident) => {
         impl Timer<pac::$TIMX> {
             paste! {
-                /// Initialize a DFSDM peripheral, including  enabling and resetting
+                /// Initialize a Timer peripheral, including enabling and resetting
                 /// its RCC peripheral clock.
                 pub fn [<new_ $tim>](regs: pac::$TIMX, freq: f32, cfg: TimerConfig, clocks: &Clocks) -> Self {
                     let rcc = unsafe { &(*RCC::ptr()) };
@@ -1099,8 +1099,9 @@ macro_rules! cc_4_channels {
 
             /// Set up input capture, eg for PWM input.
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
-            /// Note: Does not handle TISEL (timer input selection register - you must do this manually
-            /// using the PAC.
+            ///
+            /// Note: Does not handle TISEL (timer input selection register), ICxPS (input capture prescaler),
+            /// and ICxF (input capture filter) - you must set these manually using the PAC if hardware defaults are not appropriate.
             #[cfg(not(any(
                 feature = "f",
                 feature = "l4x5",
@@ -1112,8 +1113,6 @@ macro_rules! cc_4_channels {
                 &mut self,
                 channel: TimChannel,
                 mode: CaptureCompare,
-                // trigger: InputTrigger,
-                // slave_mode: InputSlaveMode,
                 ccp: Polarity,
                 ccnp: Polarity,
             ) {
@@ -1135,13 +1134,13 @@ macro_rules! cc_4_channels {
                 // validate a transition on tim_ti1 when 8 consecutive samples with the new level have
                 // been detected (sampled at fDTS frequency). Then write IC1F bits to 0011 in the
                 // TIMx_CCMR1 register.
-                let filter = 0b0011; // todo experimenting.
+                // let filter = 0b0000;
 
                 match channel {
                     TimChannel::C1 => {
                         // self.regs.tisel.modify(|_, w| unsafe { w.ti1sel().bits(tisel) });
 
-                        // 3. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
+                        // 4. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
                         // clear): write the CC1P and CC1NP bits to ‘0’ (active on rising edge).
                         // (Note: We could use the `set_polarity` and `set_complementary_polarity` methods, but
                         // this allows us to combine them in a single reg write.)
@@ -1154,11 +1153,11 @@ macro_rules! cc_4_channels {
                         // Program the input prescaler. In our example, we wish the capture to be performed at
                         // each valid transition, so the prescaler is disabled (write IC1PS bits to 00 in the
                         // TIMx_CCMR1 register).
-                        self.regs.ccmr1_input().modify(|_, w| unsafe {
-                            // todo: PAC ommission?
-                            // w.ic1psc().bits(0b00);
-                            w.ic1f().bits(filter)
-                        });
+                        // self.regs.ccmr1_input().modify(|_, w| unsafe {
+                        //     // todo: PAC ommission?
+                        //     // w.ic1psc().bits(0b00);
+                        //     w.ic1f().bits(filter)
+                        // });
                     }
                     TimChannel::C2 => {
                         // self.regs.tisel.modify(|_, w| unsafe { w.ti2sel().bits(tisel) });
@@ -1168,10 +1167,10 @@ macro_rules! cc_4_channels {
                             w.cc2np().bit(ccnp.bit())
                         });
 
-                        self.regs.ccmr1_input().modify(|_, w| unsafe {
-                            w.ic2psc().bits(0b00);
-                            w.ic2f().bits(filter)
-                        });
+                        // self.regs.ccmr1_input().modify(|_, w| unsafe {
+                        //     w.ic2psc().bits(0b00);
+                        //     w.ic2f().bits(filter)
+                        // });
                     }
                     TimChannel::C3 => {
                         // self.regs.tisel.modify(|_, w| unsafe { w.ti3sel().bits(tisel) });
@@ -1181,10 +1180,10 @@ macro_rules! cc_4_channels {
                             w.cc3np().bit(ccnp.bit())
                         });
 
-                        self.regs.ccmr2_input().modify(|_, w| unsafe {
-                            w.ic3psc().bits(0b00);
-                            w.ic3f().bits(filter)
-                        });
+                        // self.regs.ccmr2_input().modify(|_, w| unsafe {
+                        //     w.ic3psc().bits(0b00);
+                        //     w.ic3f().bits(filter)
+                        // });
                     }
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
@@ -1196,22 +1195,12 @@ macro_rules! cc_4_channels {
                             w.cc4p().bit(ccp.bit())
                         });
 
-                        self.regs.ccmr2_input().modify(|_, w| unsafe {
-                            w.ic4psc().bits(0b00);
-                            w.ic4f().bits(filter)
-                        });
+                        // self.regs.ccmr2_input().modify(|_, w| unsafe {
+                        //     w.ic4psc().bits(0b00);
+                        //     w.ic4f().bits(filter)
+                // });
                     }
                 }
-
-                // todo: SMCR: Set in the Input PWM settings, but not normal input capture (?)
-                // 6. Select the valid trigger input: write the TS bits to 101 in the TIMx_SMCR register
-                // (TI1FP1 selected).
-                // self.regs.smcr().modify(|_, w| unsafe {
-                //     w.ts().bits(trigger as u8);
-                //     // 7. Configure the slave mode controller in reset mode: write the SMS bits to 0100 in the
-                //     // TIMx_SMCR register.
-                //     w.sms().bits(slave_mode as u8)
-                // });
 
                 // 6. Enable capture from the counter into the capture register by setting the CC1E bit in the
                 // TIMx_CCER register.
@@ -1493,21 +1482,18 @@ macro_rules! cc_2_channels {
 
             /// Set up input capture, eg for PWM input.
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
-            /// Note: Does not handle TISEL (timer input selection register - you must do this manually
-            /// using the PAC.
+            ///
+            /// Note: Does not handle TISEL (timer input selection register), ICxPS (input capture prescaler),
+            /// and ICxF (input capture filter) - you must set these manually using the PAC if hardware defaults are not appropriate.
             #[cfg(not(any(feature = "f", feature = "l4x5", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
                 mode: CaptureCompare,
-                // trigger: InputTrigger,
-                // slave_mode: InputSlaveMode,
                 ccp: Polarity,
                 ccnp: Polarity,
             ) {
                 self.set_capture_compare_input(channel, mode);
-
-                let filter = 0b00;
 
                 match channel {
                     TimChannel::C1 => {
@@ -1515,22 +1501,12 @@ macro_rules! cc_2_channels {
                             w.cc1p().bit(ccp.bit());
                             w.cc1np().bit(ccnp.bit())
                         });
-
-                        self.regs.ccmr1_input().modify(|_, w| unsafe {
-                            // w.ic1psc().bits(0b00);
-                            w.ic1f().bits(filter)
-                        });
                     }
                     TimChannel::C2 => {
                         #[cfg(not(feature = "c0"))]
                         self.regs.ccer().modify(|_, w| {
                             w.cc2p().bit(ccp.bit());
                             w.cc2np().bit(ccnp.bit())
-                        });
-
-                        self.regs.ccmr1_input().modify(|_, w| unsafe {
-                            w.ic2psc().bits(0b00);
-                            w.ic2f().bits(filter)
                         });
                     }
                     _ => panic!()
@@ -1738,21 +1714,18 @@ macro_rules! cc_1_channel {
 
             /// Set up input capture, eg for PWM input.
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
-            /// Note: Does not handle TISEL (timer input selection register - you must do this manually
-            /// using the PAC.
+            ///
+            /// Note: Does not handle TISEL (timer input selection register), ICxPS (input capture prescaler),
+            /// and ICxF (input capture filter) - you must set these manually using the PAC if hardware defaults are not appropriate.
             #[cfg(not(any(feature = "f", feature = "l4x5", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
                 mode: CaptureCompare,
-                // trigger: InputTrigger,
-                // slave_mode: InputSlaveMode,
                 ccp: Polarity,
                 ccnp: Polarity,
             ) {
                 self.set_capture_compare_input(channel, mode);
-
-                let filter = 0b00;
 
                 match channel {
                     TimChannel::C1 => {
@@ -1760,20 +1733,9 @@ macro_rules! cc_1_channel {
                             w.cc1p().bit(ccp.bit());
                             w.cc1np().bit(ccnp.bit())
                         });
-
-                        self.regs.ccmr1_input().modify(|_, w| unsafe {
-                            w.ic1psc().bits(0b00);
-                            w.ic1f().bits(filter)
-                        });
                     }
                     _ => panic!(),
                 };
-
-                // todo?
-                // self.regs.smcr().modify(|_, w| unsafe {
-                //     w.ts().bits(trigger as u8);
-                //     w.sms().bits(slave_mode as u8)
-                // });
 
                 self.enable_capture_compare(channel);
             }
