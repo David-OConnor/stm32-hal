@@ -238,15 +238,17 @@ pub enum CountDir {
 
 /// Capture/Compare selection.
 /// This field defines the direction of the channel (input/output) as well as the used input.
-/// It affects the TIMx_CCMR1 register, CCxS fields. Note that the signifiders of the input sources
-/// varies depending on the channel. For example, the one labeled `InputTi1` here is always the associated
-/// channel, while `InputTi2` is 2 for ch1, 1 for ch2, 4 for ch3, and 3 for ch4.
+/// It affects the TIMx_CCMR1 register, CCxS fields.
+///
+/// Note that the the specific timer input source varies depending on the channel.
+/// `InputTiPrimary` always matches the associated channel (e.g. TI1 for CH1, TI2 for CH2, etc),
+/// while `InputTiSecondary` is TI2 for CH1, TI1 for CH2, TI4 for CH3, and TI3 for CH4.
 #[repr(u8)]
 #[derive(Clone, Copy)]
 pub enum CaptureCompare {
     Output = 0b00,
-    InputTi1 = 0b01,
-    InputTi2 = 0b10,
+    InputTiPrimary = 0b01,
+    InputTiSecondary = 0b10,
     InputTrc = 0b11,
 }
 
@@ -412,7 +414,7 @@ macro_rules! make_timer {
     ($TIMX:ident, $tim:ident, $apb:expr, $res:ident) => {
         impl Timer<pac::$TIMX> {
             paste! {
-                /// Initialize a DFSDM peripheral, including  enabling and resetting
+                /// Initialize a Timer peripheral, including enabling and resetting
                 /// its RCC peripheral clock.
                 pub fn [<new_ $tim>](regs: pac::$TIMX, freq: f32, cfg: TimerConfig, clocks: &Clocks) -> Self {
                     let rcc = unsafe { &(*RCC::ptr()) };
@@ -449,7 +451,6 @@ macro_rules! make_timer {
                     };
 
                     result.set_freq(freq).ok();
-                    #[cfg(not(feature = "c0"))]
                     result.set_dir();
 
                     // Trigger an update event to load the prescaler value to the clock
@@ -1082,6 +1083,45 @@ macro_rules! make_timer {
     }
 }
 
+macro_rules! cc_slave_mode {
+    ($TIMX:ident) => {
+        impl Timer<pac::$TIMX> {
+            /// Set input slave mode and input trigger. See `InputSlaveMode` and `InputTrigger` documentation for more details.
+            /// Use `set_input_capture` to configure input channels if required.
+            ///
+            /// Note: Some modes (e.g. encoder modes) are unavailable on some timers. Consult the reference manual for specifics.
+            ///
+            /// Note: Encoder and external clock slave modes clock the timer from an external input, which makes automatic frequency calculations incorrect.
+            /// When using these the prescaler and auto-reload are reset to hardware defaults (0 for prescaler, max value for auto-reload).
+            /// Set prescaler and auto-reload manually if hardware defaults are not appropriate.
+            pub fn set_input_slave_mode(
+                &mut self,
+                slave_mode: InputSlaveMode,
+                trigger: InputTrigger,
+            ) {
+                self.regs.smcr().modify(|_, w| unsafe {
+                    w.sms().bits(slave_mode as u8).ts().bits(trigger as u8)
+                });
+
+                if let InputSlaveMode::Encoder1
+                | InputSlaveMode::Encoder2
+                | InputSlaveMode::Encoder3
+                | InputSlaveMode::ExternalClock1 = slave_mode
+                {
+                    // Reset prescaler and auto-reload
+                    self.regs.psc().reset();
+                    self.regs.arr().reset();
+                    // Reset timing values because these are now incorrect
+                    self.ns_per_tick = 0;
+                    self.period = 0.;
+                    // Reinitialize to reset counters and flush prescaler value
+                    self.reinitialize();
+                }
+            }
+        }
+    };
+}
+
 // We use macros to support the varying number of capture compare channels available on
 // different timers.
 // Note that there's lots of DRY between these implementations.
@@ -1100,8 +1140,9 @@ macro_rules! cc_4_channels {
 
             /// Set up input capture, eg for PWM input.
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
-            /// Note: Does not handle TISEL (timer input selection register - you must do this manually
-            /// using the PAC.
+            ///
+            /// Note: Does not handle TISEL (timer input selection register), ICxPS (input capture prescaler),
+            /// and ICxF (input capture filter) - you must set these manually using the PAC if hardware defaults are not appropriate.
             #[cfg(not(any(
                 feature = "f",
                 feature = "l4x5",
@@ -1113,8 +1154,6 @@ macro_rules! cc_4_channels {
                 &mut self,
                 channel: TimChannel,
                 mode: CaptureCompare,
-                // trigger: InputTrigger,
-                // slave_mode: InputSlaveMode,
                 ccp: Polarity,
                 ccnp: Polarity,
             ) {
@@ -1136,13 +1175,13 @@ macro_rules! cc_4_channels {
                 // validate a transition on tim_ti1 when 8 consecutive samples with the new level have
                 // been detected (sampled at fDTS frequency). Then write IC1F bits to 0011 in the
                 // TIMx_CCMR1 register.
-                let filter = 0b0011; // todo experimenting.
+                // let filter = 0b0000;
 
                 match channel {
                     TimChannel::C1 => {
                         // self.regs.tisel.modify(|_, w| unsafe { w.ti1sel().bits(tisel) });
 
-                        // 3. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
+                        // 4. Select the active polarity for TI1FP1 (used both for capture in TIMx_CCR1 and counter
                         // clear): write the CC1P and CC1NP bits to ‘0’ (active on rising edge).
                         // (Note: We could use the `set_polarity` and `set_complementary_polarity` methods, but
                         // this allows us to combine them in a single reg write.)
@@ -1155,11 +1194,11 @@ macro_rules! cc_4_channels {
                         // Program the input prescaler. In our example, we wish the capture to be performed at
                         // each valid transition, so the prescaler is disabled (write IC1PS bits to 00 in the
                         // TIMx_CCMR1 register).
-                        self.regs.ccmr1_input().modify(|_, w| unsafe {
-                            // todo: PAC ommission?
-                            // w.ic1psc().bits(0b00);
-                            w.ic1f().bits(filter)
-                        });
+                        // self.regs.ccmr1_input().modify(|_, w| unsafe {
+                        //     // todo: PAC ommission?
+                        //     // w.ic1psc().bits(0b00);
+                        //     w.ic1f().bits(filter)
+                        // });
                     }
                     TimChannel::C2 => {
                         // self.regs.tisel.modify(|_, w| unsafe { w.ti2sel().bits(tisel) });
@@ -1169,10 +1208,10 @@ macro_rules! cc_4_channels {
                             w.cc2np().bit(ccnp.bit())
                         });
 
-                        self.regs.ccmr1_input().modify(|_, w| unsafe {
-                            w.ic2psc().bits(0b00);
-                            w.ic2f().bits(filter)
-                        });
+                        // self.regs.ccmr1_input().modify(|_, w| unsafe {
+                        //     w.ic2psc().bits(0b00);
+                        //     w.ic2f().bits(filter)
+                        // });
                     }
                     TimChannel::C3 => {
                         // self.regs.tisel.modify(|_, w| unsafe { w.ti3sel().bits(tisel) });
@@ -1182,10 +1221,10 @@ macro_rules! cc_4_channels {
                             w.cc3np().bit(ccnp.bit())
                         });
 
-                        self.regs.ccmr2_input().modify(|_, w| unsafe {
-                            w.ic3psc().bits(0b00);
-                            w.ic3f().bits(filter)
-                        });
+                        // self.regs.ccmr2_input().modify(|_, w| unsafe {
+                        //     w.ic3psc().bits(0b00);
+                        //     w.ic3f().bits(filter)
+                        // });
                     }
                     #[cfg(not(feature = "wl"))]
                     TimChannel::C4 => {
@@ -1197,22 +1236,12 @@ macro_rules! cc_4_channels {
                             w.cc4p().bit(ccp.bit())
                         });
 
-                        self.regs.ccmr2_input().modify(|_, w| unsafe {
-                            w.ic4psc().bits(0b00);
-                            w.ic4f().bits(filter)
-                        });
+                        // self.regs.ccmr2_input().modify(|_, w| unsafe {
+                        //     w.ic4psc().bits(0b00);
+                        //     w.ic4f().bits(filter)
+                        // });
                     }
                 }
-
-                // todo: SMCR: Set in the Input PWM settings, but not normal input capture (?)
-                // 6. Select the valid trigger input: write the TS bits to 101 in the TIMx_SMCR register
-                // (TI1FP1 selected).
-                // self.regs.smcr().modify(|_, w| unsafe {
-                //     w.ts().bits(trigger as u8);
-                //     // 7. Configure the slave mode controller in reset mode: write the SMS bits to 0100 in the
-                //     // TIMx_SMCR register.
-                //     w.sms().bits(slave_mode as u8)
-                // });
 
                 // 6. Enable capture from the counter into the capture register by setting the CC1E bit in the
                 // TIMx_CCER register.
@@ -1494,21 +1523,18 @@ macro_rules! cc_2_channels {
 
             /// Set up input capture, eg for PWM input.
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
-            /// Note: Does not handle TISEL (timer input selection register - you must do this manually
-            /// using the PAC.
+            ///
+            /// Note: Does not handle TISEL (timer input selection register), ICxPS (input capture prescaler),
+            /// and ICxF (input capture filter) - you must set these manually using the PAC if hardware defaults are not appropriate.
             #[cfg(not(any(feature = "f", feature = "l4x5", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
                 mode: CaptureCompare,
-                // trigger: InputTrigger,
-                // slave_mode: InputSlaveMode,
                 ccp: Polarity,
                 ccnp: Polarity,
             ) {
                 self.set_capture_compare_input(channel, mode);
-
-                let filter = 0b00;
 
                 match channel {
                     TimChannel::C1 => {
@@ -1516,22 +1542,12 @@ macro_rules! cc_2_channels {
                             w.cc1p().bit(ccp.bit());
                             w.cc1np().bit(ccnp.bit())
                         });
-
-                        self.regs.ccmr1_input().modify(|_, w| unsafe {
-                            // w.ic1psc().bits(0b00);
-                            w.ic1f().bits(filter)
-                        });
                     }
                     TimChannel::C2 => {
                         #[cfg(not(feature = "c0"))]
                         self.regs.ccer().modify(|_, w| {
                             w.cc2p().bit(ccp.bit());
                             w.cc2np().bit(ccnp.bit())
-                        });
-
-                        self.regs.ccmr1_input().modify(|_, w| unsafe {
-                            w.ic2psc().bits(0b00);
-                            w.ic2f().bits(filter)
                         });
                     }
                     _ => panic!()
@@ -1739,21 +1755,18 @@ macro_rules! cc_1_channel {
 
             /// Set up input capture, eg for PWM input.
             /// L4 RM, section 26.3.8. H723 RM, section 43.3.7.
-            /// Note: Does not handle TISEL (timer input selection register - you must do this manually
-            /// using the PAC.
+            ///
+            /// Note: Does not handle TISEL (timer input selection register), ICxPS (input capture prescaler),
+            /// and ICxF (input capture filter) - you must set these manually using the PAC if hardware defaults are not appropriate.
             #[cfg(not(any(feature = "f", feature = "l4x5", feature = "l5", feature = "g0")))]
             pub fn set_input_capture(
                 &mut self,
                 channel: TimChannel,
                 mode: CaptureCompare,
-                // trigger: InputTrigger,
-                // slave_mode: InputSlaveMode,
                 ccp: Polarity,
                 ccnp: Polarity,
             ) {
                 self.set_capture_compare_input(channel, mode);
-
-                let filter = 0b00;
 
                 match channel {
                     TimChannel::C1 => {
@@ -1761,20 +1774,9 @@ macro_rules! cc_1_channel {
                             w.cc1p().bit(ccp.bit());
                             w.cc1np().bit(ccnp.bit())
                         });
-
-                        self.regs.ccmr1_input().modify(|_, w| unsafe {
-                            w.ic1psc().bits(0b00);
-                            w.ic1f().bits(filter)
-                        });
                     }
                     _ => panic!(),
                 };
-
-                // todo?
-                // self.regs.smcr().modify(|_, w| unsafe {
-                //     w.ts().bits(trigger as u8);
-                //     w.sms().bits(slave_mode as u8)
-                // });
 
                 self.enable_capture_compare(channel);
             }
@@ -2238,6 +2240,9 @@ pub fn clear_update_interrupt(tim_num: u8) {
 #[cfg(not(any(feature = "f373")))]
 make_timer!(TIM1, tim1, 2, u16);
 
+#[cfg(not(any(feature = "f373")))]
+cc_slave_mode!(TIM1);
+
 #[cfg(not(any(feature = "f373", feature = "g0", feature = "g4")))]
 cc_4_channels!(TIM1, u16);
 // todo: PAC error?
@@ -2260,6 +2265,7 @@ cfg_if! {
         feature = "c031",
     )))] {
         make_timer!(TIM2, tim2, 1, u32);
+        cc_slave_mode!(TIM2);
         cc_4_channels!(TIM2, u32);
     }
 }
@@ -2280,6 +2286,7 @@ cfg_if! {
         // feature = "c0",
     )))] {
         make_timer!(TIM3, tim3, 1, u32);
+        cc_slave_mode!(TIM3);
         cc_4_channels!(TIM3, u32);
     }
 }
@@ -2304,6 +2311,7 @@ cfg_if! {
         feature = "wl"
     )))] {
         make_timer!(TIM4, tim4, 1, u32);
+        cc_slave_mode!(TIM4);
         cc_4_channels!(TIM4, u32);
     }
 }
@@ -2323,6 +2331,7 @@ cfg_if! {
        all(feature = "f4", not(feature = "f410")),
    ))] {
         make_timer!(TIM5, tim5, 1, u32);
+        cc_slave_mode!(TIM5);
         cc_4_channels!(TIM5, u32);
    }
 }
@@ -2337,6 +2346,7 @@ cfg_if! {
         feature = "h7",
     ))] {
         make_timer!(TIM8, tim8, 2, u16);
+        cc_slave_mode!(TIM8);
         // todo: Some issues with field names or something on l562 here.
         #[cfg(not(feature = "l5"))] // PAC bug.
         cc_4_channels!(TIM8, u16);
@@ -2349,6 +2359,7 @@ cfg_if! {
 cfg_if! {
     if #[cfg(feature = "g4")] {
         make_timer!(TIM8, tim8, 2, u32);
+        cc_slave_mode!(TIM8);
         cc_4_channels!(TIM8, u32);
     }
 }
@@ -2356,6 +2367,7 @@ cfg_if! {
 cfg_if! {
     if #[cfg(feature = "h5")] {
         make_timer!(TIM12, tim12, 1, u32);
+        cc_slave_mode!(TIM12);
         cc_2_channels!(TIM12, u32);
 
         make_timer!(TIM13, tim13, 1, u32);
@@ -2386,6 +2398,7 @@ cfg_if! {
         feature = "c0",
     )))] {
         make_timer!(TIM15, tim15, 2, u16);
+        cc_slave_mode!(TIM15);
         // todo: TIM15 on some variant has 2 channels (Eg H7). On others, like L4x3, it appears to be 1.
         cc_1_channel!(TIM15, u16);
     }
@@ -2435,6 +2448,9 @@ cfg_if! {
         make_timer!(TIM14, tim14, 1, u16);
         make_timer!(TIM19, tim19, 2, u16);
 
+        cc_slave_mode!(TIM12);
+        cc_slave_mode!(TIM19);
+
         cc_1_channel!(TIM12, u16);
         cc_1_channel!(TIM13, u16);
         cc_1_channel!(TIM14, u16);
@@ -2445,6 +2461,8 @@ cfg_if! {
 // todo: G4 (maybe not all variants?) have TIM20.
 #[cfg(any(feature = "f303"))]
 make_timer!(TIM20, tim20, 2, u16);
+#[cfg(any(feature = "f303"))]
+cc_slave_mode!(TIM20);
 #[cfg(any(feature = "f303"))]
 cc_4_channels!(TIM20, u16);
 
