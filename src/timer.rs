@@ -1087,8 +1087,8 @@ macro_rules! cc_slave_mode {
     ($TIMX:ident) => {
         impl Timer<pac::$TIMX> {
             /// Set input slave mode and input trigger. See `InputSlaveMode` and `InputTrigger` documentation for more details.
-            /// Use `set_input_capture` to configure input channels if required. 
-            /// 
+            /// Use `set_input_capture` to configure input channels if required.
+            ///
             /// Note: Some modes (e.g. encoder modes) are only available on some timers. Consult the reference manual for specifics.
             ///
             /// Note: Encoder and external clock slave modes clock the timer on an external input, which makes automatic frequency calculations incorrect.
@@ -1099,6 +1099,10 @@ macro_rules! cc_slave_mode {
                 slave_mode: InputSlaveMode,
                 trigger: InputTrigger,
             ) {
+                self.regs.smcr().modify(|_, w| unsafe {
+                    w.sms().bits(slave_mode as u8).ts().bits(trigger as u8)
+                });
+
                 if let InputSlaveMode::Encoder1
                 | InputSlaveMode::Encoder2
                 | InputSlaveMode::Encoder3
@@ -1110,11 +1114,9 @@ macro_rules! cc_slave_mode {
                     // Reset timing values because these are now incorrect
                     self.ns_per_tick = 0;
                     self.period = 0.;
+                    // Reinitialize to reset counters and flush prescaler value
+                    self.reinitialize();
                 }
-
-                self.regs.smcr().modify(|_, w| unsafe {
-                    w.sms().bits(slave_mode as u8).ts().bits(trigger as u8)
-                });
             }
         }
     };
