@@ -449,7 +449,6 @@ macro_rules! make_timer {
                     };
 
                     result.set_freq(freq).ok();
-                    #[cfg(not(feature = "c0"))]
                     result.set_dir();
 
                     // Trigger an update event to load the prescaler value to the clock
