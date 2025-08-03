@@ -4,7 +4,7 @@
 use cfg_if::cfg_if;
 use cortex_m::{Peripherals, asm::wfi};
 
-#[cfg(any(feature = "l4", feature = "l5"))]
+#[cfg(msi)]
 use crate::clocks::{Clocks, MsiRange};
 #[cfg(any(feature = "l4", feature = "l5"))]
 use crate::pac;
@@ -30,7 +30,7 @@ pub enum StopMode {
 /// This assumes you're using MSI as the clock source, and changes speed by lowering the MSI speed.
 /// You must select an MSI speed of 2Mhz or lower. Note that you may need to adjust peripheral
 /// implementations that rely on system clock or APB speed.
-#[cfg(any(feature = "l4", feature = "l5"))]
+#[cfg(msi)]
 pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) -> Result<()> {
     let rcc = unsafe { &(*pac::RCC::ptr()) };
     let pwr = unsafe { &(*PWR::ptr()) };
@@ -49,7 +49,7 @@ pub fn low_power_run(clocks: &mut Clocks, speed: MsiRange) -> Result<()> {
 /// L4 RM, table 24
 /// Return to normal run mode from low-power run. Requires you to increase the clock speed
 /// manually after running this.
-#[cfg(any(feature = "l4", feature = "l5"))]
+#[cfg(msi)]
 pub fn return_from_low_power_run() -> Result<()> {
     let pwr = unsafe { &(*PWR::ptr()) };
 
