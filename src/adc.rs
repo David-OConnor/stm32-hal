@@ -1306,6 +1306,9 @@ hal!(ADC4, ADC3_4, adc4, 34);
 #[cfg(any(feature = "l4", feature = "l5"))]
 hal!(ADC1, ADC_COMMON, adc1, _);
 
+#[cfg(any(feature = "wb"))]
+hal!(ADC1, ADC_COMMON, adc1, _);
+
 #[cfg(any(
     feature = "l4x1",
     feature = "l4x2",
