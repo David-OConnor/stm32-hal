@@ -1499,7 +1499,8 @@ pub fn mux(periph: DmaPeriph, channel: DmaChannel, input: DmaInput) {
 
         // L5 RM: Same as cat 3/4 G4 devs above, but connected to DMA chs 0-7 respectively.
         #[cfg(feature = "g431")]
-        let dma2_offset = 6;
+        // todo: I believe this should be 6 from the RM, but in practice, 8 works and 6 doesn't.
+        let dma2_offset = 8;
         #[cfg(not(feature = "g431"))]
         let dma2_offset = 8;
 

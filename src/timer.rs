@@ -416,7 +416,7 @@ macro_rules! make_timer {
             paste! {
                 /// Initialize a Timer peripheral, including enabling and resetting
                 /// its RCC peripheral clock.
-                /// 
+                ///
                 /// Sets prescaler and auto-reload based on the requested frequency.
                 /// Use `new_timx_manual` to set the prescaler and auto-reload directly.
                 pub fn [<new_ $tim>](regs: pac::$TIMX, freq: f32, cfg: TimerConfig, clocks: &Clocks) -> Self {

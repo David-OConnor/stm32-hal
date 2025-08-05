@@ -1,6 +1,6 @@
 [package]
 name = "stm32-hal2"
-version = "2.1.1"
+version = "2.1.2"
 edition = "2024"
 authors = ["David O'Connor <the_alchemist@fastmail.com>"]
 description = "Hardware abstraction layer for the STM32 MCUs"
