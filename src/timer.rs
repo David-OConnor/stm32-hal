@@ -416,7 +416,42 @@ macro_rules! make_timer {
             paste! {
                 /// Initialize a Timer peripheral, including enabling and resetting
                 /// its RCC peripheral clock.
+                /// 
+                /// Sets prescaler and auto-reload based on the requested frequency.
+                /// Use `new_timx_manual` to set the prescaler and auto-reload directly.
                 pub fn [<new_ $tim>](regs: pac::$TIMX, freq: f32, cfg: TimerConfig, clocks: &Clocks) -> Self {
+                    let mut result = Self::new_internal(regs, cfg, clocks);
+
+                    result.set_freq(freq).ok();
+                    result.set_dir();
+
+                    // Trigger an update event to load the prescaler value to the clock
+                    // NOTE(write): uses all bits in this register. This also clears the interrupt flag,
+                    // which the EGER update will generate.
+                    result.reinitialize();
+
+                    result
+                }
+
+                /// Initialize a Timer peripheral, including enabling and resetting
+                /// its RCC peripheral clock.
+                pub fn [<new_ $tim _manual>](regs: pac::$TIMX, psc: u16, arr: u32, cfg: TimerConfig, clocks: &Clocks) -> Self {
+                    let mut result = Self::new_internal(regs, cfg, clocks);
+
+                    result.set_prescaler(psc);
+                    result.set_auto_reload(arr);
+                    result.set_dir();
+
+                    // Trigger an update event to load the prescaler value to the clock
+                    // NOTE(write): uses all bits in this register. This also clears the interrupt flag,
+                    // which the EGER update will generate.
+                    result.reinitialize();
+
+                    result
+                }
+
+                #[inline]
+                fn new_internal(regs: pac::$TIMX, cfg: TimerConfig, clocks: &Clocks) -> Self {
                     let rcc = unsafe { &(*RCC::ptr()) };
 
                     // `freq` is in Hz.
@@ -439,26 +474,16 @@ macro_rules! make_timer {
                         w.ccds().bit(cfg.capture_compare_dma as u8 != 0)
                     });
 
-                    let mut result = Timer {
+                    Timer {
                         clock_speed,
                         cfg,
                         regs,
                         // #[cfg(feature = "monotonic")]
                         // wrap_count: 0,
                         // #[cfg(feature = "monotonic")]
-                        ns_per_tick: 0, // set below
-                        period: 0., // set below.
-                    };
-
-                    result.set_freq(freq).ok();
-                    result.set_dir();
-
-                    // Trigger an update event to load the prescaler value to the clock
-                    // NOTE(write): uses all bits in this register. This also clears the interrupt flag,
-                    // which the EGER update will generate.
-                    result.reinitialize();
-
-                    result
+                        ns_per_tick: 0, // set in `new_timx`
+                        period: 0., // set in `new_timx`
+                    }
                 }
             }
 
@@ -1090,10 +1115,6 @@ macro_rules! cc_slave_mode {
             /// Use `set_input_capture` to configure input channels if required.
             ///
             /// Note: Some modes (e.g. encoder modes) are unavailable on some timers. Consult the reference manual for specifics.
-            ///
-            /// Note: Encoder and external clock slave modes clock the timer from an external input, which makes automatic frequency calculations incorrect.
-            /// When using these the prescaler and auto-reload are reset to hardware defaults (0 for prescaler, max value for auto-reload).
-            /// Set prescaler and auto-reload manually if hardware defaults are not appropriate.
             pub fn set_input_slave_mode(
                 &mut self,
                 slave_mode: InputSlaveMode,
@@ -1102,21 +1123,6 @@ macro_rules! cc_slave_mode {
                 self.regs.smcr().modify(|_, w| unsafe {
                     w.sms().bits(slave_mode as u8).ts().bits(trigger as u8)
                 });
-
-                if let InputSlaveMode::Encoder1
-                | InputSlaveMode::Encoder2
-                | InputSlaveMode::Encoder3
-                | InputSlaveMode::ExternalClock1 = slave_mode
-                {
-                    // Reset prescaler and auto-reload
-                    self.regs.psc().reset();
-                    self.regs.arr().reset();
-                    // Reset timing values because these are now incorrect
-                    self.ns_per_tick = 0;
-                    self.period = 0.;
-                    // Reinitialize to reset counters and flush prescaler value
-                    self.reinitialize();
-                }
             }
         }
     };
