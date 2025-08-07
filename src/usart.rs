@@ -362,7 +362,7 @@ where
                 if #[cfg(any(
                     feature = "h5",
                     feature = "c0",
-                    feature = "g050", feature = "g051", feature = "g061")
+                    feature = "g050", feature = "g051", feature = "g061", feature = "g0b0", feature = "g0b1", feature = "g0c1")
                 )] {
                     bounded_loop!(
                         isr!(self.regs).read().txfe().bit_is_clear(),
@@ -438,7 +438,7 @@ where
                 if #[cfg(any(
                     feature = "h5",
                     feature = "c0",
-                    feature = "g050", feature = "g051", feature = "g061")
+                    feature = "g050", feature = "g051", feature = "g061", feature = "g0b0", feature = "g0b1", feature = "g0c1")
                 )] {
                     bounded_loop!(
                         isr!(self.regs).read().rxfne().bit_is_clear(),
@@ -860,7 +860,10 @@ where
                 feature = "c0",
                 feature = "g050",
                 feature = "g051",
-                feature = "g061"
+                feature = "g061",
+                feature = "g0b0",
+                feature = "g0b1",
+                feature = "g0c1"
             ))]
             UsartInterrupt::ReadNotEmpty => status.rxfne().bit_is_set(),
             #[cfg(not(any(
@@ -868,7 +871,10 @@ where
                 feature = "c0",
                 feature = "g050",
                 feature = "g051",
-                feature = "g061"
+                feature = "g061",
+                feature = "g0b0",
+                feature = "g0b1",
+                feature = "g0c1"
             )))]
             UsartInterrupt::ReadNotEmpty => status.rxne().bit_is_set(),
             UsartInterrupt::ReceiverTimeout => status.rtof().bit_is_set(),
@@ -880,7 +886,10 @@ where
                 feature = "c0",
                 feature = "g050",
                 feature = "g051",
-                feature = "g061"
+                feature = "g061",
+                feature = "g0b0",
+                feature = "g0b1",
+                feature = "g0c1"
             ))]
             UsartInterrupt::TransmitEmpty => status.txfe().bit_is_set(),
             #[cfg(not(any(
@@ -888,7 +897,10 @@ where
                 feature = "c0",
                 feature = "g050",
                 feature = "g051",
-                feature = "g061"
+                feature = "g061",
+                feature = "g0b0",
+                feature = "g0b1",
+                feature = "g0c1"
             )))]
             UsartInterrupt::TransmitEmpty => status.txe().bit_is_set(),
         }
@@ -917,13 +929,24 @@ where
             feature = "c0",
             feature = "g050",
             feature = "g051",
-            feature = "g061"
+            feature = "g061",
+            feature = "g0b0",
+            feature = "g0b1",
+            feature = "g0c1"
         )))]
         if status.nf().bit_is_set() {
             result = Err(UsartError::Noise);
         }
 
-        #[cfg(any(feature = "c0", feature = "g050", feature = "g051", feature = "g061"))]
+        #[cfg(any(
+            feature = "c0",
+            feature = "g050",
+            feature = "g051",
+            feature = "g061",
+            feature = "g0b0",
+            feature = "g0b1",
+            feature = "g0c1"
+        ))]
         if status.ne().bit_is_set() {
             result = Err(UsartError::Noise);
         }
@@ -938,9 +961,9 @@ where
                     self.regs.icr().write(|w| {
                         w.pecf().bit(true);
                         w.fecf().bit(true);
-                        #[cfg(not(any(feature = "c0", feature = "g050", feature = "g051", feature = "g061")))]
+                        #[cfg(not(any(feature = "c0", feature = "g050", feature = "g051", feature = "g061", feature = "g0b0", feature = "g0b1", feature = "g0c1")))]
                         w.ncf().bit(true);
-                        #[cfg(any(feature = "c0", feature = "g050", feature = "g051", feature = "g061"))]
+                        #[cfg(any(feature = "c0", feature = "g050", feature = "g051", feature = "g061", feature = "g0b0", feature = "g0b1", feature = "g0c1"))]
                         w.necf().bit(true);
                         w.orecf().bit(true)
                     });
@@ -993,7 +1016,7 @@ mod embedded_io_impl {
                 if #[cfg(any(
                     feature = "h5",
                     feature = "c0",
-                    feature = "g050", feature = "g051", feature = "g061")
+                    feature = "g050", feature = "g051", feature = "g061", feature = "g0b0", feature = "g0b1", feature = "g0c1")
                 )] {
                     let ready = self.regs.isr().read().rxfne().bit_is_set();
                 } else if #[cfg(feature = "f4")] {
@@ -1043,7 +1066,7 @@ mod embedded_io_impl {
                 if #[cfg(any(
                     feature = "h5",
                     feature = "c0",
-                    feature = "g050", feature = "g051", feature = "g061")
+                    feature = "g050", feature = "g051", feature = "g061", feature = "g0b0", feature = "g0b1", feature = "g0c1")
                 )] {
                     let ready = self.regs.isr().read().txfe().bit_is_set();
                 } else if #[cfg(feature = "f4")] {

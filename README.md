@@ -339,8 +339,9 @@ library.
 - Low power modes beyond csleep and cstop aren't implemented for H7
 - WB and WL are missing features relating to second core operations
 - L4+ MCUs not supported
-- If using PWM (or output compare in general) on an Advanced control timer (eg TIM1 or 8),
-you must manually set the `TIMx_BDTR` register, `MOE` bit.
+- If using PWM (or output compare in general) on an Advanced control timer (e.g. TIM1 or 8),
+you must manually set the `TIMx_BDTR` register, `MOE` bit. On C0, this also affects TIM15, TIM16, 
+and TIM17.
 - Octospi implementation is broken
 - G0 and H7: Only FDCAN1 is implemented.
 - H5 is missing a lot of functionality, including DMA.

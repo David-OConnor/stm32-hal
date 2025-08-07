@@ -371,7 +371,7 @@ macro_rules! set_exti {
 
                         cfg_if! {
                             if #[cfg(any(feature = "g4", feature = "wb", feature = "wl", feature = "c0", feature = "l5",
-                                feature = "g030", feature = "g050", feature = "g070"))] {
+                                feature = "g030", feature = "g050", feature = "g070", feature = "g0b0", feature = "g0b1", feature = "g0c1"))] {
                                 exti.rtsr1().modify(|_, w| w.[<rt $num>]().bit($rising));
                                 exti.ftsr1().modify(|_, w| w.[<ft $num>]().bit($falling));
                             // } else if #[cfg(any(feature = "wb", feature = "wl"))] {

@@ -689,6 +689,8 @@ macro_rules! make_timer {
 
 
             /// Enables PWM output for a given channel and output compare, with an initial duty cycle, in Hz.
+            /// Note: On TIM1 and TIM8, (And others if on C0), you must manually set the `bdtr` register,
+            /// `moe` bit.
             pub fn enable_pwm_output(
                 &mut self,
                 channel: TimChannel,
@@ -1261,6 +1263,8 @@ macro_rules! cc_4_channels {
             // todo: more advanced PWM modes. Asymmetric, combined, center-aligned etc.
 
             /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
+            /// Note: On TIM1 and TIM8, (And others if on C0), you must manually set the `bdtr` register,
+            /// `moe` bit.
             pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
                 match channel {
                     TimChannel::C1 => {
@@ -1568,6 +1572,8 @@ macro_rules! cc_2_channels {
             }
 
             /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
+            /// Note: On TIM1 and TIM8, (And others if on C0), you must manually set the `bdtr` register,
+            /// `moe` bit.
             pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
                 match channel {
                     TimChannel::C1 => {
@@ -1788,6 +1794,8 @@ macro_rules! cc_1_channel {
             }
 
             /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
+            /// Note: On TIM1 and TIM8, (And others if on C0), you must manually set the `bdtr` register,
+            /// `moe` bit.
             pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
                 match channel {
                     TimChannel::C1 => {
@@ -2289,18 +2297,12 @@ cfg_if! {
         feature = "f410",
         feature = "wb",
         feature = "wl",
-        // feature = "c0",
     )))] {
         make_timer!(TIM3, tim3, 1, u32);
         cc_slave_mode!(TIM3);
         cc_4_channels!(TIM3, u32);
     }
 }
-
-// #[cfg(feature = "c0")]
-// make_timer!(TIM3, tim3, 1, u16);
-// #[cfg(feature = "c0")]
-// cc_4_channels!(TIM3, u16);
 
 cfg_if! {
     if #[cfg(not(any(
@@ -2353,11 +2355,7 @@ cfg_if! {
     ))] {
         make_timer!(TIM8, tim8, 2, u16);
         cc_slave_mode!(TIM8);
-        // todo: Some issues with field names or something on l562 here.
-        #[cfg(not(feature = "l5"))] // PAC bug.
         cc_4_channels!(TIM8, u16);
-        #[cfg(feature = "l5")] // PAC bug.
-        cc_1_channel!(TIM8, u16);
     }
 }
 
@@ -2383,11 +2381,6 @@ cfg_if! {
         cc_2_channels!(TIM14, u32);
     }
 }
-
-// #[cfg(feature = "c0")]
-// make_timer!(TIM14, tim14, 1, u32);
-// #[cfg(feature = "c0")]
-// cc_2_channels!(TIM14, u16);
 
 cfg_if! {
     if #[cfg(not(any(
@@ -2427,25 +2420,11 @@ cfg_if! {
         feature = "l412",
         feature = "l4x3",
         feature = "f4",
-        // feature = "c0"
     )))] {
         make_timer!(TIM17, tim17, 2, u16);
         cc_1_channel!(TIM17, u16);
     }
 }
-
-// cfg_if! {
-//     if #[cfg(any(
-//         feature = "c0"
-//     ))] {
-//         make_timer!(TIM17, tim17, 2, u32);
-//         cc_1_channel!(TIM17, u32);
-//     }
-// }
-
-// { todo: tim18
-//     TIM18: (tim18, apb2, enr, rstr),
-// },
 
 cfg_if! {
     if #[cfg(any(feature = "f373"))] {
@@ -2471,5 +2450,3 @@ make_timer!(TIM20, tim20, 2, u16);
 cc_slave_mode!(TIM20);
 #[cfg(any(feature = "f303"))]
 cc_4_channels!(TIM20, u16);
-
-// todo: Remove the final "true/false" for adv ctrl. You need a sep macro like you do for ccx_channel!.
