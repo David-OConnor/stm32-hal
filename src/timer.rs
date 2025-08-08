@@ -2269,7 +2269,6 @@ cfg_if! {
         feature = "f410",
         feature = "g070",
         feature = "l5", // todo PAC bug?
-        feature = "wb55", // todo PAC bug?
         feature = "g030",
         feature = "g031",
         feature = "g050",
