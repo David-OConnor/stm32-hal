@@ -52,30 +52,58 @@ pub enum AdcDevice {
     Five,
 }
 
-#[derive(Clone, Copy)]
-#[repr(u8)]
-/// Select a trigger. Sets CFGR reg, EXTSEL field. See G4 RM, table 163: ADC1/2 - External
-/// triggers for regular channels.
-pub enum Trigger {
-    // todo: Injected.
-    Tim1Cc1 = 0b00000,
-    Tim1Cc2 = 0b00001,
-    Tim1Cc3 = 0b00010,
-    Tim2Cc2 = 0b00011,
-    Tim3Trgo = 0b00100,
-    Tim4Cc4 = 0b00101,
-    Exti11 = 0b00110,
-    Tim8Trgo = 0b00111,
-    Tim8Trgo2 = 0b01000,
-    Tim1Trgo = 0b01001,
-    Tim1Trgo2 = 0b01010,
-    Tim2Trgo = 0b01011,
-    Tim4Trgo = 0b01100,
-    Tim6Trgo = 0b01101,
-    Tim15Trgo = 0b01110,
-    Tim3Cc4 = 0b01111,
-    // todo: Fill in remaining ones.
-    Tim7Trgo = 0b11110,
+cfg_if! {
+    if #[cfg(feature = "g4")] {
+        /// Select a trigger. Sets CFGR reg, EXTSEL field. See G4 RM, table 163: ADC1/2 - External
+        /// triggers for regular channels.
+        #[derive(Clone, Copy)]
+        #[repr(u8)]
+        pub enum Trigger {
+            // todo: Injected.
+            Tim1Cc1 = 0b00000,
+            Tim1Cc2 = 0b00001,
+            Tim1Cc3 = 0b00010,
+            Tim2Cc2 = 0b00011,
+            Tim3Trgo = 0b00100,
+            Tim4Cc4 = 0b00101,
+            Exti11 = 0b00110,
+            Tim8Trgo = 0b00111,
+            Tim8Trgo2 = 0b01000,
+            Tim1Trgo = 0b01001,
+            Tim1Trgo2 = 0b01010,
+            Tim2Trgo = 0b01011,
+            Tim4Trgo = 0b01100,
+            Tim6Trgo = 0b01101,
+            Tim15Trgo = 0b01110,
+            Tim3Cc4 = 0b01111,
+            // todo: Fill in remaining ones.
+            Tim7Trgo = 0b11110,
+        }
+    } else if #[cfg(any(feature = "f3", feature = "f4", feature = "wb"))] {
+        /// Select a trigger. Sets CFGR reg, EXTSEL field. See F4 RM, table 69: External trigger for regular channels
+        #[derive(Clone, Copy)]
+        #[repr(u8)]
+        pub enum Trigger {
+            Tim1Cc1  = 0b0000,
+            Tim1Cc2  = 0b0001,
+            Tim1Cc3  = 0b0010,
+            Tim2Cc2  = 0b0011,
+            Tim2Cc3  = 0b0100,
+            Tim2Cc4  = 0b0101,
+            Tim2Trgo = 0b0110,
+            Tim3Cc1  = 0b0111,
+            Tim3Trgo = 0b1000,
+            Tim4Cc4  = 0b1001,
+            Tim5Cc1  = 0b1010,
+            Tim5Cc2  = 0b1011,
+            Tim5Cc3  = 0b1100,
+            Tim8Cc1  = 0b1101,
+            Tim8Trgo = 0b1110,
+            Exti11   = 0b1111,
+        }
+    } else {
+        pub enum Trigger {}
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -276,33 +304,33 @@ impl Default for Align {
 
 // todo impl
 // /// Ratio options for oversampling.
-// #[derive(Clone, Copy)]
-// #[repr(u8)]
-// pub enum OversamplingRatio {
-//     Times2 = 0b000,
-//     Times4 = 0b001,
-//     Times8 = 0b010,
-//     Times16 = 0b011,
-//     Times32 = 0b100,
-//     Times64 = 0b101,
-//     Times128 = 0b110,
-//     Times256 = 0b111,
-// }
-//
-// /// Shift options for oversampling.
-// #[derive(Clone, Copy)]
-// #[repr(u8)]
-// pub enum OversamplingShift {
-//     None = 0b0000,
-//     Bits1 = 0b0001,
-//     Bits2 = 0b0010,
-//     Bits3 = 0b0011,
-//     Bits4 = 0b0100,
-//     Bits5 = 0b0101,
-//     Bits6 = 0b0110,
-//     Bits7 = 0b0111,
-//     Bits8 = 0b1000,
-// }
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum OversamplingRatio {
+    Times2 = 0b000,
+    Times4 = 0b001,
+    Times8 = 0b010,
+    Times16 = 0b011,
+    Times32 = 0b100,
+    Times64 = 0b101,
+    Times128 = 0b110,
+    Times256 = 0b111,
+}
+
+/// Shift options for oversampling.
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum OversamplingShift {
+    None = 0b0000,
+    Bits1 = 0b0001,
+    Bits2 = 0b0010,
+    Bits3 = 0b0011,
+    Bits4 = 0b0100,
+    Bits5 = 0b0101,
+    Bits6 = 0b0110,
+    Bits7 = 0b0111,
+    Bits8 = 0b1000,
+}
 
 /// Initial configuration data for the ADC peripheral.
 #[derive(Clone)]
