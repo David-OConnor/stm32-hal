@@ -1526,7 +1526,7 @@ macro_rules! cc_4_channels {
 
 #[cfg(any(feature = "g0", feature = "g4", feature = "c0"))]
 macro_rules! cc_2_channels {
-    ($TIMX:ident, $res:ident, $(, $bdtr:ident)?) => {
+    ($TIMX:ident, $res:ident $(, $bdtr:ident)?) => {
         impl Timer<pac::$TIMX> {
             /// Function that allows us to set direction only on timers that have this option.
             fn set_dir(&mut self) {
