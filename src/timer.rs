@@ -1134,7 +1134,7 @@ macro_rules! cc_slave_mode {
 // different timers.
 // Note that there's lots of DRY between these implementations.
 macro_rules! cc_4_channels {
-    ($TIMX:ident, $res:ident) => {
+    ($TIMX:ident, $res:ident $(, $bdtr:ident)?) => {
         impl Timer<pac::$TIMX> {
             /// Function that allows us to set direction only on timers that have this option.
             pub fn set_dir(&mut self) {
@@ -1303,6 +1303,10 @@ macro_rules! cc_4_channels {
                         });
                     }
                 }
+
+                $(
+                    self.regs.$bdtr().modify(|_, w| w.moe().set_bit());
+                )?
             }
 
             /// Return the set duty period for a given channel. Divide by `get_max_duty()`
@@ -1522,7 +1526,7 @@ macro_rules! cc_4_channels {
 
 #[cfg(any(feature = "g0", feature = "g4", feature = "c0"))]
 macro_rules! cc_2_channels {
-    ($TIMX:ident, $res:ident) => {
+    ($TIMX:ident, $res:ident, $(, $bdtr:ident)?) => {
         impl Timer<pac::$TIMX> {
             /// Function that allows us to set direction only on timers that have this option.
             fn set_dir(&mut self) {
@@ -1594,6 +1598,10 @@ macro_rules! cc_2_channels {
                     }
                     _ => panic!()
                 }
+
+                $(
+                    self.regs.$bdtr().modify(|_, w| w.moe().set_bit());
+                )?
             }
 
             /// Return the set duty period for a given channel. Divide by `get_max_duty()`
@@ -1758,7 +1766,7 @@ macro_rules! cc_2_channels {
 }
 
 macro_rules! cc_1_channel {
-    ($TIMX:ident, $res:ident) => {
+    ($TIMX:ident, $res:ident $(, $bdtr:ident)?) => {
         impl Timer<pac::$TIMX> {
             /// Function that allows us to set direction only on timers that have this option.
             fn set_dir(&mut self) {} // N/A with these 1-channel timers.
@@ -1815,6 +1823,10 @@ macro_rules! cc_1_channel {
                     }
                     _ => panic!(),
                 };
+
+                $(
+                    self.regs.$bdtr().modify(|_, w| w.moe().set_bit());
+                )?
             }
 
             /// Return the set duty period for a given channel. Divide by `get_max_duty()`
@@ -2258,11 +2270,11 @@ make_timer!(TIM1, tim1, 2, u16);
 cc_slave_mode!(TIM1);
 
 #[cfg(not(any(feature = "f373", feature = "g0", feature = "g4")))]
-cc_4_channels!(TIM1, u16);
+cc_4_channels!(TIM1, u16, bdtr);
 // todo: PAC error?
 // TIM1 on G4 is nominally 16-bits, but has ~20 bits on ARR, with PAC showing 32 bits?
 #[cfg(any(feature = "g0", feature = "g4"))]
-cc_2_channels!(TIM1, u16);
+cc_2_channels!(TIM1, u16, bdtr);
 
 cfg_if! {
     if #[cfg(not(any(
@@ -2319,7 +2331,7 @@ cfg_if! {
     )))] {
         make_timer!(TIM4, tim4, 1, u32);
         cc_slave_mode!(TIM4);
-        cc_4_channels!(TIM4, u32);
+        cc_4_channels!(TIM4, u32, bdtr);
     }
 }
 
@@ -2339,7 +2351,7 @@ cfg_if! {
    ))] {
         make_timer!(TIM5, tim5, 1, u32);
         cc_slave_mode!(TIM5);
-        cc_4_channels!(TIM5, u32);
+        cc_4_channels!(TIM5, u32, bdtr);
    }
 }
 
@@ -2354,7 +2366,7 @@ cfg_if! {
     ))] {
         make_timer!(TIM8, tim8, 2, u16);
         cc_slave_mode!(TIM8);
-        cc_4_channels!(TIM8, u16);
+        cc_4_channels!(TIM8, u16, bdtr);
     }
 }
 
@@ -2363,7 +2375,7 @@ cfg_if! {
     if #[cfg(feature = "g4")] {
         make_timer!(TIM8, tim8, 2, u32);
         cc_slave_mode!(TIM8);
-        cc_4_channels!(TIM8, u32);
+        cc_4_channels!(TIM8, u32, bdtr);
     }
 }
 
@@ -2398,19 +2410,19 @@ cfg_if! {
         make_timer!(TIM15, tim15, 2, u16);
         cc_slave_mode!(TIM15);
         // todo: TIM15 on some variant has 2 channels (Eg H7). On others, like L4x3, it appears to be 1.
-        cc_1_channel!(TIM15, u16);
+        cc_1_channel!(TIM15, u16, bdtr);
     }
 }
 
 #[cfg(not(any(feature = "f4", feature = "c0")))]
 make_timer!(TIM16, tim16, 2, u16);
 #[cfg(not(any(feature = "f4", feature = "c0")))]
-cc_1_channel!(TIM16, u16);
+cc_1_channel!(TIM16, u16, bdtr);
 
 #[cfg(feature = "c0")]
 make_timer!(TIM16, tim16, 2, u32);
 #[cfg(feature = "c0")]
-cc_1_channel!(TIM16, u32);
+cc_1_channel!(TIM16, u32, bdtr);
 
 cfg_if! {
     if #[cfg(not(any(
@@ -2421,7 +2433,7 @@ cfg_if! {
         feature = "f4",
     )))] {
         make_timer!(TIM17, tim17, 2, u16);
-        cc_1_channel!(TIM17, u16);
+        cc_1_channel!(TIM17, u16, bdtr);
     }
 }
 
