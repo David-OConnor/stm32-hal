@@ -689,8 +689,6 @@ macro_rules! make_timer {
 
 
             /// Enables PWM output for a given channel and output compare, with an initial duty cycle, in Hz.
-            /// Note: On TIM1 and TIM8, (And others if on C0), you must manually set the `bdtr` register,
-            /// `moe` bit.
             pub fn enable_pwm_output(
                 &mut self,
                 channel: TimChannel,
@@ -1263,8 +1261,6 @@ macro_rules! cc_4_channels {
             // todo: more advanced PWM modes. Asymmetric, combined, center-aligned etc.
 
             /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
-            /// Note: On TIM1 and TIM8, (And others if on C0), you must manually set the `bdtr` register,
-            /// `moe` bit.
             pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
                 match channel {
                     TimChannel::C1 => {
@@ -1303,10 +1299,6 @@ macro_rules! cc_4_channels {
                         });
                     }
                 }
-
-                $(
-                    self.regs.$bdtr().modify(|_, w| w.moe().set_bit());
-                )?
             }
 
             /// Return the set duty period for a given channel. Divide by `get_max_duty()`
@@ -1438,6 +1430,8 @@ macro_rules! cc_4_channels {
             }
 
             /// Set Capture Compare mode in output mode. See docs on the `CaptureCompare` enum.
+            /// 
+            /// Note: Also sets MOE bit BDTR register for timers that have it.
             pub fn set_capture_compare_output(
                 &mut self,
                 channel: TimChannel,
@@ -1465,6 +1459,10 @@ macro_rules! cc_4_channels {
                         .ccmr2_output()
                         .modify(unsafe { |_, w| w.cc4s().bits(mode as u8) }),
                 };
+
+                $(
+                    self.regs.$bdtr().modify(|_, w| w.moe().set_bit());
+                )?
             }
 
             /// Set Capture Compare mode in input mode. See docs on the `CaptureCompare` enum.
@@ -1576,8 +1574,6 @@ macro_rules! cc_2_channels {
             }
 
             /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
-            /// Note: On TIM1 and TIM8, (And others if on C0), you must manually set the `bdtr` register,
-            /// `moe` bit.
             pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
                 match channel {
                     TimChannel::C1 => {
@@ -1697,6 +1693,8 @@ macro_rules! cc_2_channels {
             }
 
             /// Set Capture Compare mode in output mode. See docs on the `CaptureCompare` enum.
+            /// 
+            /// Note: Also sets MOE bit BDTR register for timers that have it.
             pub fn set_capture_compare_output(&mut self, channel: TimChannel, mode: CaptureCompare) {
                 self.disable_capture_compare(channel);
 
@@ -1712,6 +1710,10 @@ macro_rules! cc_2_channels {
                         .modify(unsafe { |_, w| w.cc2s().bits(mode as u8) }),
                     _ => panic!()
                 };
+
+                $(
+                    self.regs.$bdtr().modify(|_, w| w.moe().set_bit());
+                )?
             }
 
             /// Set Capture Compare mode in input mode. See docs on the `CaptureCompare` enum.
@@ -1802,8 +1804,6 @@ macro_rules! cc_1_channel {
             }
 
             /// Set Output Compare Mode. See docs on the `OutputCompare` enum.
-            /// Note: On TIM1 and TIM8, (And others if on C0), you must manually set the `bdtr` register,
-            /// `moe` bit.
             pub fn set_output_compare(&mut self, channel: TimChannel, mode: OutputCompare) {
                 match channel {
                     TimChannel::C1 => {
@@ -1887,6 +1887,8 @@ macro_rules! cc_1_channel {
             }
 
             /// Set Capture Compare mode in output mode. See docs on the `CaptureCompare` enum.
+            /// 
+            /// Note: Also sets MOE bit BDTR register for timers that have it.
             pub fn set_capture_compare_output(
                 &mut self,
                 channel: TimChannel,
@@ -1901,6 +1903,10 @@ macro_rules! cc_1_channel {
                         .modify(unsafe { |_, w| w.cc1s().bits(mode as u8) }),
                     _ => panic!(),
                 };
+
+                $(
+                    self.regs.$bdtr().modify(|_, w| w.moe().set_bit());
+                )?
             }
 
             /// Set Capture Compare mode in input mode. See docs on the `CaptureCompare` enum.
