@@ -2331,7 +2331,7 @@ cfg_if! {
     )))] {
         make_timer!(TIM4, tim4, 1, u32);
         cc_slave_mode!(TIM4);
-        cc_4_channels!(TIM4, u32, bdtr);
+        cc_4_channels!(TIM4, u32);
     }
 }
 
@@ -2351,7 +2351,7 @@ cfg_if! {
    ))] {
         make_timer!(TIM5, tim5, 1, u32);
         cc_slave_mode!(TIM5);
-        cc_4_channels!(TIM5, u32, bdtr);
+        cc_4_channels!(TIM5, u32);
    }
 }
 
