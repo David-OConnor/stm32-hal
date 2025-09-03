@@ -1,0 +1,16 @@
+[env]
+DEFMT_log="debug"
+
+[build]
+target = "thumbv7em-none-eabihf"
+
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+runner = "probe-rs run --chip stm32f401retx"
+rustflags = [
+  "-C", "linker=flip-link", # stack overflow protection
+  "-C", "link-arg=-Tlink.x", #cortex-m rt
+  "-C", "link-arg=-Tdefmt.x", # defmt logs
+  # This is needed if your flash or ram addresses are not aligned to 0x10000 in memory.x
+  # See https://github.com/rust-embedded/cortex-m-quickstart/pull/95
+  # "-C", "link-arg=--nmagic",
+]
