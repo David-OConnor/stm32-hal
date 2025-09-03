@@ -90,7 +90,7 @@ pub enum OutputSpeed {
 pub enum Pull {
     Floating = 0b00,
     Up = 0b01,
-    Dn = 0b10,
+    Down = 0b10,
 }
 
 #[derive(Copy, Clone)]
