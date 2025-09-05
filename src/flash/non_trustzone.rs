@@ -473,7 +473,7 @@ impl Flash {
                 // wait until the QW1/2 bit is cleared in the corresponding FLASH_SR1/2 register.
                 regs.cr().modify(|_, w| w.start().bit(true));
                 bounded_loop!(
-                    regs.sr().read().qw().bit_is_clear(),
+                    regs.sr().read().qw().bit_is_set(),
                     Error::RegisterUnchanged
                 );
             } else if #[cfg(feature = "l4")] {

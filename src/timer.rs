@@ -1430,7 +1430,7 @@ macro_rules! cc_4_channels {
             }
 
             /// Set Capture Compare mode in output mode. See docs on the `CaptureCompare` enum.
-            /// 
+            ///
             /// Note: Also sets MOE bit BDTR register for timers that have it.
             pub fn set_capture_compare_output(
                 &mut self,
@@ -1693,7 +1693,7 @@ macro_rules! cc_2_channels {
             }
 
             /// Set Capture Compare mode in output mode. See docs on the `CaptureCompare` enum.
-            /// 
+            ///
             /// Note: Also sets MOE bit BDTR register for timers that have it.
             pub fn set_capture_compare_output(&mut self, channel: TimChannel, mode: CaptureCompare) {
                 self.disable_capture_compare(channel);
@@ -1887,7 +1887,7 @@ macro_rules! cc_1_channel {
             }
 
             /// Set Capture Compare mode in output mode. See docs on the `CaptureCompare` enum.
-            /// 
+            ///
             /// Note: Also sets MOE bit BDTR register for timers that have it.
             pub fn set_capture_compare_output(
                 &mut self,

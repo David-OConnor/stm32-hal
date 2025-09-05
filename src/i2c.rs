@@ -18,8 +18,52 @@ use crate::{
     clocks::Clocks,
     error::{Error, Result},
     pac::{self, RCC},
-    util::{RccPeriph, bounded_loop},
+    util::RccPeriph,
 };
+
+const MAX_ITERS: u32 = 300_000;
+
+macro_rules! busy_wait {
+    ($regs:expr, $flag:ident) => {
+        let mut i = 0;
+
+        loop {
+            let isr = $regs.isr().read();
+
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(Error::I2cError(I2cError::Hardware));
+            }
+
+            if isr.$flag().bit_is_set() {
+                break;
+            } else if isr.berr().bit_is_set() {
+                $regs.icr().write(|w| w.berrcf().bit(true));
+                return Err(Error::I2cError(I2cError::Bus));
+            } else if isr.arlo().bit_is_set() {
+                $regs.icr().write(|w| w.arlocf().bit(true));
+                return Err(Error::I2cError(I2cError::Arbitration));
+            } else if isr.nackf().bit_is_set() {
+                $regs
+                    .icr()
+                    .write(|w| w.stopcf().bit(true).nackcf().bit(true));
+
+                // If a pending TXIS flag is set, write dummy data to TXDR
+                if $regs.isr().read().txis().bit_is_set() {
+                    $regs.txdr().write(|w| unsafe { w.txdata().bits(0) });
+                }
+
+                // If TXDR is not flagged as empty, write 1 to flush it
+                if $regs.isr().read().txe().bit_is_clear() {
+                    $regs.isr().write(|w| w.txe().bit(true));
+                }
+
+                return Err(Error::I2cError(I2cError::Nack));
+            } else {
+            }
+        }
+    };
+}
 
 /// I2C error
 #[non_exhaustive]
@@ -31,10 +75,11 @@ pub enum I2cError {
     Arbitration,
     /// NACK
     Nack,
-    Overrun, // slave mode only
-    Pec,     // SMBUS mode only
-    Timeout, // SMBUS mode only
-    Alert,   // SMBUS mode only
+    // Overrun, // slave mode only
+    // Pec, // SMBUS mode only
+    // Timeout, // SMBUS mode only
+    // Alert, // SMBUS mode only
+    Hardware,
 }
 
 #[derive(Clone, Copy)]
@@ -335,10 +380,13 @@ where
         if originally_enabled {
             self.regs.cr1().modify(|_, w| w.pe().clear_bit());
 
-            bounded_loop!(
-                self.regs.cr1().read().pe().bit_is_set(),
-                Error::RegisterUnchanged
-            );
+            let mut i = 0;
+            while self.regs.cr1().read().pe().bit_is_set() {
+                i += 1;
+                if i >= MAX_ITERS {
+                    return Err(Error::I2cError(I2cError::Hardware));
+                }
+            }
         }
 
         self.regs.cr1().modify(|_, w| w.pecen().bit(true));
@@ -355,47 +403,19 @@ where
         Ok(())
     }
 
-    ///
-    fn check_for_errors(&self) -> Result<()> {
-        let isr = self.regs.isr().read();
-
-        if isr.berr().bit_is_set() {
-            self.regs.icr().write(|w| w.berrcf().bit(true));
-            return Err(Error::I2cError(I2cError::Bus));
-        } else if isr.arlo().bit_is_set() {
-            self.regs.icr().write(|w| w.arlocf().bit(true));
-            return Err(Error::I2cError(I2cError::Arbitration));
-        } else if isr.nackf().bit_is_set() {
-            self.regs
-                .icr()
-                .write(|w| w.stopcf().bit(true).nackcf().bit(true));
-
-            // If a pending TXIS flag is set, write dummy data to TXDR
-            if self.regs.isr().read().txis().bit_is_set() {
-                self.regs.txdr().write(|w| unsafe { w.txdata().bits(0) });
-            }
-
-            // If TXDR is not flagged as empty, write 1 to flush it
-            if self.regs.isr().read().txe().bit_is_clear() {
-                self.regs.isr().write(|w| w.txe().bit(true));
-            }
-
-            return Err(Error::I2cError(I2cError::Nack));
-        }
-
-        Ok(())
-    }
-
     /// Read multiple words to a buffer. Can return an error due to Bus, Arbitration, or NACK.
     pub fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<()> {
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
 
-        bounded_loop!(
-            self.regs.cr2().read().start().bit_is_set(),
-            Error::RegisterUnchanged
-        );
+        let mut i = 0;
+        while self.regs.cr2().read().start().bit_is_set() {
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(Error::I2cError(I2cError::Hardware));
+            }
+        }
 
         // Set START and prepare to receive bytes into
         // `buffer`. The START bit can be set even if the bus
@@ -404,11 +424,7 @@ where
 
         for byte in bytes {
             // Wait until we have received something
-            bounded_loop!(
-                self.regs.isr().read().rxne().bit_is_set(),
-                Error::RegisterUnchanged,
-                (self.check_for_errors()?)
-            );
+            busy_wait!(self.regs, rxne);
 
             *byte = self.regs.rxdr().read().rxdata().bits();
         }
@@ -421,10 +437,13 @@ where
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
-        bounded_loop!(
-            self.regs.cr2().read().start().bit_is_set(),
-            Error::RegisterUnchanged
-        );
+        let mut i = 0;
+        while self.regs.cr2().read().start().bit_is_set() {
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(Error::I2cError(I2cError::Hardware));
+            }
+        }
 
         self.set_cr2_write(addr, bytes.len() as u8, true);
 
@@ -432,11 +451,7 @@ where
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte when
             // through)
-            bounded_loop!(
-                self.regs.isr().read().txis().bit_is_set(),
-                Error::RegisterUnchanged,
-                (self.check_for_errors()?)
-            );
+            busy_wait!(self.regs, txis); // TXDR register is empty
 
             // Put byte on the wire
             self.regs
@@ -452,10 +467,13 @@ where
         // Wait for any previous address sequence to end
         // automatically. This could be up to 50% of a bus
         // cycle (ie. up to 0.5/freq)
-        bounded_loop!(
-            self.regs.cr2().read().start().bit_is_set(),
-            Error::RegisterUnchanged
-        );
+        let mut i = 0;
+        while self.regs.cr2().read().start().bit_is_set() {
+            i += 1;
+            if i >= MAX_ITERS {
+                return Err(Error::I2cError(I2cError::Hardware));
+            }
+        }
 
         self.set_cr2_write(addr, bytes.len() as u8, false);
 
@@ -463,11 +481,7 @@ where
             // Wait until we are allowed to send data
             // (START has been ACKed or last byte went through)
 
-            bounded_loop!(
-                self.regs.isr().read().txis().bit_is_set(),
-                Error::RegisterUnchanged,
-                (self.check_for_errors()?)
-            );
+            busy_wait!(self.regs, txis); // TXDR register is empty
 
             // Put byte on the wire
             self.regs
@@ -476,12 +490,7 @@ where
         }
 
         // Wait until the write finishes before beginning to read.
-        // busy_wait!(self.regs, tc); // transfer is complete
-        bounded_loop!(
-            self.regs.isr().read().tc().bit_is_set(),
-            Error::RegisterUnchanged,
-            (self.check_for_errors()?)
-        );
+        busy_wait!(self.regs, tc); // transfer is complete
 
         // reSTART and prepare to receive bytes into `buffer`
 
@@ -489,11 +498,7 @@ where
 
         for byte in buffer {
             // Wait until we have received something
-            bounded_loop!(
-                self.regs.isr().read().rxne().bit_is_set(),
-                Error::RegisterUnchanged,
-                (self.check_for_errors()?)
-            );
+            busy_wait!(self.regs, rxne);
 
             *byte = self.regs.rxdr().read().rxdata().bits();
         }
@@ -576,7 +581,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) -> Result<()> {
+    ) {
         let (ptr, len) = (buf.as_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
@@ -591,10 +596,7 @@ where
         // peripheral (see Section 11: Direct memory access controller (DMA) on page 295) to the
         // I2C_TXDR register whenever the TXIS bit is set.
         self.regs.cr1().modify(|_, w| w.txdmaen().bit(true));
-        bounded_loop!(
-            self.regs.cr1().read().txdmaen().bit_is_clear(),
-            Error::RegisterUnchanged
-        );
+        while self.regs.cr1().read().txdmaen().bit_is_clear() {}
 
         // Only the data are transferred with DMA.
         // • In master mode: the initialization, the slave address, direction, number of bytes and
@@ -628,14 +630,14 @@ where
                 dma::cfg_channel(
                     &mut regs,
                     channel,
-                    self.regs.txdr().as_ptr() as u32,
+                    &self.regs.txdr() as *const _ as u32,
                     ptr as u32,
                     num_data,
                     dma::Direction::ReadFromMem,
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                )
+                );
             }
             #[cfg(dma2)]
             dma::DmaPeriph::Dma2 => {
@@ -643,14 +645,14 @@ where
                 dma::cfg_channel(
                     &mut regs,
                     channel,
-                    self.regs.txdr().as_ptr() as u32,
+                    &self.regs.txdr() as *const _ as u32,
                     ptr as u32,
                     num_data,
                     dma::Direction::ReadFromMem,
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                )
+                );
             }
         }
     }
@@ -666,8 +668,7 @@ where
         channel: DmaChannel,
         channel_cfg: ChannelCfg,
         dma_periph: dma::DmaPeriph,
-    ) -> Result<()> {
-        // -> Result<()> {
+    ) {
         let (ptr, len) = (buf.as_mut_ptr(), buf.len());
 
         #[cfg(any(feature = "f3", feature = "l4"))]
@@ -683,10 +684,7 @@ where
         // (DMA) on page 295) whenever the RXNE bit is set. Only the data (including PEC) are
         // transferred with DMA.
         self.regs.cr1().modify(|_, w| w.rxdmaen().bit(true));
-        bounded_loop!(
-            self.regs.cr1().read().rxdmaen().bit_is_clear(),
-            Error::RegisterUnchanged
-        );
+        while self.regs.cr1().read().rxdmaen().bit_is_clear() {}
 
         // • In master mode, the initialization, the slave address, direction, number of bytes and
         // START bit are programmed by software. When all data are transferred using DMA, the
@@ -710,14 +708,14 @@ where
                 dma::cfg_channel(
                     &mut regs,
                     channel,
-                    self.regs.rxdr().as_ptr() as u32,
+                    &self.regs.rxdr() as *const _ as u32,
                     ptr as u32,
                     num_data,
                     dma::Direction::ReadFromPeriph,
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                )
+                );
             }
             #[cfg(dma2)]
             dma::DmaPeriph::Dma2 => {
@@ -725,14 +723,14 @@ where
                 dma::cfg_channel(
                     &mut regs,
                     channel,
-                    self.regs.rxdr().as_ptr() as u32,
+                    &self.regs.rxdr() as *const _ as u32,
                     ptr as u32,
                     num_data,
                     dma::Direction::ReadFromPeriph,
                     dma::DataSize::S8,
                     dma::DataSize::S8,
                     channel_cfg,
-                )
+                );
             }
         }
     }
@@ -751,7 +749,7 @@ where
 // {
 //     type Error = Error;
 //
-//     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<()> {
+//     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Error> {
 //         I2c::write(self, addr, bytes)
 //     }
 // }
@@ -764,7 +762,7 @@ where
 // {
 //     type Error = Error;
 //
-//     fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<()> {
+//     fn read(&mut self, addr: u8, bytes: &mut [u8]) -> Result<(), Error> {
 //         I2c::read(self, addr, bytes)
 //     }
 // }
@@ -777,7 +775,7 @@ where
 // {
 //     type Error = Error;
 //
-//     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<()> {
+//     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Error> {
 //         I2c::write_read(self, addr, bytes, buffer)
 //     }
 // }
