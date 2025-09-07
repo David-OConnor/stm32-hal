@@ -80,6 +80,7 @@ pub enum I2cError {
     // Timeout, // SMBUS mode only
     // Alert, // SMBUS mode only
     Hardware,
+    Overrun,
 }
 
 #[derive(Clone, Copy)]
