@@ -39,17 +39,6 @@ Not supported, and open to adding.
 ![STM32 support](screenshots/stm32_support.png)
 
 
-
-Tested on the following devices:
-- STM32F303
-- STM32F401, F411
-- STM32L476, L433, L443, L412, L432
-- STM32L552
-- STM32WB5MMG
-- STM32G431, G491, G473
-- STM32H743(V), H745 (both cores), H723
-
-
 ## Getting started
 
 ### Quickstart
