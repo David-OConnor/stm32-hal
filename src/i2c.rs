@@ -67,7 +67,8 @@ macro_rules! busy_wait {
 
 /// I2C error
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, defmt::Format)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum I2cError {
     /// Bus error
     Bus,

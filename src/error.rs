@@ -39,7 +39,8 @@ macro_rules! impl_from_error {
 pub type Result<T> = core::result::Result<T, Error>;
 
 /// Collection of all errors that can occur.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, defmt::Format)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Error {
     /// Occurs when an expected change of a register does happen in time.
     ///

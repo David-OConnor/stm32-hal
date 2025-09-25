@@ -1,6 +1,6 @@
 [package]
 name = "stm32-hal2"
-version = "2.1.5"
+version = "2.1.6"
 edition = "2024"
 authors = ["David O'Connor <the_alchemist@fastmail.com>"]
 description = "Hardware abstraction layer for the STM32 MCUs"
@@ -33,7 +33,7 @@ stm32wb = { version = "0.16.0", optional = true }
 stm32wl = { version = "0.16.0", optional = true }
 stm32c0 = { version = "0.16.0", optional = true }
 
-defmt = "1.0.1"
+defmt = { version = "1.0.1", optional = true }
 
 # Embedded-HAL traits and related libs. Featured-gated with `embedded-hal`.
 embedded-hal = { version = "1.0.0", features=["defmt-03"], optional = true }
@@ -82,6 +82,8 @@ targets = ["thumbv7em-none-eabihf"]
 # Compile with one of these "runtime" features if the program
 # will be directly flashed to an MCU; ie not a library.
 [features]
+default = ["defmt"]
+
 f3rt = ["stm32f3/rt"]
 f4rt = ["stm32f4/rt"]
 l4rt = ["stm32l4/rt"]
@@ -197,6 +199,8 @@ net = ["dep:smoltcp"]
 
 embedded_hal = ["dep:embedded-hal", "dep:embedded-io"]
 monotonic = ["dep:rtic-monotonic"]
+
+defmt = ["dep:defmt"]
 
 # These features are used to featured gate sections of code that apply
 # to an entire family.

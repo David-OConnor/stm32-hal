@@ -317,7 +317,8 @@ impl Default for Polynomial {
 }
 
 /// Errors generated when trying to create invalid polynomials.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, defmt::Format)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum PolynomialError {
     /// Tried to create an even polynomial.
     /// The hardware CRC unit only supports odd polynomials.

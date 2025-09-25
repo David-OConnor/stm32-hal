@@ -41,7 +41,8 @@ use crate::pac::DMAMUX2;
 
 /// Errors that can occur when performing DMA.
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, defmt::Format)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum DmaError {
     TransferError,
     #[cfg(any(feature = "h7", feature = "f4"))]
