@@ -363,10 +363,9 @@ macro_rules! set_exti {
                                 exti.c1imr1().modify(|_, w| w.[<mr $num>]().bit(true));
                             } else if #[cfg(any(feature = "g4", feature = "wb", feature = "wl"))] {
                                 exti.imr1().modify(|_, w| w.[<im $num>]().bit(true));
+                            } else if #[cfg(feature = "l4")]{
+                                exti.imr1().modify(|_, w| w.[<mr $num>]().bit(true));
                             }
-                            // else {
-                            //     exti.imr1().modify(|_, w| w.[<mr $num>]().bit(true));
-                            // }
                         }
 
                         cfg_if! {
