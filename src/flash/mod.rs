@@ -72,17 +72,16 @@ pub struct Flash {
 
 /// Contains code common to both modules.
 impl Flash {
+    #[cfg(not(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484", feature = "l5")))]
     /// Create a struct used to perform operations on Flash.
     pub fn new(regs: FLASH) -> Self {
-        cfg_if! {
-            if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484", feature = "l5"))] {
-                // Some G4 variants let you select dual or single-bank mode.
-                // Self { regs, dual_bank: DualBank::Single }
-                Self { regs, dual_bank: DualBank::Dual } // todo: Experimenting
-            } else {
-                Self { regs }
-            }
-        }
+        Self { regs }
+    }
+
+    #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484", feature = "l5"))]
+    pub fn new(regs: FLASH, dual_bank: DualBank) -> Self {
+        // Some G4 variants let you select dual or single-bank mode. via the Option bit.
+        Self { regs, dual_bank }
     }
 
     /// Read flash memory at a given page and offset into an 8-bit-dword buffer.
