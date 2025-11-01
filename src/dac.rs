@@ -323,11 +323,11 @@ where
         loop {
             self.regs
                 .ccr()
-                .modify(|_, w| unsafe { w.otrim(channel as u8).bits(trim) });
+                .modify(|_, w| unsafe { w.otrim(channel as u8 - 1).bits(trim) });
 
             delay.delay_us(64);
 
-            let cal_flag = self.regs.sr().read().cal_flag(channel as u8).bit_is_set();
+            let cal_flag = self.regs.sr().read().cal_flag(channel as u8 - 1).bit_is_set();
 
             if cal_flag {
                 break;
@@ -340,7 +340,7 @@ where
     pub fn enable(&mut self, channel: DacChannel) {
         let cr = &self.regs.cr();
 
-        cr.modify(|_, w| w.en(channel as u8).bit(true));
+        cr.modify(|_, w| w.en(channel as u8 - 1).bit(true));
     }
 
     /// Disable the DAC, for a specific channel.
@@ -546,12 +546,12 @@ where
         // Note: tsel1 didn't update with the new approach, so repetition here.
         match channel {
             DacChannel::C1 => cr.modify(|_, w| unsafe {
-                w.ten(channel as u8).bit(true);
+                w.ten(channel as u8 - 1).bit(true);
                 w.tsel1().bits(trigger as u8)
             }),
             #[cfg(not(feature = "f410"))]
             DacChannel::C2 => cr.modify(|_, w| unsafe {
-                w.ten(channel as u8).bit(true);
+                w.ten(channel as u8 - 1).bit(true);
                 w.tsel2().bits(trigger as u8)
             }),
         };
@@ -565,8 +565,8 @@ where
 
         // todo: This may not be correct.
         cr.modify(|_, w| unsafe {
-            w.mamp(channel as u8).bits(0b01);
-            w.wave(channel as u8).bits(0b01)
+            w.mamp(channel as u8 - 1).bits(0b01);
+            w.wave(channel as u8 - 1).bits(0b01)
         });
 
         self.set_trigger(channel, trigger);
@@ -580,8 +580,8 @@ where
         let cr = &self.regs.cr();
 
         cr.modify(|_, w| unsafe {
-            w.wave(channel as u8).bits(0b10);
-            w.mamp(channel as u8).bits(0b10)
+            w.wave(channel as u8 - 1).bits(0b10);
+            w.mamp(channel as u8 - 1).bits(0b10)
         });
 
         self.set_trigger(channel, trigger);
@@ -611,7 +611,7 @@ where
     pub fn enable_interrupt(&mut self, channel: DacChannel) {
         let cr = &self.regs.cr();
 
-        cr.modify(|_, w| w.dmaudrie(channel as u8).bit(true));
+        cr.modify(|_, w| w.dmaudrie(channel as u8 - 1).bit(true));
     }
 
     #[cfg(not(feature = "g4"))] // todo: PAC ommission? SR missing on G4? In RM. (may not affect all G4 variants)
