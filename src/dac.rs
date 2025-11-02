@@ -379,15 +379,15 @@ where
         match self.cfg.bits {
             DacBits::EightR => self
                 .regs
-                .dhr8r(channel as usize)
+                .dhr8r(channel as usize - 1)
                 .modify(|_, w| unsafe { w.bits(val) }),
             DacBits::TwelveL => self
                 .regs
-                .dhr12l(channel as usize)
+                .dhr12l(channel as usize - 1)
                 .modify(|_, w| unsafe { w.bits(val) }),
             DacBits::TwelveR => self
                 .regs
-                .dhr12r(channel as usize)
+                .dhr12r(channel as usize - 1)
                 .modify(|_, w| unsafe { w.bits(val) }),
         };
     }
@@ -480,9 +480,9 @@ where
         // in the CR register is enabled.
 
         let periph_addr = match &self.cfg.bits {
-            DacBits::EightR => &self.regs.dhr8r(channel as usize) as *const _ as u32,
-            DacBits::TwelveL => &self.regs.dhr12l(channel as usize) as *const _ as u32,
-            DacBits::TwelveR => &self.regs.dhr12r(channel as usize) as *const _ as u32,
+            DacBits::EightR => &self.regs.dhr8r(channel as usize - 1) as *const _ as u32,
+            DacBits::TwelveL => &self.regs.dhr12l(channel as usize - 1) as *const _ as u32,
+            DacBits::TwelveR => &self.regs.dhr12r(channel as usize - 1) as *const _ as u32,
         };
 
         let len = len as u32;
