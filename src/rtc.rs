@@ -575,7 +575,7 @@ impl Rtc {
             regs.cr().modify(|_, w| w.wute().clear_bit());
 
             cfg_if! {
-                if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412", 
+                if #[cfg(any(feature = "l412", feature = "l5", feature = "g0", feature = "g4", feature = "l412",
                     feature = "wl", feature = "h5", feature = "c0"))] {
                     regs.scr().write(|w| w.cwutf().bit(true));
                 } else {

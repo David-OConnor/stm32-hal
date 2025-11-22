@@ -327,7 +327,12 @@ where
 
             delay.delay_us(64);
 
-            let cal_flag = self.regs.sr().read().cal_flag(channel as u8 - 1).bit_is_set();
+            let cal_flag = self
+                .regs
+                .sr()
+                .read()
+                .cal_flag(channel as u8 - 1)
+                .bit_is_set();
 
             if cal_flag {
                 break;

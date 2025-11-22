@@ -994,6 +994,20 @@ impl Pin {
         }
     }
 
+    /// Clear this pin's EXTI interrupt. Note that it will also clear other interrupts that
+    /// share the EXTI line. (E.g. running this on PA3 will also clear PB3 interrupts.)
+    #[cfg(any(feature = "l5", feature = "g0", feature = "c0"))]
+    pub fn clear_interrupt(&mut self, edge: Edge) {
+        clear_exti_interrupt(self.pin, edge);
+    }
+
+    /// Clear this pin's EXTI interrupt. Note that it will also clear other interrupts that
+    /// share the EXTI line. (E.g. running this on PA3 will also clear PB3 interrupts.)
+    #[cfg(not(any(feature = "l5", feature = "g0", feature = "c0")))]
+    pub fn clear_interrupt(&mut self) {
+        clear_exti_interrupt(self.pin);
+    }
+
     #[cfg(feature = "l4x6")]
     /// For the ADC, DAC, OPAMP and COMP, configure the desired I/O in analog mode
     /// in the GPIOx_MODER register and configure the required function in the ADC,
@@ -1140,9 +1154,8 @@ pub fn set_state(port: Port, pin: u8, value: PinState) {
     );
 }
 
-/// Clear an EXTI interrupt, lines 0 - 15. Note that this function currently doesn't support
-/// higher extis, but will work for all GPIO interrupts.
-pub fn clear_exti_interrupt_edge(line: u8, edge: Edge) {
+/// Internal helper used to abstract over different variants.
+fn clear_exti_interrupt_edge(line: u8, edge: Edge) {
     // todo: Macro to avoid DRY?
     unsafe {
         cfg_if! {
@@ -1337,13 +1350,12 @@ pub fn clear_exti_interrupt_edge(line: u8, edge: Edge) {
 /// higher extis, but will work for all GPIO interrupts.
 #[cfg(any(feature = "l5", feature = "g0", feature = "c0"))]
 pub fn clear_exti_interrupt(line: u8, edge: Edge) {
-    // This is set as default to rising to keep the same behavior as before.
     clear_exti_interrupt_edge(line, edge);
 }
 
-#[cfg(not(any(feature = "l5", feature = "g0", feature = "c0")))]
 /// Clear an EXTI interrupt, lines 0 - 15. Note that this function currently doesn't support
 /// higher extis, but will work for all GPIO interrupts.
+#[cfg(not(any(feature = "l5", feature = "g0", feature = "c0")))]
 pub fn clear_exti_interrupt(line: u8) {
     // This is set as default to rising to keep the same behavior as before.
     clear_exti_interrupt_edge(line, Edge::Rising); // Edge is unused for these variants.
