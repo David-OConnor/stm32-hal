@@ -996,6 +996,8 @@ impl Pin {
 
     /// Clear this pin's EXTI interrupt. Note that it will also clear other interrupts that
     /// share the EXTI line. (E.g. running this on PA3 will also clear PB3 interrupts.)
+    /// Consider using the freestanding function `clear_exti_interrupt` if you wish to avoid
+    /// locking this pin for shared state.
     #[cfg(any(feature = "l5", feature = "g0", feature = "c0"))]
     pub fn clear_interrupt(&mut self, edge: Edge) {
         clear_exti_interrupt(self.pin, edge);
@@ -1003,6 +1005,8 @@ impl Pin {
 
     /// Clear this pin's EXTI interrupt. Note that it will also clear other interrupts that
     /// share the EXTI line. (E.g. running this on PA3 will also clear PB3 interrupts.)
+    ///     /// Consider using the freestanding function `clear_exti_interrupt` if you wish to avoid
+    /// locking this pin for shared state.
     #[cfg(not(any(feature = "l5", feature = "g0", feature = "c0")))]
     pub fn clear_interrupt(&mut self) {
         clear_exti_interrupt(self.pin);
