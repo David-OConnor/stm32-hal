@@ -101,6 +101,28 @@ cfg_if! {
             Tim8Trgo = 0b1110,
             Exti11   = 0b1111,
         }
+    } else if #[cfg(feature = "l4")] {
+        /// Select a trigger. Sets CFGR reg, EXTSEL field. See L4 RM, table 108: External triggers for regular channels
+        #[derive(Clone, Copy)]
+        #[repr(u8)]
+        pub enum Trigger {
+            Tim1Cc1   = 0b0000,
+            Tim1Cc2   = 0b0001,
+            Tim1Cc3   = 0b0010,
+            Tim2Cc2   = 0b0011,
+            Tim3Trgo  = 0b0100,
+            Tim4Cc4   = 0b0101,
+            Exti11    = 0b0110,
+            Tim8Trgo  = 0b0111,
+            Tim8Trgo2 = 0b1000,
+            Tim1Trgo  = 0b1001,
+            Tim1Trgo2 = 0b1010,
+            Tim2Trgo  = 0b1011,
+            Tim4Trgo  = 0b1100,
+            Tim6Trgo  = 0b1101,
+            Tim15Trgo = 0b1110,
+            Tim3Cc4   = 0b1111,
+        }
     } else {
         pub enum Trigger {}
     }
