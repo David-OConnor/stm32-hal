@@ -101,7 +101,7 @@ cfg_if! {
             Tim8Trgo = 0b1110,
             Exti11   = 0b1111,
         }
-    } else if #[cfg(feature = "l4")] {
+    } else if #[cfg(any(feature = "l4x5", feature="l4x6"))] {
         /// Select a trigger. Sets CFGR reg, EXTSEL field. See L4 RM, table 108: External triggers for regular channels
         #[derive(Clone, Copy)]
         #[repr(u8)]
