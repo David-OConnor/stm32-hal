@@ -449,6 +449,8 @@ macro_rules! hal {
                             } else if #[cfg(any(feature = "g4"))] {
                                 rcc.ahb2enr().modify(|_, w| w.adc12en().bit(true));
                                 // rcc_en_reset!(ahb2, [<adc $rcc_num>], rcc);
+                            } else if #[cfg(any(feature = "l4x5", feature="l4x6"))] {
+                                rcc.ahb2enr().modify(|_, w| w.adcen().bit(true));
                             } else {  // ie L4, L5, G0(?)
                                 rcc_en_reset!(ahb2, adc, rcc);
                             }
