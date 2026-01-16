@@ -42,14 +42,14 @@ cfg_if! {
 const MAX_ADVREGEN_STARTUP_US: u32 = 10;
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum AdcDevice {
-    One,
-    Two,
-    Three,
-    #[cfg(feature = "g4")] // todo: Check the specifics.
-    Four,
+enum AdcDevice {
+    ADC1,
+    ADC2,
+    ADC3,
+    #[cfg(any(feature = "g4", feature = "f303"))] // todo: Check the specifics.
+    ADC4,
     #[cfg(feature = "g4")]
-    Five,
+    ADC5,
 }
 
 cfg_if! {
@@ -394,7 +394,6 @@ pub struct Adc<R> {
     pub regs: R,
     // Note: We don't own the common regs; pass them mutably where required, since they may be used
     // by a different ADC.
-    device: AdcDevice,
     pub cfg: AdcConfig,
     /// This field is managed internally, and is set up on init.
     pub vdda_calibrated: f32,
@@ -414,13 +413,11 @@ macro_rules! hal {
                 /// it's VDDA value (`vdda_calibrated` field), and update the ADC in question with it.
                 pub fn [<new_ $adc>](
                     regs: pac::$ADC,
-                    device: AdcDevice,
                     cfg: AdcConfig,
                     ahb_freq: u32, // Used for blocking delays in init.
                 ) -> Result<Self> {
                     let mut adc = Self {
                         regs,
-                        device,
                         cfg,
                         vdda_calibrated: 0.
                     };
@@ -438,11 +435,11 @@ macro_rules! hal {
                             } else if #[cfg(feature = "f4")] {
                                 rcc_en_reset!(2, [<adc $rcc_num>], rcc);
                             } else if #[cfg(feature = "h7")] {
-                                match device {
-                                    AdcDevice::One | AdcDevice::Two => {
+                                match AdcDevice::$ADC {
+                                    AdcDevice::ADC1 | AdcDevice::ADC2 => {
                                         rcc.ahb1enr().modify(|_, w| w.adc12en().bit(true));
                                     }
-                                    AdcDevice::Three => {
+                                    AdcDevice::ADC3 => {
                                         rcc.ahb4enr().modify(|_, w| w.adc3en().bit(true));
                                     }
                                 }
@@ -946,7 +943,7 @@ macro_rules! hal {
                 // todo: On H7, you may need to use ADC3 for this...
 
                 // Regardless of which ADC we're on, we take this reading using ADC1.
-                self.vdda_calibrated = if self.device != AdcDevice::One {
+                self.vdda_calibrated = if AdcDevice::$ADC != AdcDevice::ADC1 {
                     // todo: What if ADC1 is already enabled and configured differently?
                     // todo: Either way, if you're also using ADC1, this will screw things up⋅.
 
@@ -1179,9 +1176,9 @@ macro_rules! hal {
                 // L44 RM, Table 41. "DMA1 requests for each channel
                 // todo: DMA2 support.
                 #[cfg(any(feature = "f3", feature = "l4"))]
-                let dma_channel = match self.device {
-                    AdcDevice::One => DmaInput::Adc1.dma1_channel(),
-                    AdcDevice::Two => DmaInput::Adc2.dma1_channel(),
+                let dma_channel = match AdcDevice::$ADC {
+                    AdcDevice::ADC1 => DmaInput::Adc1.dma1_channel(),
+                    AdcDevice::ADC2 => DmaInput::Adc2.dma1_channel(),
                     _ => panic!("DMA on ADC beyond 2 is not supported. If it is for your MCU, please submit an issue \
                 or PR on Github.")
                 };
@@ -1190,17 +1187,17 @@ macro_rules! hal {
                 match dma_periph {
                     dma::DmaPeriph::Dma1 => {
                         let mut regs = unsafe { &(*pac::DMA1::ptr()) };
-                        match self.device {
-                            AdcDevice::One => dma::channel_select(&mut regs, DmaInput::Adc1),
-                            AdcDevice::Two => dma::channel_select(&mut regs, DmaInput::Adc2),
+                        match AdcDevice::$ADC {
+                            AdcDevice::ADC1 => dma::channel_select(&mut regs, DmaInput::Adc1),
+                            AdcDevice::ADC2 => dma::channel_select(&mut regs, DmaInput::Adc2),
                             _ => unimplemented!(),
                         }
                     }
                     dma::DmaPeriph::Dma2 => {
                         let mut regs = unsafe { &(*pac::DMA2::ptr()) };
-                        match self.device {
-                            AdcDevice::One => dma::channel_select(&mut regs, DmaInput::Adc1),
-                            AdcDevice::Two => dma::channel_select(&mut regs, DmaInput::Adc2),
+                        match AdcDevice::$ADC {
+                            AdcDevice::ADC1 => dma::channel_select(&mut regs, DmaInput::Adc1),
+                            AdcDevice::ADC2 => dma::channel_select(&mut regs, DmaInput::Adc2),
                             _ => unimplemented!(),
                         }
                     }
