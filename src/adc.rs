@@ -62,7 +62,7 @@ enum AdcDevice {
 }
 
 cfg_if! {
-    if #[cfg(any(feature = "c0", feature = "g0"))] {
+    if #[cfg(any(feature = "c0", feature = "g0", feature = "wl"))] {
         pub use pac::adc::cfgr1::EXTSEL as Trigger;
     } else if #[cfg(any(feature = "f373", feature = "f4"))] {
         pub use pac::adc1::cr2::EXTSEL as Trigger;
