@@ -96,10 +96,8 @@ pub enum AdcInterrupt {
     EndOfConversion,
     /// End of regular sequence of conversions (EOSIE field)
     EndOfSequence,
-    #[cfg(not(feature = "c0"))]
     /// End of injected conversion (JEOCIE field)
     EndofConversionInjected,
-    #[cfg(not(feature = "c0"))]
     /// End of injected sequence of conversions (JEOSIE field)
     EndOfSequenceInjected,
     /// Analog watchdog 1 interrupt (AWD1IE field)
@@ -112,7 +110,6 @@ pub enum AdcInterrupt {
     EndOfSamplingPhase,
     /// Overrun (OVRIE field)
     Overrun,
-    #[cfg(not(feature = "c0"))]
     /// Injected Context Queue Overflow (JQOVFIE field)
     InjectedOverflow,
 }
@@ -1380,6 +1377,8 @@ macro_rules! hal {
                     AdcInterrupt::Overrun => w.ovrie().bit(true),
                     #[cfg(not(feature = "c0"))]
                     AdcInterrupt::InjectedOverflow => w.jqovfie().bit(true),
+                    #[cfg(feature = "c0")]
+                    _ => unimplemented!(),
                 });
             }
 
@@ -1401,6 +1400,8 @@ macro_rules! hal {
                     AdcInterrupt::Overrun => w.ovr().bit(true),
                     #[cfg(not(feature = "c0"))]
                     AdcInterrupt::InjectedOverflow => w.jqovf().bit(true),
+                    #[cfg(feature = "c0")]
+                    _ => unimplemented!(),
                 });
                 // match interrupt {
                 //     AdcInterrupt::Ready => self.regs.icr().write(|_w| w.adrdy().bit(true)),
