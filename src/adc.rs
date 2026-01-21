@@ -466,12 +466,17 @@ macro_rules! hal {
                     #[cfg(not(feature = "c0"))]
                     adc.regs.cfgr().modify(|_, w| w.cont().bit(adc.cfg.operation_mode as u8 != 0));
 
-                    for ch in 1..10 {
-                        adc.set_sample_time(ch, adc.cfg.sample_time)?;
-                    }
-                    // Note: We are getting a hardfault on G431 when setting this for channel 10.
-                    for ch in 11..19 {
-                        adc.set_sample_time(ch, adc.cfg.sample_time)?;
+                    #[cfg(feature = "c0")]
+                    adc.set_sample_time(adc.cfg.sample_time)?;
+                    #[cfg(not(feature = "c0"))]
+                    {
+                        for ch in 1..10 {
+                            adc.set_sample_time(ch, adc.cfg.sample_time)?;
+                        }
+                        // Note: We are getting a hardfault on G431 when setting this for channel 10.
+                        for ch in 11..19 {
+                            adc.set_sample_time(ch, adc.cfg.sample_time)?;
+                        }
                     }
 
                     Ok(adc)
@@ -947,8 +952,25 @@ macro_rules! hal {
                 // };
             }
 
+            #[cfg(feature = "c0")]
+            /// Select the sample time for a all channels.
+            pub fn set_sample_time(&mut self, smp: SampleTime) -> Result<()> {
+                // RM: Note: only allowed when ADSTART = 0.
+                self.stop_conversions()?;
+
+                // self.disable();
+                // while self.regs.cr().read().adstart().bit_is_set() {}
+
+                unsafe {
+                    self.regs.smpr().modify(|_, w| w.smp1().bits(smp as u8));
+                }
+
+                Ok(())
+                // self.enable();
+            }
+
+            #[cfg(not(feature = "c0"))]
             /// Select the sample time for a given channel.
-            /// Note: On C0 the channel is ignored and sample time is set for all channels.
             pub fn set_sample_time(&mut self, chan: u8, smp: SampleTime) -> Result<()> {
                 // Channel is the ADC channel to use.
 
@@ -958,12 +980,6 @@ macro_rules! hal {
                 // self.disable();
                 // while self.regs.cr().read().adstart().bit_is_set() || self.regs.cr().read().jadstart().bit_is_set() {}
 
-                #[cfg(feature = "c0")]
-                unsafe {
-                    self.regs.smpr().modify(|_, w| w.smp1().bits(smp as u8));
-                }
-
-                #[cfg(not(feature = "c0"))]
                 unsafe {
                     match chan {
                         #[cfg(not(feature = "f3"))]
@@ -1057,7 +1073,11 @@ macro_rules! hal {
                     // This sample time is overkill.
                     // Note that you will need to reset the sample time if you use this channel on this
                     // ADC for something other than reading vref later.
+                    #[cfg(feature = "c0")]
+                    self.set_sample_time(SampleTime::T601)?;
+                    #[cfg(not(feature = "c0"))]
                     self.set_sample_time(VREFINT_CH, SampleTime::T601)?;
+
                     let reading = self.read(VREFINT_CH)?;
                     self.stop_conversions()?;
 
