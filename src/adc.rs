@@ -17,9 +17,9 @@ use crate::{
     util::{bounded_loop, rcc_en_reset},
 };
 
-#[cfg(any(feature = "c0", feature = "g0"))]
+#[cfg(feature = "c0")]
 use crate::pac::DMA as DMA1;
-#[cfg(not(any(feature = "c0", feature = "g0")))]
+#[cfg(not(feature = "c0"))]
 use crate::pac::DMA1;
 
 // Address of the ADCinterval voltage reference. This address is found in the User manual. It appears
