@@ -465,11 +465,13 @@ macro_rules! hal {
                     // to take a oneshot reading.
                     #[cfg(feature = "c0")]
                     adc.regs.cfgr1().modify(|_, w| w.cont().bit(adc.cfg.operation_mode as u8 != 0));
+
                     #[cfg(not(feature = "c0"))]
                     adc.regs.cfgr().modify(|_, w| w.cont().bit(adc.cfg.operation_mode as u8 != 0));
 
                     #[cfg(feature = "c0")]
                     adc.set_sample_time(adc.cfg.sample_time)?;
+
                     #[cfg(not(feature = "c0"))]
                     {
                         for ch in 1..10 {
@@ -779,19 +781,11 @@ macro_rules! hal {
                 match input_type {
                     InputType::SingleEnded => {
                         let val = self.regs.calfact().read().calfact_s().bits();
-                        #[cfg(not(feature = "h7"))]
-                        let val = val as u16;
-                        #[cfg(feature = "h735")]
-                        let val = val as u16;
-                        self.cfg.cal_single_ended = Some(val);
+                        self.cfg.cal_single_ended = Some(val as u16);
                     }
                     InputType::Differential => {
-                         let val = self.regs.calfact().read().calfact_d().bits();
-                         #[cfg(not(feature = "h7"))]
-                         let val = val as u16;
-                         #[cfg(feature = "h735")]
-                         let val = val as u16;
-                         self.cfg.cal_differential = Some(val);
+                        let val = self.regs.calfact().read().calfact_d().bits();
+                        self.cfg.cal_differential = Some(val as u16);
                     }
                 }
 
@@ -815,18 +809,14 @@ macro_rules! hal {
 
                 // 2. Write CALFACT_S and CALFACT_D with the new calibration factors.
                 if let Some(cal) = self.cfg.cal_single_ended {
-                    #[cfg(not(feature = "h7"))]
-                    let cal = cal as u8;
                     #[cfg(feature = "c0")]
-                    self.regs.calfact().modify(|_, w| w.calfact().set(cal));
+                    self.regs.calfact().modify(|_, w| w.calfact().set(cal as _));
                     #[cfg(not(feature = "c0"))]
-                    self.regs.calfact().modify(|_, w| unsafe { w.calfact_s().bits(cal.try_into().unwrap()) });
+                    self.regs.calfact().modify(|_, w| w.calfact_s().set(cal as _));
                 }
                 #[cfg(not(feature = "c0"))]
                 if let Some(cal) = self.cfg.cal_differential {
-                    #[cfg(not(feature = "h7"))]
-                    let cal = cal as u8;
-                    self.regs.calfact().modify(|_, w| unsafe { w.calfact_d().bits(cal.try_into().unwrap()) });
+                    self.regs.calfact().modify(|_, w| w.calfact_d().set(cal as _));
                 }
 
                 // 3. When a conversion is launched, the calibration factor will be injected into the analog
