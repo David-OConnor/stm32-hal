@@ -498,7 +498,9 @@ macro_rules! hal {
                         panic!("ADC sequence length must be in 1..=8")
                     }
                     // Note: This assumes that CHSELRMOD = 1, which is set in `new_adcx`.
-                    self.regs.chselr1().modify(|_, w| unsafe { w.sq(len).set(0b1111) });
+                    if len < 8 {
+                        self.regs.chselr1().modify(|_, w| unsafe { w.sq(len).set(0b1111) });
+                    }
                 }
 
                 #[cfg(not(feature = "c0"))]
@@ -899,7 +901,7 @@ macro_rules! hal {
                 // Note: This assumes that CHSELRMOD = 1, which is set in `new_adcx`.
                 #[cfg(feature = "c0")]
                 match position {
-                    1..=8 => self.regs.chselr1().modify(|_, w| w.sq(position).set(chan)),
+                    1..=8 => self.regs.chselr1().modify(|_, w| w.sq(position - 1).set(chan)),
                     _ => panic!("Sequence out of bounds. Only 8 positions are available, starting at 1."),
                 };
 
