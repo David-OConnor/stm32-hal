@@ -98,8 +98,10 @@ pub enum AdcInterrupt {
     EndOfConversion,
     /// End of regular sequence of conversions (EOSIE field)
     EndOfSequence,
+    #[cfg(not(feature = "c0"))]
     /// End of injected conversion (JEOCIE field)
     EndofConversionInjected,
+    #[cfg(not(feature = "c0"))]
     /// End of injected sequence of conversions (JEOSIE field)
     EndOfSequenceInjected,
     /// Analog watchdog 1 interrupt (AWD1IE field)
@@ -112,6 +114,7 @@ pub enum AdcInterrupt {
     EndOfSamplingPhase,
     /// Overrun (OVRIE field)
     Overrun,
+    #[cfg(not(feature = "c0"))]
     /// Injected Context Queue Overflow (JQOVFIE field)
     InjectedOverflow,
 }
@@ -158,6 +161,7 @@ impl Default for SampleTime {
 /// Select single-ended, or differential inputs. Sets bits in the ADC\[x\]_DIFSEL register.
 pub enum InputType {
     SingleEnded = 0,
+    #[cfg(not(feature = "c0"))]
     Differential = 1,
 }
 
@@ -423,14 +427,9 @@ macro_rules! hal {
 
                     adc.advregen_enable(ahb_freq);
 
-                    cfg_if! {
-                        if #[cfg(feature = "c0")] {
-                            adc.calibrate(ahb_freq)?;
-                        } else {
-                            adc.calibrate(InputType::SingleEnded, ahb_freq)?;
-                            adc.calibrate(InputType::Differential, ahb_freq)?;
-                        }
-                    }
+                    adc.calibrate(InputType::SingleEnded, ahb_freq)?;
+                    #[cfg(not(feature = "c0"))]
+                    adc.calibrate(InputType::Differential, ahb_freq)?;
 
                     // Reference Manual: "ADEN bit cannot be set during ADCAL=1
                     // and 4 ADC clock cycle after the ADCAL
@@ -691,51 +690,7 @@ macro_rules! hal {
                 crate::delay_us(MAX_ADVREGEN_STARTUP_US, ahb_freq)
             }
 
-            #[cfg(feature = "c0")]
-            /// Calibrate. See C0 RM, 16.4.3.
-            /// Stores calibration values, which can be re-inserted later,
-            /// eg after entering ADC deep sleep mode, or MCU STANDBY or VBAT.
-            pub fn calibrate(&mut self, ahb_freq: u32) -> Result<()> {
-                // 1. Ensure that ADEN = 0, AUTOFF = 0, ADVREGEN = 1, and DMAEN = 0
-                if !self.is_advregen_enabled() {
-                    self.advregen_enable(ahb_freq);
-                }
-
-                let was_enabled = self.is_enabled();
-                if was_enabled {
-                    self.disable()?;
-                }
-
-                // 2. Set ADCAL = 1.
-                self.regs.cr().modify(|_, w| w.adcal().bit(true));
-
-                // 3. Wait until ADCAL = 0 (or until EOCAL = 1).
-                bounded_loop!(
-                    self.regs.cr().read().adcal().bit_is_set(),
-                    Error::RegisterUnchanged
-                );
-
-                // 4. The calibration factor minus one can then be read from bits 6:0 of the ADC_DR or
-                // ADC_CALFACT registers. The resulting calibration factor must be incremented by one
-                // and written back to the ADC_CALFACT register.
-                // Note: If the resulting calibration factor is higher than 0x7F, write 0x7F to
-                // the ADC_CALFACT register to avoid overflow.
-                let mut val = self.regs.calfact().read().calfact().bits() + 1;
-                if val > 0x7F {
-                    val = 0x7F;
-                }
-                self.regs.calfact().modify(|_, w| w.calfact().set(val));
-                self.cfg.cal_single_ended = Some(val as u16);
-
-                if was_enabled {
-                    self.enable()?;
-                }
-
-                Ok(())
-            }
-
-            #[cfg(not(feature = "c0"))]
-            /// Calibrate. See L4 RM, 16.5.8, or F404 RM, section 15.3.8.
+            /// Calibrate. See L4 RM, 16.5.8, F404 RM, 15.3.8, or C0 RM, 16.4.3.
             /// Stores calibration values, which can be re-inserted later,
             /// eg after entering ADC deep sleep mode, or MCU STANDBY or VBAT.
             pub fn calibrate(&mut self, input_type: InputType, ahb_freq: u32) -> Result<()> {
@@ -752,40 +707,67 @@ macro_rules! hal {
                     self.disable()?;
                 }
 
-                self.regs.cr().modify(|_, w| w
-                    // RM:
-                    // The calibration factor to be applied for single-ended input conversions is different from the
-                    // factor to be applied for differential input conversions:
-                    // • Write ADCALDIF=0 before launching a calibration which will be applied for singleended input conversions.
-                    // • Write ADCALDIF=1 before launching a calibration which will be applied for differential
-                    // input conversions.
-                    // 3. Select the input mode for this calibration by setting ADCALDIF=0 (single-ended input)
-                    // or ADCALDIF=1 (differential input).
-                    .adcaldif().bit(input_type as u8 != 0)
-                    // The calibration is then initiated by software by setting bit ADCAL=1.
-                    // 4. Set ADCAL=1.
-                    .adcal().bit(true)); // start calibration.
+                #[cfg(feature = "c0")]
+                {
+                    // 2. Set ADCAL = 1.
+                    self.regs.cr().modify(|_, w| w.adcal().bit(true));
 
-                // ADCAL bit stays at 1 during all the
-                // calibration sequence. It is then cleared by hardware as soon the calibration completes. At
-                // this time, the associated calibration factor is stored internally in the analog ADC and also in
-                // the bits CALFACT_S\[6:0\] or CALFACT_D\[6:0\] of ADC_CALFACT register (depending on
-                // single-ended or differential input calibration)
-                // 5. Wait until ADCAL=0.
-                bounded_loop!(
-                    self.regs.cr().read().adcal().bit_is_set(),
-                    Error::RegisterUnchanged
-                );
+                    // 3. Wait until ADCAL = 0 (or until EOCAL = 1).
+                    bounded_loop!(
+                        self.regs.cr().read().adcal().bit_is_set(),
+                        Error::RegisterUnchanged
+                    );
 
-                // 6. The calibration factor can be read from ADC_CALFACT register.
-                match input_type {
-                    InputType::SingleEnded => {
-                        let val = self.regs.calfact().read().calfact_s().bits();
-                        self.cfg.cal_single_ended = Some(val as u16);
+                    // 4. The calibration factor minus one can then be read from bits 6:0 of the ADC_DR or
+                    // ADC_CALFACT registers. The resulting calibration factor must be incremented by one
+                    // and written back to the ADC_CALFACT register.
+                    // Note: If the resulting calibration factor is higher than 0x7F, write 0x7F to
+                    // the ADC_CALFACT register to avoid overflow.
+                    let mut val = self.regs.calfact().read().calfact().bits() + 1;
+                    if val > 0x7F {
+                        val = 0x7F;
                     }
-                    InputType::Differential => {
-                        let val = self.regs.calfact().read().calfact_d().bits();
-                        self.cfg.cal_differential = Some(val as u16);
+                    self.regs.calfact().modify(|_, w| w.calfact().set(val));
+                    self.cfg.cal_single_ended = Some(val as u16);
+                }
+
+                #[cfg(not(feature = "c0"))]
+                {
+                    self.regs.cr().modify(|_, w| w
+                        // RM:
+                        // The calibration factor to be applied for single-ended input conversions is different from the
+                        // factor to be applied for differential input conversions:
+                        // • Write ADCALDIF=0 before launching a calibration which will be applied for singleended input conversions.
+                        // • Write ADCALDIF=1 before launching a calibration which will be applied for differential
+                        // input conversions.
+                        // 3. Select the input mode for this calibration by setting ADCALDIF=0 (single-ended input)
+                        // or ADCALDIF=1 (differential input).
+                        .adcaldif().bit(input_type as u8 != 0)
+                        // The calibration is then initiated by software by setting bit ADCAL=1.
+                        // 4. Set ADCAL=1.
+                        .adcal().bit(true)); // start calibration.
+
+                    // ADCAL bit stays at 1 during all the
+                    // calibration sequence. It is then cleared by hardware as soon the calibration completes. At
+                    // this time, the associated calibration factor is stored internally in the analog ADC and also in
+                    // the bits CALFACT_S\[6:0\] or CALFACT_D\[6:0\] of ADC_CALFACT register (depending on
+                    // single-ended or differential input calibration)
+                    // 5. Wait until ADCAL=0.
+                    bounded_loop!(
+                        self.regs.cr().read().adcal().bit_is_set(),
+                        Error::RegisterUnchanged
+                    );
+
+                    // 6. The calibration factor can be read from ADC_CALFACT register.
+                    match input_type {
+                        InputType::SingleEnded => {
+                            let val = self.regs.calfact().read().calfact_s().bits();
+                            self.cfg.cal_single_ended = Some(val as u16);
+                        }
+                        InputType::Differential => {
+                            let val = self.regs.calfact().read().calfact_d().bits();
+                            self.cfg.cal_differential = Some(val as u16);
+                        }
                     }
                 }
 
@@ -826,63 +808,67 @@ macro_rules! hal {
                 Ok(())
             }
 
-            #[cfg(not(feature = "c0"))]
             /// Select single-ended, or differential conversions for a given channel.
             pub fn set_input_type(&mut self, channel: u8, input_type: InputType) -> Result<()> {
-                // L44 RM, 16.4.7:
-                // Channels can be configured to be either single-ended input or differential input by writing
-                // into bits DIFSEL\[15:1\] in the ADC_DIFSEL register. This configuration must be written while
-                // the ADC is disabled (ADEN=0). Note that DIFSEL\[18:16,0\] are fixed to single ended
-                // channels and are always read as 0.
-                let was_enabled = self.is_enabled();
-                if was_enabled {
-                    self.disable()?;
+                // C0 has a single input type, so this is effectively a no-op
+                #[cfg(not(feature = "c0"))]
+                {
+                    // L44 RM, 16.4.7:
+                    // Channels can be configured to be either single-ended input or differential input by writing
+                    // into bits DIFSEL\[15:1\] in the ADC_DIFSEL register. This configuration must be written while
+                    // the ADC is disabled (ADEN=0). Note that DIFSEL\[18:16,0\] are fixed to single ended
+                    // channels and are always read as 0.
+                    let was_enabled = self.is_enabled();
+                    if was_enabled {
+                        self.disable()?;
+                    }
+
+                    // Note that we don't use the `difsel` PAC accessor here, due to its varying
+                    // implementations across different PACs.
+                    // todo: 1 offset? Experiment in firmware.
+                    let val = self.regs.difsel().read().bits();
+
+                    let val_new = match input_type {
+                        InputType::SingleEnded => val & !(1 << channel),
+                        InputType::Differential => val | (1 << channel),
+                    };
+                    self.regs.difsel().write(|w| unsafe { w.bits(val_new)});
+
+                    // The commented code below is for some PAC variants taht support a method to
+                    // choose the diffsel field.
+
+                    // let v = input_type as u8 != 0;
+                    // self.regs.difsel().modify(|_, w| {
+                    //     match channel {
+                    //         // todo: Do these need to be offset by 1??
+                    //         0 => w.difsel_0().bit(v),
+                    //         1 => w.difsel_1().bit(v),
+                    //         2 => w.difsel_2().bit(v),
+                    //         3 => w.difsel_3().bit(v),
+                    //         4 => w.difsel_4().bit(v),
+                    //         5 => w.difsel_5().bit(v),
+                    //         6 => w.difsel_6().bit(v),
+                    //         7 => w.difsel_7().bit(v),
+                    //         8 => w.difsel_8().bit(v),
+                    //         9 => w.difsel_9().bit(v),
+                    //         10 => w.difsel_10().bit(v),
+                    //         11 => w.difsel_11().bit(v),
+                    //         12 => w.difsel_12().bit(v),
+                    //         13 => w.difsel_13().bit(v),
+                    //         14 => w.difsel_14().bit(v),
+                    //         15 => w.difsel_15().bit(v),
+                    //         16 => w.difsel_16().bit(v),
+                    //         17 => w.difsel_17().bit(v),
+                    //         18 => w.difsel_18().bit(v),
+                    //         _ => panic!(),
+                    //     }
+                    // });
+
+                    if was_enabled {
+                        self.enable()?;
+                    }
                 }
 
-                // Note that we don't use the `difsel` PAC accessor here, due to its varying
-                // implementations across different PACs.
-                // todo: 1 offset? Experiment in firmware.
-                let val = self.regs.difsel().read().bits();
-
-                let val_new = match input_type {
-                    InputType::SingleEnded => val & !(1 << channel),
-                    InputType::Differential => val | (1 << channel),
-                };
-                self.regs.difsel().write(|w| unsafe { w.bits(val_new)});
-
-                // The commented code below is for some PAC variants taht support a method to
-                // choose the diffsel field.
-
-                // let v = input_type as u8 != 0;
-                // self.regs.difsel().modify(|_, w| {
-                //     match channel {
-                //         // todo: Do these need to be offset by 1??
-                //         0 => w.difsel_0().bit(v),
-                //         1 => w.difsel_1().bit(v),
-                //         2 => w.difsel_2().bit(v),
-                //         3 => w.difsel_3().bit(v),
-                //         4 => w.difsel_4().bit(v),
-                //         5 => w.difsel_5().bit(v),
-                //         6 => w.difsel_6().bit(v),
-                //         7 => w.difsel_7().bit(v),
-                //         8 => w.difsel_8().bit(v),
-                //         9 => w.difsel_9().bit(v),
-                //         10 => w.difsel_10().bit(v),
-                //         11 => w.difsel_11().bit(v),
-                //         12 => w.difsel_12().bit(v),
-                //         13 => w.difsel_13().bit(v),
-                //         14 => w.difsel_14().bit(v),
-                //         15 => w.difsel_15().bit(v),
-                //         16 => w.difsel_16().bit(v),
-                //         17 => w.difsel_17().bit(v),
-                //         18 => w.difsel_18().bit(v),
-                //         _ => panic!(),
-                //     }
-                // });
-
-                if was_enabled {
-                    self.enable()?;
-                }
                 Ok(())
             }
 
@@ -1391,8 +1377,6 @@ macro_rules! hal {
                     AdcInterrupt::Overrun => w.ovrie().bit(true),
                     #[cfg(not(feature = "c0"))]
                     AdcInterrupt::InjectedOverflow => w.jqovfie().bit(true),
-                    #[cfg(feature = "c0")]
-                    _ => unimplemented!(),
                 });
             }
 
@@ -1414,8 +1398,6 @@ macro_rules! hal {
                     AdcInterrupt::Overrun => w.ovr().bit(true),
                     #[cfg(not(feature = "c0"))]
                     AdcInterrupt::InjectedOverflow => w.jqovf().bit(true),
-                    #[cfg(feature = "c0")]
-                    _ => unimplemented!(),
                 });
                 // match interrupt {
                 //     AdcInterrupt::Ready => self.regs.icr().write(|_w| w.adrdy().bit(true)),
