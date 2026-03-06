@@ -763,14 +763,15 @@ impl Rtc {
     /// Set the date using NaiveDate (ISO 8601 calendar date without timezone).
     /// WeekDay is set using the `set_weekday` method
     pub fn set_date(&mut self, date: &NaiveDate) -> Result<()> {
-        if date.year() < 1970 {
-            // todo: Is this right?
+        if date.year() <= 1970 {
             return Err(Error::RtcError(RtcError::InvalidInputData));
         }
 
         let (yt, yu) = bcd2_encode((date.year() - 2_000) as u32)?;
         let (mt, mu) = bcd2_encode(date.month())?;
         let (dt, du) = bcd2_encode(date.day())?;
+
+        let wd = date.weekday().number_from_monday() as u8;
 
         self.edit_regs(true, |regs| {
             regs.dr().write(|w| unsafe {
@@ -779,19 +780,20 @@ impl Rtc {
                 w.mt().bit(mt > 0);
                 w.mu().bits(mu);
                 w.yt().bits(yt);
-                w.yu().bits(yu)
+                w.yu().bits(yu);
+                w.wdu().bits(wd)
             });
         })
     }
 
     /// Set the current datetime.
     pub fn set_datetime(&mut self, date: &NaiveDateTime) -> Result<()> {
-        if date.year() < 1970 {
-            // todo is this right?
+        if date.year() <= 1970 {
             return Err(Error::RtcError(RtcError::InvalidInputData));
         }
 
         self.set_24h_fmt()?;
+
         let (yt, yu) = bcd2_encode((date.year() - 2_000) as u32)?;
         let (mt, mu) = bcd2_encode(date.month())?;
         let (dt, du) = bcd2_encode(date.day())?;
@@ -800,6 +802,10 @@ impl Rtc {
         let (mnt, mnu) = bcd2_encode(date.minute())?;
         let (st, su) = bcd2_encode(date.second())?;
 
+        // Get the weekday (1 = Monday, 7 = Sunday)
+        // STM32 WDU field expects exactly this 1-7 range.
+        let wd = date.weekday().number_from_monday() as u8;
+
         self.edit_regs(true, |regs| {
             regs.dr().write(|w| unsafe {
                 w.dt().bits(dt);
@@ -807,11 +813,10 @@ impl Rtc {
                 w.mt().bit(mt > 0);
                 w.mu().bits(mu);
                 w.yt().bits(yt);
-                w.yu().bits(yu)
+                w.yu().bits(yu);
+                w.wdu().bits(wd)
             });
-        })?;
 
-        self.edit_regs(true, |regs| {
             regs.tr().write(|w| unsafe {
                 w.ht().bits(ht);
                 w.hu().bits(hu);
@@ -846,12 +851,14 @@ impl Rtc {
 
     /// Get the current time.
     pub fn get_time(&mut self) -> NaiveTime {
-        NaiveTime::from_hms_opt(
-            self.get_hours().into(),
-            self.get_minutes().into(),
-            self.get_seconds().into(),
-        )
-        .unwrap()
+        let tr = self.regs.tr().read();
+        let _dr = self.regs.dr().read();
+
+        let hours = bcd2_decode(tr.ht().bits(), tr.hu().bits()) as u32;
+        let minutes = bcd2_decode(tr.mnt().bits(), tr.mnu().bits()) as u32;
+        let seconds = bcd2_decode(tr.st().bits(), tr.su().bits()) as u32;
+
+        NaiveTime::from_hms_opt(hours, minutes, seconds).unwrap()
     }
 
     /// Get the weekday component of the current date.
@@ -881,28 +888,37 @@ impl Rtc {
 
     /// Get the current date.
     pub fn get_date(&mut self) -> NaiveDate {
-        NaiveDate::from_ymd_opt(
-            self.get_year().into(),
-            self.get_month().into(),
-            self.get_day().into(),
-        )
-        .unwrap()
+        let tr = self.regs.tr().read();
+        let dr = self.regs.dr().read();
+
+        let _ = tr;
+
+        let year = (bcd2_decode(dr.yt().bits(), dr.yu().bits()) + 2000) as i32;
+        let month_tens: u8 = if dr.mt().bit() { 1 } else { 0 };
+        let month = bcd2_decode(month_tens, dr.mu().bits()) as u32;
+        let day = bcd2_decode(dr.dt().bits(), dr.du().bits()) as u32;
+
+        NaiveDate::from_ymd_opt(year, month, day).unwrap()
     }
 
     /// Get the current datetime.
     pub fn get_datetime(&mut self) -> NaiveDateTime {
-        NaiveDate::from_ymd_opt(
-            self.get_year().into(),
-            self.get_month().into(),
-            self.get_day().into(),
-        )
-        .unwrap()
-        .and_hms_opt(
-            self.get_hours().into(),
-            self.get_minutes().into(),
-            self.get_seconds().into(),
-        )
-        .unwrap()
+        let tr = self.regs.tr().read();
+        let dr = self.regs.dr().read();
+
+        let year = (bcd2_decode(dr.yt().bits(), dr.yu().bits()) + 2000) as i32;
+        let month_tens: u8 = if dr.mt().bit() { 1 } else { 0 };
+        let month = bcd2_decode(month_tens, dr.mu().bits()) as u32;
+        let day = bcd2_decode(dr.dt().bits(), dr.du().bits()) as u32;
+
+        let hours = bcd2_decode(tr.ht().bits(), tr.hu().bits()) as u32;
+        let minutes = bcd2_decode(tr.mnt().bits(), tr.mnu().bits()) as u32;
+        let seconds = bcd2_decode(tr.st().bits(), tr.su().bits()) as u32;
+
+        NaiveDate::from_ymd_opt(year, month, day)
+            .unwrap()
+            .and_hms_opt(hours, minutes, seconds)
+            .unwrap()
     }
 }
 
