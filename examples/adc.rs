@@ -9,7 +9,7 @@ use cortex_m_rt::entry;
 use critical_section::with;
 use hal::{
     adc::{
-        Adc, AdcChannel, AdcDevice, AdcInterrupt, Align, ClockMode, InputType, OperationMode,
+        Adc, AdcChannel, AdcInterrupt, Align, ClockMode, InputType, OperationMode,
         SampleTime,
     },
     clocks::Clocks,
@@ -43,7 +43,6 @@ fn main() -> ! {
 
     let mut adc = Adc::new_adc1(
         dp.ADC1,
-        AdcDevice::One,
         Default::default(),
         clock_cfg.systick(),
     );
@@ -122,7 +121,7 @@ fn main() -> ! {
         ..Default::default()
     };
 
-    let mut batt_curr_adc = Adc::new_adc2(dp.ADC2, AdcDevice::Two, adc_cfg, clock_cfg.systick());
+    let mut batt_curr_adc = Adc::new_adc2(dp.ADC2, adc_cfg, clock_cfg.systick());
 
     unsafe {
         batt_curr_adc.read_dma(

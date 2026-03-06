@@ -6,7 +6,7 @@
 use cortex_m_rt::entry;
 use critical_section::with;
 use stm32_hal::{
-    adc::{Adc, AdcChannel, AdcDevice},
+    adc::{Adc, AdcChannel},
     clocks::Clocks,
     gpio::{Edge, Pin, PinMode, Port},
     low_power, make_simple_globals,
@@ -61,7 +61,6 @@ fn main() -> ! {
 
     let mut adc = Adc::new_adc1(
         dp.ADC1,
-        AdcDevice::One,
         Default::default(),
         clock_cfg.systick(),
     );
