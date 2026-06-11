@@ -32,6 +32,10 @@ cfg_if! {
         const VREFINT_ADDR: u32 = 0x1FFF_75AA;
         const VREFINT_VOLTAGE: f32 = 3.0;
         const VREFINT_CH: u8 = 18; // G491, G431
+    } else if #[cfg(feature = "g0")] {
+        const VREFINT_ADDR: u32 = 0x1FFF_75AA;
+        const VREFINT_VOLTAGE: f32 = 3.0;
+        const VREFINT_CH: u8 = 13; // G030
     } else {
         const VREFINT_ADDR: u32 = 0x1FFF_75AA;
         const VREFINT_VOLTAGE: f32 = 3.0;
@@ -156,8 +160,10 @@ pub enum AdcInterrupt {
     /// End of regular sequence of conversions (EOSIE field)
     EndOfSequence,
     /// End of injected conversion (JEOCIE field)
+    #[cfg(not(feature = "g0"))]
     EndofConversionInjected,
     /// End of injected sequence of conversions (JEOSIE field)
+    #[cfg(not(feature = "g0"))]
     EndOfSequenceInjected,
     /// Analog watchdog 1 interrupt (AWD1IE field)
     Watchdog1,
@@ -166,55 +172,97 @@ pub enum AdcInterrupt {
     /// Analog watchdog 3 interrupt (AWD3IE field)
     Watchdog3,
     /// End of sampling flag interrupt enable for regular conversions (EOSMPIE field)
+    #[cfg(not(feature = "g0"))]
     EndOfSamplingPhase,
     /// Overrun (OVRIE field)
     Overrun,
     /// Injected Context Queue Overflow (JQOVFIE field)
+    #[cfg(not(feature = "g0"))]
     InjectedOverflow,
 }
 
-// todo: Adc sampling time below depends on the STM32 family. Eg the numbers below
-// todo are wrong for L4, but the idea is the same.
-/// ADC sampling time. Sets ADC_SMPRx register, SMPy field.
-///
-/// Each channel can be sampled with a different sample time.
-/// There is always an overhead of 13 ADC clock cycles.
-/// E.g. For Sampletime T_19 the total conversion time (in ADC clock cycles) is
-/// 13 + 19 = 32 ADC Clock Cycles
-#[derive(Clone, Copy)]
-#[repr(u8)]
-pub enum SampleTime {
-    /// 1.5 ADC clock cycles (2.5 on G4)
-    T1 = 0b000,
-    /// 2.5 ADC clock cycles (6.5 on G4)
-    T2 = 0b001,
-    /// 4.5 ADC clock cycles (12.5 on G4)
-    T4 = 0b010,
-    /// 7.5 ADC clock cycles (24.5 on G4)
-    T7 = 0b011,
-    /// 19.5 ADC clock cycles (47.5 on G4)
-    T19 = 0b100,
-    /// 61.5 ADC clock cycles (92.5 on G4)
-    T61 = 0b101,
-    /// 181.5 ADC clock cycles (247.5 on G4)
-    T181 = 0b110,
-    /// 601.5 ADC clock cycles (640.5 on G4 and H7)
-    T601 = 0b111,
-}
+cfg_if!(
+    if #[cfg(not(feature = "g0"))] {
+        // todo: Adc sampling time below depends on the STM32 family. Eg the numbers below
+        // todo are wrong for L4, but the idea is the same.
+        /// ADC sampling time. Sets ADC_SMPRx register, SMPy field.
+        ///
+        /// Each channel can be sampled with a different sample time.
+        /// There is always an overhead of 13 ADC clock cycles.
+        /// E.g. For Sampletime T_19 the total conversion time (in ADC clock cycles) is
+        /// 13 + 19 = 32 ADC Clock Cycles
+        #[derive(Clone, Copy)]
+        #[repr(u8)]
+        pub enum SampleTime {
+            /// 1.5 ADC clock cycles (2.5 on G4, 1.5 on G0)
+            T1 = 0b000,
+            /// 2.5 ADC clock cycles (6.5 on G4, 3.5 on G0)
+            T2 = 0b001,
+            /// 4.5 ADC clock cycles (12.5 on G4, 7.5 on G0)
+            T4 = 0b010,
+            /// 7.5 ADC clock cycles (24.5 on G4, 12.5 on G0)
+            T7 = 0b011,
+            /// 19.5 ADC clock cycles (47.5 on G4, 19.5 on G0)
+            T19 = 0b100,
+            /// 61.5 ADC clock cycles (92.5 on G4, 39.5 on G0)
+            T61 = 0b101,
+            /// 181.5 ADC clock cycles (247.5 on G4, 79.5 on G0)
+            T181 = 0b110,
+            /// 601.5 ADC clock cycles (640.5 on G4 and H7, 160.5 on G0)
+            T601 = 0b111,
+        }
 
-impl Default for SampleTime {
-    /// T_1 is the reset value; pick a higher one, as the lower values may cause significantly
-    /// lower-than-accurate readings.
-    fn default() -> Self {
-        SampleTime::T181
+        impl Default for SampleTime {
+            /// T_1 is the reset value; pick a higher one, as the lower values may cause significantly
+            /// lower-than-accurate readings.
+            fn default() -> Self {
+                SampleTime::T181
+            }
+        }
+    } else if #[cfg(feature = "g0")] {
+        /// ADC sampling time. Sets ADC_SMPRx register, SMPy field.
+        ///
+        /// Each channel can be sampled with a different sample time.
+        /// There is always an overhead of 13 ADC clock cycles.
+        /// E.g. For Sampletime T_19 the total conversion time (in ADC clock cycles) is
+        /// 13 + 19 = 32 ADC Clock Cycles
+        #[derive(Clone, Copy)]
+        #[repr(u8)]
+        pub enum SampleTime {
+            /// 1.5 ADC clock cycles
+            T1 = 0b000,
+            /// 3.5 ADC clock cycles
+            T3 = 0b001,
+            /// 7.5 ADC clock cycles
+            T7 = 0b010,
+            /// 12.5 ADC clock cycles
+            T12 = 0b011,
+            /// 19.5 ADC clock cycles
+            T19 = 0b100,
+            /// 39.5 ADC clock cycles
+            T39 = 0b101,
+            /// 79.5 ADC clock cycles
+            T79 = 0b110,
+            /// 160.5 ADC clock cycles
+            T160 = 0b111,
+        }
+
+        impl Default for SampleTime {
+            /// T_1 is the reset value; pick a higher one, as the lower values may cause significantly
+            /// lower-than-accurate readings.
+            fn default() -> Self {
+                SampleTime::T79
+            }
+        }
     }
-}
+);
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
 /// Select single-ended, or differential inputs. Sets bits in the ADC\[x\]_DIFSEL register.
 pub enum InputType {
     SingleEnded = 0,
+    #[cfg(not(feature = "g0"))]
     Differential = 1,
 }
 
@@ -448,17 +496,31 @@ macro_rules! hal {
                                 // rcc_en_reset!(ahb2, [<adc $rcc_num>], rcc);
                             } else if #[cfg(any(feature = "l4x5", feature="l4x6"))] {
                                 rcc.ahb2enr().modify(|_, w| w.adcen().bit(true));
+                            } else if #[cfg(feature = "g0")] {
+                                rcc_en_reset!(apb2, adc, rcc);
                             } else {  // ie L4, L5, G0(?)
                                 rcc_en_reset!(ahb2, adc, rcc);
                             }
                         }
                     }
 
-                    common_regs.ccr().modify(|_, w| unsafe {
-                        #[cfg(not(any(feature = "f3", feature = "l4x5")))] // PAC ommission l4x5?
-                        w.presc().bits(adc.cfg.prescaler as u8);
-                        return w.ckmode().bits(adc.cfg.clock_mode as u8);
-                    });
+                    #[cfg(feature = "g0")]
+                    unsafe {
+                        common_regs.ccr().modify(|_, w| unsafe {
+                            w.presc().bits(adc.cfg.prescaler as u8)
+                        });
+                        adc.regs.cfgr2().modify(|_, w| w.ckmode().bits(adc.cfg.clock_mode as u8));
+                    }
+
+
+                    #[cfg(not(feature = "g0"))]
+                    {
+                        common_regs.ccr().modify(|_, w| unsafe {
+                            #[cfg(not(any(feature = "f3", feature = "l4x5")))] // PAC ommission l4x5?
+                            w.presc().bits(adc.cfg.prescaler as u8);
+                            return w.ckmode().bits(adc.cfg.clock_mode as u8);
+                        });
+                    }
 
                     adc.set_align(Align::default());
 
@@ -466,6 +528,7 @@ macro_rules! hal {
                     adc.advregen_enable(ahb_freq);
 
                     adc.calibrate(InputType::SingleEnded, ahb_freq)?;
+                    #[cfg(not(feature = "g0"))]
                     adc.calibrate(InputType::Differential, ahb_freq)?;
 
                     // Reference Manual: "ADEN bit cannot be set during ADCAL=1
@@ -499,7 +562,10 @@ macro_rules! hal {
 
                     // Don't set continuous mode until after configuring VDDA, since it needs
                     // to take a oneshot reading.
+                    #[cfg(not(feature = "g0"))]
                     adc.regs.cfgr().modify(|_, w| w.cont().bit(adc.cfg.operation_mode as u8 != 0));
+                    #[cfg(feature = "g0")]
+                    adc.regs.cfgr1().modify(|_, w| w.cont().bit(adc.cfg.operation_mode as u8 != 0));
 
                     for ch in 1..10 {
                         adc.set_sample_time(ch, adc.cfg.sample_time)?;
@@ -519,6 +585,7 @@ macro_rules! hal {
             // }
 
             /// Set the ADC conversion sequence length, between 1 and 16.
+            #[cfg(not(feature = "g0"))]
             pub fn set_sequence_len(&mut self, len: u8) {
                 if len - 1 >= 16 {
                     panic!("ADC sequence length must be in 1..=16")
@@ -533,8 +600,11 @@ macro_rules! hal {
                 self.regs.cfgr2().modify(|_, w| unsafe { w.lshift().bits(align as u8)});
                 // todo: How to do on H735?
 
-                #[cfg(not(feature = "h7"))]
+                #[cfg(all(not(feature = "h7"), not(feature = "g0")))]
                 self.regs.cfgr().modify(|_, w| w.align().bit(align as u8 != 0));
+
+                #[cfg(feature = "g0")]
+                self.regs.cfgr1().modify(|_, w| w.align().bit(align as u8 != 0));
             }
 
             /// Enable the ADC.
@@ -587,16 +657,34 @@ macro_rules! hal {
                 // injected conversions ongoing by setting JADSTP=1.
                 // Stopping conversions will reset the ongoing ADC operation. Then the ADC can be
                 // reconfigured (ex: changing the channel selection or the trigger) ready for a new operation.
-                let cr_val = self.regs.cr().read();
-                if cr_val.adstart().bit_is_set() || self.regs.cr().read().jadstart().bit_is_set() {
-                    self.regs.cr().modify(|_, w| {
-                        w.adstp().bit(true);
-                        w.jadstp().bit(true)
-                    });
-                    bounded_loop!(
-                        self.regs.cr().read().adstart().bit_is_set() || self.regs.cr().read().jadstart().bit_is_set(),
-                        Error::RegisterUnchanged
-                    );
+                #[cfg(not(feature = "g0"))]
+                {
+                    let cr_val = self.regs.cr().read();
+                    if cr_val.adstart().bit_is_set() || self.regs.cr().read().jadstart().bit_is_set() {
+                        self.regs.cr().modify(|_, w| {
+                            w.adstp().bit(true);
+                            w.jadstp().bit(true);
+                            w
+                        });
+                        bounded_loop!(
+                            self.regs.cr().read().adstart().bit_is_set() || self.regs.cr().read().jadstart().bit_is_set(),
+                            Error::RegisterUnchanged
+                        );
+                    }
+                }
+                #[cfg(feature = "g0")]
+                {
+                    let cr_val = self.regs.cr().read();
+                    if cr_val.adstart().bit_is_set() {
+                        self.regs.cr().modify(|_, w| {
+                            w.adstp().bit(true);
+                            w
+                        });
+                        bounded_loop!(
+                            self.regs.cr().read().adstart().bit_is_set(),
+                            Error::RegisterUnchanged
+                        );
+                    }
                 }
                 Ok(())
             }
@@ -636,6 +724,7 @@ macro_rules! hal {
                         // To start ADC operations, it is first needed to exit Deep-power-down mode by setting bit
                         // DEEPPWD=0.""
                         self.regs.cr().modify(|_, w| {
+                            #[cfg(not(feature = "g0"))]
                             w.deeppwd().clear_bit();   // Exit deep sleep mode.
                             w.advregen().bit(true)   // Enable voltage regulator.
 
@@ -665,6 +754,7 @@ macro_rules! hal {
                         // In ADC Deep-power-down mode (DEEPPWD=1), the internal analog calibration is lost and
                         // it is necessary to either relaunch a calibration or re-apply the calibration factor which was
                         // previously saved (
+                        #[cfg(not(feature = "g0"))]
                         self.regs.cr().modify(|_, w| w.deeppwd().bit(true));
                         // todo: We could offer an option to disable advregen without setting deeppwd,
                         // todo, which would keep calibration.
@@ -695,7 +785,9 @@ macro_rules! hal {
                 if was_enabled {
                     self.disable()?;
                 }
-
+                #[cfg(feature = "g0")]
+                self.regs.cr().modify(|_, w| w.adcal().bit(true));
+                #[cfg(not(feature = "g0"))]
                 self.regs.cr().modify(|_, w| w
                     // RM:
                     // The calibration factor to be applied for single-ended input conversions is different from the
@@ -724,13 +816,17 @@ macro_rules! hal {
                 // 6. The calibration factor can be read from ADC_CALFACT register.
                 match input_type {
                     InputType::SingleEnded => {
+                        #[cfg(not(feature = "g0"))]
                         let val = self.regs.calfact().read().calfact_s().bits();
+                        #[cfg(feature = "g0")]
+                        let val = self.regs.calfact().read().calfact().bits();
                         #[cfg(not(feature = "h7"))]
                         let val = val as u16;
                         #[cfg(feature = "h735")]
                         let val = val as u16;
                         self.cfg.cal_single_ended = Some(val);
                     }
+                    #[cfg(not(feature = "g0"))]
                     InputType::Differential => {
                          let val = self.regs.calfact().read().calfact_d().bits();
                          #[cfg(not(feature = "h7"))]
@@ -760,15 +856,23 @@ macro_rules! hal {
 
 
                 // 2. Write CALFACT_S and CALFACT_D with the new calibration factors.
+                #[cfg(feature = "g0")]
                 if let Some(cal) = self.cfg.cal_single_ended {
-                    #[cfg(not(feature = "h7"))]
                     let cal = cal as u8;
-                    self.regs.calfact().modify(|_, w| unsafe { w.calfact_s().bits(cal.try_into().unwrap()) });
+                    self.regs.calfact().modify(|_, w| unsafe { w.calfact().bits(cal) });
                 }
-                if let Some(cal) = self.cfg.cal_differential {
-                    #[cfg(not(feature = "h7"))]
-                    let cal = cal as u8;
-                    self.regs.calfact().modify(|_, w| unsafe { w.calfact_d().bits(cal.try_into().unwrap()) });
+                #[cfg(not(feature = "g0"))]
+                {
+                    if let Some(cal) = self.cfg.cal_single_ended {
+                        #[cfg(not(feature = "h7"))]
+                        let cal = cal as u8;
+                        self.regs.calfact().modify(|_, w| unsafe { w.calfact_s().bits(cal.try_into().unwrap()) });
+                    }
+                    if let Some(cal) = self.cfg.cal_differential {
+                        #[cfg(not(feature = "h7"))]
+                        let cal = cal as u8;
+                        self.regs.calfact().modify(|_, w| unsafe { w.calfact_d().bits(cal.try_into().unwrap()) });
+                    }
                 }
 
                 // 3. When a conversion is launched, the calibration factor will be injected into the analog
@@ -779,6 +883,7 @@ macro_rules! hal {
             }
 
             /// Select single-ended, or differential conversions for a given channel.
+            #[cfg(not(feature = "g0"))]
             pub fn set_input_type(&mut self, channel: u8, input_type: InputType) -> Result<()> {
                 // L44 RM, 16.4.7:
                 // Channels can be configured to be either single-ended input or differential input by writing
@@ -839,6 +944,7 @@ macro_rules! hal {
 
             /// Select a sequence to sample, by inputting a single channel and position.
             pub fn set_sequence(&mut self, chan: u8, position: u8) {
+                #[cfg(not(feature = "g0"))]
                 match position {
                     1 => self.regs.sqr1().modify(|_, w| unsafe { w.sq1().bits(chan) }),
                     2 => self.regs.sqr1().modify(|_, w| unsafe { w.sq2().bits(chan) }),
@@ -858,6 +964,10 @@ macro_rules! hal {
                     16 => self.regs.sqr4().modify(|_, w| unsafe { w.sq16().bits(chan) }),
                     _ => panic!("Sequence out of bounds. Only 16 positions are available, starting at 1."),
                 };
+
+                // G030 only support scan mode, the scandir is from 0 to 17 by default
+                #[cfg(feature = "g0")]
+                self.regs.chselr0().modify(|r, w| unsafe { w.bits(r.bits() | (1 << chan)) });
 
                 #[cfg(all(feature = "h7", not(feature = "h735")))]
                 self.regs.pcsel().modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
@@ -898,7 +1008,7 @@ macro_rules! hal {
 
                 // self.disable();
                 // while self.regs.cr().read().adstart().bit_is_set() || self.regs.cr().read().jadstart().bit_is_set() {}
-
+                #[cfg(not(feature = "g0"))]
                 unsafe {
                     match chan {
                         #[cfg(not(feature = "f3"))]
@@ -925,11 +1035,24 @@ macro_rules! hal {
                         _ => unreachable!(),
                     };
                 }
+                #[cfg(feature = "g0")]
+                self.regs.smpr().modify(|_, w| unsafe { w.smp1().bits(smp as u8) });
 
                 Ok(())
                 // self.enable();
             }
 
+            fn max_sample_time() -> SampleTime {
+                #[cfg(feature = "g0")]
+                return SampleTime::T160;
+                #[cfg(not(feature = "g0"))]
+                return SampleTime::T601;
+            }
+
+            fn clear_sequence(&mut self) {
+                #[cfg(feature = "g0")]
+                self.regs.chselr0().reset();
+            }
 
             /// Find and store the internal voltage reference, to improve conversion from reading
             /// to voltage accuracy. See L44 RM, section 16.4.34: "Monitoring the internal voltage reference"
@@ -942,8 +1065,13 @@ macro_rules! hal {
 
                 // todo: On H7, you may need to use ADC3 for this...
 
+
+                #[cfg(not(feature = "g0"))]
+                const IS_NOT_ADC1: bool = AdcDevice::$ADC != AdcDevice::ADC1;
+                #[cfg(feature = "g0")]
+                const IS_NOT_ADC1: bool = false;
                 // Regardless of which ADC we're on, we take this reading using ADC1.
-                self.vdda_calibrated = if AdcDevice::$ADC != AdcDevice::ADC1 {
+                self.vdda_calibrated = if IS_NOT_ADC1 {
                     // todo: What if ADC1 is already enabled and configured differently?
                     // todo: Either way, if you're also using ADC1, this will screw things up⋅.
 
@@ -993,7 +1121,7 @@ macro_rules! hal {
                     // This sample time is overkill.
                     // Note that you will need to reset the sample time if you use this channel on this
                     // ADC for something other than reading vref later.
-                    self.set_sample_time(VREFINT_CH, SampleTime::T601)?;
+                    self.set_sample_time(VREFINT_CH, Self::max_sample_time())?;
                     let reading = self.read(VREFINT_CH)?;
                     self.stop_conversions()?;
 
@@ -1046,11 +1174,16 @@ macro_rules! hal {
             /// Blocks until the conversion is complete.
             /// See L4 RM 16.4.15 for details.
             pub fn start_conversion(&mut self, sequence: &[u8]) -> Result<()> {
+                self.clear_sequence();
+
                 // todo: You should call this elsewhere, once, to prevent unneded reg writes.
                 for (i, channel) in sequence.iter().enumerate() {
                     self.set_sequence(*channel, i as u8 + 1); // + 1, since sequences start at 1.
                 }
 
+                // We should clear eos on G0 before next adstart, but I'm not sure if we should do the same on other devices 
+                #[cfg(feature = "g0")]
+                self.regs.isr().modify(|_, w| w.eos().clear_bit_by_one());
                 // L4 RM: In Single conversion mode, the ADC performs once all the conversions of the channels.
                 // This mode is started with the CONT bit at 0 by either:
                 // • Setting the ADSTART bit in the ADC_CR register (for a regular channel)
@@ -1114,7 +1247,9 @@ macro_rules! hal {
             pub fn read_result(&mut self) -> u16 {
                 #[cfg(feature = "l4")]
                 return self.regs.dr().read().bits() as u16;
-                #[cfg(not(feature = "l4"))]
+                #[cfg(feature = "g0")]
+                return self.regs.dr().read().data().bits() as u16;
+                #[cfg(all(not(feature = "l4"), not(feature = "g0")))]
                 return self.regs.dr().read().rdata().bits() as u16;
             }
 
@@ -1136,7 +1271,13 @@ macro_rules! hal {
             /// Select and activate a trigger. See G4 RM, section 21.4.18:
             /// Conversion on external trigger and trigger polarit
             pub fn set_trigger(&mut self, trigger: Trigger, edge: TriggerEdge) {
+                #[cfg(not(feature = "g0"))]
                 self.regs.cfgr().modify(|_, w| unsafe {
+                    w.exten().bits(edge as u8);
+                    w.extsel().bits(trigger as u8)
+                });
+                #[cfg(feature = "g0")]
+                self.regs.cfgr1().modify(|_, w| unsafe {
                     w.exten().bits(edge as u8);
                     w.extsel().bits(trigger as u8)
                 });
@@ -1158,7 +1299,7 @@ macro_rules! hal {
                 // ensures that no conversion is ongoing)
                 self.stop_conversions()?;
 
-                #[cfg(not(feature = "h7"))]
+                #[cfg(all(not(feature = "h7"), not(feature = "g0")))]
                 self.regs.cfgr().modify(|_, w| {
                     w.dmacfg().bit(channel_cfg.circular == dma::Circular::Enabled);
                     w.dmaen().bit(true)
@@ -1169,6 +1310,12 @@ macro_rules! hal {
                     // Note: To use non-DMA after this has been set, need to configure manually.
                     // ie set back to 0b00.
                     w.dmngt().bits(if channel_cfg.circular == dma::Circular::Enabled { 0b11 } else { 0b01 })
+                });
+
+                #[cfg(feature = "g0")]
+                self.regs.cfgr1().modify(|_, w| {
+                    w.dmacfg().bit(channel_cfg.circular == dma::Circular::Enabled);
+                    w.dmaen().bit(true)
                 });
 
                 // todo: How to do in H735? Pac 0.16 change? Jully 2025.
@@ -1203,11 +1350,15 @@ macro_rules! hal {
                     }
                 }
 
+                // clear old selection
+                self.clear_sequence();
+
                 let mut seq_len = 0;
                 for (i, ch) in adc_channels.iter().enumerate() {
                     self.set_sequence(*ch, i as u8 + 1);
                     seq_len += 1;
                 }
+                #[cfg(not(feature = "g0"))]
                 self.set_sequence_len(seq_len);
 
                 self.regs.cr().modify(|_, w| w.adstart().bit(true));  // Start
@@ -1289,13 +1440,17 @@ macro_rules! hal {
                     AdcInterrupt::Ready => w.adrdyie().bit(true),
                     AdcInterrupt::EndOfConversion => w.eocie().bit(true),
                     AdcInterrupt::EndOfSequence => w.eosie().bit(true),
+                    #[cfg(not(feature = "g0"))]
                     AdcInterrupt::EndofConversionInjected => w.jeocie().bit(true),
+                    #[cfg(not(feature = "g0"))]
                     AdcInterrupt::EndOfSequenceInjected => w.jeosie().bit(true),
                     AdcInterrupt::Watchdog1 => w.awd1ie().bit(true),
                     AdcInterrupt::Watchdog2 => w.awd2ie().bit(true),
                     AdcInterrupt::Watchdog3 => w.awd3ie().bit(true),
+                    #[cfg(not(feature = "g0"))]
                     AdcInterrupt::EndOfSamplingPhase => w.eosmpie().bit(true),
                     AdcInterrupt::Overrun => w.ovrie().bit(true),
+                    #[cfg(not(feature = "g0"))]
                     AdcInterrupt::InjectedOverflow => w.jqovfie().bit(true),
                 });
             }
@@ -1307,13 +1462,17 @@ macro_rules! hal {
                     AdcInterrupt::Ready => w.adrdy().bit(true),
                     AdcInterrupt::EndOfConversion => w.eoc().bit(true),
                     AdcInterrupt::EndOfSequence => w.eos().bit(true),
+                    #[cfg(not(feature = "g0"))]
                     AdcInterrupt::EndofConversionInjected => w.jeoc().bit(true),
+                    #[cfg(not(feature = "g0"))]
                     AdcInterrupt::EndOfSequenceInjected => w.jeos().bit(true),
                     AdcInterrupt::Watchdog1 => w.awd1().bit(true),
                     AdcInterrupt::Watchdog2 => w.awd2().bit(true),
                     AdcInterrupt::Watchdog3 => w.awd3().bit(true),
+                    #[cfg(not(feature = "g0"))]
                     AdcInterrupt::EndOfSamplingPhase => w.eosmp().bit(true),
                     AdcInterrupt::Overrun => w.ovr().bit(true),
+                    #[cfg(not(feature = "g0"))]
                     AdcInterrupt::InjectedOverflow => w.jqovf().bit(true),
                 });
                 // match interrupt {
@@ -1332,10 +1491,10 @@ macro_rules! hal {
             }
 
 
-        /// Print the (raw) contents of the status register.
-    pub fn read_status(&self) -> u32 {
-        unsafe { self.regs.isr().read().bits() }
-    }
+            /// Print the (raw) contents of the status register.
+            pub fn read_status(&self) -> u32 {
+                unsafe { self.regs.isr().read().bits() }
+            }
         }
     }
 }
@@ -1393,6 +1552,12 @@ cfg_if! {
     if #[cfg(any(feature = "g473", feature = "g474", feature = "g483", feature = "g484"))] {
         hal!(ADC4, ADC345_COMMON, adc4, 345);
         hal!(ADC5, ADC345_COMMON, adc5, 345);
+    }
+}
+
+cfg_if! {
+    if #[cfg(feature = "g0")] {
+        hal!(ADC, ADC, adc, _);
     }
 }
 
