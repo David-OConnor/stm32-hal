@@ -1316,11 +1316,11 @@ macro_rules! cc_4_channels {
                         }) as $res
                     } else {
                         match channel {
-                            TimChannel::C1 => self.regs.ccr1().read().ccr().bits().into(),
-                            TimChannel::C2 => self.regs.ccr2().read().ccr().bits().into(),
-                            TimChannel::C3 => self.regs.ccr3().read().ccr().bits().into(),
+                            TimChannel::C1 => self.regs.ccr1().read().ccr().bits() as $res,
+                            TimChannel::C2 => self.regs.ccr2().read().ccr().bits() as $res,
+                            TimChannel::C3 => self.regs.ccr3().read().ccr().bits() as $res,
                             #[cfg(not(feature = "wl"))]
-                            TimChannel::C4 => self.regs.ccr4().read().ccr().bits().into(),
+                            TimChannel::C4 => self.regs.ccr4().read().ccr().bits() as $res,
                         }
                     }
                 }
@@ -2276,11 +2276,11 @@ make_timer!(TIM1, tim1, 2, u16);
 #[cfg(not(any(feature = "f373")))]
 cc_slave_mode!(TIM1);
 
-#[cfg(not(any(feature = "f373", feature = "g0", feature = "g4")))]
+#[cfg(not(any(feature = "f373", feature = "g0")))]
 cc_4_channels!(TIM1, u16, bdtr);
 // todo: PAC error?
 // TIM1 on G4 is nominally 16-bits, but has ~20 bits on ARR, with PAC showing 32 bits?
-#[cfg(any(feature = "g0", feature = "g4"))]
+#[cfg(any(feature = "g0"))]
 cc_2_channels!(TIM1, u16, bdtr);
 
 cfg_if! {
