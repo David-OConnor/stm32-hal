@@ -564,6 +564,20 @@ macro_rules! make_timer {
                 }
             }
 
+            /// A freestanding function that does not require access to a `Timer` struct. Clears the Update interrupt.
+            pub fn clear_update_interrupt() {
+                #[cfg(feature = "c0")]
+                let bits = 0xffff;
+                #[cfg(not(feature = "c0"))]
+                let bits = 0xffff_ffff;
+
+                unsafe {
+                    pac::$TIMX::steal()
+                        .sr()
+                        .write(|w| w.bits(bits).uif().clear_bit());
+                }
+            }
+
             /// Enable (start) the timer.
             pub fn enable(&mut self) {
                 self.regs.cr1().modify(|_,w| w.cen().bit(true));
@@ -2106,6 +2120,7 @@ cfg_if! {
 }
 
 /// A freestanding function that does not require access to a `Timer` struct. Clears the Update interrupt.
+#[deprecated = "use the more type-safe Timer::<TIMx>::clear_update_interrupt() instead"]
 pub fn clear_update_interrupt(tim_num: u8) {
     unsafe {
         let periphs = pac::Peripherals::steal();

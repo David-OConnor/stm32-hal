@@ -148,7 +148,7 @@ fn main() -> ! {
 #[interrupt]
 /// Timer interrupt
 fn TIM3() {
-    timer::clear_update_interrupt(3);
+    Timer::<TIM3>::clear_update_interrupt();
     // Perform an action here.
 }
 ```
