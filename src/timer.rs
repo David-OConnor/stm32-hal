@@ -2107,7 +2107,6 @@ pub fn clear_update_interrupt(tim_num: u8) {
         match tim_num {
             #[cfg(not(any(feature = "f373")))]
             1 => {
-
                 pac::TIM1::steal().sr().write(|w| w.bits(bits).uif().clear_bit());
             }
             #[cfg(not(any(
