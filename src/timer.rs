@@ -540,17 +540,14 @@ macro_rules! make_timer {
                 // of setting it. Due to the way our SVDs are set up not working well with this atomic clear,
                 // we need to make sure we write 1s to the rest of the bits.
                 // todo: Overcapture flags for each CC? DMA interrupts?
-                #[cfg(feature = "c0")]
-                let bits = 0xffff;
-                #[cfg(not(feature = "c0"))]
-                let bits = 0xffff_ffff;
+                let bits = 0xffff_ffffu32;
 
                 unsafe {
                     match interrupt {
                         TimerInterrupt::Update => self
                             .regs
                             .sr()
-                            .write(|w| w.bits(bits).uif().clear_bit()),
+                            .write(|w| w.bits(bits as _).uif().clear_bit()),
                         // todo: Only DIER is in PAC, or some CCs. PAC BUG? Only avail on some timers?
                         // TimerInterrupt::Trigger => self.regs.sr().write(|w| w.bits(bits).tif().clear_bit()),
                         // TimerInterrupt::CaptureCompare1 => self.regs.sr().write(|w| w.bits(bits).cc1if().clear_bit()),
@@ -653,15 +650,12 @@ macro_rules! make_timer {
             }
 
             pub fn clear_uif(&mut self) {
-                #[cfg(feature = "c0")]
-                let bits = 0xffff;
-                #[cfg(not(feature = "c0"))]
-                let bits = 0xffff_ffff;
+                let bits = 0xffff_ffffu32;
 
                 unsafe {
                     self.regs
                         .sr()
-                        .write(|w| w.bits(bits).uif().clear_bit());
+                        .write(|w| w.bits(bits as _).uif().clear_bit());
                 }
             }
 
@@ -2108,16 +2102,13 @@ cfg_if! {
 /// A freestanding function that does not require access to a `Timer` struct. Clears the Update interrupt.
 pub fn clear_update_interrupt(tim_num: u8) {
     unsafe {
-        let periphs = pac::Peripherals::steal();
-
-        let bits = 0xffff_ffff;
-
-        // Note: `.try_into().unwrap()` is for C0.
+        let bits = 0xffff_ffffu32;
 
         match tim_num {
             #[cfg(not(any(feature = "f373")))]
             1 => {
-                periphs.TIM1.sr().write(|w| w.bits(bits).uif().clear_bit());
+
+                pac::TIM1::steal().sr().write(|w| w.bits(bits).uif().clear_bit());
             }
             #[cfg(not(any(
                 feature = "f410",
@@ -2130,10 +2121,7 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 feature = "c031",
             )))]
             2 => {
-                periphs
-                    .TIM2
-                    .sr()
-                    .write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
+                pac::TIM2::steal().sr().write(|w| w.bits(bits as _).uif().clear_bit());
             }
             #[cfg(not(any(
                 feature = "f301",
@@ -2146,10 +2134,7 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 feature = "wl"
             )))]
             3 => {
-                periphs
-                    .TIM3
-                    .sr()
-                    .write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
+                pac::TIM3::steal().sr().write(|w| w.bits(bits as _).uif().clear_bit());
             }
             #[cfg(not(any(
                 feature = "f301",
@@ -2165,7 +2150,7 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 feature = "wl"
             )))]
             4 => {
-                periphs.TIM4.sr().write(|w| w.bits(bits).uif().clear_bit());
+                pac::TIM4::steal().sr().write(|w| w.bits(bits as _).uif().clear_bit());
             }
             #[cfg(any(
                 feature = "f373",
@@ -2181,7 +2166,7 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 all(feature = "f4", not(feature = "f410")),
             ))]
             5 => {
-                periphs.TIM5.sr().write(|w| w.bits(bits).uif().clear_bit());
+                pac::TIM5::steal().sr().write(|w| w.bits(bits as _).uif().clear_bit());
             }
             #[cfg(any(
                 feature = "f303",
@@ -2192,22 +2177,19 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 feature = "h7",
             ))]
             8 => {
-                periphs.TIM8.sr().write(|w| w.bits(bits).uif().clear_bit());
+                pac::TIM8::steal().sr().write(|w| w.bits(bits as _).uif().clear_bit());
             }
             #[cfg(any(feature = "h5",))]
             12 => {
-                periphs.TIM12.sr().write(|w| w.bits(bits).uif().clear_bit());
+                pac::TIM12::steal().sr().write(|w| w.bits(bits as _).uif().clear_bit());
             }
             #[cfg(any(feature = "h5",))]
             13 => {
-                periphs.TIM13.sr().write(|w| w.bits(bits).uif().clear_bit());
+                pac::TIM13::steal().sr().write(|w| w.bits(bits as _).uif().clear_bit());
             }
             #[cfg(any(feature = "h5", feature = "c0",))]
             14 => {
-                periphs
-                    .TIM14
-                    .sr()
-                    .write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
+                pac::TIM14::steal().sr().write(|w| w.bits(bits as _).uif().clear_bit());
             }
             #[cfg(not(any(
                 feature = "f4",
@@ -2222,17 +2204,11 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 feature = "c0",
             )))]
             15 => {
-                periphs
-                    .TIM15
-                    .sr()
-                    .write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
+                pac::TIM15::steal().sr().write(|w| w.bits(bits as _).uif().clear_bit());
             }
             #[cfg(not(any(feature = "f4",)))]
             16 => {
-                periphs
-                    .TIM16
-                    .sr()
-                    .write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
+                pac::TIM16::steal().sr().write(|w| w.bits(bits as _).uif().clear_bit());
             }
             #[cfg(not(any(
                 feature = "l4x1",
@@ -2242,10 +2218,7 @@ pub fn clear_update_interrupt(tim_num: u8) {
                 feature = "f4",
             )))]
             17 => {
-                periphs
-                    .TIM17
-                    .sr()
-                    .write(|w| w.bits(bits.try_into().unwrap()).uif().clear_bit());
+                pac::TIM17::steal().sr().write(|w| w.bits(bits as _).uif().clear_bit());
             }
             _ => unimplemented!(),
         }
