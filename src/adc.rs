@@ -402,6 +402,22 @@ pub enum OversamplingShift {
     Bits8 = 0b1000,
 }
 
+#[cfg(feature = "g0")]
+#[derive(Clone)]
+pub enum ChannelSelRMode {
+    BitPerInput(ScanDir),
+    Sequence,
+}
+
+#[cfg(feature = "g0")]
+#[derive(Clone)]
+pub enum ScanDir {
+    /// From channel 0 to N
+    Upward,
+    /// From channel N to 0
+    Backward,
+}
+
 /// Initial configuration data for the ADC peripheral.
 #[derive(Clone)]
 pub struct AdcConfig {
@@ -419,6 +435,9 @@ pub struct AdcConfig {
     pub cal_single_ended: Option<u16>,
     /// Optional calibration data for differential measurements.
     pub cal_differential: Option<u16>,
+    /// Optional channel select mode
+    #[cfg(feature = "g0")]
+    pub ch_selr_mod: Option<ChannelSelRMode>,
 }
 
 impl Default for AdcConfig {
@@ -432,6 +451,8 @@ impl Default for AdcConfig {
             operation_mode: OperationMode::OneShot,
             cal_single_ended: None,
             cal_differential: None,
+            #[cfg(feature = "g0")]
+            ch_selr_mod: None,
         }
     }
 }
@@ -512,7 +533,6 @@ macro_rules! hal {
                         adc.regs.cfgr2().modify(|_, w| w.ckmode().bits(adc.cfg.clock_mode as u8));
                     }
 
-
                     #[cfg(not(feature = "g0"))]
                     {
                         common_regs.ccr().modify(|_, w| unsafe {
@@ -523,7 +543,6 @@ macro_rules! hal {
                     }
 
                     adc.set_align(Align::default());
-
 
                     adc.advregen_enable(ahb_freq);
 
@@ -555,6 +574,30 @@ macro_rules! hal {
                     // #[cfg(feature = "h735")]
                     // result.regs.cr().modify(|_, w| w.boost().bits(1));
 
+                    // Set up channel selction mode before adc enable
+                    #[cfg(feature = "g0")]
+                    {
+                        match adc.cfg.ch_selr_mod {
+                            Some(ChannelSelRMode::BitPerInput(ref scan_dir)) => {
+                                adc.regs.cfgr1().modify(|_, w| w.chselrmod().bit_per_input());
+                                adc.regs.cfgr1().modify(|_, w| {
+                                    match scan_dir {
+                                        ScanDir::Upward => {
+                                            w.scandir().upward()
+                                        }
+                                        ScanDir::Backward => {
+                                            w.scandir().backward()
+                                        }
+                                    }
+                                });
+                            },
+                            Some(ChannelSelRMode::Sequence) => {
+                                adc.regs.cfgr1().modify(|_, w| w.chselrmod().sequence());
+                            }
+                            _ => {}
+                        };
+                    }
+
                     adc.enable()?;
 
                     // Set up VDDA only after the ADC is otherwise enabled.
@@ -585,13 +628,33 @@ macro_rules! hal {
             // }
 
             /// Set the ADC conversion sequence length, between 1 and 16.
-            #[cfg(not(feature = "g0"))]
             pub fn set_sequence_len(&mut self, len: u8) {
-                if len - 1 >= 16 {
-                    panic!("ADC sequence length must be in 1..=16")
+                cfg_if! {
+                    if #[cfg(not(feature = "g0"))] {
+                        if len - 1 >= 16 {
+                            panic!("ADC sequence length must be in 1..=16")
+                        }
+                        self.regs.sqr1().modify(|_, w| unsafe { w.l().bits(len - 1) });
+                    } else if #[cfg(feature = "g0")] {
+                        // RM:
+                        // Sequencer length is up to 8 channels
+                        // The order in which the channels are scanned is independent from the channel
+                        // number. Any order can be configured through SQ1[3:0] to SQ8[3:0] bits in
+                        // ADC_CHSELR register.
+                        // Only channel 0 to channel 14 can be selected in this sequence
+                        // If the sequencer detects SQx[3:0] = 0b1111, the following SQx[3:0] registers are
+                        // ignored.
+                        // If no 0b1111 is programmed in SQx[3:0], the sequencer scans full eight channels
+                        if len - 1 >= 8 {
+                            panic!("ADC sequence length must be in 1..=8")
+                        }
+                        if len == 8 {
+                            // Nothing to do
+                        } else {
+                            self.regs.chselr1().modify(|_, w| w.sq(len).eos());
+                        }
+                    }
                 }
-
-                self.regs.sqr1().modify(|_, w| unsafe { w.l().bits(len - 1) });
             }
 
             /// Set the alignment mode.
@@ -727,7 +790,6 @@ macro_rules! hal {
                             #[cfg(not(feature = "g0"))]
                             w.deeppwd().clear_bit();   // Exit deep sleep mode.
                             w.advregen().bit(true)   // Enable voltage regulator.
-
                         });
                     }
                 }
@@ -859,6 +921,17 @@ macro_rules! hal {
                 #[cfg(feature = "g0")]
                 if let Some(cal) = self.cfg.cal_single_ended {
                     let cal = cal as u8;
+                    // RM:
+                    // The calibration factor minus one can then be read from bits 6:0 of the ADC_DR or
+                    // ADC_CALFACT registers. The resulting calibration factor must be incremented by one
+                    // and written back to the ADC_CALFACT register
+                    // If the resulting calibration factor is higher than 0x7F, write 0x7F to the ADC_CALFACT
+                    // register to avoid overflow
+                    let cal = if cal >= 0x7F {
+                        0x7F
+                    } else {
+                        cal + 1
+                    };
                     self.regs.calfact().modify(|_, w| unsafe { w.calfact().bits(cal) });
                 }
                 #[cfg(not(feature = "g0"))]
@@ -965,9 +1038,20 @@ macro_rules! hal {
                     _ => panic!("Sequence out of bounds. Only 16 positions are available, starting at 1."),
                 };
 
-                // G030 only support scan mode, the scandir is from 0 to 17 by default
                 #[cfg(feature = "g0")]
-                self.regs.chselr0().modify(|r, w| unsafe { w.bits(r.bits() | (1 << chan)) });
+                {
+                    if let Some(ChannelSelRMode::Sequence) = &self.cfg.ch_selr_mod {
+                        if chan > 14 {
+                            panic!("Channel out of bounds, Only 15 channels are available, start at 0.")
+                        }
+                        if position > 8 {
+                            panic!("Sequence out of bounds. Only 8 positions are available, starting at 1.")
+                        }
+                        self.regs.chselr1().modify(|r, w| unsafe { w.sq(position - 1).bits(chan) } );
+                    } else {
+                        self.regs.chselr0().modify(|r, w| unsafe { w.bits(r.bits() | (1 << chan)) });
+                    }
+                }
 
                 #[cfg(all(feature = "h7", not(feature = "h735")))]
                 self.regs.pcsel().modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
@@ -1049,7 +1133,7 @@ macro_rules! hal {
                 return SampleTime::T601;
             }
 
-            fn clear_sequence(&mut self) {
+            pub fn clear_sequence(&mut self) {
                 #[cfg(feature = "g0")]
                 self.regs.chselr0().reset();
             }
@@ -1181,9 +1265,16 @@ macro_rules! hal {
                     self.set_sequence(*channel, i as u8 + 1); // + 1, since sequences start at 1.
                 }
 
-                // We should clear eos on G0 before next adstart, but I'm not sure if we should do the same on other devices 
-                #[cfg(feature = "g0")]
-                self.regs.isr().modify(|_, w| w.eos().clear_bit_by_one());
+                cfg_if! {
+                    if #[cfg(feature = "g0")] {
+                        if let Some(ChannelSelRMode::Sequence) = &self.cfg.ch_selr_mod {
+                            self.set_sequence_len(sequence.len() as u8);
+                        }
+                    } else {
+                        // may be other devices should also call set_sequence_len
+                    }
+                }
+
                 // L4 RM: In Single conversion mode, the ADC performs once all the conversions of the channels.
                 // This mode is started with the CONT bit at 0 by either:
                 // • Setting the ADSTART bit in the ADC_CR register (for a regular channel)
@@ -1358,8 +1449,20 @@ macro_rules! hal {
                     self.set_sequence(*ch, i as u8 + 1);
                     seq_len += 1;
                 }
-                #[cfg(not(feature = "g0"))]
-                self.set_sequence_len(seq_len);
+
+                cfg_if! {
+                    if #[cfg(feature = "g0")] {
+                        if let Some(ChannelSelRMode::Sequence) = &self.cfg.ch_selr_mod {
+                            self.set_sequence_len(seq_len);
+                        }
+                    } else {
+                        self.set_sequence_len(seq_len);
+                    }
+                }
+
+                // We should clear eos on G0 before next adstart, but I'm not sure if we should do the same on other devices
+                #[cfg(feature = "g0")]
+                self.regs.isr().modify(|_, w| w.eos().clear_bit_by_one());
 
                 self.regs.cr().modify(|_, w| w.adstart().bit(true));  // Start
 
