@@ -49,11 +49,8 @@ fn main() -> ! {
 
     // 1: Configuration options:
 
-    // Set a channel to a specific position in a sequence:
-    adc.set_sequence(1, 2); // Set channel 1 to be the second position in the sequence.
-
-    // Set the length of the sequence to read. (ie number of channels):
-    adc.set_sequence_len(2);
+    // Set sequence of channels:
+    adc.set_sequence(&[0, 1]); // Set sequence with two channels (channel 0 and channel 1).
 
     // Set up differential mode:
     adc.set_input_type(chan_num, InputType::Differential);
@@ -64,6 +61,7 @@ fn main() -> ! {
     // Set left align mode:
     adc.set_align(Align::Left);
 
+    // Enable end-of-sequence interrupt:
     adc.enable_interrupt(AdcInterrupt::EndOfSequence);
 
     // If you wish to sample at a fixed rate, consider using a basic timer (TIM6 or TIM7)
@@ -77,10 +75,8 @@ fn main() -> ! {
     adc_timer.set_mastermode(MasterModeSelection::Update);
     adc_timer.enable();
 
-    // todo: Which should it be?
+    // Set TIM6 as trigger for ADC:
     adc.set_trigger(adc::Trigger::Tim6Trgo, adc::TriggerEdge::HardwareRising);
-
-    adc.set_trigger(DacChannel::C1, Trigger::Tim6);
 
     // 2: Set up DMA, for non-blocking transfers:
     let mut dma = Dma::new(&mut dp.DMA1, &dp.RCC);
@@ -138,17 +134,17 @@ fn main() -> ! {
 
     // 4: Alternatively, we can take readings without DMA. This provides a simpler, blocking API.
 
-    // Take a blocking reading from channel 3.
+    // Take a blocking reading from channel 2.
     let reading = adc.read(chan_num);
 
     // Convert a reading to voltage, which includes compensation for the built-in VDDA
     // reference voltage
     let voltage = adc.reading_to_voltage(reading);
 
-    // Or, read convert multiple channels in a sequence. You can read the results once the end-
-    //-of-sequence interrupt fires.
-    adc.enable_interrupt(AdcInterrupt::EndOfSequence);
-    adc.start_conversion(&[1, 2, 3]);
+    // Or, set sequence and start conversion without blocking. You can read the results once the end-
+    // -of-sequence interrupt fires.
+    adc.set_sequence(&[chan_num]);
+    adc.start_conversion();
 
     loop {
         low_power::sleep_now();
