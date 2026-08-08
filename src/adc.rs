@@ -36,6 +36,10 @@ cfg_if! {
         const VREFINT_ADDR: u32 = 0x1FFF_75AA;
         const VREFINT_VOLTAGE: f32 = 3.0;
         const VREFINT_CH: u8 = 13; // G030
+    } else if #[cfg(feature = "c0")] {
+        const VREFINT_ADDR: u32 = 0x1FFF_756A; // C011, C071, C091 datasheet
+        const VREFINT_VOLTAGE: f32 = 3.0; // C011, C071, C091 datasheet
+        const VREFINT_CH: u8 = 10; // C0 reference manual
     } else {
         const VREFINT_ADDR: u32 = 0x1FFF_75AA;
         const VREFINT_VOLTAGE: f32 = 3.0;
@@ -127,10 +131,34 @@ cfg_if! {
             Tim15Trgo = 0b1110,
             Tim3Cc4   = 0b1111,
         }
+    } else if #[cfg(any(feature = "g0"))] {
+        pub enum Trigger {
+            Tim1Trgo2   = 0b000,
+            Tim1Cc4     = 0b001,
+            Tim2Trgo    = 0b010,
+            Tim3Trgo    = 0b011,
+            Tim15Trgo   = 0b100,
+            Tim6Trgo    = 0b101,
+            Tim4Trgo    = 0b110,
+            ExtiLine11  = 0b111,
+        }
+    } else if #[cfg(feature = "c0")] {
+        pub enum Trigger {
+            Tim1Trgo2   = 0b000,
+            Tim1Cc4     = 0b001,
+            #[cfg(any(feature = "c071"))]
+            Tim2Trgo    = 0b010,    // Available only on STM32C051/71/91/92xx devices.
+
+            Tim3Trgo    = 0b011,
+            
+            // Tim15Trgo   = 0b100,  Available only on STM32C091/92xx devices.
+            
+            ExtiLine11  = 0b111,
+        }
     } else {
         pub enum Trigger {}
     }
-}
+} 
 
 #[derive(Clone, Copy)]
 #[repr(u8)]
@@ -262,7 +290,7 @@ cfg_if!(
 /// Select single-ended, or differential inputs. Sets bits in the ADC\[x\]_DIFSEL register.
 pub enum InputType {
     SingleEnded = 0,
-    #[cfg(not(feature = "g0"))]
+    #[cfg(all(not(feature = "g0"), not(feature = "c0")))]
     Differential = 1,
 }
 
@@ -437,7 +465,7 @@ pub struct AdcConfig {
     pub cal_differential: Option<u16>,
     /// Optional channel select mode
     #[cfg(any(feature = "g0", feature = "c0"))]
-    pub ch_selr_mod: Option<ChannelSelRMode>,
+    pub ch_selr_mode: ChannelSelRMode,
 }
 
 impl Default for AdcConfig {
@@ -452,7 +480,7 @@ impl Default for AdcConfig {
             cal_single_ended: None,
             cal_differential: None,
             #[cfg(any(feature = "g0", feature = "c0"))]
-            ch_selr_mod: None,
+            ch_selr_mode: ChannelSelRMode::Sequence,
         }
     }
 }
@@ -546,7 +574,7 @@ macro_rules! hal {
                     adc.advregen_enable(ahb_freq);
 
                     adc.calibrate(InputType::SingleEnded, ahb_freq)?;
-                    #[cfg(not(feature = "g0"))]
+                    #[cfg(all(not(feature = "g0"), not(feature = "c0")))]
                     adc.calibrate(InputType::Differential, ahb_freq)?;
 
                     // Reference Manual: "ADEN bit cannot be set during ADCAL=1
@@ -574,26 +602,27 @@ macro_rules! hal {
                     // result.regs.cr().modify(|_, w| w.boost().bits(1));
 
                     // Set up channel selction mode before adc enable
-                    #[cfg(feature = "g0")]
+                    #[cfg(any(feature = "g0", feature = "c0"))]
                     {
-                        match adc.cfg.ch_selr_mod {
-                            Some(ChannelSelRMode::BitPerInput(ref scan_dir)) => {
+                        match adc.cfg.ch_selr_mode {
+                            ChannelSelRMode::BitPerInput(ref scan_dir) => {
                                 adc.regs.cfgr1().modify(|_, w| w.chselrmod().bit_per_input());
-                                adc.regs.cfgr1().modify(|_, w| {
-                                    match scan_dir {
-                                        ScanDir::Upward => {
-                                            w.scandir().upward()
-                                        }
-                                        ScanDir::Backward => {
-                                            w.scandir().backward()
-                                        }
+                                match scan_dir {
+                                    ScanDir::Upward => {
+                                        adc.regs.cfgr1().modify(|_, w| w.scandir().upward());
                                     }
-                                });
+                                    ScanDir::Backward => {
+                                        adc.regs.cfgr1().modify(|_, w| w.scandir().backward());
+                                        bounded_loop!(adc.regs.isr().read().ccrdy().is_not_complete(), Error::RegisterUnchanged);
+                                        adc.regs.isr().modify(|_, w| w.ccrdy().clear_bit_by_one());
+                                    }
+                                };
                             },
-                            Some(ChannelSelRMode::Sequence) => {
+                            ChannelSelRMode::Sequence => {
                                 adc.regs.cfgr1().modify(|_, w| w.chselrmod().sequence());
+                                bounded_loop!(adc.regs.isr().read().ccrdy().is_not_complete(), Error::RegisterUnchanged);
+                                adc.regs.isr().modify(|_, w| w.ccrdy().clear_bit_by_one());
                             }
-                            _ => {}
                         };
                     }
 
@@ -630,9 +659,13 @@ macro_rules! hal {
             // }
 
             /// Set the ADC conversion sequence length, between 1 and 16.
-            pub fn set_sequence_len(&mut self, len: u8) {
+            pub fn set_sequence_len(&mut self, len: u8) -> Result<()> {
                 cfg_if! {
                     if #[cfg(any(feature = "g0", feature = "c0"))] {
+                        if let ChannelSelRMode::BitPerInput(_) = &self.cfg.ch_selr_mode {
+                            // Nothing to do
+                            return Ok(());
+                        }
                         // RM:
                         // Sequencer length is up to 8 channels
                         // The order in which the channels are scanned is independent from the channel
@@ -643,12 +676,14 @@ macro_rules! hal {
                         // ignored.
                         // If no 0b1111 is programmed in SQx[3:0], the sequencer scans full eight channels
                         if len - 1 >= 8 {
-                            panic!("ADC sequence length must be in 1..=8")
+                            panic!("ADC sequence length must be in 1..=8");
                         }
                         if len == 8 {
                             // Nothing to do
                         } else {
                             self.regs.chselr1().modify(|_, w| w.sq(len).eos());
+                            bounded_loop!(self.regs.isr().read().ccrdy().is_not_complete(), Error::RegisterUnchanged);
+                            self.regs.isr().modify(|_, w| w.ccrdy().clear_bit_by_one());
                         }
                     } else {
                         if len - 1 >= 16 {
@@ -657,6 +692,7 @@ macro_rules! hal {
                         self.regs.sqr1().modify(|_, w| unsafe { w.l().bits(len - 1) });
                     }
                 }
+                Ok(())
             }
 
             /// Set the alignment mode.
@@ -867,41 +903,40 @@ macro_rules! hal {
                         // The calibration is then initiated by software by setting bit ADCAL=1.
                         // 4. Set ADCAL=1.
                         .adcal().bit(true)); // start calibration.
+                    }
+                }
+                // ADCAL bit stays at 1 during all the
+                // calibration sequence. It is then cleared by hardware as soon the calibration completes. At
+                // this time, the associated calibration factor is stored internally in the analog ADC and also in
+                // the bits CALFACT_S\[6:0\] or CALFACT_D\[6:0\] of ADC_CALFACT register (depending on
+                // single-ended or differential input calibration)
+                // 5. Wait until ADCAL=0.
+                bounded_loop!(
+                    self.regs.cr().read().adcal().bit_is_set(),
+                    Error::RegisterUnchanged
+                );
 
-                        // ADCAL bit stays at 1 during all the
-                        // calibration sequence. It is then cleared by hardware as soon the calibration completes. At
-                        // this time, the associated calibration factor is stored internally in the analog ADC and also in
-                        // the bits CALFACT_S\[6:0\] or CALFACT_D\[6:0\] of ADC_CALFACT register (depending on
-                        // single-ended or differential input calibration)
-                        // 5. Wait until ADCAL=0.
-                        bounded_loop!(
-                            self.regs.cr().read().adcal().bit_is_set(),
-                            Error::RegisterUnchanged
-                        );
-
-                        // 6. The calibration factor can be read from ADC_CALFACT register.
-                        match input_type {
-                            InputType::SingleEnded => {
-                                #[cfg(not(feature = "g0"))]
-                                let val = self.regs.calfact().read().calfact_s().bits();
-                                #[cfg(feature = "g0")]
-                                let val = self.regs.calfact().read().calfact().bits();
-                                #[cfg(not(feature = "h7"))]
-                                let val = val as u16;
-                                #[cfg(feature = "h735")]
-                                let val = val as u16;
-                                self.cfg.cal_single_ended = Some(val);
-                            }
-                            #[cfg(not(feature = "g0"))]
-                            InputType::Differential => {
-                                let val = self.regs.calfact().read().calfact_d().bits();
-                                #[cfg(not(feature = "h7"))]
-                                let val = val as u16;
-                                #[cfg(feature = "h735")]
-                                let val = val as u16;
-                                self.cfg.cal_differential = Some(val);
-                            }
-                        }
+                // 6. The calibration factor can be read from ADC_CALFACT register.
+                match input_type {
+                    InputType::SingleEnded => {
+                        #[cfg(all(not(feature = "g0"), not(feature = "c0")))]
+                        let val = self.regs.calfact().read().calfact_s().bits();
+                        #[cfg(any(feature = "g0", feature = "c0"))]
+                        let val = self.regs.calfact().read().calfact().bits();
+                        #[cfg(not(feature = "h7"))]
+                        let val = val as u16;
+                        #[cfg(feature = "h735")]
+                        let val = val as u16;
+                        self.cfg.cal_single_ended = Some(val);
+                    }
+                    #[cfg(all(not(feature = "g0"), not(feature = "c0")))]
+                    InputType::Differential => {
+                        let val = self.regs.calfact().read().calfact_d().bits();
+                        #[cfg(not(feature = "h7"))]
+                        let val = val as u16;
+                        #[cfg(feature = "h735")]
+                        let val = val as u16;
+                        self.cfg.cal_differential = Some(val);
                     }
                 }
 
@@ -1023,22 +1058,24 @@ macro_rules! hal {
             }
 
             /// Select a sequence to sample, by inputting a single channel and position.
-            pub fn set_sequence(&mut self, chan: u8, position: u8) {
+            pub fn set_sequence(&mut self, chan: u8, position: u8) -> Result<()> {
                 cfg_if! {
                     if #[cfg(all(feature = "h7", not(feature = "h735")))] {
                         self.regs.pcsel().modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
                     } else if #[cfg(any(feature = "g0", feature = "c0"))] {
-                        if let Some(ChannelSelRMode::Sequence) = &self.cfg.ch_selr_mod {
+                        if let ChannelSelRMode::Sequence = &self.cfg.ch_selr_mode {
                             if chan > 14 {
                                 panic!("Channel out of bounds, Only 15 channels are available, start at 0.")
                             }
                             if position > 8 {
                                 panic!("Sequence out of bounds. Only 8 positions are available, starting at 1.")
                             }
-                            self.regs.chselr1().modify(|r, w| unsafe { w.sq(position - 1).bits(chan) } );
+                            self.regs.chselr1().modify(|_, w| unsafe { w.sq(position - 1).bits(chan) } );
                         } else {
                             self.regs.chselr0().modify(|r, w| unsafe { w.bits(r.bits() | (1 << chan)) });
                         }
+                        bounded_loop!(self.regs.isr().read().ccrdy().is_not_complete(), Error::RegisterUnchanged);
+                        self.regs.isr().modify(|_, w| w.ccrdy().clear_bit_by_one());
                     } else {
                         match position {
                             1 => self.regs.sqr1().modify(|_, w| unsafe { w.sq1().bits(chan) }),
@@ -1061,6 +1098,7 @@ macro_rules! hal {
                         };
                     }
                 }
+                Ok(())
 
                 // todo: Figure this out, and put back (July 2025/pack 0.16)
                 // #[cfg(feature = "h735")]
@@ -1146,9 +1184,14 @@ macro_rules! hal {
                 }
             }
 
-            pub fn clear_sequence(&mut self) {
-                #[cfg(feature = "g0")]
-                self.regs.chselr0().reset();
+            pub fn clear_sequence(&mut self) -> Result<()> {
+                #[cfg(any(feature = "g0", feature = "c0"))]
+                {
+                    self.regs.chselr0().reset();
+                    bounded_loop!(self.regs.isr().read().ccrdy().is_not_complete(), Error::RegisterUnchanged);
+                    self.regs.isr().modify(|_, w| w.ccrdy().clear_bit_by_one());
+                }
+                Ok(())
             }
 
             /// Find and store the internal voltage reference, to improve conversion from reading
@@ -1271,17 +1314,17 @@ macro_rules! hal {
             /// Blocks until the conversion is complete.
             /// See L4 RM 16.4.15 for details.
             pub fn start_conversion(&mut self, sequence: &[u8]) -> Result<()> {
-                self.clear_sequence();
+                self.clear_sequence()?;
 
                 // todo: You should call this elsewhere, once, to prevent unneded reg writes.
                 for (i, channel) in sequence.iter().enumerate() {
-                    self.set_sequence(*channel, i as u8 + 1); // + 1, since sequences start at 1.
+                    self.set_sequence(*channel, i as u8 + 1)?; // + 1, since sequences start at 1.
                 }
 
                 cfg_if! {
-                    if #[cfg(feature = "g0")] {
-                        if let Some(ChannelSelRMode::Sequence) = &self.cfg.ch_selr_mod {
-                            self.set_sequence_len(sequence.len() as u8);
+                    if #[cfg(any(feature = "g0", feature = "c0"))] {
+                        if let ChannelSelRMode::Sequence = &self.cfg.ch_selr_mode {
+                            self.set_sequence_len(sequence.len() as u8)?;
                         }
                     } else {
                         // may be other devices should also call set_sequence_len
@@ -1459,21 +1502,21 @@ macro_rules! hal {
                 }
 
                 // clear old selection
-                self.clear_sequence();
+                self.clear_sequence()?;
 
                 let mut seq_len = 0;
                 for (i, ch) in adc_channels.iter().enumerate() {
-                    self.set_sequence(*ch, i as u8 + 1);
+                    self.set_sequence(*ch, i as u8 + 1)?;
                     seq_len += 1;
                 }
 
                 cfg_if! {
-                    if #[cfg(feature = "g0")] {
-                        if let Some(ChannelSelRMode::Sequence) = &self.cfg.ch_selr_mod {
-                            self.set_sequence_len(seq_len);
+                    if #[cfg(any(feature = "g0", feature = "c0"))] {
+                        if let ChannelSelRMode::Sequence = &self.cfg.ch_selr_mode {
+                            self.set_sequence_len(seq_len)?;
                         }
                     } else {
-                        self.set_sequence_len(seq_len);
+                        self.set_sequence_len(seq_len)?;
                     }
                 }
 
