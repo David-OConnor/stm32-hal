@@ -658,43 +658,6 @@ macro_rules! hal {
             //     0 // todo
             // }
 
-            /// Set the ADC conversion sequence length, between 1 and 16.
-            pub fn set_sequence_len(&mut self, len: u8) -> Result<()> {
-                cfg_if! {
-                    if #[cfg(any(feature = "g0", feature = "c0"))] {
-                        if let ChannelSelRMode::BitPerInput(_) = &self.cfg.ch_selr_mode {
-                            // Nothing to do
-                            return Ok(());
-                        }
-                        // RM:
-                        // Sequencer length is up to 8 channels
-                        // The order in which the channels are scanned is independent from the channel
-                        // number. Any order can be configured through SQ1[3:0] to SQ8[3:0] bits in
-                        // ADC_CHSELR register.
-                        // Only channel 0 to channel 14 can be selected in this sequence
-                        // If the sequencer detects SQx[3:0] = 0b1111, the following SQx[3:0] registers are
-                        // ignored.
-                        // If no 0b1111 is programmed in SQx[3:0], the sequencer scans full eight channels
-                        if len - 1 >= 8 {
-                            panic!("ADC sequence length must be in 1..=8");
-                        }
-                        if len == 8 {
-                            // Nothing to do
-                        } else {
-                            self.regs.chselr1().modify(|_, w| w.sq(len).eos());
-                            bounded_loop!(self.regs.isr().read().ccrdy().is_not_complete(), Error::RegisterUnchanged);
-                            self.regs.isr().modify(|_, w| w.ccrdy().clear_bit_by_one());
-                        }
-                    } else {
-                        if len - 1 >= 16 {
-                            panic!("ADC sequence length must be in 1..=16")
-                        }
-                        self.regs.sqr1().modify(|_, w| unsafe { w.l().bits(len - 1) });
-                    }
-                }
-                Ok(())
-            }
-
             /// Set the alignment mode.
             pub fn set_align(&self, align: Align) {
                 cfg_if! {
@@ -1057,74 +1020,74 @@ macro_rules! hal {
                 Ok(())
             }
 
-            /// Select a sequence to sample, by inputting a single channel and position.
-            pub fn set_sequence(&mut self, chan: u8, position: u8) -> Result<()> {
+            /// Select a sequence to sample.
+            pub fn set_sequence(&mut self, sequence: &[u8]) -> Result<()> {
                 cfg_if! {
-                    if #[cfg(all(feature = "h7", not(feature = "h735")))] {
-                        self.regs.pcsel().modify(|r, w| unsafe { w.pcsel().bits(r.pcsel().bits() | (1 << chan)) });
-                    } else if #[cfg(any(feature = "g0", feature = "c0"))] {
-                        if let ChannelSelRMode::Sequence = &self.cfg.ch_selr_mode {
-                            if chan > 14 {
-                                panic!("Channel out of bounds, Only 15 channels are available, start at 0.")
+                    if #[cfg(any(feature = "g0", feature = "c0"))] {
+                        if let ChannelSelRMode::Sequence = self.cfg.ch_selr_mode {
+                            if sequence.len() > 8 {
+                                panic!("Sequence out of bounds. Only 8 positions are available.")
                             }
-                            if position > 8 {
-                                panic!("Sequence out of bounds. Only 8 positions are available, starting at 1.")
-                            }
-                            self.regs.chselr1().modify(|_, w| unsafe { w.sq(position - 1).bits(chan) } );
+                            self.regs.chselr1().write(|w| {
+                                for (i, &chan) in sequence.iter().enumerate() {
+                                    unsafe { w.sq(i as u8).bits(chan) };
+                                }
+                                if sequence.len() < 8 {
+                                    w.sq(sequence.len() as u8).eos();
+                                }
+                                w
+                            });
                         } else {
-                            self.regs.chselr0().modify(|r, w| unsafe { w.bits(r.bits() | (1 << chan)) });
+                            self.regs.chselr0().write(|w| {
+                                let mut bits = 0;
+                                for chan in sequence {
+                                    bits |= (1 << chan);
+                                }
+                                unsafe { w.bits(bits) }
+                            });
                         }
+
                         bounded_loop!(self.regs.isr().read().ccrdy().is_not_complete(), Error::RegisterUnchanged);
                         self.regs.isr().modify(|_, w| w.ccrdy().clear_bit_by_one());
                     } else {
-                        match position {
-                            1 => self.regs.sqr1().modify(|_, w| unsafe { w.sq1().bits(chan) }),
-                            2 => self.regs.sqr1().modify(|_, w| unsafe { w.sq2().bits(chan) }),
-                            3 => self.regs.sqr1().modify(|_, w| unsafe { w.sq3().bits(chan) }),
-                            4 => self.regs.sqr1().modify(|_, w| unsafe { w.sq4().bits(chan) }),
-                            5 => self.regs.sqr2().modify(|_, w| unsafe { w.sq5().bits(chan) }),
-                            6 => self.regs.sqr2().modify(|_, w| unsafe { w.sq6().bits(chan) }),
-                            7 => self.regs.sqr2().modify(|_, w| unsafe { w.sq7().bits(chan) }),
-                            8 => self.regs.sqr2().modify(|_, w| unsafe { w.sq8().bits(chan) }),
-                            9 => self.regs.sqr2().modify(|_, w| unsafe { w.sq9().bits(chan) }),
-                            10 => self.regs.sqr3().modify(|_, w| unsafe { w.sq10().bits(chan) }),
-                            11 => self.regs.sqr3().modify(|_, w| unsafe { w.sq11().bits(chan) }),
-                            12 => self.regs.sqr3().modify(|_, w| unsafe { w.sq12().bits(chan) }),
-                            13 => self.regs.sqr3().modify(|_, w| unsafe { w.sq13().bits(chan) }),
-                            14 => self.regs.sqr3().modify(|_, w| unsafe { w.sq14().bits(chan) }),
-                            15 => self.regs.sqr4().modify(|_, w| unsafe { w.sq15().bits(chan) }),
-                            16 => self.regs.sqr4().modify(|_, w| unsafe { w.sq16().bits(chan) }),
-                            _ => panic!("Sequence out of bounds. Only 16 positions are available, starting at 1."),
-                        };
+                        #[cfg(all(feature = "h7", not(feature = "h735")))] // TODO: Figure out PAC issue with PCSEL on h735
+                        self.regs.pcsel().write(|w| {
+                            let mut bits = 0;
+                            for chan in sequence {
+                                bits |= (1 << chan);
+                            }
+                            unsafe { w.pcsel().bits(bits) }
+                        });
+
+                        for (i, &chan) in sequence.iter().enumerate() {
+                            match i + 1 {
+                                1 => self.regs.sqr1().modify(|_, w| unsafe { w.sq1().bits(chan) }),
+                                2 => self.regs.sqr1().modify(|_, w| unsafe { w.sq2().bits(chan) }),
+                                3 => self.regs.sqr1().modify(|_, w| unsafe { w.sq3().bits(chan) }),
+                                4 => self.regs.sqr1().modify(|_, w| unsafe { w.sq4().bits(chan) }),
+                                5 => self.regs.sqr2().modify(|_, w| unsafe { w.sq5().bits(chan) }),
+                                6 => self.regs.sqr2().modify(|_, w| unsafe { w.sq6().bits(chan) }),
+                                7 => self.regs.sqr2().modify(|_, w| unsafe { w.sq7().bits(chan) }),
+                                8 => self.regs.sqr2().modify(|_, w| unsafe { w.sq8().bits(chan) }),
+                                9 => self.regs.sqr2().modify(|_, w| unsafe { w.sq9().bits(chan) }),
+                                10 => self.regs.sqr3().modify(|_, w| unsafe { w.sq10().bits(chan) }),
+                                11 => self.regs.sqr3().modify(|_, w| unsafe { w.sq11().bits(chan) }),
+                                12 => self.regs.sqr3().modify(|_, w| unsafe { w.sq12().bits(chan) }),
+                                13 => self.regs.sqr3().modify(|_, w| unsafe { w.sq13().bits(chan) }),
+                                14 => self.regs.sqr3().modify(|_, w| unsafe { w.sq14().bits(chan) }),
+                                15 => self.regs.sqr4().modify(|_, w| unsafe { w.sq15().bits(chan) }),
+                                16 => self.regs.sqr4().modify(|_, w| unsafe { w.sq16().bits(chan) }),
+                                _ => panic!("Sequence out of bounds. Only 16 positions are available."),
+                            };
+                        }
+
+                        self.regs.sqr1().modify(|_, w| unsafe { w.l().bits(sequence.len() as u8 - 1) });
                     }
                 }
-                Ok(())
 
-                // todo: Figure this out, and put back (July 2025/pack 0.16)
-                // #[cfg(feature = "h735")]
-                // match chan {
-                //     0 => self.regs.pcsel().modify(|r, w| w.pcsel0().bit(true)),
-                //     1 => self.regs.pcsel().modify(|r, w| w.pcsel1().bit(true)),
-                //     2 => self.regs.pcsel().modify(|r, w| w.pcsel2().bit(true)),
-                //     3 => self.regs.pcsel().modify(|r, w| w.pcsel3().bit(true)),
-                //     4 => self.regs.pcsel().modify(|r, w| w.pcsel4().bit(true)),
-                //     5 => self.regs.pcsel().modify(|r, w| w.pcsel5().bit(true)),
-                //     6 => self.regs.pcsel().modify(|r, w| w.pcsel6().bit(true)),
-                //     7 => self.regs.pcsel().modify(|r, w| w.pcsel7().bit(true)),
-                //     8 => self.regs.pcsel().modify(|r, w| w.pcsel8().bit(true)),
-                //     9 => self.regs.pcsel().modify(|r, w| w.pcsel9().bit(true)),
-                //     10 => self.regs.pcsel().modify(|r, w| w.pcsel10().bit(true)),
-                //     11 => self.regs.pcsel().modify(|r, w| w.pcsel11().bit(true)),
-                //     12 => self.regs.pcsel().modify(|r, w| w.pcsel12().bit(true)),
-                //     13 => self.regs.pcsel().modify(|r, w| w.pcsel13().bit(true)),
-                //     14 => self.regs.pcsel().modify(|r, w| w.pcsel14().bit(true)),
-                //     15 => self.regs.pcsel().modify(|r, w| w.pcsel15().bit(true)),
-                //     16 => self.regs.pcsel().modify(|r, w| w.pcsel16().bit(true)),
-                //     17 => self.regs.pcsel().modify(|r, w| w.pcsel17().bit(true)),
-                //     18 => self.regs.pcsel().modify(|r, w| w.pcsel18().bit(true)),
-                //     19=> self.regs.pcsel().modify(|r, w| w.pcsel19().bit(true)),
-                //     _ => ()
-                // };
+                
+
+                Ok(())                
             }
 
             /// Select the sample time for a given channel.
@@ -1182,16 +1145,6 @@ macro_rules! hal {
                         return SampleTime::T601;
                     }
                 }
-            }
-
-            pub fn clear_sequence(&mut self) -> Result<()> {
-                #[cfg(any(feature = "g0", feature = "c0"))]
-                {
-                    self.regs.chselr0().reset();
-                    bounded_loop!(self.regs.isr().read().ccrdy().is_not_complete(), Error::RegisterUnchanged);
-                    self.regs.isr().modify(|_, w| w.ccrdy().clear_bit_by_one());
-                }
-                Ok(())
             }
 
             /// Find and store the internal voltage reference, to improve conversion from reading
@@ -1311,26 +1264,9 @@ macro_rules! hal {
             }
 
             /// Start a conversion: Either a single measurement, or continuous conversions.
-            /// Blocks until the conversion is complete.
+            /// Sets ADSTART and returns immediately without blocking.
             /// See L4 RM 16.4.15 for details.
-            pub fn start_conversion(&mut self, sequence: &[u8]) -> Result<()> {
-                self.clear_sequence()?;
-
-                // todo: You should call this elsewhere, once, to prevent unneded reg writes.
-                for (i, channel) in sequence.iter().enumerate() {
-                    self.set_sequence(*channel, i as u8 + 1)?; // + 1, since sequences start at 1.
-                }
-
-                cfg_if! {
-                    if #[cfg(any(feature = "g0", feature = "c0"))] {
-                        if let ChannelSelRMode::Sequence = &self.cfg.ch_selr_mode {
-                            self.set_sequence_len(sequence.len() as u8)?;
-                        }
-                    } else {
-                        // may be other devices should also call set_sequence_len
-                    }
-                }
-
+            pub fn start_conversion(&mut self) {
                 // L4 RM: In Single conversion mode, the ADC performs once all the conversions of the channels.
                 // This mode is started with the CONT bit at 0 by either:
                 // • Setting the ADSTART bit in the ADC_CR register (for a regular channel)
@@ -1338,7 +1274,10 @@ macro_rules! hal {
                 // • External hardware trigger event (for a regular or injected channel)
                 // (Here, we assume a regular channel)
                 self.regs.cr().modify(|_, w| w.adstart().bit(true));  // Start
+            }
 
+            /// Blocks until EOS (End of Sequence) bit is set. Clears EOS before returning.
+            pub fn wait_for_eos(&mut self) -> Result<()> {
                 // After the regular sequence is complete, after each conversion is complete,
                 // the EOC (end of regular conversion) flag is set.
                 // After the regular sequence is complete: The EOS (end of regular sequence) flag is set.
@@ -1347,6 +1286,7 @@ macro_rules! hal {
                     self.regs.isr().read().eos().bit_is_clear(),
                     Error::RegisterUnchanged
                 );
+                self.regs.isr().modify(|_, w| w.eos().clear_bit_by_one());
 
                 Ok(())
             }
@@ -1402,7 +1342,9 @@ macro_rules! hal {
 
             /// Take a single reading; return a raw integer value.
             pub fn read(&mut self, channel: u8) -> Result<u16> {
-                self.start_conversion(&[channel])?;
+                self.set_sequence(&[channel])?;
+                self.start_conversion();
+                self.wait_for_eos()?;
                 #[cfg(feature = "h7")]
                 return Ok(self.read_result(channel));
                 #[cfg(not(feature = "h7"))]
@@ -1501,28 +1443,7 @@ macro_rules! hal {
                     }
                 }
 
-                // clear old selection
-                self.clear_sequence()?;
-
-                let mut seq_len = 0;
-                for (i, ch) in adc_channels.iter().enumerate() {
-                    self.set_sequence(*ch, i as u8 + 1)?;
-                    seq_len += 1;
-                }
-
-                cfg_if! {
-                    if #[cfg(any(feature = "g0", feature = "c0"))] {
-                        if let ChannelSelRMode::Sequence = &self.cfg.ch_selr_mode {
-                            self.set_sequence_len(seq_len)?;
-                        }
-                    } else {
-                        self.set_sequence_len(seq_len)?;
-                    }
-                }
-
-                // We should clear eos on G0 before next adstart, but I'm not sure if we should do the same on other devices
-                #[cfg(feature = "g0")]
-                self.regs.isr().modify(|_, w| w.eos().clear_bit_by_one());
+                self.set_sequence(adc_channels);
 
                 self.regs.cr().modify(|_, w| w.adstart().bit(true));  // Start
 
