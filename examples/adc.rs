@@ -49,9 +49,6 @@ fn main() -> ! {
 
     // 1: Configuration options:
 
-    // Set sequence of channels:
-    adc.set_sequence(&[0, 1]); // Set sequence with two channels (channel 0 and channel 1).
-
     // Set up differential mode:
     adc.set_input_type(chan_num, InputType::Differential);
 
@@ -60,9 +57,6 @@ fn main() -> ! {
 
     // Set left align mode:
     adc.set_align(Align::Left);
-
-    // Enable end-of-sequence interrupt:
-    adc.enable_interrupt(AdcInterrupt::EndOfSequence);
 
     // If you wish to sample at a fixed rate, consider using a basic timer (TIM6 or TIM7)
     let mut adc_timer = BasicTimer::new(
@@ -141,9 +135,16 @@ fn main() -> ! {
     // reference voltage
     let voltage = adc.reading_to_voltage(reading);
 
-    // Or, set sequence and start conversion without blocking. You can read the results once the end-
-    // -of-sequence interrupt fires.
+    // 5: It is also possible to do non-blocking reads using ADC interrupts instead of DMA.
+    // Be aware that this may result in an ADC overrun if the interrupt handler does not read results fast enough.
+
+    // Enable end-of-sequence interrupt. You can read the conversion result in the interrupt handler using `read_result`.
+    adc.enable_interrupt(AdcInterrupt::EndOfSequence);
+
+    // Set sequence of channels.
     adc.set_sequence(&[chan_num]);
+
+    // Start conversion. With external trigger this starts listening for trigger events.
     adc.start_conversion();
 
     loop {
