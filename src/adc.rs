@@ -1207,7 +1207,7 @@ macro_rules! hal {
 
 
                 #[cfg(all(not(feature = "g0"), not(feature = "c0")))]
-                const IS_NOT_ADC1: bool = AdcDevice::$ADC != AdcDevice::ADC1;
+                const IS_NOT_ADC1: bool = if let AdcDevice::ADC1 = AdcDevice::$ADC { false } else { true };
                 #[cfg(any(feature = "g0", feature = "c0"))]
                 const IS_NOT_ADC1: bool = false;
                 // Regardless of which ADC we're on, we take this reading using ADC1.
