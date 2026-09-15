@@ -32,7 +32,12 @@ cfg_if! {
         const VREFINT_ADDR: u32 = 0x1FFF_75AA;
         const VREFINT_VOLTAGE: f32 = 3.0;
         const VREFINT_CH: u8 = 18; // G491, G431
-    } else {
+    } else if #[cfg(feature = "l5")] {
+        const VREFINT_ADDR: u32 = 0x0BFA_05AA;
+        const VREFINT_VOLTAGE: f32 = 3.0;
+        const VREFINT_CH: u8 = 0; // L552
+    }
+    else {
         const VREFINT_ADDR: u32 = 0x1FFF_75AA;
         const VREFINT_VOLTAGE: f32 = 3.0;
         const VREFINT_CH: u8 = 0; // L412
