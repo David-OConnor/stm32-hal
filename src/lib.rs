@@ -357,7 +357,7 @@ pub use stm32wl::stm32wle5 as pac;
 
 pub mod macros;
 
-#[cfg(not(any(feature = "f301", feature = "f302", feature = "c0")))]
+#[cfg(not(any(feature = "f301", feature = "f302")))]
 pub mod adc;
 
 // bxCAN families: F3, F4, L4,
