@@ -365,6 +365,8 @@ macro_rules! set_exti {
                                 exti.imr1().modify(|_, w| w.[<im $num>]().bit(true));
                             } else if #[cfg(feature = "l4")]{
                                 exti.imr1().modify(|_, w| w.[<mr $num>]().bit(true));
+                            } else if #[cfg(all(feature = "g0", not(feature = "g071"), not(feature = "g081")))] {
+                                exti.imr1().modify(|_, w| w.[<im $num>]().bit(true));
                             }
                         }
 
@@ -386,6 +388,10 @@ macro_rules! set_exti {
                             }
                         }
 
+                        #[cfg(feature = "g0")]
+                        exti
+                            .[<exticr $crnum>]()
+                            .modify(|_, w| unsafe { w.[<exti $num>]().bits($val) });
                         #[cfg(not(any(feature = "g0", feature = "c0", feature = "l5")))]
                         syscfg
                             .[<exticr $crnum>]()
