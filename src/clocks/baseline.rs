@@ -1013,6 +1013,7 @@ impl Clocks {
             }
             #[cfg(feature = "g0")]
             InputSrc::Lse => {
+                unlock_backup_domain()?;
                 rcc.bdcr().modify(|_, w| w.lseon().bit(true));
 
                 bounded_loop!(
@@ -1449,6 +1450,7 @@ impl Clocks {
             }
             #[cfg(feature = "g0")]
             InputSrc::Lse => {
+                unlock_backup_domain()?;
                 rcc.bdcr().modify(|_, w| w.lseon().bit(true));
                 bounded_loop!(
                     rcc.bdcr().read().lserdy().bit_is_clear(),
@@ -1880,6 +1882,25 @@ impl Default for Clocks {
             sys_div: SysDiv::Div1, // todo: What should this be?
         }
     }
+}
+
+#[cfg(feature = "g0")]
+/// Enable write access to the backup domain, which RCC_BDCR is part of. 
+/// RM0444: " As this register is outside of the VCORE domain, it is write-protected upon reset. 
+/// The DBP bit of the Power control register 1 (PWR_CR1) must be set to allow their modification."
+fn unlock_backup_domain() -> Result<()> {
+    let rcc = unsafe { &(*RCC::ptr()) };
+    let pwr = unsafe { &(*pac::PWR::ptr()) };
+
+    rcc.apbenr1().modify(|_, w| w.pwren().bit(true));
+    pwr.cr1().read(); // Read to allow the pwr clock to enable
+    pwr.cr1().modify(|_, w| w.dbp().bit(true));
+    bounded_loop!(
+        pwr.cr1().read().dbp().bit_is_clear(),
+        Error::RegisterUnchanged
+    );
+
+    Ok(())
 }
 
 #[cfg(any(feature = "l4", feature = "l5", feature = "g4", feature = "wb"))]
